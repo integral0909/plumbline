@@ -169,6 +169,7 @@ STORE-LINE.
     MOVE LK-FILE-ID TO SL-FILE-ID(SS-LINE-COUNT)
     MOVE WS-LINE-NO TO SL-LINE-NO(SS-LINE-COUNT)
     COMPUTE SL-TEXT-OFF(SS-LINE-COUNT) = SS-HEAP-USED + 1
+    *> plumbline: ignore move-truncation -- expanded lines are at most 1024 characters
     MOVE WS-LEN TO SL-TEXT-LEN(SS-LINE-COUNT)
     IF WS-LEN > 0
         MOVE WS-EXPANDED(1:WS-LEN)
