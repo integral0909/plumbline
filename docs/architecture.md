@@ -235,6 +235,12 @@ while findings describe problems in the analyzed program. Findings are
 sorted by file, line, column, and rule with a COBOL table `SORT` before
 they are printed.
 
+Reports are written as text (`file:line:column: severity: message
+[rule]`), as JSON, or as SARIF 2.1.0 (`src/lib/plbreport.cob`). The SARIF
+log lists every rule with its default level, one result per finding with
+a `ruleIndex` into that list, and diagnostics as tool execution
+notifications. Paths are percent-encoded as URIs.
+
 Rule ids are `PLB-<category><number>`, where the categories are
 correctness (C), maintainability (M), portability (P), and security (S).
 See the [rule reference](rules.md).
@@ -245,7 +251,6 @@ See the [rule reference](rules.md).
   uninitialized-use and dead-store checks.
 - **Call graph**: static `CALL` literals across programs in one run.
 - **Suppressions**: `*> plumbline: ignore PLB-C001` comments and baselines.
-- **Reporters**: JSON and SARIF 2.1.0.
 
 ## Design principles
 
