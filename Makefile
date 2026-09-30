@@ -32,8 +32,10 @@ all: $(BIN)
 
 tests: $(TEST_BIN)
 
-test: $(TEST_BIN)
+test: $(TEST_BIN) $(BIN)
 	tools/run-tests.sh $(TEST_BIN)
+	tests/cli/test-cli.sh $(BIN) > $(BUILD)/cli.tap || { cat $(BUILD)/cli.tap; exit 1; }
+	@tail -n 1 $(BUILD)/cli.tap
 
 $(BUILD)/obj/%.o: src/lib/%.cob $(COPYBOOKS) | $(BUILD)/obj
 	$(COBC) -c $(ALL_FLAGS) -o $@ $<
