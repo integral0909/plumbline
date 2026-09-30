@@ -26,3 +26,10 @@
         10  RF-SYMBOL           PIC 9(9) COMP-5.
         10  RF-SUBSCRIPTED      PIC X.
         10  RF-REFMOD           PIC X.
+        *> What the statement does with the item (set by
+        *> PLB-REF-ROLES):
+        *>   U  reads it               D  gives it a value
+        *>   B  reads it, then gives it a value (ADD 1 TO X)
+        *>   X  unknown: may read or set it (CALL ... BY REFERENCE)
+        *>   -  not a data item, so no role
+        10  RF-ROLE             PIC X.
