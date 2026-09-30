@@ -1,0 +1,4 @@
+tests/golden/rules/c012-use-before-set.cob:22:16: warning: PRICE is used before it is given a value [PLB-C012]
+tests/golden/rules/c012-use-before-set.cob:22:25: warning: TOTAL is used before it is given a value [PLB-C012]
+tests/golden/rules/c012-use-before-set.cob:45:12: note: GO TO makes the flow of control hard to follow [PLB-M001]
+tests/golden/rules/c012-use-before-set.cob:50:20: warning: LOADED is used before it is given a value [PLB-C012]
