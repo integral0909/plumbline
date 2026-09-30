@@ -30,7 +30,8 @@
 *>   IF, EVALUATE, DISPLAY, GO TO ... DEPENDING, conditions: U
 *>
 *> Identifiers inside subscripts and reference modifiers are always
-*> read. PROCEDURE DIVISION USING items are set by the caller (D).
+*> read. LENGTH OF a uses only the size of a, not its value (-).
+*> PROCEDURE DIVISION USING items are set by the caller (D).
 *> Anything not covered is X: Plumbline does not know whether it is
 *> read or set, and rules treat it as possibly both.
 *> ---------------------------------------------------------------
@@ -76,6 +77,10 @@ DECIDE-ROLE.
         MOVE "U" TO LS-ROLE
         EXIT PARAGRAPH
     END-IF
+    PERFORM CHECK-LENGTH-OF
+    IF LS-ROLE = "-"
+        EXIT PARAGRAPH
+    END-IF
     MOVE RF-STMT(LS-R) TO LS-STMT
     IF LS-STMT = 0
         *> PROCEDURE DIVISION USING: the caller supplies the value.
@@ -85,6 +90,30 @@ DECIDE-ROLE.
     MOVE ND-DETAIL(LS-STMT) TO LS-VERB
     PERFORM FIND-KEYWORD
     PERFORM ROLE-FOR-VERB.
+
+*> LS-ROLE = "-" when the reference is the operand of LENGTH OF or
+*> BYTE-LENGTH OF, otherwise spaces.
+CHECK-LENGTH-OF.
+    MOVE SPACE TO LS-ROLE
+    IF RF-TOKEN(LS-R) <= 2
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-T = RF-TOKEN(LS-R) - 1
+    IF NOT TK-IS-WORD(LS-T)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+    IF LS-TEXT NOT = "OF"
+        EXIT PARAGRAPH
+    END-IF
+    SUBTRACT 1 FROM LS-T
+    IF NOT TK-IS-WORD(LS-T)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+    IF LS-TEXT = "LENGTH" OR LS-TEXT = "BYTE-LENGTH"
+        MOVE "-" TO LS-ROLE
+    END-IF.
 
 *> LS-KEYWORD = the nearest word before the reference, within its
 *> statement, that decides roles ("=" counts for COMPUTE); spaces
