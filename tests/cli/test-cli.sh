@@ -60,7 +60,18 @@ check "missing file is an input error"    1 'cannot open no-such-file.cbl (file 
 check "other files still dumped"          1 'free-basic.cob:1: code' \
     -- dump lines no-such-file.cbl $fx/free-basic.cob
 check "dump needs a target"               2 'missing what to dump' -- dump
-check "dump rejects unknown targets"      2 "unknown target 'tokens'" -- dump tokens x.cbl
+check "dump rejects unknown targets"      2 "unknown target 'frobs'" -- dump frobs x.cbl
+check "help lists dump tokens"            0 'dump tokens' -- --help
+
+gx=tests/golden/lexer
+check "dump tokens shows tokens"          0 'numbers.cob:3:10: number   42$' \
+    -- dump tokens $gx/numbers.cob
+check "dump tokens reports lexer errors"  1 'bad-chars.cob:2:17: error: unexpected character .@. \[LX002\]' \
+    -- dump tokens $gx/bad-chars.cob
+check "debugging lines skipped by default" 0 'continuation.cbl:6:12: word     STOP' \
+    -- dump tokens $gx/continuation.cbl
+check "--debug includes debugging lines"  0 'continuation.cbl:5:20: alnum    "DEBUG ONLY"' \
+    -- dump tokens --debug $gx/continuation.cbl
 check "dump lines needs files"            2 'no input files' -- dump lines
 check "invalid --format value"            2 "invalid format 'variable'" \
     -- dump lines --format variable $fx/fixed-basic.cbl

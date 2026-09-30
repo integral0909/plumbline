@@ -2,7 +2,8 @@
 *> plumbline: command-line entry point.
 *>
 *>   plumbline --help | --version
-*>   plumbline dump lines [--format fixed|free|auto] FILE...
+*>   plumbline dump lines  [--format fixed|free|auto] FILE...
+*>   plumbline dump tokens [--format fixed|free|auto] [--debug] FILE...
 *>
 *> Exit codes:
 *>   0  success
@@ -16,6 +17,7 @@ WORKING-STORAGE SECTION.
 COPY "plbver.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
+COPY "plbtok.cpy".
 78  MAX-INPUTS                  VALUE 256.
 01  WS-ARG-COUNT            PIC 9(4).
 01  WS-ARG-INDEX            PIC 9(4).
@@ -23,6 +25,8 @@ COPY "plbdiag.cpy".
 01  WS-ARG-LEN              PIC 9(9) COMP-5.
 01  WS-EXIT-CODE            PIC 9(4) VALUE 0.
 01  WS-MODE                 PIC X VALUE "A".
+01  WS-DEBUG                PIC X VALUE "N".
+01  WS-DUMP-TARGET          PIC X(8).
 01  WS-INPUT-COUNT          PIC 9(4) COMP-5 VALUE 0.
 01  WS-INPUTS.
     05  WS-INPUT            PIC X(512) OCCURS MAX-INPUTS TIMES.
@@ -41,6 +45,10 @@ COPY "plbdiag.cpy".
 01  WS-PATH-LEN             PIC 9(9) COMP-5.
 01  WS-KIND-NAME            PIC X(9).
 01  WS-FORMAT-NAME          PIC X(5).
+01  WS-LINE-INDEX           PIC 9(9) COMP-5.
+01  WS-TOKEN-TEXT           PIC X(8192).
+01  WS-TOKEN-LEN            PIC 9(9) COMP-5.
+01  WS-J                    PIC 9(9) COMP-5.
 
 PROCEDURE DIVISION.
 MAIN-LOGIC.
@@ -96,6 +104,7 @@ SUGGEST-HELP.
 SHOW-USAGE.
     DISPLAY "Usage: plumbline [OPTION]..."
     DISPLAY "       plumbline dump lines [--format FORMAT] FILE..."
+    DISPLAY "       plumbline dump tokens [--format FORMAT] [--debug] FILE..."
     DISPLAY "Static analysis for COBOL programs."
     DISPLAY " "
     DISPLAY "Options:"
@@ -104,16 +113,19 @@ SHOW-USAGE.
     DISPLAY " "
     DISPLAY "Commands:"
     DISPLAY "  dump lines       show how each source line was read"
+    DISPLAY "  dump tokens      show the tokens of each source file"
     DISPLAY " "
     DISPLAY "Command options:"
     DISPLAY "  --format FORMAT  reference format: fixed, free, or auto"
-    DISPLAY "                   (default auto)".
+    DISPLAY "                   (default auto)"
+    DISPLAY "  --debug          treat debugging lines as code".
 
 *> dump ---------------------------------------------------------
 
 DUMP-COMMAND.
     PERFORM NEXT-ARG
-    IF WS-ARG NOT = "lines"
+    MOVE WS-ARG TO WS-DUMP-TARGET
+    IF WS-ARG NOT = "lines" AND WS-ARG NOT = "tokens"
         IF WS-ARG-LEN = 0
             DISPLAY PLB-NAME ": dump: missing what to dump"
                 UPON SYSERR
@@ -131,9 +143,21 @@ DUMP-COMMAND.
     END-IF
     PERFORM LOAD-INPUTS
 
-    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > SS-LINE-COUNT
-        PERFORM DUMP-ONE-LINE
-    END-PERFORM
+    IF WS-DUMP-TARGET = "lines"
+        PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > SS-LINE-COUNT
+            PERFORM DUMP-ONE-LINE
+        END-PERFORM
+    ELSE
+        CALL "PLB-LEX-INIT" USING PLB-TOKENS
+        PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+                UNTIL WS-FILE-ID > SS-FILE-COUNT
+            CALL "PLB-LEX-FILE" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+                PLB-TOKENS WS-FILE-ID WS-DEBUG
+        END-PERFORM
+        PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > TK-COUNT
+            PERFORM DUMP-ONE-TOKEN
+        END-PERFORM
+    END-IF
     PERFORM REPORT-DIAGNOSTICS.
 
 *> Collect --format and file operands up to the end of the arguments.
@@ -144,6 +168,8 @@ PARSE-INPUT-ARGS.
             WHEN WS-ARG = "--format"
                 PERFORM NEXT-ARG
                 PERFORM SET-MODE
+            WHEN WS-ARG = "--debug"
+                MOVE "Y" TO WS-DEBUG
             WHEN WS-ARG(1:9) = "--format="
                 MOVE WS-ARG(10:) TO WS-CONTENT
                 MOVE WS-CONTENT TO WS-ARG
@@ -229,6 +255,75 @@ DUMP-ONE-LINE.
         STRING WS-CONTENT(1:WS-CONTENT-LEN)
             DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
     END-IF
+    CALL "PLB-STR-LENGTH" USING WS-OUT WS-OUT-LEN
+    DISPLAY WS-OUT(1:WS-OUT-LEN).
+
+*> One output line per token:
+*>     path:line:column: kind     text
+*> Alphanumeric literals are shown quoted, with any prefix, and with
+*> embedded quotes doubled so the output reads as COBOL.
+DUMP-ONE-TOKEN.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    CALL "PLB-STR-LENGTH" USING SF-PATH(TK-FILE-ID(WS-I)) WS-PATH-LEN
+    STRING SF-PATH(TK-FILE-ID(WS-I))(1:WS-PATH-LEN) ":"
+        DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE TK-SRC-LINE(WS-I) TO WS-LINE-INDEX
+    MOVE 0 TO WS-NUM
+    IF WS-LINE-INDEX > 0
+        MOVE SL-LINE-NO(WS-LINE-INDEX) TO WS-NUM
+    END-IF
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    STRING WS-NUM-TEXT(1:WS-NUM-LEN) ":"
+        DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE TK-COLUMN(WS-I) TO WS-NUM
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    STRING WS-NUM-TEXT(1:WS-NUM-LEN) ": "
+        DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+
+    EVALUATE TRUE
+        WHEN TK-IS-WORD(WS-I)      MOVE "word"      TO WS-KIND-NAME
+        WHEN TK-IS-NUMBER(WS-I)    MOVE "number"    TO WS-KIND-NAME
+        WHEN TK-IS-ALNUM(WS-I)     MOVE "alnum"     TO WS-KIND-NAME
+        WHEN TK-IS-PICTURE(WS-I)   MOVE "picture"   TO WS-KIND-NAME
+        WHEN TK-IS-PERIOD(WS-I)    MOVE "period"    TO WS-KIND-NAME
+        WHEN TK-IS-LPAREN(WS-I)    MOVE "lparen"    TO WS-KIND-NAME
+        WHEN TK-IS-RPAREN(WS-I)    MOVE "rparen"    TO WS-KIND-NAME
+        WHEN TK-IS-COLON(WS-I)     MOVE "colon"     TO WS-KIND-NAME
+        WHEN TK-IS-OPERATOR(WS-I)  MOVE "operator"  TO WS-KIND-NAME
+        WHEN TK-IS-PSEUDO(WS-I)    MOVE "pseudo"    TO WS-KIND-NAME
+        WHEN TK-IS-EOF(WS-I)       MOVE "eof"       TO WS-KIND-NAME
+        WHEN OTHER                 MOVE "?"         TO WS-KIND-NAME
+    END-EVALUATE
+    STRING WS-KIND-NAME DELIMITED BY SIZE
+        INTO WS-OUT WITH POINTER WS-PTR
+
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-I WS-TOKEN-TEXT
+        WS-TOKEN-LEN
+    IF TK-IS-ALNUM(WS-I)
+        CALL "PLB-STR-LENGTH" USING TK-PREFIX(WS-I) WS-NUM-LEN
+        IF WS-NUM-LEN > 0
+            STRING TK-PREFIX(WS-I)(1:WS-NUM-LEN) DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+        STRING '"' DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+        PERFORM VARYING WS-J FROM 1 BY 1 UNTIL WS-J > WS-TOKEN-LEN
+            IF WS-TOKEN-TEXT(WS-J:1) = '"'
+                STRING '""' DELIMITED BY SIZE
+                    INTO WS-OUT WITH POINTER WS-PTR
+            ELSE
+                STRING WS-TOKEN-TEXT(WS-J:1) DELIMITED BY SIZE
+                    INTO WS-OUT WITH POINTER WS-PTR
+            END-IF
+        END-PERFORM
+        STRING '"' DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    ELSE
+        IF WS-TOKEN-LEN > 0
+            STRING WS-TOKEN-TEXT(1:WS-TOKEN-LEN) DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+    END-IF
+    *> Only literals can end in spaces, and they end in a quote here.
     CALL "PLB-STR-LENGTH" USING WS-OUT WS-OUT-LEN
     DISPLAY WS-OUT(1:WS-OUT-LEN).
 
