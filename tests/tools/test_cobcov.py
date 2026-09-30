@@ -99,6 +99,30 @@ class CobcovTest(unittest.TestCase):
         self.assertIn("TOTAL", out.getvalue())
         self.assertIn("below the required 81.0%", err.getvalue())
 
+    def test_fold_accumulates_counts(self):
+        counts = os.path.join(self.tmp.name, "counts")
+        cobcov.fold(self.trace, counts)
+        cobcov.fold(self.trace, counts)
+        hits = cobcov.read_counts(counts,
+                                  cobcov.defaultdict(
+                                      lambda: cobcov.defaultdict(int)))
+        self.assertEqual(hits["src/demo.cob"][11], 4)
+        self.assertEqual(hits["src/demo.cob"][10], 2)
+
+    def test_report_from_counts(self):
+        counts = os.path.join(self.tmp.name, "counts")
+        cobcov.fold(self.trace, counts)
+        out, err = io.StringIO(), io.StringIO()
+        saved = sys.stdout, sys.stderr
+        sys.stdout, sys.stderr = out, err
+        try:
+            rc = cobcov.main(["--map", self.map, "--counts", counts,
+                              "--include", "src/", "--fail-under", "80"])
+        finally:
+            sys.stdout, sys.stderr = saved
+        self.assertEqual(rc, 0)
+        self.assertIn("80.0%", out.getvalue())
+
     def test_empty_report_is_full_coverage(self):
         self.assertEqual(cobcov.percent(0, 0), 100.0)
 
