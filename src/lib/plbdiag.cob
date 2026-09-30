@@ -23,12 +23,16 @@ END PROGRAM PLB-DIAG-INIT.
 
 *> PLB-DIAG-ADD: record one diagnostic.
 *> An unknown severity is recorded as an error: a caller bug should
-*> fail loudly rather than disappear.
+*> fail loudly rather than disappear. A diagnostic identical to one
+*> already recorded (same code, place, and message) is not recorded
+*> again: a problem in a copybook is reported once, not once for
+*> every program that copies it.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-DIAG-ADD.
 DATA DIVISION.
 LOCAL-STORAGE SECTION.
 01  LS-SEVERITY             PIC X.
+01  LS-I                    PIC 9(9) COMP-5.
 LINKAGE SECTION.
 COPY "plbdiag.cpy".
 01  LK-SEVERITY             PIC X.
@@ -39,6 +43,14 @@ COPY "plbdiag.cpy".
 01  LK-MESSAGE              PIC X ANY LENGTH.
 PROCEDURE DIVISION USING PLB-DIAGNOSTICS LK-SEVERITY LK-CODE
         LK-FILE-ID LK-LINE LK-COLUMN LK-MESSAGE.
+    PERFORM VARYING LS-I FROM DG-COUNT BY -1 UNTIL LS-I = 0
+        IF DG-LINE(LS-I) = LK-LINE AND DG-COLUMN(LS-I) = LK-COLUMN
+           AND DG-FILE-ID(LS-I) = LK-FILE-ID
+           AND DG-CODE(LS-I) = LK-CODE
+           AND DG-MESSAGE(LS-I) = LK-MESSAGE
+            GOBACK
+        END-IF
+    END-PERFORM
     EVALUATE LK-SEVERITY
         WHEN "W"
             MOVE "W" TO LS-SEVERITY
