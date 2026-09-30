@@ -62,7 +62,7 @@ COPY "plbpic.cpy".
 01  LS-CONST-NAME           PIC X(31).
 01  LS-C                    PIC 9(4) COMP-5.
 01  LS-SUBSTITUTED          PIC X.
-01  LS-SAVED-PIC            PIC X(80).
+COPY "plbpic.cpy" REPLACING ==PLB-PIC-INFO== BY ==LS-SAVED-PIC==.
 LINKAGE SECTION.
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
@@ -121,6 +121,7 @@ DESCRIBE-ITEM.
     MOVE LS-NODE TO SY-NODE(LS-S)
     MOVE LS-PROGRAM TO SY-PROGRAM(LS-S)
     MOVE LS-SECTION TO SY-SECTION(LS-S)
+    *> plumbline: ignore move-truncation -- level numbers are at most 88
     MOVE ND-NUM(LS-NODE) TO SY-LEVEL(LS-S)
     MOVE ND-NAME(LS-NODE) TO SY-NAME-TOKEN(LS-S)
     MOVE SPACES TO SY-NAME(LS-S) SY-USAGE(LS-S)
@@ -160,14 +161,14 @@ DESCRIBE-ITEM.
         WHEN LS-HAS-PICTURE = "Y"
             MOVE LS-SAVED-PIC TO PLB-PIC-INFO
             *> An invalid picture gives no reliable size.
-            IF NOT PI-IS-INVALID
+            IF NOT PI-IS-INVALID OF PLB-PIC-INFO
                 CALL "PLB-PIC-STORAGE" USING PLB-PIC-INFO SY-USAGE(LS-S)
                     SY-SIZE(LS-S)
             END-IF
         WHEN OTHER
             PERFORM CATEGORY-WITHOUT-PICTURE
             IF SY-CATEGORY(LS-S) = "U"
-                MOVE 0 TO PI-SIZE PI-DIGITS
+                MOVE 0 TO PI-SIZE OF PLB-PIC-INFO PI-DIGITS OF PLB-PIC-INFO
                 CALL "PLB-PIC-STORAGE" USING PLB-PIC-INFO
                     SY-USAGE(LS-S) SY-SIZE(LS-S)
             END-IF
@@ -175,6 +176,19 @@ DESCRIBE-ITEM.
     IF SY-LEVEL(LS-S) = 78
         PERFORM REMEMBER-CONSTANT
     END-IF
+    *> PIC X ANY LENGTH (a linkage item that takes the caller's
+    *> length) has no size of its own.
+    PERFORM VARYING LS-TOKEN FROM ND-TOK-FIRST(LS-NODE) BY 1
+            UNTIL LS-TOKEN >= ND-TOK-LAST(LS-NODE)
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT LS-LEN
+        IF LS-TEXT = "ANY" AND TK-IS-WORD(LS-TOKEN)
+            COMPUTE LS-R = LS-TOKEN + 1
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-R LS-TEXT LS-LEN
+            IF LS-TEXT = "LENGTH"
+                MOVE 0 TO SY-SIZE(LS-S)
+            END-IF
+        END-IF
+    END-PERFORM
     *> A parent that has members is a group.
     IF SY-PARENT(LS-S) > 0 AND SY-LEVEL(LS-S) NOT = 88
        AND SY-LEVEL(LS-S) NOT = 66 AND SY-LEVEL(LS-S) NOT = 78
@@ -192,14 +206,14 @@ DESCRIBE-CLAUSE.
                 PERFORM SUBSTITUTE-CONSTANTS
                 CALL "PLB-PIC-ANALYZE" USING LS-TEXT PLB-PIC-INFO
                 MOVE PLB-PIC-INFO TO LS-SAVED-PIC
-                MOVE PI-CATEGORY TO SY-CATEGORY(LS-S)
-                MOVE PI-DIGITS TO SY-DIGITS(LS-S)
-                MOVE PI-SCALE TO SY-SCALE(LS-S)
-                MOVE PI-SIGNED TO SY-SIGNED(LS-S)
-                IF PI-IS-INVALID
+                MOVE PI-CATEGORY OF PLB-PIC-INFO TO SY-CATEGORY(LS-S)
+                MOVE PI-DIGITS OF PLB-PIC-INFO TO SY-DIGITS(LS-S)
+                MOVE PI-SCALE OF PLB-PIC-INFO TO SY-SCALE(LS-S)
+                MOVE PI-SIGNED OF PLB-PIC-INFO TO SY-SIGNED(LS-S)
+                IF PI-IS-INVALID OF PLB-PIC-INFO
                     CALL "PLB-PX-DIAG" USING PLB-SOURCE-SET
                         PLB-DIAGNOSTICS PLB-TOKENS ND-NAME(LS-CHILD)
-                        "W" "SY001" PI-ERROR
+                        "W" "SY001" PI-ERROR OF PLB-PIC-INFO
                 END-IF
             END-IF
         WHEN "VALUE"
