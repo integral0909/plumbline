@@ -1,0 +1,419 @@
+*> ---------------------------------------------------------------
+*> plbref: finding and resolving data references.
+*>
+*> PLB-REF-BUILD scans each procedure division for identifiers and
+*> resolves every one (copy/plbref.cpy):
+*>
+*>   - a user-defined word that is not a procedure name (PERFORM or
+*>     GO TO target, paragraph or section header), not an intrinsic
+*>     function name (after FUNCTION), and not inside EXEC ... END-EXEC
+*>     is an identifier;
+*>   - "IN name" and "OF name" after it are qualifiers; a parenthesized
+*>     group after it is a subscript list, or a reference modifier
+*>     when it contains a colon;
+*>   - the identifier resolves to the data items of its program (or
+*>     GLOBAL items of a program containing it) with that name whose
+*>     ancestors include each qualifier in order; a record in the file
+*>     section may also be qualified by its file name;
+*>   - a name that matches no data item may be a paragraph or section
+*>     (as in SORT ... INPUT PROCEDURE P), or another kind of name
+*>     declared in the environment division, an FD, or an INDEXED BY
+*>     phrase; otherwise it is undefined.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-REF-BUILD.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+78  ON-MAX                      VALUE 20000.
+*> Innermost statement of each token, and tokens that are not
+*> identifiers even though they are user-defined words.
+01  WS-TOKEN-STMT           PIC 9(9) COMP-5 OCCURS 500000 TIMES.
+01  WS-TOKEN-SKIP           PIC X OCCURS 500000 TIMES.
+*> Names that are not data items: files, mnemonic names, alphabets,
+*> classes, indexes.
+01  WS-OTHER-NAMES.
+    05  WS-OTHER-COUNT      PIC 9(9) COMP-5.
+    05  WS-OTHER            OCCURS 0 TO ON-MAX TIMES
+                            DEPENDING ON WS-OTHER-COUNT
+                            ASCENDING KEY IS ON-TEXT
+                            INDEXED BY ON-IX.
+        10  ON-TEXT         PIC X(31).
+*> Procedure divisions to scan, with their programs.
+01  WS-DIVISIONS.
+    05  WS-DIV-COUNT        PIC 9(4) COMP-5.
+    05  WS-DIV              OCCURS 256 TIMES.
+        10  DV-NODE         PIC 9(9) COMP-5.
+        10  DV-PROGRAM      PIC 9(9) COMP-5.
+LOCAL-STORAGE SECTION.
+01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
+01  LS-NODE                 PIC 9(9) COMP-5.
+01  LS-DEPTH                PIC S9(9) COMP-5.
+01  LS-PROGRAM              PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-J                    PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-D                    PIC 9(4) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-A                    PIC 9(9) COMP-5.
+01  LS-ANCESTOR             PIC 9(9) COMP-5.
+01  LS-Q                    PIC 9(4) COMP-5.
+01  LS-U                    PIC 9(9) COMP-5.
+01  LS-TEXT                 PIC X(31).
+01  LS-NAME                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-KW                   PIC X.
+01  LS-IN-INDEXED           PIC X.
+01  LS-LEVEL                PIC 9(4) COMP-5.
+01  LS-COLON                PIC X.
+01  LS-CLOSE                PIC 9(9) COMP-5.
+01  LS-MATCHES              PIC 9(9) COMP-5.
+01  LS-FIRST-MATCH          PIC 9(9) COMP-5.
+01  LS-OK                   PIC X.
+01  LS-GLOBAL               PIC X.
+01  LS-FULL                 PIC X VALUE "N".
+01  LS-QUALIFIERS.
+    05  LS-QUAL-COUNT       PIC 9(4) COMP-5.
+    05  LS-QUAL             PIC X(31) OCCURS 8 TIMES.
+LINKAGE SECTION.
+COPY "plbsrc.cpy".
+COPY "plbdiag.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbsym.cpy".
+COPY "plbflow.cpy".
+COPY "plbref.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
+        PLB-AST PLB-SYMBOLS PLB-FLOW PLB-REFS.
+    MOVE 0 TO RF-COUNT WS-OTHER-COUNT WS-DIV-COUNT
+    IF AS-COUNT = 0 OR TK-COUNT = 0
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T > TK-COUNT
+        MOVE 0 TO WS-TOKEN-STMT(LS-T)
+        MOVE "N" TO WS-TOKEN-SKIP(LS-T)
+    END-PERFORM
+    MOVE 1 TO LS-NODE
+    MOVE 0 TO LS-DEPTH
+    PERFORM UNTIL LS-NODE = 0
+        PERFORM MARK-NODE
+        CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
+    END-PERFORM
+    IF WS-OTHER-COUNT > 1
+        SORT WS-OTHER ON ASCENDING KEY ON-TEXT
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > WS-DIV-COUNT
+        MOVE DV-PROGRAM(LS-D) TO LS-PROGRAM
+        PERFORM VARYING LS-T FROM ND-TOK-FIRST(DV-NODE(LS-D)) BY 1
+                UNTIL LS-T > ND-TOK-LAST(DV-NODE(LS-D))
+                   OR LS-FULL = "Y"
+            PERFORM CONSIDER-TOKEN
+        END-PERFORM
+    END-PERFORM
+    GOBACK.
+
+*> Pass 1: what each node says about its tokens -------------------
+
+MARK-NODE.
+    EVALUATE ND-KIND(LS-NODE)
+        WHEN "PROG"
+            MOVE LS-NODE TO LS-PROGRAM
+        WHEN "DIVN"
+            EVALUATE ND-DETAIL(LS-NODE)
+                WHEN "PROCEDURE"
+                    IF WS-DIV-COUNT < 256
+                        ADD 1 TO WS-DIV-COUNT
+                        MOVE LS-NODE TO DV-NODE(WS-DIV-COUNT)
+                        MOVE LS-PROGRAM TO DV-PROGRAM(WS-DIV-COUNT)
+                    END-IF
+                WHEN "ENVIRONMENT"
+                    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
+                            UNTIL LS-T > ND-TOK-LAST(LS-NODE)
+                        PERFORM ADD-OTHER-IF-USER-WORD
+                    END-PERFORM
+            END-EVALUATE
+        WHEN "FD"
+            IF ND-NAME(LS-NODE) > 0
+                MOVE ND-NAME(LS-NODE) TO LS-T
+                PERFORM ADD-OTHER-IF-USER-WORD
+            END-IF
+        WHEN "CLAU"
+            IF ND-DETAIL(LS-NODE) = "OCCURS"
+                PERFORM INDEX-NAMES
+            END-IF
+        WHEN "STMT"
+            PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
+                    UNTIL LS-T > ND-TOK-LAST(LS-NODE)
+                MOVE LS-NODE TO WS-TOKEN-STMT(LS-T)
+                IF ND-DETAIL(LS-NODE) = "EXEC"
+                    MOVE "Y" TO WS-TOKEN-SKIP(LS-T)
+                END-IF
+            END-PERFORM
+        WHEN "PROC"
+            PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
+                    UNTIL LS-T > ND-TOK-LAST(LS-NODE)
+                MOVE "Y" TO WS-TOKEN-SKIP(LS-T)
+            END-PERFORM
+        WHEN "PARA"
+        WHEN "SECT"
+            IF ND-NAME(LS-NODE) > 0
+                MOVE "Y" TO WS-TOKEN-SKIP(ND-NAME(LS-NODE))
+            END-IF
+    END-EVALUATE.
+
+*> Words after INDEXED [BY] in an OCCURS clause name indexes.
+INDEX-NAMES.
+    MOVE "N" TO LS-IN-INDEXED
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
+            UNTIL LS-T > ND-TOK-LAST(LS-NODE)
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+        EVALUATE TRUE
+            WHEN LS-TEXT = "INDEXED"
+                MOVE "Y" TO LS-IN-INDEXED
+            WHEN LS-TEXT = "ASCENDING" OR LS-TEXT = "DESCENDING"
+                MOVE "N" TO LS-IN-INDEXED
+            WHEN LS-IN-INDEXED = "Y"
+                PERFORM ADD-OTHER-IF-USER-WORD
+        END-EVALUATE
+    END-PERFORM.
+
+ADD-OTHER-IF-USER-WORD.
+    IF TK-IS-WORD(LS-T) AND TK-TEXT-LEN(LS-T) <= 31
+       AND WS-OTHER-COUNT < ON-MAX
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+        CALL "PLB-KW-LOOKUP" USING LS-TEXT LS-KW
+        IF LS-KW = SPACE
+            ADD 1 TO WS-OTHER-COUNT
+            MOVE LS-TEXT TO ON-TEXT(WS-OTHER-COUNT)
+        END-IF
+    END-IF.
+
+*> Pass 2: identifiers ----------------------------------------------
+
+CONSIDER-TOKEN.
+    IF NOT TK-IS-WORD(LS-T) OR WS-TOKEN-SKIP(LS-T) = "Y"
+       OR TK-TEXT-LEN(LS-T) > 31
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-NAME LS-LEN
+    CALL "PLB-KW-LOOKUP" USING LS-NAME LS-KW
+    IF LS-KW NOT = SPACE
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-T > 1
+        COMPUTE LS-J = LS-T - 1
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-J LS-TEXT LS-LEN
+        IF LS-TEXT = "FUNCTION" AND TK-IS-WORD(LS-J)
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    IF RF-COUNT >= RF-MAX
+        MOVE "Y" TO LS-FULL
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO RF-COUNT
+    MOVE LS-T TO RF-TOKEN(RF-COUNT)
+    MOVE WS-TOKEN-STMT(LS-T) TO RF-STMT(RF-COUNT)
+    MOVE "N" TO RF-SUBSCRIPTED(RF-COUNT) RF-REFMOD(RF-COUNT)
+
+    *> Qualifiers.
+    MOVE 0 TO LS-QUAL-COUNT
+    COMPUTE LS-J = LS-T + 1
+    PERFORM UNTIL LS-J >= TK-COUNT
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-J LS-TEXT LS-LEN
+        IF (LS-TEXT NOT = "IN" AND LS-TEXT NOT = "OF")
+           OR NOT TK-IS-WORD(LS-J)
+            EXIT PERFORM
+        END-IF
+        COMPUTE LS-K = LS-J + 1
+        IF NOT TK-IS-WORD(LS-K) OR TK-TEXT-LEN(LS-K) > 31
+            EXIT PERFORM
+        END-IF
+        IF LS-QUAL-COUNT < 8
+            ADD 1 TO LS-QUAL-COUNT
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K
+                LS-QUAL(LS-QUAL-COUNT) LS-LEN
+        END-IF
+        MOVE "Y" TO WS-TOKEN-SKIP(LS-K)
+        ADD 2 TO LS-J
+    END-PERFORM
+    COMPUTE RF-LAST(RF-COUNT) = LS-J - 1
+
+    *> Subscripts and reference modification: up to two groups.
+    PERFORM 2 TIMES
+        IF LS-J <= TK-COUNT
+            IF TK-IS-LPAREN(LS-J)
+                PERFORM MATCH-PARENTHESIS
+                IF LS-CLOSE > 0
+                    IF LS-COLON = "Y"
+                        MOVE "Y" TO RF-REFMOD(RF-COUNT)
+                    ELSE
+                        MOVE "Y" TO RF-SUBSCRIPTED(RF-COUNT)
+                    END-IF
+                    MOVE LS-CLOSE TO RF-LAST(RF-COUNT)
+                    COMPUTE LS-J = LS-CLOSE + 1
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM
+    PERFORM RESOLVE.
+
+*> LS-J is on "(": set LS-CLOSE to its matching ")" (0 if none) and
+*> LS-COLON to "Y" if a colon appears at the top level inside.
+MATCH-PARENTHESIS.
+    MOVE 0 TO LS-CLOSE LS-LEVEL
+    MOVE "N" TO LS-COLON
+    PERFORM VARYING LS-K FROM LS-J BY 1 UNTIL LS-K > TK-COUNT
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-K)
+                ADD 1 TO LS-LEVEL
+            WHEN TK-IS-RPAREN(LS-K)
+                SUBTRACT 1 FROM LS-LEVEL
+                IF LS-LEVEL = 0
+                    MOVE LS-K TO LS-CLOSE
+                    EXIT PERFORM
+                END-IF
+            WHEN TK-IS-COLON(LS-K) AND LS-LEVEL = 1
+                MOVE "Y" TO LS-COLON
+            WHEN TK-IS-PERIOD(LS-K)
+                EXIT PERFORM
+        END-EVALUATE
+    END-PERFORM.
+
+*> Resolution --------------------------------------------------------
+
+RESOLVE.
+    MOVE 0 TO LS-MATCHES LS-FIRST-MATCH
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
+        IF SY-NAME(LS-S) = LS-NAME AND SY-PROGRAM(LS-S) = LS-PROGRAM
+            PERFORM CHECK-QUALIFIERS
+            IF LS-OK = "Y"
+                PERFORM COUNT-MATCH
+            END-IF
+        END-IF
+    END-PERFORM
+    *> GLOBAL items of the programs this one is nested in.
+    IF LS-MATCHES = 0
+        MOVE ND-PARENT(LS-PROGRAM) TO LS-ANCESTOR
+        PERFORM UNTIL LS-ANCESTOR = 0 OR LS-MATCHES > 0
+            IF ND-KIND(LS-ANCESTOR) = "PROG"
+                PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
+                    IF SY-NAME(LS-S) = LS-NAME
+                       AND SY-PROGRAM(LS-S) = LS-ANCESTOR
+                        PERFORM CHECK-GLOBAL
+                        IF LS-GLOBAL = "Y"
+                            PERFORM CHECK-QUALIFIERS
+                            IF LS-OK = "Y"
+                                PERFORM COUNT-MATCH
+                            END-IF
+                        END-IF
+                    END-IF
+                END-PERFORM
+            END-IF
+            MOVE ND-PARENT(LS-ANCESTOR) TO LS-ANCESTOR
+        END-PERFORM
+    END-IF
+
+    MOVE LS-FIRST-MATCH TO RF-SYMBOL(RF-COUNT)
+    EVALUATE TRUE
+        WHEN LS-MATCHES = 1
+            MOVE "D" TO RF-KIND(RF-COUNT)
+        WHEN LS-MATCHES > 1
+            MOVE "A" TO RF-KIND(RF-COUNT)
+        WHEN OTHER
+            PERFORM RESOLVE-OTHER
+    END-EVALUATE.
+
+COUNT-MATCH.
+    ADD 1 TO LS-MATCHES
+    IF LS-FIRST-MATCH = 0
+        MOVE LS-S TO LS-FIRST-MATCH
+    END-IF.
+
+*> LS-OK = "Y" when symbol LS-S has each qualifier among its
+*> ancestors, innermost first; the last may also be the file name of
+*> the FD its record belongs to.
+CHECK-QUALIFIERS.
+    MOVE "Y" TO LS-OK
+    MOVE LS-S TO LS-A
+    PERFORM VARYING LS-Q FROM 1 BY 1 UNTIL LS-Q > LS-QUAL-COUNT
+        MOVE SY-PARENT(LS-A) TO LS-A
+        PERFORM UNTIL LS-A = 0
+            IF SY-NAME(LS-A) = LS-QUAL(LS-Q)
+                EXIT PERFORM
+            END-IF
+            MOVE SY-PARENT(LS-A) TO LS-A
+        END-PERFORM
+        IF LS-A = 0
+            IF LS-Q = LS-QUAL-COUNT
+                PERFORM CHECK-FILE-QUALIFIER
+            ELSE
+                MOVE "N" TO LS-OK
+            END-IF
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+CHECK-FILE-QUALIFIER.
+    MOVE "N" TO LS-OK
+    *> The record: the outermost ancestor of the symbol.
+    MOVE LS-S TO LS-A
+    PERFORM UNTIL SY-PARENT(LS-A) = 0
+        MOVE SY-PARENT(LS-A) TO LS-A
+    END-PERFORM
+    MOVE ND-PARENT(SY-NODE(LS-A)) TO LS-U
+    IF ND-KIND(LS-U) = "FD" AND ND-NAME(LS-U) > 0
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(LS-U) LS-TEXT LS-LEN
+        IF LS-TEXT = LS-QUAL(LS-QUAL-COUNT)
+            MOVE "Y" TO LS-OK
+        END-IF
+    END-IF.
+
+*> LS-GLOBAL = "Y" when LS-S or its record has a GLOBAL clause.
+CHECK-GLOBAL.
+    MOVE "N" TO LS-GLOBAL
+    MOVE LS-S TO LS-A
+    PERFORM UNTIL LS-A = 0 OR LS-GLOBAL = "Y"
+        MOVE ND-FIRST(SY-NODE(LS-A)) TO LS-U
+        PERFORM UNTIL LS-U = 0
+            IF ND-KIND(LS-U) = "CLAU" AND ND-DETAIL(LS-U) = "GLOBAL"
+                MOVE "Y" TO LS-GLOBAL
+                EXIT PERFORM
+            END-IF
+            MOVE ND-NEXT(LS-U) TO LS-U
+        END-PERFORM
+        MOVE SY-PARENT(LS-A) TO LS-A
+    END-PERFORM.
+
+*> Not a data item: a procedure of the program, another declared
+*> name, a device name compilers accept without SPECIAL-NAMES, or
+*> nothing.
+RESOLVE-OTHER.
+    MOVE "U" TO RF-KIND(RF-COUNT)
+    EVALUATE LS-NAME
+        WHEN "CONSOLE" WHEN "SYSIN" WHEN "SYSOUT" WHEN "SYSERR"
+        WHEN "SYSIPT" WHEN "SYSLST" WHEN "SYSPCH" WHEN "SYSPUNCH"
+        WHEN "PRINTER" WHEN "PRINTER-1" WHEN "CSP" WHEN "TOP"
+        WHEN "C01" WHEN "C02" WHEN "C03" WHEN "C04" WHEN "C05"
+        WHEN "C06" WHEN "C07" WHEN "C08" WHEN "C09" WHEN "C10"
+        WHEN "C11" WHEN "C12" WHEN "S01" WHEN "S02" WHEN "S03"
+        WHEN "S04" WHEN "S05"
+            MOVE "O" TO RF-KIND(RF-COUNT)
+            EXIT PARAGRAPH
+    END-EVALUATE
+    PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > FU-COUNT
+        IF FU-NAME(LS-U) = LS-NAME AND FU-PROGRAM(LS-U) = LS-PROGRAM
+            MOVE "P" TO RF-KIND(RF-COUNT)
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    IF WS-OTHER-COUNT > 0
+        SEARCH ALL WS-OTHER
+            AT END
+                CONTINUE
+            WHEN ON-TEXT(ON-IX) = LS-NAME
+                MOVE "O" TO RF-KIND(RF-COUNT)
+        END-SEARCH
+    END-IF.
+END PROGRAM PLB-REF-BUILD.
