@@ -1,0 +1,5 @@
+01  GROUP-A.
+    05  FIELD-A PIC X.
+    05  FIELD-B PIC 9.
+    05  FIELD-C PIC X.
+    05  FIELD-D PIC X.

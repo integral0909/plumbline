@@ -233,7 +233,8 @@ END PROGRAM PLB-SRC-SET-FORMAT.
 *>
 *> Looks at up to 100 non-blank lines. A line counts against fixed
 *> format when column 7 holds something that cannot be an indicator,
-*> or when the line starts with "*>" inside the sequence area. Free
+*> when the line starts with "*>" inside the sequence area, or when
+*> the sequence area is only partly filled. Free
 *> format source written from column 1 almost always trips this;
 *> fixed format source almost never does. If more than a fifth of the
 *> sample disagrees with fixed format, the file is free format.
@@ -255,6 +256,7 @@ LOCAL-STORAGE SECTION.
 01  LS-TO                   PIC 9(4) COMP-5.
 01  LS-DIRECTIVE            PIC X.
 01  LS-AT                   PIC 9(4) COMP-5.
+01  LS-SEQ-SPACES           PIC 9(4) COMP-5.
 01  LS-FIXED-FROM           PIC 9(4) COMP-5.
 LINKAGE SECTION.
 COPY "plbsrc.cpy".
@@ -319,9 +321,19 @@ CHECK-DIRECTIVE-AT.
             LS-DIRECTIVE
     END-IF.
 
+*> In fixed format the sequence area is blank or fully used (a
+*> number or tag). Text that starts inside it and leaves part of it
+*> blank, such as "    05" or "01  :P", is free-format indentation.
 CHECK-LINE.
+    MOVE 0 TO LS-SEQ-SPACES
+    IF SL-TEXT-LEN(LS-INDEX) >= 6
+        INSPECT LS-LINE(1:6) TALLYING LS-SEQ-SPACES FOR ALL SPACE
+    END-IF
     EVALUATE TRUE
         WHEN LS-LEAD < 7 AND LS-LINE(LS-LEAD:2) = "*>"
+            ADD 1 TO LS-AGAINST
+        WHEN SL-TEXT-LEN(LS-INDEX) > 7 AND LS-SEQ-SPACES > 0
+                AND LS-SEQ-SPACES < 6
             ADD 1 TO LS-AGAINST
         WHEN SL-TEXT-LEN(LS-INDEX) < 7
             CONTINUE
