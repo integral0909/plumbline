@@ -6,6 +6,7 @@
 |------|----------|--------|
 | Unit | `tests/unit/test-*.cob` | `tools/run-tests.sh` |
 | CLI end-to-end | `tests/cli/test-cli.sh` | shell |
+| Golden files | `tests/golden/<suite>/` | `tests/golden/run-golden.sh` |
 | Tooling | `tests/tools/test_*.py` | `python3 -m unittest` |
 
 ## Unit tests
@@ -29,6 +30,23 @@ significant: `"ABC"` equals `"ABC   "`.
 Numeric assertions take `S9(18) COMP-5` arguments. Move the values into
 fields of that type before the call, because passing a field with a
 different picture passes the wrong bytes.
+
+## Golden-file tests
+
+A golden suite is a directory of inputs (`NAME.cob` or `NAME.cbl`), each
+with the expected standard output (`NAME.out`) and, if the command
+reports anything, the expected standard error (`NAME.err`). The runner
+passes each input to a `plumbline` command and diffs the results. The
+suites and their commands are listed in `GOLDEN_SUITES` in the Makefile:
+
+| Suite | Command |
+|-------|---------|
+| `tests/golden/lexer` | `plumbline dump tokens` |
+
+To add a case, write the input and run `make golden-update`, which
+rewrites every expected file from the current output. **Read the diff
+before committing it.** A golden file only protects behavior that someone
+has checked to be right.
 
 ## Coverage
 

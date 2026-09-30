@@ -57,13 +57,39 @@ a path outside those roots (see [SECURITY.md](../SECURITY.md)). Nested
 copies are tracked on a stack to detect recursion and to build the source
 map for findings inside copybooks.
 
-### Lexer and parser *(planned)*
+### Lexer
 
-The lexer produces tokens: words, literals (alphanumeric, national,
-hexadecimal, numeric), picture strings, and separators. The parser is
-hand-written recursive descent over the four divisions. It recovers at
-sentence and paragraph boundaries, so one syntax error does not hide the
-rest of the program.
+`src/lib/plbstream.cob` and `src/lib/plblex.cob`, with tables in
+`copy/plbstrm.cpy` and `copy/plbtok.cpy`.
+
+The lexer does not scan physical lines. For each file it first builds a
+*logical stream*: the significant text of every code line, separated by
+newlines. Comment, blank, and directive lines are left out, and so are
+debugging lines unless debugging mode is on. Fixed-format continuation
+lines are joined directly to the line they continue. A continued literal
+is padded to column 72 and resumes after the continuation's opening quote,
+exactly as the standard describes. A segment table maps every stream
+position back to its source line and column. As a result, continuation
+handling lives in one place, and the scanner never has to know about it.
+
+The scanner then produces tokens: words, numeric literals (signed,
+decimal, and floating-point), alphanumeric literals with their prefixes
+(`X`, `N`, `NX`, `Z`, `G`, `B`, `BX`, `U`), picture strings (recognized
+from context after `PIC`/`PICTURE`), separators, operators, and `==`
+pseudo-text delimiters. A newline inside an open literal means it was
+never terminated. That is reported, and scanning continues on the next
+line. Each file's tokens end with an end-of-file token.
+
+Columns are byte positions, so a line containing multi-byte UTF-8
+characters reports columns in bytes.
+
+`plumbline dump tokens FILE` prints the token stream.
+
+### Parser *(planned)*
+
+The parser is hand-written recursive descent over the four divisions. It
+recovers at sentence and paragraph boundaries, so one syntax error does
+not hide the rest of the program.
 
 The AST is stored in flat, indexed tables (node kind, parent, first child,
 next sibling, token span) rather than pointer structures. That fits COBOL's

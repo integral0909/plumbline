@@ -20,3 +20,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Source reader: fixed and free reference formats, format detection,
   `>>SOURCE`/`$SET` format switching, tab expansion, literal-aware
   inline comments, and continuation lines.
+- Lexer: words, numeric and alphanumeric literals (with prefixes),
+  picture strings, operators, and pseudo-text delimiters, over a logical
+  stream that joins continuation lines.
+- `plumbline dump tokens [--debug] FILE...` prints the token stream.
+- Golden-file test suites (`tests/golden`, `make golden-update`).
