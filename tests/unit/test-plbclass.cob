@@ -1,0 +1,296 @@
+*> Unit tests for src/lib/plbclass.cob.
+*>
+*> Fixed-format test lines are written with their sequence area so
+*> the columns are real: "000100 X" puts X in column 8 (area A).
+IDENTIFICATION DIVISION.
+PROGRAM-ID. TEST-PLBCLASS.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbcls.cpy".
+01  WS-LINE                 PIC X(120).
+01  WS-LEN                  PIC 9(9) COMP-5.
+01  WS-QUOTE-IN             PIC X.
+01  WS-FORMAT               PIC X.
+01  WS-CONTENT              PIC X(120).
+01  WS-EXPECT-NUM           PIC S9(18) COMP-5.
+01  WS-ACTUAL-NUM           PIC S9(18) COMP-5.
+
+PROCEDURE DIVISION.
+    CALL "PLBT-BEGIN" USING "plbclass"
+    PERFORM TEST-FIXED-BASICS
+    PERFORM TEST-FIXED-INDICATORS
+    PERFORM TEST-FIXED-INLINE-COMMENTS
+    PERFORM TEST-FIXED-COLUMN-72
+    PERFORM TEST-FIXED-CONTINUATION
+    PERFORM TEST-FREE
+    PERFORM TEST-DIRECTIVE-FORMAT
+    CALL "PLBT-END"
+    STOP RUN.
+
+*> Helpers ------------------------------------------------------
+
+RUN-FIXED.
+    CALL "PLB-STR-LENGTH" USING WS-LINE WS-LEN
+    CALL "PLB-SRC-CLASSIFY-FIXED" USING WS-LINE WS-LEN WS-QUOTE-IN
+        PLB-CLASSIFIED
+    PERFORM GET-CONTENT.
+
+RUN-FREE.
+    CALL "PLB-STR-LENGTH" USING WS-LINE WS-LEN
+    CALL "PLB-SRC-CLASSIFY-FREE" USING WS-LINE WS-LEN WS-QUOTE-IN
+        PLB-CLASSIFIED
+    PERFORM GET-CONTENT.
+
+GET-CONTENT.
+    MOVE SPACES TO WS-CONTENT
+    IF CL-CONTENT-LEN > 0
+        MOVE WS-LINE(CL-CONTENT-COL:CL-CONTENT-LEN) TO WS-CONTENT
+    END-IF.
+
+EXPECT-COL.
+    MOVE CL-CONTENT-COL TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "content column"
+        WS-EXPECT-NUM WS-ACTUAL-NUM.
+
+EXPECT-COMMENT-COL.
+    MOVE CL-COMMENT-COL TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "comment column"
+        WS-EXPECT-NUM WS-ACTUAL-NUM.
+
+*> Fixed format -------------------------------------------------
+
+TEST-FIXED-BASICS.
+    CALL "PLBT-CASE" USING "fixed: code, blank, areas"
+    MOVE SPACE TO WS-QUOTE-IN
+    MOVE "000100 IDENTIFICATION DIVISION." TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "division header is code" "C" CL-KIND
+    CALL "PLBT-ASSERT-STR" USING "content excludes sequence area"
+        "IDENTIFICATION DIVISION." WS-CONTENT
+    CALL "PLBT-ASSERT-FLAG" USING "starts in area A" "Y" CL-AREA-A
+    MOVE 8 TO WS-EXPECT-NUM
+    PERFORM EXPECT-COL
+
+    MOVE "000200     MOVE A TO B." TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-FLAG" USING "column 12 is area B" "N" CL-AREA-A
+    MOVE 12 TO WS-EXPECT-NUM
+    PERFORM EXPECT-COL
+
+    MOVE "          PARA-X." TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-FLAG" USING "column 11 is still area A" "Y"
+        CL-AREA-A
+
+    MOVE "000300" TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "sequence number only is blank" "B"
+        CL-KIND
+
+    MOVE SPACES TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "empty line is blank" "B" CL-KIND
+
+    MOVE "000400                " TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "spaces after indicator is blank" "B"
+        CL-KIND.
+
+TEST-FIXED-INDICATORS.
+    CALL "PLBT-CASE" USING "fixed: indicator column"
+    MOVE SPACE TO WS-QUOTE-IN
+    MOVE "000100* A COMMENT WITH 'QUOTES" TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "star is a comment" "*" CL-KIND
+    MOVE 7 TO WS-EXPECT-NUM
+    PERFORM EXPECT-COMMENT-COL
+    CALL "PLBT-ASSERT-FLAG" USING "quote in comment does not open"
+        " " CL-OPEN-QUOTE
+
+    MOVE "000200/" TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "slash is a page eject" "/" CL-KIND
+
+    MOVE "000300D    DISPLAY WS-X." TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "D is a debugging line" "D" CL-KIND
+    CALL "PLBT-ASSERT-STR" USING "debugging line content"
+        "DISPLAY WS-X." WS-CONTENT
+
+    MOVE "000400d    DISPLAY WS-Y." TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "lower-case d is a debugging line"
+        "D" CL-KIND
+
+    MOVE "      $SET SOURCEFORMAT""FREE""" TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "dollar is a directive" ">" CL-KIND
+    CALL "PLBT-ASSERT-STR" USING "directive content includes $"
+        "$SET SOURCEFORMAT""FREE""" WS-CONTENT
+
+    MOVE "       >>SOURCE FORMAT IS FREE" TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING ">> in area A is a directive" ">"
+        CL-KIND
+
+    MOVE "000500X    MOVE 1 TO X." TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "invalid indicator is flagged" "I"
+        CL-PROBLEM
+    CALL "PLBT-ASSERT-STR" USING "invalid indicator still code" "C"
+        CL-KIND.
+
+TEST-FIXED-INLINE-COMMENTS.
+    CALL "PLBT-CASE" USING "fixed: inline comments"
+    MOVE SPACE TO WS-QUOTE-IN
+    MOVE "000100     MOVE 1 TO X  *> set the flag" TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "comment is cut from content"
+        "MOVE 1 TO X" WS-CONTENT
+    MOVE 25 TO WS-EXPECT-NUM
+    PERFORM EXPECT-COMMENT-COL
+
+    MOVE "000200     DISPLAY ""*> not a comment"" X" TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "*> inside a literal is text"
+        "DISPLAY ""*> not a comment"" X" WS-CONTENT
+    MOVE 0 TO WS-EXPECT-NUM
+    PERFORM EXPECT-COMMENT-COL
+
+    MOVE "000300     DISPLAY 'IT''S *> TEXT' *> REAL" TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "doubled quote does not end literal"
+        "DISPLAY 'IT''S *> TEXT'" WS-CONTENT
+
+    MOVE "000400 *> whole line" TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "*> in area A is a comment line" "*"
+        CL-KIND
+    MOVE 8 TO WS-EXPECT-NUM
+    PERFORM EXPECT-COMMENT-COL.
+
+TEST-FIXED-COLUMN-72.
+    CALL "PLBT-CASE" USING "fixed: identification area"
+    MOVE SPACE TO WS-QUOTE-IN
+    MOVE SPACES TO WS-LINE
+    MOVE "000100" TO WS-LINE(1:6)
+    MOVE "MOVE A TO B." TO WS-LINE(12:12)
+    MOVE "PAYROLL1" TO WS-LINE(73:8)
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "columns 73-80 are ignored"
+        "MOVE A TO B." WS-CONTENT
+
+    MOVE SPACES TO WS-LINE
+    MOVE "DISPLAY ""ABC" TO WS-LINE(12:12)
+    MOVE "IGNORED" TO WS-LINE(73:7)
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-FLAG" USING "literal open at column 72" '"'
+        CL-OPEN-QUOTE.
+
+TEST-FIXED-CONTINUATION.
+    CALL "PLBT-CASE" USING "fixed: continuation lines"
+    MOVE '"' TO WS-QUOTE-IN
+    MOVE "000200-    ""DEF"" TO X. *> done" TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "hyphen is a continuation" "-" CL-KIND
+    CALL "PLBT-ASSERT-STR" USING "content starts at resuming quote"
+        """DEF"" TO X." WS-CONTENT
+    CALL "PLBT-ASSERT-FLAG" USING "literal closed on this line" " "
+        CL-OPEN-QUOTE
+    MOVE 24 TO WS-EXPECT-NUM
+    PERFORM EXPECT-COMMENT-COL
+
+    MOVE '"' TO WS-QUOTE-IN
+    MOVE "000300-    ""*> STILL TEXT" TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "*> in continued literal is text"
+        """*> STILL TEXT" WS-CONTENT
+    CALL "PLBT-ASSERT-FLAG" USING "literal still open" '"'
+        CL-OPEN-QUOTE
+
+    MOVE SPACE TO WS-QUOTE-IN
+    MOVE "000400-    ANOTHER-WORD" TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "word continuation keeps text"
+        "ANOTHER-WORD" WS-CONTENT.
+
+*> Free format --------------------------------------------------
+
+TEST-FREE.
+    CALL "PLBT-CASE" USING "free format"
+    MOVE SPACE TO WS-QUOTE-IN
+    MOVE "IDENTIFICATION DIVISION." TO WS-LINE
+    PERFORM RUN-FREE
+    CALL "PLBT-ASSERT-STR" USING "code at column 1" "C" CL-KIND
+    MOVE 1 TO WS-EXPECT-NUM
+    PERFORM EXPECT-COL
+    CALL "PLBT-ASSERT-FLAG" USING "free format has no area A" "N"
+        CL-AREA-A
+
+    MOVE "    MOVE A TO B *> copy" TO WS-LINE
+    PERFORM RUN-FREE
+    CALL "PLBT-ASSERT-STR" USING "inline comment removed"
+        "MOVE A TO B" WS-CONTENT
+    MOVE 17 TO WS-EXPECT-NUM
+    PERFORM EXPECT-COMMENT-COL
+
+    MOVE "  *> a comment line" TO WS-LINE
+    PERFORM RUN-FREE
+    CALL "PLBT-ASSERT-STR" USING "comment line" "*" CL-KIND
+    MOVE 3 TO WS-EXPECT-NUM
+    PERFORM EXPECT-COMMENT-COL
+
+    MOVE ">>SOURCE FORMAT FIXED" TO WS-LINE
+    PERFORM RUN-FREE
+    CALL "PLBT-ASSERT-STR" USING "directive" ">" CL-KIND
+    CALL "PLBT-ASSERT-STR" USING "directive content"
+        ">>SOURCE FORMAT FIXED" WS-CONTENT
+
+    MOVE ">>D DISPLAY X" TO WS-LINE
+    PERFORM RUN-FREE
+    CALL "PLBT-ASSERT-STR" USING "debugging line" "D" CL-KIND
+    CALL "PLBT-ASSERT-STR" USING "debugging content after marker"
+        "DISPLAY X" WS-CONTENT
+
+    MOVE "$set sourceformat(fixed)" TO WS-LINE
+    PERFORM RUN-FREE
+    CALL "PLBT-ASSERT-STR" USING "$SET is a directive" ">" CL-KIND
+
+    MOVE SPACES TO WS-LINE
+    PERFORM RUN-FREE
+    CALL "PLBT-ASSERT-STR" USING "blank line" "B" CL-KIND
+
+    MOVE "DISPLAY ""unterminated" TO WS-LINE
+    PERFORM RUN-FREE
+    CALL "PLBT-ASSERT-FLAG" USING "open literal reported" '"'
+        CL-OPEN-QUOTE.
+
+*> Format directives --------------------------------------------
+
+TEST-DIRECTIVE-FORMAT.
+    CALL "PLBT-CASE" USING "PLB-SRC-DIRECTIVE-FORMAT"
+    CALL "PLB-SRC-DIRECTIVE-FORMAT" USING ">>SOURCE FORMAT IS FREE"
+        WS-FORMAT
+    CALL "PLBT-ASSERT-FLAG" USING "full form" "F" WS-FORMAT
+    CALL "PLB-SRC-DIRECTIVE-FORMAT" USING ">>source fixed" WS-FORMAT
+    CALL "PLBT-ASSERT-FLAG" USING "short lower-case form" "X"
+        WS-FORMAT
+    CALL "PLB-SRC-DIRECTIVE-FORMAT" USING ">>SOURCE FORMAT FIXED"
+        WS-FORMAT
+    CALL "PLBT-ASSERT-FLAG" USING "FORMAT without IS" "X" WS-FORMAT
+    CALL "PLB-SRC-DIRECTIVE-FORMAT" USING "$SET SOURCEFORMAT""FREE"""
+        WS-FORMAT
+    CALL "PLBT-ASSERT-FLAG" USING "$SET quoted" "F" WS-FORMAT
+    CALL "PLB-SRC-DIRECTIVE-FORMAT" USING
+        "$SET ANS85 SOURCEFORMAT(FIXED) NOBOUND" WS-FORMAT
+    CALL "PLBT-ASSERT-FLAG" USING "$SET among options" "X" WS-FORMAT
+    CALL "PLB-SRC-DIRECTIVE-FORMAT" USING ">>SOURCE FORMAT VARIABLE"
+        WS-FORMAT
+    CALL "PLBT-ASSERT-FLAG" USING "unsupported format" "?" WS-FORMAT
+    CALL "PLB-SRC-DIRECTIVE-FORMAT" USING ">>IF DEBUG IS DEFINED"
+        WS-FORMAT
+    CALL "PLBT-ASSERT-FLAG" USING "other directive" " " WS-FORMAT
+    CALL "PLB-SRC-DIRECTIVE-FORMAT" USING "$SET ANS85" WS-FORMAT
+    CALL "PLBT-ASSERT-FLAG" USING "$SET without SOURCEFORMAT" " "
+        WS-FORMAT.
+END PROGRAM TEST-PLBCLASS.
