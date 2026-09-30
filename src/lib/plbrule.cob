@@ -32,6 +32,15 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C007"
         "redefines-larger" "E"
         "REDEFINES item is larger than the item it redefines"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C008"
+        "move-truncation" "W"
+        "MOVE loses characters or high-order digits"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C009"
+        "undefined-name" "E"
+        "Name is not declared"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C010"
+        "ambiguous-name" "E"
+        "Name refers to more than one data item"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M001"
         "go-to" "N"
         "GO TO statement"
@@ -41,6 +50,12 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M003"
         "unused-data-item" "W"
         "Data item is never referenced"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M004"
+        "alnum-narrowing" "N"
+        "MOVE from a larger alphanumeric item to a smaller one"
+    *> Moving a large buffer into a smaller field is common and often
+    *> intended, so this rule is only run on request.
+    MOVE "N" TO RL-ENABLED(RL-COUNT)
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
