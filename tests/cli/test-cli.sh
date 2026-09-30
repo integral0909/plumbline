@@ -79,6 +79,13 @@ check "dump expanded with -IDIR"          0 'inclusion 1: tests/golden/pp/copy/p
 check "missing copybook is an error"      1 "copybook 'PAYREC' not found \[PP001\]" \
     -- dump expanded $px/basic.cob
 check "-I needs a directory"              2 '-I needs a directory' -- dump expanded $px/basic.cob -I
+ax=tests/golden/parser
+check "help lists dump ast"               0 'dump ast' -- --help
+check "dump ast shows the tree"           0 '^    DIVN PROCEDURE @30:1$' -- dump ast $ax/structure.cob
+check "dump ast reports syntax errors"    1 'errors.cob:14:5: error: ELSE without a matching IF \[PS003\]' \
+    -- dump ast $ax/errors.cob
+check "dump ast expands copybooks"        0 'DATA 1 PAY-RECORD @2:1 in tests/golden/pp/copy/payrec.cpy' \
+    -- dump ast -I tests/golden/pp/copy tests/golden/pp/basic.cob
 check "--debug includes debugging lines"  0 'continuation.cbl:5:20: alnum    "DEBUG ONLY"' \
     -- dump tokens --debug $gx/continuation.cbl
 check "dump lines needs files"            2 'no input files' -- dump lines
