@@ -69,7 +69,6 @@ COPY "plbptok.cpy".
 01  LS-DETAIL               PIC X(16).
 01  LS-TEXT                 PIC X(31).
 01  LS-NEXT-TEXT            PIC X(31).
-01  LS-NEXT-KW              PIC X.
 01  LS-NEXT-KIND            PIC X.
 01  LS-SENTENCE-DONE        PIC X.
 01  LS-DONE                 PIC X.
