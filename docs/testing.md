@@ -1,6 +1,6 @@
 # Testing Plumbline
 
-`make test` runs three kinds of tests:
+`make test` runs four kinds of tests:
 
 | Kind | Location | Runner |
 |------|----------|--------|
