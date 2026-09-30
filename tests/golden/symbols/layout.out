@@ -1,0 +1,26 @@
+1 CUSTOMER G size=136 offset=0 section=W @4:1
+  5 CUST-ID 9 size=8 offset=0 digits=8 section=W @5:5
+  5 CUST-NAME G size=35 offset=8 section=W @6:5
+    10 FIRST-NAME X size=15 offset=8 section=W @7:9
+    10 LAST-NAME X size=20 offset=23 section=W @8:9
+  5 CUST-BALANCE 9 size=6 offset=43 usage=COMP-3 digits=11 scale=2 signed section=W @9:5
+  5 CUST-FLAGS X size=1 offset=49 section=W @10:5
+    88 CUST-ACTIVE C size=0 offset=49 value section=W @11:9
+    88 CUST-CLOSED C size=0 offset=49 value section=W @12:9
+  5 CUST-ORDERS G size=8 offset=50 occurs=10 section=W @13:5
+    10 ORDER-NO 9 size=4 offset=50 usage=COMP digits=6 section=W @14:9
+    10 ORDER-AMT 9 size=4 offset=54 usage=COMP-3 digits=7 scale=2 signed section=W @15:9
+  5 CUST-ID-X X size=8 offset=0 redefines=CUST-ID section=W @16:5
+  5 CUST-COUNTERS G size=6 offset=130 usage=COMP section=W @17:5
+    10 VISITS 9 size=2 offset=130 usage=COMP digits=4 section=W @18:9
+    10 PURCHASES 9 size=4 offset=132 usage=COMP digits=9 section=W @19:9
+1 WS-POINTERS G size=20 offset=0 section=W @20:1
+  5 WS-PTR U size=8 offset=0 usage=POINTER section=W @21:5
+  5 WS-IX U size=4 offset=8 usage=INDEX section=W @22:5
+  5 WS-FLOAT U size=8 offset=12 usage=COMP-2 section=W @23:5
+1 WS-EDITED G size=29 offset=0 section=W @24:1
+  5 WS-AMOUNT-OUT E size=11 offset=0 digits=7 scale=2 signed section=W @25:5
+  5 WS-DATE-OUT E size=10 offset=11 digits=8 section=W @26:5
+  5 WS-NATIONAL N size=8 offset=21 section=W @27:5
+1 WS-BAD ? size=0 offset=0 section=W @28:1
+1 WS-BAD-REDEF X size=1 offset=0 section=W @29:1
