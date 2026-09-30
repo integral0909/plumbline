@@ -49,6 +49,7 @@ test: $(TEST_BIN) $(BIN)
 	        > $(BUILD)/golden-$$dir.tap || { cat $(BUILD)/golden-$$dir.tap; exit 1; }; \
 	    tail -n 1 $(BUILD)/golden-$$dir.tap; \
 	done
+	tools/selfcheck.sh $(BIN)
 	python3 -m unittest discover -s tests/tools -p 'test_*.py' -q
 
 # Rewrite golden expectations from current output (review the diff!).
