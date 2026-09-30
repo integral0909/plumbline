@@ -222,6 +222,29 @@ neither fallen into nor jumped to, is correctly reported as unreachable.
 `plumbline dump flow FILE` prints the units, their reachability, and their
 edges.
 
+### Data references
+
+`src/lib/plbref.cob`, with its table in `copy/plbref.cpy`.
+
+Every identifier in a procedure division is found and resolved. An
+identifier is a user-defined word that is not a procedure name (those are
+the parser's `PROC` nodes and paragraph headers), not an intrinsic
+function name, and not inside `EXEC ... END-EXEC`. Its `IN`/`OF`
+qualifiers, subscripts, and reference modifier come with it, and
+identifiers inside subscripts are references of their own.
+
+Resolution looks for data items of the program, and then `GLOBAL` items of
+the programs containing it, whose name matches and whose ancestors
+include each qualifier in order. A file-section record may also be
+qualified by its file name. The outcome is one item, several (an
+ambiguous reference), or none. In the last case, the name may still be a
+paragraph (`SORT ... INPUT PROCEDURE P`), a name declared in the
+environment division, an FD, or an `INDEXED BY` phrase, or a device name
+such as `CONSOLE`.
+
+`plumbline dump refs FILE` prints every reference and what it resolved
+to.
+
 ### Rules and reporting
 
 `src/lib/plbrule.cob` (catalog and findings) and `src/lib/plbcheck.cob`
@@ -247,8 +270,8 @@ See the [rule reference](rules.md).
 
 ### Planned
 
-- **Data flow**: reaching definitions over the procedure graph, for
-  uninitialized-use and dead-store checks.
+- **Data flow**: reaching definitions over the procedure graph and the
+  data references, for uninitialized-use and dead-store checks.
 - **Call graph**: static `CALL` literals across programs in one run.
 - **Baselines**: record today's findings and report only new ones.
 
