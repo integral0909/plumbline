@@ -16,10 +16,13 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C008](#plb-c008-move-truncation) | move-truncation | warning | MOVE loses characters or high-order digits |
 | [PLB-C009](#plb-c009-undefined-name) | undefined-name | error | Name is not declared |
 | [PLB-C010](#plb-c010-ambiguous-name) | ambiguous-name | error | Name refers to more than one data item |
+| [PLB-C011](#plb-c011-read-never-set) | read-never-set | warning | Data item is read but never given a value |
+| [PLB-C012](#plb-c012-use-before-set) | use-before-set | warning | Data item is read before any path gives it a value |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
 | [PLB-M004](#plb-m004-alnum-narrowing) | alnum-narrowing | note, off | MOVE from a larger alphanumeric item to a smaller one |
+| [PLB-M005](#plb-m005-set-never-read) | set-never-read | note | Data item is given values but never read |
 
 Rules marked *off* run only when enabled with `--enable`.
 
@@ -217,6 +220,78 @@ not say which:
 
 Compilers reject such references. Qualify the name with `IN` or `OF`.
 
+## How data-flow rules see data
+
+PLB-C011, PLB-C012, and PLB-M005 look at what each statement does with
+the items it names. An operand is *read* (`MOVE A TO ...`, conditions,
+`DISPLAY`), *set* (`MOVE ... TO B`, `ACCEPT`, `READ ... INTO`), or both
+(`ADD 1 TO C`, `STRING ... POINTER P`). `plumbline dump refs` shows the
+role of every reference. Plumbline does not claim to know what some
+operands do, such as `CALL ... USING` items passed by reference, which
+the called program may read or set. Such operands count as both. The
+operand of `LENGTH OF` counts as neither, because only its size is used.
+
+An access counts for every item whose storage it overlaps. Setting a
+group sets its members, setting a member partly sets its group, and
+reading a `REDEFINES` view reads the storage it redefines. A condition
+name (level 88) stands for its conditional variable.
+
+Only working-storage and local-storage items are checked. Items in the
+linkage and file sections get their values from callers and files, and
+`EXTERNAL`, `GLOBAL`, and `BASED` items get theirs from other programs
+or addresses. A `VALUE` clause gives an initial value, and items named in
+the environment division (such as `FILE STATUS` items) may be set by the
+runtime.
+
+## PLB-C011 read-never-set
+
+An item that is read, while nothing in the program sets it or any
+storage it shares, and it has no `VALUE`:
+
+```cobol
+01  TOTAL           PIC 9(5).
+    DISPLAY TOTAL                  *> reported: nothing sets TOTAL
+```
+
+Its value is whatever the storage happens to hold, which depends on the
+compiler and its options.
+
+## PLB-C012 use-before-set
+
+A read that no path through the program reaches with a value in the
+item:
+
+```cobol
+01  TOTAL           PIC 9(5).
+    ADD PRICE TO TOTAL             *> reported: TOTAL has no value yet
+    ...
+    MOVE 0 TO TOTAL
+```
+
+The analysis follows the procedure graph: fall-through, `PERFORM`
+(including what the performed range may set), and `GO TO`. It reports a
+read only when *every* path to it passes no statement that sets the item.
+If any path sets the item first, the read is not reported. Within one
+statement, reads come before sets, so `COMPUTE X = X + 1` reads `X`
+first. The exception is `PERFORM VARYING`, which sets its variable before
+it tests `UNTIL`.
+
+A looping `PERFORM` (`UNTIL`, `VARYING`, `TIMES`, `FOREVER`) repeats its
+body, so anything the loop sets counts as possibly set from its start.
+This is what makes the usual "remember the previous record" loop
+correct, but it also means a read before a set on a loop's first
+iteration is not reported. Code after a `PERFORM` whose target
+Plumbline cannot resolve, and declaratives, are assumed to have
+everything set.
+
+Items that PLB-C011 reports are not reported again here. Programs with
+more than 4096 paragraphs and sections, and files with more than 512
+items to check, are skipped.
+
+Many compilers fill working storage with spaces or zeros by default, so
+such code may happen to work. Give the item a `VALUE` or set it
+explicitly, and the program no longer depends on compiler options.
+
 ## PLB-M001 go-to
 
 Every `GO TO` statement, reported as a note. `GO TO` makes the flow of
@@ -267,3 +342,16 @@ alphanumeric or group item. The rightmost characters are lost. This is
 often intended, for example when moving a field out of a large input
 buffer, so the rule reports notes and does not run unless asked. Turn it
 on when reviewing record layouts or when a truncation bug is suspected.
+
+## PLB-M005 set-never-read
+
+An item that the program gives values to but never reads, nor reads any
+storage it shares:
+
+```cobol
+01  WORK-TOTAL      PIC 9(7).
+    MOVE AMOUNT TO WORK-TOTAL      *> reported: nothing reads WORK-TOTAL
+```
+
+Usually the item is left over from earlier code, or the read that should
+use it is reading something else. The rule is a note by default.
