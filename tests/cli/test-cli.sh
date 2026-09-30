@@ -70,6 +70,15 @@ check "dump tokens reports lexer errors"  1 'bad-chars.cob:2:17: error: unexpect
     -- dump tokens $gx/bad-chars.cob
 check "debugging lines skipped by default" 0 'continuation.cbl:6:12: word     STOP' \
     -- dump tokens $gx/continuation.cbl
+px=tests/golden/pp
+check "help lists dump expanded"          0 'dump expanded' -- --help
+check "dump expanded with -I DIR"         0 'copy/payrec.cpy:2:5: word     PAY-RECORD$' \
+    -- dump expanded -I $px/copy $px/basic.cob
+check "dump expanded with -IDIR"          0 'inclusion 1: tests/golden/pp/copy/payrec.cpy from tests/golden/pp/basic.cob:5:1$' \
+    -- dump expanded -I$px/copy $px/basic.cob
+check "missing copybook is an error"      1 "copybook 'PAYREC' not found \[PP001\]" \
+    -- dump expanded $px/basic.cob
+check "-I needs a directory"              2 '-I needs a directory' -- dump expanded $px/basic.cob -I
 check "--debug includes debugging lines"  0 'continuation.cbl:5:20: alnum    "DEBUG ONLY"' \
     -- dump tokens --debug $gx/continuation.cbl
 check "dump lines needs files"            2 'no input files' -- dump lines

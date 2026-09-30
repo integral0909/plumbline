@@ -4,6 +4,7 @@
 *>   plumbline --help | --version
 *>   plumbline dump lines  [--format fixed|free|auto] FILE...
 *>   plumbline dump tokens [--format fixed|free|auto] [--debug] FILE...
+*>   plumbline dump expanded [-I DIR]... [--format ...] [--debug] FILE...
 *>
 *> Exit codes:
 *>   0  success
@@ -19,6 +20,8 @@ COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
+COPY "plbppopt.cpy".
+COPY "plbincl.cpy".
 78  MAX-INPUTS                  VALUE 256.
 01  WS-ARG-COUNT            PIC 9(4).
 01  WS-ARG-INDEX            PIC 9(4).
@@ -50,6 +53,8 @@ COPY "plbtok.cpy".
 01  WS-TOKEN-TEXT           PIC X(8192).
 01  WS-TOKEN-LEN            PIC 9(9) COMP-5.
 01  WS-J                    PIC 9(9) COMP-5.
+01  WS-MAIN-FILES           PIC 9(4) COMP-5.
+01  WS-PATH-STATUS          PIC 9(4) COMP-5.
 
 PROCEDURE DIVISION.
 MAIN-LOGIC.
@@ -106,6 +111,7 @@ SHOW-USAGE.
     DISPLAY "Usage: plumbline [OPTION]..."
     DISPLAY "       plumbline dump lines [--format FORMAT] FILE..."
     DISPLAY "       plumbline dump tokens [--format FORMAT] [--debug] FILE..."
+    DISPLAY "       plumbline dump expanded [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "Static analysis for COBOL programs."
     DISPLAY " "
     DISPLAY "Options:"
@@ -115,11 +121,13 @@ SHOW-USAGE.
     DISPLAY "Commands:"
     DISPLAY "  dump lines       show how each source line was read"
     DISPLAY "  dump tokens      show the tokens of each source file"
+    DISPLAY "  dump expanded    show the tokens after COPY and REPLACE"
     DISPLAY " "
     DISPLAY "Command options:"
     DISPLAY "  --format FORMAT  reference format: fixed, free, or auto"
     DISPLAY "                   (default auto)"
-    DISPLAY "  --debug          treat debugging lines as code".
+    DISPLAY "  --debug          treat debugging lines as code"
+    DISPLAY "  -I DIR           search DIR for copybooks (repeatable)".
 
 *> dump ---------------------------------------------------------
 
@@ -127,6 +135,7 @@ DUMP-COMMAND.
     PERFORM NEXT-ARG
     MOVE WS-ARG TO WS-DUMP-TARGET
     IF WS-ARG NOT = "lines" AND WS-ARG NOT = "tokens"
+       AND WS-ARG NOT = "expanded"
         IF WS-ARG-LEN = 0
             DISPLAY PLB-NAME ": dump: missing what to dump"
                 UPON SYSERR
@@ -144,11 +153,14 @@ DUMP-COMMAND.
     END-IF
     PERFORM LOAD-INPUTS
 
-    IF WS-DUMP-TARGET = "lines"
+    EVALUATE WS-DUMP-TARGET
+    WHEN "lines"
         PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > SS-LINE-COUNT
             PERFORM DUMP-ONE-LINE
         END-PERFORM
-    ELSE
+    WHEN "expanded"
+        PERFORM DUMP-EXPANDED
+    WHEN OTHER
         CALL "PLB-LEX-INIT" USING PLB-TOKENS
         PERFORM VARYING WS-FILE-ID FROM 1 BY 1
                 UNTIL WS-FILE-ID > SS-FILE-COUNT
@@ -158,11 +170,64 @@ DUMP-COMMAND.
         PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > TK-COUNT
             PERFORM DUMP-ONE-TOKEN
         END-PERFORM
-    END-IF
+    END-EVALUATE
     PERFORM REPORT-DIAGNOSTICS.
 
-*> Collect --format and file operands up to the end of the arguments.
+*> Expand each input file in turn. Copybooks are added to the source
+*> set as they are read, so only the files named on the command line
+*> (the first WS-MAIN-FILES ids) are expanded.
+DUMP-EXPANDED.
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
+    MOVE WS-MODE TO PO-FORMAT
+    MOVE WS-DEBUG TO PO-DEBUG
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        CALL "PLB-PP-RUN" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            PLB-PP-OPTIONS PLB-TOKENS PLB-INCLUSIONS WS-FILE-ID
+        PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > TK-COUNT
+            PERFORM DUMP-ONE-TOKEN
+        END-PERFORM
+        PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > IN-COUNT
+            PERFORM DUMP-ONE-INCLUSION
+        END-PERFORM
+    END-PERFORM.
+
+*> One line per inclusion:
+*>     inclusion N: copybook-path from path:line:column [in inclusion P]
+DUMP-ONE-INCLUSION.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    MOVE WS-I TO WS-NUM
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    STRING "inclusion " WS-NUM-TEXT(1:WS-NUM-LEN) ": "
+        DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    CALL "PLB-STR-LENGTH" USING SF-PATH(IN-FILE-ID(WS-I)) WS-PATH-LEN
+    STRING SF-PATH(IN-FILE-ID(WS-I))(1:WS-PATH-LEN) " from "
+        DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    CALL "PLB-STR-LENGTH" USING SF-PATH(IN-FROM-FILE-ID(WS-I))
+        WS-PATH-LEN
+    STRING SF-PATH(IN-FROM-FILE-ID(WS-I))(1:WS-PATH-LEN) ":"
+        DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE IN-FROM-LINE(WS-I) TO WS-NUM
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    STRING WS-NUM-TEXT(1:WS-NUM-LEN) ":"
+        DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE IN-FROM-COLUMN(WS-I) TO WS-NUM
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    STRING WS-NUM-TEXT(1:WS-NUM-LEN)
+        DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    IF IN-PARENT(WS-I) > 0
+        MOVE IN-PARENT(WS-I) TO WS-NUM
+        CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+        STRING " in inclusion " WS-NUM-TEXT(1:WS-NUM-LEN)
+            DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    CALL "PLB-STR-LENGTH" USING WS-OUT WS-OUT-LEN
+    DISPLAY WS-OUT(1:WS-OUT-LEN).
+
+*> Collect options and file operands up to the end of the arguments.
 PARSE-INPUT-ARGS.
+    CALL "PLB-PP-INIT-OPTIONS" USING PLB-PP-OPTIONS
     PERFORM UNTIL WS-ARG-INDEX > WS-ARG-COUNT OR WS-EXIT-CODE NOT = 0
         PERFORM NEXT-ARG
         EVALUATE TRUE
@@ -171,6 +236,18 @@ PARSE-INPUT-ARGS.
                 PERFORM SET-MODE
             WHEN WS-ARG = "--debug"
                 MOVE "Y" TO WS-DEBUG
+            WHEN WS-ARG = "-I"
+                IF WS-ARG-INDEX > WS-ARG-COUNT
+                    DISPLAY PLB-NAME ": -I needs a directory" UPON SYSERR
+                    PERFORM SUGGEST-HELP
+                ELSE
+                    PERFORM NEXT-ARG
+                    PERFORM ADD-COPY-PATH
+                END-IF
+            WHEN WS-ARG(1:2) = "-I"
+                MOVE WS-ARG(3:) TO WS-CONTENT
+                MOVE WS-CONTENT TO WS-ARG
+                PERFORM ADD-COPY-PATH
             WHEN WS-ARG(1:9) = "--format="
                 MOVE WS-ARG(10:) TO WS-CONTENT
                 MOVE WS-CONTENT TO WS-ARG
@@ -190,6 +267,14 @@ PARSE-INPUT-ARGS.
     IF WS-EXIT-CODE = 0 AND WS-INPUT-COUNT = 0
         DISPLAY PLB-NAME ": no input files" UPON SYSERR
         PERFORM SUGGEST-HELP
+    END-IF.
+
+ADD-COPY-PATH.
+    CALL "PLB-PP-ADD-PATH" USING PLB-PP-OPTIONS WS-ARG WS-PATH-STATUS
+    IF WS-PATH-STATUS NOT = 0
+        DISPLAY PLB-NAME ": too many -I directories (limit "
+            PO-MAX-PATHS ")" UPON SYSERR
+        MOVE 2 TO WS-EXIT-CODE
     END-IF.
 
 SET-MODE.
