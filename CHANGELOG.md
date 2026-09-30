@@ -15,3 +15,6 @@ uses [Semantic Versioning](https://semver.org/).
 - COBOL statement coverage from runtime traces (`tools/cobcov.py`).
 - CI on Linux and macOS.
 - `plbdiag` diagnostics table with `path:line:col: severity: message` formatting.
+- Source reader: fixed and free reference formats, format detection,
+  `>>SOURCE`/`$SET` format switching, tab expansion, literal-aware
+  inline comments, and continuation lines.
