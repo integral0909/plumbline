@@ -36,6 +36,16 @@ PROCEDURE DIVISION USING PLB-TOKENS LK-INDEX PLB-PX-VIEW.
         GOBACK
     END-IF
     MOVE TK-KIND(LK-INDEX) TO PX-KIND
+    *> An alphanumeric literal's text starts with a quote so that no
+    *> literal value ("ELSE", "USAGE") can pass for a keyword.
+    IF TK-IS-ALNUM(LK-INDEX)
+        MOVE '"' TO PX-TEXT
+        IF TK-TEXT-LEN(LK-INDEX) > 0
+            MOVE TK-TEXT(TK-TEXT-OFF(LK-INDEX):TK-TEXT-LEN(LK-INDEX))
+                TO PX-TEXT(2:)
+        END-IF
+        GOBACK
+    END-IF
     IF TK-TEXT-LEN(LK-INDEX) > 0
         MOVE TK-TEXT(TK-TEXT-OFF(LK-INDEX):TK-TEXT-LEN(LK-INDEX))
             TO PX-TEXT

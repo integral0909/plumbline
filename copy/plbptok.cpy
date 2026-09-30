@@ -2,7 +2,8 @@
 01  PLB-PX-VIEW.
     *> Token kind (TK-KIND codes).
     05  PX-KIND                 PIC X.
-    *> First 31 characters of the token text.
+    *> First 31 characters of the token text. For an alphanumeric
+    *> literal: a quote followed by the start of its value.
     05  PX-TEXT                 PIC X(31).
     *> Reserved-word kind (V T F S R) of a word, else space.
     05  PX-KW                   PIC X.

@@ -1,0 +1,14 @@
+*> Literals whose values are keywords are still literals.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WORDS.
+    05  FILLER PIC X(8) VALUE "USAGE".
+    05  FILLER PIC X(8) VALUE "OCCURS".
+PROCEDURE DIVISION.
+    EVALUATE TRUE
+        WHEN MODE = "ELSE"
+            DISPLAY "WHEN"
+        WHEN MODE = "END-IF"
+            DISPLAY "PERFORM"
+    END-EVALUATE
+    IF CODE-TEXT = "THEN" DISPLAY "AT END" END-IF.

@@ -1,0 +1,25 @@
+UNIT @2:1
+  PROG PROGRAM @2:1
+    DIVN DATA @2:1
+      SECT WORKING-STORAGE @3:1
+        DATA 1 WORDS @4:1
+          DATA 5 FILLER @5:5
+            CLAU PICTURE X(8) @5:16
+            CLAU VALUE @5:25
+          DATA 5 FILLER @6:5
+            CLAU PICTURE X(8) @6:16
+            CLAU VALUE @6:25
+    DIVN PROCEDURE @7:1
+      SENT @8:5
+        STMT EVALUATE @8:5
+          COND SUBJECT @8:14
+          BLCK WHEN @9:9
+            COND WHEN @9:14
+            STMT DISPLAY @10:13
+          BLCK WHEN @11:9
+            COND WHEN @11:14
+            STMT DISPLAY @12:13
+        STMT IF @14:5
+          COND IF @14:8
+          BLCK THEN @14:27
+            STMT DISPLAY @14:27
