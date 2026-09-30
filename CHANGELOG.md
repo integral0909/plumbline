@@ -14,3 +14,4 @@ uses [Semantic Versioning](https://semver.org/).
 - `PLBT-*` unit test library with TAP output.
 - COBOL statement coverage from runtime traces (`tools/cobcov.py`).
 - CI on Linux and macOS.
+- `plbdiag` diagnostics table with `path:line:col: severity: message` formatting.
