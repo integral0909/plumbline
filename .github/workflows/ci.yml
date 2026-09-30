@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # GnuCOBOL release built from source on Linux. The checksum pins the
+  # tarball whose GPG signature (key B9459D0CA8A740B323235CDF13E96B53C005604E,
+  # Simon Sobisch) was verified when the pin was added.
+  GNUCOBOL_VERSION: "3.2"
+  GNUCOBOL_SHA256: 3bb48af46ced4779facf41fdc2ee60e4ccb86eaa99d010b36685315df39c2ee2
+
+jobs:
+  linux:
+    name: Linux (GnuCOBOL 3.2)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Restore GnuCOBOL
+        id: cache-cobol
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /opt/gnucobol
+          key: gnucobol-${{ env.GNUCOBOL_VERSION }}-${{ env.GNUCOBOL_SHA256 }}-ubuntu-24.04
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgmp-dev libdb-dev libncurses-dev
+
+      - name: Build GnuCOBOL
+        if: steps.cache-cobol.outputs.cache-hit != 'true'
+        run: |
+          curl -sSfLO "https://ftp.gnu.org/gnu/gnucobol/gnucobol-${GNUCOBOL_VERSION}.tar.xz"
+          echo "${GNUCOBOL_SHA256}  gnucobol-${GNUCOBOL_VERSION}.tar.xz" | sha256sum -c -
+          tar xf "gnucobol-${GNUCOBOL_VERSION}.tar.xz"
+          cd "gnucobol-${GNUCOBOL_VERSION}"
+          ./configure --prefix=/opt/gnucobol
+          make -j"$(nproc)"
+          sudo make install
+
+      - name: Add GnuCOBOL to the environment
+        run: |
+          echo "/opt/gnucobol/bin" >> "$GITHUB_PATH"
+          echo "LD_LIBRARY_PATH=/opt/gnucobol/lib" >> "$GITHUB_ENV"
+
+      - run: cobc --version | head -n 1
+      - run: make
+      - run: make test
+      - run: make coverage COV_MIN=90
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-lcov
+          path: build/coverage/lcov.info
+          if-no-files-found: ignore
+
+  macos:
+    name: macOS (Homebrew GnuCOBOL)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: brew install gnucobol
+      - run: cobc --version | head -n 1
+      - run: make
+      - run: make test
+
+  lint:
+    name: Scripts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: shellcheck
+        run: shellcheck tools/*.sh tests/cli/*.sh
+      - name: Python syntax
+        run: python3 -m py_compile tools/*.py tests/tools/*.py
