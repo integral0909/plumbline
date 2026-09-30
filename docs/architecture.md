@@ -163,11 +163,34 @@ diagnostic, and parsing resumes at the next period or statement.
 
 `plumbline dump ast FILE` prints the tree.
 
-### Analyses *(planned)*
+### Symbols
 
-- **Symbols**: data description entries, level numbers, `REDEFINES`,
-  `OCCURS [DEPENDING ON]`, `88` condition names, and picture analysis
-  (category, size, scale, sign).
+`src/lib/plbpic.cob` and `src/lib/plbsym.cob`, with tables in
+`copy/plbpic.cpy` and `copy/plbsym.cpy`.
+
+The picture analyzer expands repetitions (`X(10)`) and classifies a
+PICTURE string. It reports the category (alphabetic, alphanumeric,
+numeric, numeric-edited, alphanumeric-edited, national, national-edited,
+or boolean), display size, digit positions, scale (including `P`
+scaling), and sign. It understands floating insertion (`$$,$$9.99`),
+zero suppression, `CR`/`DB`, and simple insertion, and it rejects
+malformed pictures with a reason. A second routine gives the storage
+size for each USAGE: display, national, packed decimal, binary by digit
+count, COMP-X, floating point, index, and pointers.
+
+The symbol table has one entry per data description entry. It records
+the name, level, section, parent group, category, usage (inherited from
+the group when not stated), digits, scale, sign, OCCURS maximum,
+DEPENDING ON object, REDEFINES target, and whether a VALUE is given.
+Sizes are computed bottom-up: a group is the sum of its members times
+their OCCURS, and REDEFINES members add nothing. Offsets are computed
+top-down, with a REDEFINES item starting where its target starts. These
+give every item's exact place in its record, which the rules use to
+reason about truncation and overlap.
+
+`plumbline dump symbols FILE` prints the table.
+
+### Analyses *(planned)*
 - **Control flow**: paragraphs and sections as nodes; `PERFORM`,
   `PERFORM THRU`, `GO TO`, `GO TO DEPENDING`, fall-through, and
   `STOP RUN`/`GOBACK` as edges. Yields reachability and PERFORM ranges.
