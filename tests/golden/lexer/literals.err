@@ -1,0 +1,2 @@
+tests/golden/lexer/literals.cob:12:10: warning: hexadecimal literal contains a non-hexadecimal digit [LX004]
+tests/golden/lexer/literals.cob:13:13: error: alphanumeric literal is not terminated [LX001]

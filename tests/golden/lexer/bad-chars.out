@@ -1,0 +1,13 @@
+tests/golden/lexer/bad-chars.cob:2:5: word     MOVE
+tests/golden/lexer/bad-chars.cob:2:10: word     A
+tests/golden/lexer/bad-chars.cob:2:12: word     TO
+tests/golden/lexer/bad-chars.cob:2:15: word     B
+tests/golden/lexer/bad-chars.cob:2:19: word     C
+tests/golden/lexer/bad-chars.cob:3:5: word     DISPLAY
+tests/golden/lexer/bad-chars.cob:3:14: word     X
+tests/golden/lexer/bad-chars.cob:4:5: word     MOVE
+tests/golden/lexer/bad-chars.cob:4:10: word     NAMEÄ
+tests/golden/lexer/bad-chars.cob:4:17: word     TO
+tests/golden/lexer/bad-chars.cob:4:20: word     NÄME
+tests/golden/lexer/bad-chars.cob:4:25: period   .
+tests/golden/lexer/bad-chars.cob:4:25: eof

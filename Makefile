@@ -5,6 +5,8 @@
 #   make test       build and run the unit test suites
 #   make coverage   run the tests with statement tracing and report
 #                   COBOL line coverage (LCOV in build/coverage/)
+#   make golden-update  rewrite golden test expectations from current
+#                   output (review the diff before committing)
 #   make clean      remove build output
 #
 # Set VERBOSE=1 to see full TAP output from passing suites.
@@ -27,18 +29,34 @@ HARNESS_OBJ := $(patsubst tests/harness/%.cob,$(BUILD)/obj/harness/%.o,$(HARNESS
 TEST_SRC    := $(wildcard tests/unit/test-*.cob)
 TEST_BIN    := $(patsubst tests/unit/%.cob,$(BUILD)/tests/%,$(TEST_SRC))
 
-.PHONY: all clean test tests coverage
+.PHONY: all clean test tests coverage golden-update
 .SECONDARY: $(HARNESS_OBJ) $(LIB_OBJ)
 
 all: $(BIN)
 
 tests: $(TEST_BIN)
 
+# Golden suites: directory and the plumbline command it exercises.
+GOLDEN_SUITES := lexer:dump+tokens
+
 test: $(TEST_BIN) $(BIN)
 	tools/run-tests.sh $(TEST_BIN)
 	tests/cli/test-cli.sh $(BIN) > $(BUILD)/cli.tap || { cat $(BUILD)/cli.tap; exit 1; }
 	@tail -n 1 $(BUILD)/cli.tap
+	@for suite in $(GOLDEN_SUITES); do \
+	    dir=$${suite%%:*}; cmd=$$(echo $${suite#*:} | tr + ' '); \
+	    tests/golden/run-golden.sh $(BIN) tests/golden/$$dir $$cmd \
+	        > $(BUILD)/golden-$$dir.tap || { cat $(BUILD)/golden-$$dir.tap; exit 1; }; \
+	    tail -n 1 $(BUILD)/golden-$$dir.tap; \
+	done
 	python3 -m unittest discover -s tests/tools -p 'test_*.py' -q
+
+# Rewrite golden expectations from current output (review the diff!).
+golden-update: $(BIN)
+	@for suite in $(GOLDEN_SUITES); do \
+	    dir=$${suite%%:*}; cmd=$$(echo $${suite#*:} | tr + ' '); \
+	    GOLDEN_UPDATE=1 tests/golden/run-golden.sh $(BIN) tests/golden/$$dir $$cmd; \
+	done
 
 $(BUILD)/obj/%.o: src/lib/%.cob $(COPYBOOKS) | $(BUILD)/obj
 	$(COBC) -c $(ALL_FLAGS) -o $@ $<
@@ -69,8 +87,7 @@ coverage:
 	done
 	COB_SET_TRACE=Y COB_TRACE_FORMAT='%F|%L' \
 	COB_TRACE_FILE='$(CURDIR)/$(COV_DIR)/trace/t_$$$$.trace' \
-	    sh -c 'tools/run-tests.sh $(patsubst $(BUILD)/%,$(COV_BUILD)/%,$(TEST_BIN)) && \
-	           tests/cli/test-cli.sh $(COV_BUILD)/bin/plumbline > /dev/null'
+	    $(MAKE) BUILD=$(COV_BUILD) EXTRA_COBFLAGS="-ftraceall" test
 	tools/cobcov.py --include src/ --include copy/ \
 	    --map $(COV_DIR)/map --trace $(COV_DIR)/trace \
 	    --lcov $(COV_DIR)/lcov.info --fail-under $(COV_MIN)
