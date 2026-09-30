@@ -90,6 +90,11 @@ check "dump symbols shows sizes"          1 '^1 CUSTOMER G size=136 offset=0 sec
     -- dump symbols tests/golden/symbols/layout.cob
 check "dump symbols reports bad pictures" 1 "layout.cob:28:33: warning: invalid character 'Q' in picture \[SY001\]" \
     -- dump symbols tests/golden/symbols/layout.cob
+fw=tests/golden/flow
+check "dump flow shows reachability"      0 '^paragraph AFTER-RANGE unreachable @18$' -- dump flow $fw/paths.cob
+check "dump flow shows edges"             0 '^  perform STEP-1 thru STEP-EXIT$' -- dump flow $fw/paths.cob
+check "dump flow reports bad targets"     1 'NO-SUCH-PARAGRAPH is not a paragraph or section of this program \[FL001\]' \
+    -- dump flow $fw/sections.cob
 check "--debug includes debugging lines"  0 'continuation.cbl:5:20: alnum    "DEBUG ONLY"' \
     -- dump tokens --debug $gx/continuation.cbl
 check "dump lines needs files"            2 'no input files' -- dump lines
