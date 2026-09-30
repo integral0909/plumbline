@@ -1,0 +1,11 @@
+*> NEXT SENTENCE inside an END-IF scope jumps past the END-IF.
+PROCEDURE DIVISION.
+MAIN-LINE.
+    IF A = 1
+        NEXT SENTENCE
+    ELSE
+        MOVE 2 TO B
+    END-IF
+    DISPLAY "SKIPPED WHEN A = 1"
+    IF A = 2 NEXT SENTENCE ELSE MOVE 3 TO B.
+    STOP RUN.

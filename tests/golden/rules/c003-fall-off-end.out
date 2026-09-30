@@ -1,0 +1,2 @@
+tests/golden/rules/c003-fall-off-end.cob:5:1: warning: paragraph WORK is performed, but MAIN-LINE also falls into it [PLB-C002]
+tests/golden/rules/c003-fall-off-end.cob:6:5: warning: control can run off the end of the procedure division after WORK [PLB-C003]

@@ -1,0 +1,9 @@
+*> Programs that end properly are not reported.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. ENDS-WELL.
+PROCEDURE DIVISION.
+MAIN-LINE.
+    PERFORM WORK
+    GOBACK.
+WORK.
+    DISPLAY "WORKING".

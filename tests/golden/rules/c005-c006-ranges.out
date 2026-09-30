@@ -1,0 +1,4 @@
+tests/golden/rules/c005-c006-ranges.cob:4:13: error: PERFORM range ends at STEP-A, which comes before STEP-B [PLB-C005]
+tests/golden/rules/c005-c006-ranges.cob:7:1: warning: paragraph STEP-A is never executed [PLB-C001]
+tests/golden/rules/c005-c006-ranges.cob:12:13: error: LOOPING performs a range that contains itself [PLB-C006]
+tests/golden/rules/c005-c006-ranges.cob:15:13: error: INNER performs a range that contains itself [PLB-C006]

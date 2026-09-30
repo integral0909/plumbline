@@ -1,0 +1,15 @@
+*> PERFORM ranges that run backwards or contain the performer.
+PROCEDURE DIVISION.
+MAIN-LINE.
+    PERFORM STEP-B THRU STEP-A
+    PERFORM LOOPING
+    STOP RUN.
+STEP-A.
+    DISPLAY "A".
+STEP-B.
+    DISPLAY "B".
+LOOPING.
+    PERFORM LOOPING.
+WHOLE SECTION.
+INNER.
+    PERFORM WHOLE.
