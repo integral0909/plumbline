@@ -31,3 +31,10 @@ uses [Semantic Versioning](https://semver.org/).
   copybook resolution against `-I` search paths.
 - `plumbline dump expanded [-I DIR]... FILE...` prints the expanded
   tokens and where each copybook was included from.
+- Parser: programs (nested and sibling), identification, environment,
+  data, and procedure divisions; data entries with clauses; sections,
+  paragraphs, sentences, and statements with COBOL scoping of IF/ELSE,
+  EVALUATE, SEARCH, inline PERFORM, conditional phrases, and scope
+  terminators; error recovery at periods.
+- `plumbline dump ast [-I DIR]... FILE...` prints the syntax tree.
+- Reserved-word table with binary search.

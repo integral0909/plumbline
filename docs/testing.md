@@ -43,6 +43,7 @@ suites and their commands are listed in `GOLDEN_SUITES` in the Makefile:
 |-------|---------|
 | `tests/golden/lexer` | `plumbline dump tokens` |
 | `tests/golden/pp` | `plumbline dump expanded -I tests/golden/pp/copy` |
+| `tests/golden/parser` | `plumbline dump ast` |
 
 Copybooks for the `pp` suite live in `tests/golden/pp/copy/`, with a
 `.cpy` extension, so the runner does not mistake them for test inputs.
@@ -51,6 +52,13 @@ To add a case, write the input and run `make golden-update`, which
 rewrites every expected file from the current output. **Read the diff
 before committing it.** A golden file only protects behavior that someone
 has checked to be right.
+
+## Self-check
+
+`make test` also runs `tools/selfcheck.sh`, which parses every COBOL
+source file of Plumbline itself and fails if any diagnostic is reported.
+The analyzer's own source is several thousand lines of real COBOL, and
+this check has already caught parser bugs that the targeted tests missed.
 
 ## Coverage
 
