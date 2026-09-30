@@ -269,12 +269,11 @@ PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
             MOVE LS-LEAD TO LS-FROM
             PERFORM SCAN-CONTENT
         WHEN OTHER
+            *> The first character is not the start of "*>", so the
+            *> line always has content.
             MOVE "C" TO CL-KIND
             MOVE LS-LEAD TO LS-FROM
             PERFORM SCAN-CONTENT
-            IF CL-CONTENT-LEN = 0
-                MOVE "*" TO CL-KIND
-            END-IF
     END-EVALUATE
     GOBACK.
 
@@ -309,7 +308,7 @@ LINKAGE SECTION.
 01  LK-FORMAT               PIC X.
 PROCEDURE DIVISION USING LK-TEXT LK-FORMAT.
     MOVE SPACE TO LK-FORMAT
-    MOVE LK-TEXT TO LS-TEXT
+    MOVE FUNCTION TRIM(LK-TEXT LEADING) TO LS-TEXT
     CALL "PLB-STR-UPPER" USING LS-TEXT
     INSPECT LS-TEXT REPLACING ALL '"' BY SPACE
                               ALL "'" BY SPACE
@@ -349,20 +348,13 @@ DECODE-FORMAT.
             MOVE "?" TO LK-FORMAT
     END-EVALUATE.
 
+*> LS-TEXT has no leading spaces, and UNSTRING moves the pointer past
+*> every space after a token, so each pass starts on a token.
 SPLIT-TOKENS.
     MOVE SPACES TO LS-TOKENS
     MOVE 0 TO LS-COUNT
     MOVE 1 TO LS-PTR
     PERFORM UNTIL LS-PTR > FUNCTION LENGTH(LS-TEXT) OR LS-COUNT = 12
-        PERFORM UNTIL LS-PTR > FUNCTION LENGTH(LS-TEXT)
-            IF LS-TEXT(LS-PTR:1) NOT = SPACE
-                EXIT PERFORM
-            END-IF
-            ADD 1 TO LS-PTR
-        END-PERFORM
-        IF LS-PTR > FUNCTION LENGTH(LS-TEXT)
-            EXIT PERFORM
-        END-IF
         ADD 1 TO LS-COUNT
         UNSTRING LS-TEXT DELIMITED BY ALL SPACE
             INTO LS-TOKEN(LS-COUNT)

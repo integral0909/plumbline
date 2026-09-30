@@ -94,7 +94,14 @@ TEST-FIXED-BASICS.
     MOVE "000400                " TO WS-LINE
     PERFORM RUN-FIXED
     CALL "PLBT-ASSERT-STR" USING "spaces after indicator is blank" "B"
-        CL-KIND.
+        CL-KIND
+
+    MOVE SPACES TO WS-LINE
+    MOVE "000500" TO WS-LINE(1:6)
+    MOVE "IDENTAREA" TO WS-LINE(73:8)
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "text only past column 72 is blank"
+        "B" CL-KIND.
 
 TEST-FIXED-INDICATORS.
     CALL "PLBT-CASE" USING "fixed: indicator column"
@@ -208,6 +215,14 @@ TEST-FIXED-CONTINUATION.
     CALL "PLBT-ASSERT-FLAG" USING "literal still open" '"'
         CL-OPEN-QUOTE
 
+    MOVE "'" TO WS-QUOTE-IN
+    MOVE "000350-    '" TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "bare resuming quote is content" "'"
+        WS-CONTENT
+    CALL "PLBT-ASSERT-FLAG" USING "bare quote leaves literal open" "'"
+        CL-OPEN-QUOTE
+
     MOVE SPACE TO WS-QUOTE-IN
     MOVE "000400-    ANOTHER-WORD" TO WS-LINE
     PERFORM RUN-FIXED
@@ -292,5 +307,12 @@ TEST-DIRECTIVE-FORMAT.
     CALL "PLBT-ASSERT-FLAG" USING "other directive" " " WS-FORMAT
     CALL "PLB-SRC-DIRECTIVE-FORMAT" USING "$SET ANS85" WS-FORMAT
     CALL "PLBT-ASSERT-FLAG" USING "$SET without SOURCEFORMAT" " "
-        WS-FORMAT.
+        WS-FORMAT
+    CALL "PLB-SRC-DIRECTIVE-FORMAT" USING "   >>SOURCE FREE" WS-FORMAT
+    CALL "PLBT-ASSERT-FLAG" USING "leading spaces ignored" "F"
+        WS-FORMAT
+    CALL "PLB-SRC-DIRECTIVE-FORMAT" USING
+        "$SET A B C D E F G H I J K SOURCEFORMAT(FREE)" WS-FORMAT
+    CALL "PLBT-ASSERT-FLAG" USING "only the first 12 tokens are read"
+        " " WS-FORMAT.
 END PROGRAM TEST-PLBCLASS.
