@@ -12,6 +12,7 @@
 *>   plumbline dump ast [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump symbols [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump flow [-I DIR]... [--format ...] [--debug] FILE...
+*>   plumbline dump refs [-I DIR]... [--format ...] [--debug] FILE...
 *>
 *> Exit codes:
 *>   0  success
@@ -36,6 +37,7 @@ COPY "plbsym.cpy".
 COPY "plbflow.cpy".
 COPY "plbrules.cpy".
 COPY "plbfind.cpy".
+COPY "plbref.cpy".
 78  MAX-INPUTS                  VALUE 256.
 01  WS-ARG-COUNT            PIC 9(4).
 01  WS-ARG-INDEX            PIC 9(4).
@@ -144,6 +146,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline dump ast [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump symbols [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump flow [-I DIR]... [--format FORMAT] [--debug] FILE..."
+    DISPLAY "       plumbline dump refs [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "Static analysis for COBOL programs."
     DISPLAY " "
     DISPLAY "Options:"
@@ -158,6 +161,7 @@ SHOW-USAGE.
     DISPLAY "  dump ast         show the syntax tree"
     DISPLAY "  dump symbols     show data items with sizes and offsets"
     DISPLAY "  dump flow        show paragraphs, sections, and control flow"
+    DISPLAY "  dump refs        show what each name in the procedures refers to"
     DISPLAY " "
     DISPLAY "Command options:"
     DISPLAY "  --format FORMAT  reference format: fixed, free, or auto"
@@ -188,7 +192,7 @@ CHECK-COMMAND.
             UNTIL WS-FILE-ID > WS-MAIN-FILES
         PERFORM ANALYZE-FILE
         CALL "PLB-CHECK-RUN" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
-            PLB-SYMBOLS PLB-FLOW PLB-RULES PLB-FINDINGS
+            PLB-SYMBOLS PLB-FLOW PLB-REFS PLB-RULES PLB-FINDINGS
     END-PERFORM
     CALL "PLB-FIND-SUPPRESS" USING PLB-SOURCE-SET PLB-RULES PLB-FINDINGS
     CALL "PLB-FIND-SORT" USING PLB-FINDINGS
@@ -239,7 +243,9 @@ ANALYZE-FILE.
     CALL "PLB-SYM-BUILD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
         PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-FLOW-BUILD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
-        PLB-TOKENS PLB-AST PLB-FLOW.
+        PLB-TOKENS PLB-AST PLB-FLOW
+    CALL "PLB-REF-BUILD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+        PLB-TOKENS PLB-AST PLB-SYMBOLS PLB-FLOW PLB-REFS.
 
 PRINT-FINDING.
     CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET FN-FILE-ID(WS-I)
@@ -256,6 +262,7 @@ DUMP-COMMAND.
     IF WS-ARG NOT = "lines" AND WS-ARG NOT = "tokens"
        AND WS-ARG NOT = "expanded" AND WS-ARG NOT = "ast"
        AND WS-ARG NOT = "symbols" AND WS-ARG NOT = "flow"
+       AND WS-ARG NOT = "refs"
         IF WS-ARG-LEN = 0
             DISPLAY PLB-NAME ": dump: missing what to dump"
                 UPON SYSERR
@@ -286,6 +293,8 @@ DUMP-COMMAND.
         PERFORM DUMP-SYMBOLS
     WHEN "flow"
         PERFORM DUMP-FLOW
+    WHEN "refs"
+        PERFORM DUMP-REFS
     WHEN OTHER
         CALL "PLB-LEX-INIT" USING PLB-TOKENS
         PERFORM VARYING WS-FILE-ID FROM 1 BY 1
@@ -537,6 +546,90 @@ DUMP-ONE-EDGE.
     CALL "PLB-STR-LENGTH" USING WS-OUT WS-OUT-LEN
     DISPLAY WS-OUT(1:WS-OUT-LEN).
 
+*> One line per reference:
+*>     line:column NAME [(VERB)] -> what [flags]
+DUMP-REFS.
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
+    MOVE WS-MODE TO PO-FORMAT
+    MOVE WS-DEBUG TO PO-DEBUG
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        PERFORM ANALYZE-FILE
+        PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > RF-COUNT
+            PERFORM DUMP-ONE-REF
+        END-PERFORM
+    END-PERFORM.
+
+DUMP-ONE-REF.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    MOVE RF-TOKEN(WS-I) TO WS-TOK
+    MOVE SL-LINE-NO(TK-SRC-LINE(WS-TOK)) TO WS-NUM
+    PERFORM APPEND-NUM
+    STRING ":" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE TK-COLUMN(WS-TOK) TO WS-NUM
+    PERFORM APPEND-NUM
+    STRING " " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    PERFORM VARYING WS-J FROM RF-TOKEN(WS-I) BY 1
+            UNTIL WS-J > RF-LAST(WS-I)
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-J WS-TOKEN-TEXT
+            WS-TOKEN-LEN
+        *> Spaces between words, none around ( ) and :.
+        IF WS-J > RF-TOKEN(WS-I) AND NOT TK-IS-RPAREN(WS-J)
+           AND NOT TK-IS-COLON(WS-J) AND NOT TK-IS-LPAREN(WS-J)
+           AND NOT TK-IS-LPAREN(WS-J - 1) AND NOT TK-IS-COLON(WS-J - 1)
+            STRING " " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+        IF WS-TOKEN-LEN > 0
+            STRING WS-TOKEN-TEXT(1:WS-TOKEN-LEN) DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+    END-PERFORM
+    IF RF-STMT(WS-I) > 0
+        STRING " (" DELIMITED BY SIZE
+               ND-DETAIL(RF-STMT(WS-I)) DELIMITED BY "  "
+               ")" DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    STRING " -> " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    EVALUATE RF-KIND(WS-I)
+        WHEN "D"
+        WHEN "A"
+            MOVE RF-SYMBOL(WS-I) TO WS-S
+            IF RF-KIND(WS-I) = "A"
+                STRING "ambiguous, first " DELIMITED BY SIZE
+                    INTO WS-OUT WITH POINTER WS-PTR
+            END-IF
+            MOVE SY-LEVEL(WS-S) TO WS-NUM
+            PERFORM APPEND-NUM
+            STRING " " DELIMITED BY SIZE
+                   SY-NAME(WS-S) DELIMITED BY SPACE
+                   " @" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+            MOVE ND-TOK-FIRST(SY-NODE(WS-S)) TO WS-TOK
+            MOVE SL-LINE-NO(TK-SRC-LINE(WS-TOK)) TO WS-NUM
+            PERFORM APPEND-NUM
+        WHEN "P"
+            STRING "procedure" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN "O"
+            STRING "other name" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN OTHER
+            STRING "undefined" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+    END-EVALUATE
+    IF RF-SUBSCRIPTED(WS-I) = "Y"
+        STRING " subscripted" DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF RF-REFMOD(WS-I) = "Y"
+        STRING " refmod" DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    CALL "PLB-STR-LENGTH" USING WS-OUT WS-OUT-LEN
+    DISPLAY WS-OUT(1:WS-OUT-LEN).
+
 APPEND-NUM.
     CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
     STRING WS-NUM-TEXT(1:WS-NUM-LEN) DELIMITED BY SIZE
@@ -665,6 +758,10 @@ PARSE-INPUT-ARGS.
             WHEN WS-INPUT-COUNT >= MAX-INPUTS
                 DISPLAY PLB-NAME ": too many input files (limit "
                     MAX-INPUTS ")" UPON SYSERR
+                MOVE 2 TO WS-EXIT-CODE
+            WHEN WS-ARG-LEN > LENGTH OF WS-INPUT(1)
+                DISPLAY PLB-NAME ": file name longer than 512 characters: "
+                    WS-ARG(1:60) "..." UPON SYSERR
                 MOVE 2 TO WS-EXIT-CODE
             WHEN OTHER
                 ADD 1 TO WS-INPUT-COUNT
