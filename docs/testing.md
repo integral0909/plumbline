@@ -69,11 +69,17 @@ from the runtime's statement trace:
 2. Each product source is also compiled to C (`cobc -C`). cobc marks every
    statement in the generated C with a `/* Line: N : VERB : file */`
    comment, which gives the executable lines of each file.
-3. Tests run with `COB_SET_TRACE=Y` and `COB_TRACE_FORMAT='%F|%L'`. Each
-   process writes its own trace file (`$$` in `COB_TRACE_FILE` expands to
-   the process ID).
-4. `tools/cobcov.py` maps traced lines onto the executable lines and writes
-   `build/coverage/lcov.info` plus a summary table.
+3. Every test program, and every `plumbline` run the CLI, golden, and
+   self-check suites make, goes through `tools/cov-run.sh`. It runs the
+   program with `COB_SET_TRACE=Y` and `COB_TRACE_FORMAT='%F|%L'` into a
+   private trace file, then folds that trace into `build/coverage/counts`
+   (`file|line|hits`) and deletes it. Raw traces grow by one line per
+   executed statement and would otherwise reach gigabytes.
+4. `tools/cobcov.py` maps the counted lines onto the executable lines and
+   writes `build/coverage/lcov.info` plus a summary table.
+
+Tracing slows programs down considerably, so `make coverage` takes
+minutes where `make test` takes seconds.
 
 Only files under `src/` and `copy/` are reported. `COV_MIN=<percent>`
 makes the target fail below a threshold; CI sets it.
