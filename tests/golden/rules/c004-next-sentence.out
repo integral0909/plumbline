@@ -1,1 +1,3 @@
+tests/golden/rules/c004-next-sentence.cob:8:8: warning: A is read but never given a value [PLB-C011]
 tests/golden/rules/c004-next-sentence.cob:9:9: warning: NEXT SENTENCE skips past END-IF to the next period; use CONTINUE [PLB-C004]
+tests/golden/rules/c004-next-sentence.cob:11:19: note: B is given a value but never read [PLB-M005]

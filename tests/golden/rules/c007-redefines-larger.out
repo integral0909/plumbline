@@ -1,1 +1,4 @@
 tests/golden/rules/c007-redefines-larger.cob:6:9: error: CODE-TEXT (6 bytes) is larger than CODE-NUM (4 bytes), which it redefines [PLB-C007]
+tests/golden/rules/c007-redefines-larger.cob:11:13: warning: REC is read but never given a value [PLB-C011]
+tests/golden/rules/c007-redefines-larger.cob:11:17: warning: WHOLE-RECORD is read but never given a value [PLB-C011]
+tests/golden/rules/c007-redefines-larger.cob:11:30: warning: BIGGER-RECORD is read but never given a value [PLB-C011]

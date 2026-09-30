@@ -3,3 +3,8 @@ tests/golden/rules/m003-unused.cob:8:9: warning: UNUSED-MEMBER is never referenc
 tests/golden/rules/m003-unused.cob:9:9: warning: UNUSED-GROUP is never referenced [PLB-M003]
 tests/golden/rules/m003-unused.cob:27:5: warning: UNUSED-VIEW is never referenced [PLB-M003]
 tests/golden/rules/m003-unused.cob:30:5: warning: UNUSED-LOCAL is never referenced [PLB-M003]
+tests/golden/rules/m003-unused.cob:34:17: note: USED-FIELD is given a value but never read [PLB-M005]
+tests/golden/rules/m003-unused.cob:34:28: note: USED-MEMBER is given a value but never read [PLB-M005]
+tests/golden/rules/m003-unused.cob:35:20: note: USED-AS-GROUP is given a value but never read [PLB-M005]
+tests/golden/rules/m003-unused.cob:36:8: warning: AT-EOF is read but never given a value [PLB-C011]
+tests/golden/rules/m003-unused.cob:36:23: warning: ROW is read but never given a value [PLB-C011]
