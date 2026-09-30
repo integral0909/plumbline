@@ -1,0 +1,2 @@
+01  OUTER-GROUP.
+    COPY INNER.

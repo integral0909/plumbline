@@ -1,0 +1,1 @@
+tests/golden/pp/copy/selfref.cpy:2:1: error: copybook 'SELFREF' copies itself [PP002]
