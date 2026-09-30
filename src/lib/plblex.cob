@@ -8,7 +8,9 @@
 *>   - Spaces, newlines, commas, and semicolons separate tokens.
 *>   - A word is a run of letters, digits, hyphens, and underscores
 *>     that contains at least one non-digit. Bytes above X"7F" count
-*>     as letters, so UTF-8 identifiers are accepted.
+*>     as letters, so UTF-8 identifiers are accepted. A word may also
+*>     contain colon-delimited tags, as in :PFX:-RECORD, which COPY
+*>     REPLACING ==:PFX:== BY ==WS== turns into WS-RECORD.
 *>   - A numeric literal is a run of digits with an optional sign,
 *>     decimal point, and (after a decimal point) exponent:
 *>     42  -7  +3.25  .5  1.5E+3
@@ -104,6 +106,7 @@ LOCAL-STORAGE SECTION.
 01  LS-DIAG-POS             PIC 9(9) COMP-5.
 01  LS-MESSAGE              PIC X(200).
 01  LS-J                    PIC 9(9) COMP-5.
+01  LS-TAG-LEN              PIC 9(9) COMP-5.
 LINKAGE SECTION.
 COPY "plbstrm.cpy".
 COPY "plbsrc.cpy".
@@ -175,6 +178,13 @@ SCAN-TOKEN.
             PERFORM SCAN-LITERAL
         WHEN LS-CLS = "W" OR LS-CLS = "D"
             PERFORM SCAN-WORD-OR-NUMBER
+        WHEN LS-CH = ":"
+            PERFORM MEASURE-TAG
+            IF LS-TAG-LEN > 0
+                PERFORM SCAN-WORD-OR-NUMBER
+            ELSE
+                PERFORM SCAN-SPECIAL
+            END-IF
         WHEN (LS-CH = "+" OR LS-CH = "-")
              AND LS-NEXT-CLS = "D"
              AND (LS-POS = 1 OR ST-TEXT(LS-POS - 1:1) = SPACE
@@ -265,7 +275,15 @@ SCAN-WORD-OR-NUMBER.
                 MOVE "N" TO LS-ALL-DIGITS
                 ADD 1 TO LS-POS
             WHEN OTHER
-                EXIT PERFORM
+                IF ST-TEXT(LS-POS:1) NOT = ":"
+                    EXIT PERFORM
+                END-IF
+                PERFORM MEASURE-TAG
+                IF LS-TAG-LEN = 0
+                    EXIT PERFORM
+                END-IF
+                MOVE "N" TO LS-ALL-DIGITS
+                ADD LS-TAG-LEN TO LS-POS
         END-EVALUATE
     END-PERFORM
     COMPUTE LS-RUN-LEN = LS-POS - LS-START
@@ -292,6 +310,26 @@ SCAN-WORD-OR-NUMBER.
     MOVE "W" TO LS-KIND
     PERFORM TAKE-UPPER-TEXT
     PERFORM ADD-TOKEN.
+
+*> LS-POS is on a colon. If a tag such as :PFX: starts here, set
+*> LS-TAG-LEN to its length (both colons included), else to 0.
+MEASURE-TAG.
+    MOVE 0 TO LS-TAG-LEN
+    MOVE LS-POS TO LS-J
+    ADD 1 TO LS-J
+    PERFORM UNTIL LS-J > ST-LEN
+        MOVE WS-CLASS(FUNCTION ORD(ST-TEXT(LS-J:1))) TO LS-NEXT-CLS
+        IF LS-NEXT-CLS NOT = "W" AND LS-NEXT-CLS NOT = "D"
+                AND LS-NEXT-CLS NOT = "H"
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-J
+    END-PERFORM
+    IF LS-J <= ST-LEN AND LS-J > LS-POS + 1
+        IF ST-TEXT(LS-J:1) = ":"
+            COMPUTE LS-TAG-LEN = LS-J - LS-POS + 1
+        END-IF
+    END-IF.
 
 *> Digits after an optional sign or leading decimal point.
 SCAN-NUMBER-DIGITS.
