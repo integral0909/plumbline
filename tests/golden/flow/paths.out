@@ -1,0 +1,11 @@
+paragraph MAIN-LINE reached flowed ends @3
+  perform INIT
+  perform STEP-1 thru STEP-EXIT
+  go ABEND
+paragraph INIT reached performed @10
+paragraph STEP-1 reached performed @12
+paragraph STEP-2 reached @14
+paragraph STEP-EXIT reached @16
+paragraph AFTER-RANGE unreachable @18
+paragraph ABEND reached flowed jumped-to ends @20
+paragraph NEVER-CALLED unreachable @23

@@ -1,0 +1,2 @@
+tests/golden/flow/sections.cob:16:13: error: NO-SUCH-PARAGRAPH is not a paragraph or section of this program [FL001]
+tests/golden/flow/sections.cob:17:13: warning: paragraph CLEANUP is defined in more than one section; qualify it [FL002]
