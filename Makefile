@@ -39,17 +39,21 @@ tests: $(TEST_BIN)
 # Golden suites: directory and the plumbline command it exercises.
 GOLDEN_SUITES := lexer:dump+tokens pp:dump+expanded+-I+tests/golden/pp/copy parser:dump+ast
 
+# The plumbline command the tests run; make coverage substitutes a
+# wrapper that collects traces.
+RUN_BIN ?= $(BIN)
+
 test: $(TEST_BIN) $(BIN)
 	tools/run-tests.sh $(TEST_BIN)
-	tests/cli/test-cli.sh $(BIN) > $(BUILD)/cli.tap || { cat $(BUILD)/cli.tap; exit 1; }
+	tests/cli/test-cli.sh $(RUN_BIN) > $(BUILD)/cli.tap || { cat $(BUILD)/cli.tap; exit 1; }
 	@tail -n 1 $(BUILD)/cli.tap
 	@for suite in $(GOLDEN_SUITES); do \
 	    dir=$${suite%%:*}; cmd=$$(echo $${suite#*:} | tr + ' '); \
-	    tests/golden/run-golden.sh $(BIN) tests/golden/$$dir $$cmd \
+	    tests/golden/run-golden.sh $(RUN_BIN) tests/golden/$$dir $$cmd \
 	        > $(BUILD)/golden-$$dir.tap || { cat $(BUILD)/golden-$$dir.tap; exit 1; }; \
 	    tail -n 1 $(BUILD)/golden-$$dir.tap; \
 	done
-	tools/selfcheck.sh $(BIN)
+	tools/selfcheck.sh $(RUN_BIN)
 	python3 -m unittest discover -s tests/tools -p 'test_*.py' -q
 
 # Rewrite golden expectations from current output (review the diff!).
@@ -72,25 +76,27 @@ $(BUILD)/tests/%: tests/unit/%.cob $(LIB_OBJ) $(HARNESS_OBJ) $(COPYBOOKS) | $(BU
 	$(COBC) -x $(ALL_FLAGS) -I tests/harness -o $@ $< $(LIB_OBJ) $(HARNESS_OBJ)
 
 # Coverage: rebuild everything with statement tracing in a separate tree,
-# run the tests with one trace file per process, then map traced lines
-# back onto the executable lines found in the generated C.
+# run every test program through tools/cov-run.sh, which folds each
+# process's trace into build/coverage/counts and deletes it, then map the
+# counted lines back onto the executable lines found in the generated C.
 COV_BUILD     := $(BUILD)/cov
 COV_DIR       := $(BUILD)/coverage
 COV_MIN       ?= 0
 PRODUCT_SRC   := $(LIB_SRC) src/cli/plumbline.cob
 
 coverage:
-	rm -rf $(COV_DIR) && mkdir -p $(COV_DIR)/map $(COV_DIR)/trace
+	rm -rf $(COV_DIR) && mkdir -p $(COV_DIR)/map
 	$(MAKE) BUILD=$(COV_BUILD) EXTRA_COBFLAGS="-ftraceall" tests all
 	for src in $(PRODUCT_SRC); do \
 	    $(COBC) -C $(ALL_FLAGS) -ftraceall \
 	        -o $(COV_DIR)/map/$$(basename $$src .cob).c $$src || exit 1; \
 	done
-	COB_SET_TRACE=Y COB_TRACE_FORMAT='%F|%L' \
-	COB_TRACE_FILE='$(CURDIR)/$(COV_DIR)/trace/t_$$$$.trace' \
-	    $(MAKE) BUILD=$(COV_BUILD) EXTRA_COBFLAGS="-ftraceall" test
+	PLB_COV_DIR='$(CURDIR)/$(COV_DIR)' PLB_COV_BIN='$(CURDIR)/$(COV_BUILD)/bin/plumbline' \
+	TEST_RUNNER='$(CURDIR)/tools/cov-run.sh' \
+	    $(MAKE) BUILD=$(COV_BUILD) EXTRA_COBFLAGS="-ftraceall" \
+	        RUN_BIN='$(CURDIR)/tools/cov-plumbline.sh' test
 	tools/cobcov.py --include src/ --include copy/ \
-	    --map $(COV_DIR)/map --trace $(COV_DIR)/trace \
+	    --map $(COV_DIR)/map --counts $(COV_DIR)/counts \
 	    --lcov $(COV_DIR)/lcov.info --fail-under $(COV_MIN)
 
 $(BUILD)/obj $(BUILD)/bin $(BUILD)/obj/harness $(BUILD)/tests:
