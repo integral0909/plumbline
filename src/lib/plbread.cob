@@ -237,7 +237,10 @@ END PROGRAM PLB-SRC-SET-FORMAT.
 *> format source written from column 1 almost always trips this;
 *> fixed format source almost never does. If more than a fifth of the
 *> sample disagrees with fixed format, the file is free format.
-*> A leading format directive settles the question outright.
+*>
+*> A format directive on the first line settles the question outright.
+*> A later one ends the sample: the lines after it are in the format
+*> it names, and say nothing about the format the file starts in.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-SRC-DETECT-FORMAT.
 DATA DIVISION.
@@ -251,6 +254,8 @@ LOCAL-STORAGE SECTION.
 01  LS-FROM                 PIC 9(4) COMP-5 VALUE 1.
 01  LS-TO                   PIC 9(4) COMP-5.
 01  LS-DIRECTIVE            PIC X.
+01  LS-AT                   PIC 9(4) COMP-5.
+01  LS-FIXED-FROM           PIC 9(4) COMP-5.
 LINKAGE SECTION.
 COPY "plbsrc.cpy".
 01  LK-FILE-ID              PIC 9(4) COMP-5.
@@ -270,14 +275,15 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET LK-FILE-ID LK-FORMAT.
             CALL "PLB-SRC-FIRST-FROM" USING LS-LINE LS-FROM LS-TO
                 LS-LEAD
             IF LS-LEAD > 0
-                ADD 1 TO LS-SAMPLED
-                IF LS-SAMPLED = 1
-                    PERFORM CHECK-LEADING-DIRECTIVE
-                    IF LS-DIRECTIVE = "X" OR LS-DIRECTIVE = "F"
+                PERFORM CHECK-DIRECTIVE
+                IF LS-DIRECTIVE = "X" OR LS-DIRECTIVE = "F"
+                    IF LS-SAMPLED = 0
                         MOVE LS-DIRECTIVE TO LK-FORMAT
                         GOBACK
                     END-IF
+                    EXIT PERFORM
                 END-IF
+                ADD 1 TO LS-SAMPLED
                 PERFORM CHECK-LINE
             END-IF
         END-IF
@@ -287,10 +293,29 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET LK-FILE-ID LK-FORMAT.
     END-IF
     GOBACK.
 
-CHECK-LEADING-DIRECTIVE.
+*> A format directive may start the line (free format) or follow a
+*> sequence area (fixed format: "$" in column 7, or ">>" in area A or
+*> B), so both positions are checked.
+CHECK-DIRECTIVE.
     MOVE SPACE TO LS-DIRECTIVE
-    IF LS-LINE(LS-LEAD:2) = ">>" OR LS-LINE(LS-LEAD:1) = "$"
-        CALL "PLB-SRC-DIRECTIVE-FORMAT" USING LS-LINE(LS-LEAD:)
+    MOVE LS-LEAD TO LS-AT
+    PERFORM CHECK-DIRECTIVE-AT
+    IF LS-DIRECTIVE = SPACE AND SL-TEXT-LEN(LS-INDEX) >= 7
+        IF LS-LINE(7:1) = "$"
+            MOVE 7 TO LS-AT
+        ELSE
+            MOVE 8 TO LS-FIXED-FROM
+            CALL "PLB-SRC-FIRST-FROM" USING LS-LINE LS-FIXED-FROM LS-TO
+                LS-AT
+        END-IF
+        IF LS-AT > 0
+            PERFORM CHECK-DIRECTIVE-AT
+        END-IF
+    END-IF.
+
+CHECK-DIRECTIVE-AT.
+    IF LS-LINE(LS-AT:2) = ">>" OR LS-LINE(LS-AT:1) = "$"
+        CALL "PLB-SRC-DIRECTIVE-FORMAT" USING LS-LINE(LS-AT:)
             LS-DIRECTIVE
     END-IF.
 

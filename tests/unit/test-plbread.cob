@@ -211,7 +211,19 @@ TEST-FORMAT-SWITCH.
     MOVE 8 TO WS-EXPECT-NUM
     MOVE DG-LINE(1) TO WS-ACTUAL-NUM
     CALL "PLBT-ASSERT-NUM" USING "warning on the directive line"
-        WS-EXPECT-NUM WS-ACTUAL-NUM.
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+
+    *> Detection must only look at lines before the first format
+    *> directive; the free-format lines after it do not count.
+    PERFORM RESET-SET
+    MOVE "A" TO WS-MODE
+    PERFORM LOAD-FIXTURE
+    CALL "PLBT-ASSERT-FLAG" USING "detected as fixed before switch" "X"
+        SF-FORMAT(WS-FILE-ID)
+    MOVE 4 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-FLAG" USING "detected file still switches" "F"
+        SL-FORMAT(WS-INDEX).
 
 TEST-TABS.
     CALL "PLBT-CASE" USING "tabs.cbl"
