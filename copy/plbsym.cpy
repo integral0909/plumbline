@@ -22,8 +22,8 @@
         10  SY-PARENT           PIC 9(9) COMP-5.
         *> Category: the picture category (A X 9 E D N M 1, see
         *> plbpic.cpy), or G group, C condition name (88), R renames
-        *> (66), U a usage without a picture (INDEX, POINTER, COMP-1),
-        *> ? an invalid or missing picture.
+        *> (66), K constant (78), U a usage without a picture (INDEX,
+        *> POINTER, COMP-1), ? an invalid or missing picture.
         10  SY-CATEGORY         PIC X.
         10  SY-USAGE            PIC X(20).
         10  SY-DIGITS           PIC 9(4) COMP-5.

@@ -6,10 +6,12 @@
 *>
 *>   1. describe each item: name, level, section, parent group,
 *>      picture analysis, usage (inherited from the group when not
-*>      given), OCCURS, DEPENDING ON, REDEFINES, and VALUE;
-*>   2. compute sizes bottom-up: an elementary item's size comes from
-*>      its picture and usage; a group's is the sum of its members,
-*>      each multiplied by its OCCURS, not counting REDEFINES members;
+*>      given), OCCURS, DEPENDING ON, REDEFINES, and VALUE; an
+*>      elementary item's size follows from its picture and usage.
+*>      Level-78 constants with numeric values are remembered, so that
+*>      a later PIC X(MAX-LEN) is analyzed as the value it names;
+*>   2. compute group sizes bottom-up: the sum of the members, each
+*>      multiplied by its OCCURS, not counting REDEFINES members;
 *>   3. compute offsets top-down: members follow one another inside
 *>      their group, and an item that redefines another starts where
 *>      that item starts.
@@ -28,6 +30,13 @@ WORKING-STORAGE SECTION.
 01  WS-NODE-SYMBOL          PIC 9(9) COMP-5 OCCURS 400000 TIMES.
 *> Running offset inside each group during the offset pass.
 01  WS-CURSOR               PIC 9(9) COMP-5 OCCURS 100000 TIMES.
+*> Level-78 constants with numeric values, for picture counts.
+01  WS-CONSTANTS.
+    05  WS-CONSTANT-COUNT   PIC 9(4) COMP-5.
+    05  WS-CONSTANT         OCCURS 1000 TIMES.
+        10  CN-PROGRAM      PIC 9(9) COMP-5.
+        10  CN-NAME         PIC X(31).
+        10  CN-VALUE        PIC X(10).
 LOCAL-STORAGE SECTION.
 COPY "plbpic.cpy".
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
@@ -46,6 +55,14 @@ COPY "plbpic.cpy".
 01  LS-FULL                 PIC X VALUE "N".
 01  LS-TIMES                PIC 9(9) COMP-5.
 01  LS-DETAIL               PIC X(20).
+01  LS-PICTURE              PIC X(256).
+01  LS-PIC-POS              PIC 9(9) COMP-5.
+01  LS-PIC-OUT              PIC 9(9) COMP-5.
+01  LS-CLOSE                PIC 9(9) COMP-5.
+01  LS-CONST-NAME           PIC X(31).
+01  LS-C                    PIC 9(4) COMP-5.
+01  LS-SUBSTITUTED          PIC X.
+01  LS-SAVED-PIC            PIC X(80).
 LINKAGE SECTION.
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
@@ -56,7 +73,7 @@ COPY "plbast.cpy".
 COPY "plbsym.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
         PLB-AST PLB-SYMBOLS.
-    MOVE 0 TO SY-COUNT LS-PROGRAM LS-DEPTH
+    MOVE 0 TO SY-COUNT LS-PROGRAM LS-DEPTH WS-CONSTANT-COUNT
     MOVE "?" TO LS-SECTION
     IF AS-COUNT = 0
         GOBACK
@@ -138,14 +155,29 @@ DESCRIBE-ITEM.
             MOVE "C" TO SY-CATEGORY(LS-S)
         WHEN SY-LEVEL(LS-S) = 66
             MOVE "R" TO SY-CATEGORY(LS-S)
+        WHEN SY-LEVEL(LS-S) = 78
+            MOVE "K" TO SY-CATEGORY(LS-S)
         WHEN LS-HAS-PICTURE = "Y"
-            CONTINUE
+            MOVE LS-SAVED-PIC TO PLB-PIC-INFO
+            *> An invalid picture gives no reliable size.
+            IF NOT PI-IS-INVALID
+                CALL "PLB-PIC-STORAGE" USING PLB-PIC-INFO SY-USAGE(LS-S)
+                    SY-SIZE(LS-S)
+            END-IF
         WHEN OTHER
             PERFORM CATEGORY-WITHOUT-PICTURE
+            IF SY-CATEGORY(LS-S) = "U"
+                MOVE 0 TO PI-SIZE PI-DIGITS
+                CALL "PLB-PIC-STORAGE" USING PLB-PIC-INFO
+                    SY-USAGE(LS-S) SY-SIZE(LS-S)
+            END-IF
     END-EVALUATE
+    IF SY-LEVEL(LS-S) = 78
+        PERFORM REMEMBER-CONSTANT
+    END-IF
     *> A parent that has members is a group.
     IF SY-PARENT(LS-S) > 0 AND SY-LEVEL(LS-S) NOT = 88
-       AND SY-LEVEL(LS-S) NOT = 66
+       AND SY-LEVEL(LS-S) NOT = 66 AND SY-LEVEL(LS-S) NOT = 78
         MOVE "G" TO SY-CATEGORY(SY-PARENT(LS-S))
     END-IF.
 
@@ -157,7 +189,9 @@ DESCRIBE-CLAUSE.
                 MOVE "Y" TO LS-HAS-PICTURE
                 CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(LS-CHILD)
                     LS-TEXT LS-LEN
+                PERFORM SUBSTITUTE-CONSTANTS
                 CALL "PLB-PIC-ANALYZE" USING LS-TEXT PLB-PIC-INFO
+                MOVE PLB-PIC-INFO TO LS-SAVED-PIC
                 MOVE PI-CATEGORY TO SY-CATEGORY(LS-S)
                 MOVE PI-DIGITS TO SY-DIGITS(LS-S)
                 MOVE PI-SCALE TO SY-SCALE(LS-S)
@@ -186,19 +220,116 @@ DESCRIBE-CLAUSE.
             MOVE LS-DETAIL TO SY-USAGE(LS-S)
     END-EVALUATE.
 
-*> OCCURS n [TO m] ...: the table has at most m (or n) entries.
+*> Replace each "(NAME)" in LS-TEXT whose NAME is a level-78 constant
+*> of the current program by "(value)".
+SUBSTITUTE-CONSTANTS.
+    IF WS-CONSTANT-COUNT = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-PICTURE
+    MOVE 1 TO LS-PIC-POS LS-PIC-OUT
+    MOVE "N" TO LS-SUBSTITUTED
+    PERFORM UNTIL LS-PIC-POS > LS-LEN
+        IF LS-TEXT(LS-PIC-POS:1) = "(" AND LS-PIC-POS < LS-LEN
+           AND LS-TEXT(LS-PIC-POS + 1:1) >= "A"
+           AND LS-TEXT(LS-PIC-POS + 1:1) <= "Z"
+            PERFORM TRY-CONSTANT
+        ELSE
+            MOVE LS-TEXT(LS-PIC-POS:1) TO LS-PICTURE(LS-PIC-OUT:1)
+            ADD 1 TO LS-PIC-POS LS-PIC-OUT
+        END-IF
+    END-PERFORM
+    IF LS-SUBSTITUTED = "Y"
+        MOVE LS-PICTURE TO LS-TEXT
+        CALL "PLB-STR-LENGTH" USING LS-TEXT LS-LEN
+    END-IF.
+
+TRY-CONSTANT.
+    MOVE 0 TO LS-CLOSE
+    PERFORM VARYING LS-TOKEN FROM LS-PIC-POS BY 1
+            UNTIL LS-TOKEN > LS-LEN
+        IF LS-TEXT(LS-TOKEN:1) = ")"
+            MOVE LS-TOKEN TO LS-CLOSE
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    MOVE 0 TO LS-C
+    IF LS-CLOSE > LS-PIC-POS + 1 AND LS-CLOSE - LS-PIC-POS - 1 <= 31
+        MOVE LS-TEXT(LS-PIC-POS + 1:LS-CLOSE - LS-PIC-POS - 1)
+            TO LS-CONST-NAME
+        PERFORM FIND-CONSTANT
+    END-IF
+    IF LS-C = 0
+        *> Not a known constant: copy the "(" and carry on.
+        MOVE "(" TO LS-PICTURE(LS-PIC-OUT:1)
+        ADD 1 TO LS-PIC-POS LS-PIC-OUT
+    ELSE
+        STRING "(" DELIMITED BY SIZE
+               CN-VALUE(LS-C) DELIMITED BY SPACE
+               ")" DELIMITED BY SIZE
+            INTO LS-PICTURE WITH POINTER LS-PIC-OUT
+        COMPUTE LS-PIC-POS = LS-CLOSE + 1
+        MOVE "Y" TO LS-SUBSTITUTED
+    END-IF.
+
+*> LS-C = the constant named LS-CONST-NAME in this program, or 0.
+FIND-CONSTANT.
+    PERFORM VARYING LS-C FROM WS-CONSTANT-COUNT BY -1 UNTIL LS-C = 0
+        IF CN-NAME(LS-C) = LS-CONST-NAME
+           AND CN-PROGRAM(LS-C) = LS-PROGRAM
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+*> 78 NAME VALUE n: remember n when it is an unsigned integer.
+REMEMBER-CONSTANT.
+    IF SY-NAME(LS-S) = SPACES OR WS-CONSTANT-COUNT >= 1000
+        EXIT PARAGRAPH
+    END-IF
+    MOVE ND-FIRST(LS-NODE) TO LS-CHILD
+    PERFORM UNTIL LS-CHILD = 0
+        IF ND-DETAIL(LS-CHILD) = "VALUE"
+            COMPUTE LS-TOKEN = ND-TOK-FIRST(LS-CHILD) + 1
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT LS-LEN
+            IF LS-TEXT = "IS"
+                ADD 1 TO LS-TOKEN
+            END-IF
+            IF TK-IS-NUMBER(LS-TOKEN) AND TK-TEXT-LEN(LS-TOKEN) <= 10
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT
+                    LS-LEN
+                IF FUNCTION TEST-NUMVAL(LS-TEXT(1:LS-LEN)) = 0
+                   AND LS-TEXT(1:1) >= "0" AND LS-TEXT(1:1) <= "9"
+                    ADD 1 TO WS-CONSTANT-COUNT
+                    MOVE LS-PROGRAM TO CN-PROGRAM(WS-CONSTANT-COUNT)
+                    MOVE SY-NAME(LS-S) TO CN-NAME(WS-CONSTANT-COUNT)
+                    MOVE LS-TEXT(1:LS-LEN) TO CN-VALUE(WS-CONSTANT-COUNT)
+                END-IF
+            END-IF
+            EXIT PERFORM
+        END-IF
+        MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+    END-PERFORM.
+
+*> OCCURS n [TO m] ...: the table has at most m (or n) entries. A
+*> count may be a level-78 constant name.
 DESCRIBE-OCCURS.
     COMPUTE LS-TOKEN = ND-TOK-FIRST(LS-CHILD) + 1
     PERFORM UNTIL LS-TOKEN > ND-TOK-LAST(LS-CHILD)
-        IF TK-IS-NUMBER(LS-TOKEN)
-            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT LS-LEN
-            MOVE FUNCTION NUMVAL(LS-TEXT(1:LS-LEN)) TO SY-OCCURS(LS-S)
-        ELSE
-            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT LS-LEN
-            IF LS-TEXT NOT = "TO"
-                EXIT PERFORM
-            END-IF
-        END-IF
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT LS-LEN
+        EVALUATE TRUE
+            WHEN TK-IS-NUMBER(LS-TOKEN)
+                MOVE FUNCTION NUMVAL(LS-TEXT(1:LS-LEN))
+                    TO SY-OCCURS(LS-S)
+            WHEN LS-TEXT = "TO"
+                CONTINUE
+            WHEN OTHER
+                MOVE LS-TEXT TO LS-CONST-NAME
+                PERFORM FIND-CONSTANT
+                IF LS-C = 0
+                    EXIT PERFORM
+                END-IF
+                MOVE FUNCTION NUMVAL(CN-VALUE(LS-C)) TO SY-OCCURS(LS-S)
+        END-EVALUATE
         ADD 1 TO LS-TOKEN
     END-PERFORM
     IF ND-FIRST(LS-CHILD) > 0
@@ -257,39 +388,16 @@ CATEGORY-WITHOUT-PICTURE.
 
 COMPUTE-SIZES.
     PERFORM VARYING LS-S FROM SY-COUNT BY -1 UNTIL LS-S = 0
-        IF SY-CATEGORY(LS-S) NOT = "G" AND SY-CATEGORY(LS-S) NOT = "C"
-           AND SY-CATEGORY(LS-S) NOT = "R"
-            PERFORM ELEMENTARY-SIZE
-        END-IF
         MOVE SY-PARENT(LS-S) TO LS-P
         IF LS-P > 0 AND SY-REDEFINES(LS-S) = 0
            AND SY-CATEGORY(LS-S) NOT = "C"
            AND SY-CATEGORY(LS-S) NOT = "R"
+           AND SY-CATEGORY(LS-S) NOT = "K"
             PERFORM OCCURRENCES
             COMPUTE SY-SIZE(LS-P) = SY-SIZE(LS-P)
                 + SY-SIZE(LS-S) * LS-TIMES
         END-IF
     END-PERFORM.
-
-ELEMENTARY-SIZE.
-    MOVE SY-CATEGORY(LS-S) TO PI-CATEGORY
-    MOVE SY-DIGITS(LS-S) TO PI-DIGITS
-    MOVE 0 TO PI-SIZE
-    IF SY-CATEGORY(LS-S) NOT = "U" AND SY-CATEGORY(LS-S) NOT = "?"
-        *> Re-read the picture for its display size.
-        MOVE ND-FIRST(SY-NODE(LS-S)) TO LS-CHILD
-        PERFORM UNTIL LS-CHILD = 0
-            IF ND-DETAIL(LS-CHILD) = "PICTURE" AND ND-NAME(LS-CHILD) > 0
-                CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(LS-CHILD)
-                    LS-TEXT LS-LEN
-                CALL "PLB-PIC-ANALYZE" USING LS-TEXT PLB-PIC-INFO
-                EXIT PERFORM
-            END-IF
-            MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
-        END-PERFORM
-    END-IF
-    CALL "PLB-PIC-STORAGE" USING PLB-PIC-INFO SY-USAGE(LS-S)
-        SY-SIZE(LS-S).
 
 OCCURRENCES.
     MOVE 1 TO LS-TIMES
