@@ -7,7 +7,7 @@ does not exist in code yet.
 ## Pipeline
 
 ```
-source files ──► reader ──► preprocessor ──► lexer ──► parser ──► AST store
+source files ──► reader ──► lexer ──► preprocessor ──► parser ──► AST store
                                                                      │
        reports ◄── reporters ◄── rule engine ◄── analyses ◄──────────┘
 ```
@@ -49,13 +49,45 @@ point at the exact source the user wrote.
 Hard limits (files, lines, heap size, 1024-column lines) are enforced
 with diagnostics, never with silent truncation.
 
-### Preprocessor *(planned)*
+### Preprocessor
 
-Expands `COPY ... [REPLACING ...]` and `REPLACE` statements. Copybooks are
-resolved against user-provided search paths only. Resolution never follows
-a path outside those roots (see [SECURITY.md](../SECURITY.md)). Nested
-copies are tracked on a stack to detect recursion and to build the source
-map for findings inside copybooks.
+`src/lib/plbpp.cob`, with tables in `copy/plbppopt.cpy` and
+`copy/plbincl.cpy`.
+
+The preprocessor works on tokens, not text. `PLB-PP-RUN` lexes the main
+file and walks its tokens with an explicit stack of frames, one per file
+being expanded:
+
+- **COPY** *name* [`OF`|`IN` *library*] [`SUPPRESS`] [`REPLACING` ...] `.`
+  pushes a frame for the copybook. The copybook is read and tokenized
+  once per run and cached. The `REPLACING` operands of a COPY statement
+  apply only to that copybook's own text. An operand is pseudo-text
+  (`==...==`), a word, or a literal. `LEADING` and `TRAILING` replace
+  part of a word. A tag such as `:PFX:` is replaced wherever it appears
+  inside a word, so `:PFX:-RECORD` becomes `WS-RECORD`.
+- **REPLACE** statements are applied in a second pass over the expanded
+  text, as the standard requires. `REPLACE ... .`, `REPLACE ALSO ... .`,
+  `REPLACE LAST OFF.`, and `REPLACE OFF.` manage a stack of rule sets.
+
+Copybooks are looked up in the directory of the file that contains the
+COPY statement, then in each `-I` search path. A word name is tried in
+lower case, then upper case, with the extensions `.cpy`, `.cbl`, and
+`.cob` (in both cases), then bare. A library name is a subdirectory.
+Names and libraries must be relative paths without `..` segments, so COPY
+statements in untrusted source cannot reach files outside the search
+directories.
+
+A copybook that copies itself, directly or through others, is reported
+and not expanded. Nesting is limited to 32 levels.
+
+Every expansion adds an entry to the inclusion table: the copybook, the
+inclusion it is nested in, and the location of the COPY statement. Each
+output token records the inclusion it came through. A finding inside a
+copybook can therefore name the copybook line and the chain of COPY
+statements that led there.
+
+`plumbline dump expanded -I DIR FILE` prints the expanded tokens and the
+inclusion table.
 
 ### Lexer
 
