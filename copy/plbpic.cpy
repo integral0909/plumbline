@@ -27,4 +27,8 @@
     05  PI-SCALE                PIC S9(4) COMP-5.
     *> "Y" when the value can be negative (S, or a sign in editing).
     05  PI-SIGNED               PIC X.
+    *> "Y" when a repetition count is a constant name, as in
+    *> X(MAX-LEN); it counts as 1 here. Callers that know the
+    *> constants substitute their values before analysis.
+    05  PI-SYMBOLIC             PIC X.
     05  PI-ERROR                PIC X(60).

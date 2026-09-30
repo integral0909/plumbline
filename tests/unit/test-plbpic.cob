@@ -21,6 +21,7 @@ COPY "plbpic.cpy".
 PROCEDURE DIVISION.
     CALL "PLBT-BEGIN" USING "plbpic"
     PERFORM TEST-VALID
+    PERFORM TEST-SYMBOLIC
     PERFORM TEST-INVALID
     PERFORM TEST-STORAGE
     CALL "PLBT-END"
@@ -264,6 +265,18 @@ TEST-VALID.
     MOVE "N" TO WS-SIGNED
     PERFORM CHECK-VALID.
 
+TEST-SYMBOLIC.
+    CALL "PLBT-CASE" USING "constant names as repetition counts"
+    MOVE "X(MAX-LEN)" TO WS-PIC
+    CALL "PLB-PIC-ANALYZE" USING WS-PIC PLB-PIC-INFO
+    CALL "PLBT-ASSERT-FLAG" USING "accepted as alphanumeric" "X"
+        PI-CATEGORY
+    CALL "PLBT-ASSERT-FLAG" USING "flagged as symbolic" "Y" PI-SYMBOLIC
+    MOVE "9(5)" TO WS-PIC
+    CALL "PLB-PIC-ANALYZE" USING WS-PIC PLB-PIC-INFO
+    CALL "PLBT-ASSERT-FLAG" USING "numeric count is not symbolic" "N"
+        PI-SYMBOLIC.
+
 TEST-INVALID.
     CALL "PLBT-CASE" USING "invalid pictures"
     MOVE SPACES TO WS-PIC
@@ -278,8 +291,8 @@ TEST-INVALID.
     MOVE "rejects 'X()'" TO WS-LABEL
     MOVE "empty repetition count" TO WS-ERROR
     PERFORM CHECK-INVALID
-    MOVE "X(A)" TO WS-PIC
-    MOVE "rejects 'X(A)'" TO WS-LABEL
+    MOVE "X(1A)" TO WS-PIC
+    MOVE "rejects 'X(1A)'" TO WS-LABEL
     MOVE "repetition count is not a number" TO WS-ERROR
     PERFORM CHECK-INVALID
     MOVE "X(0)" TO WS-PIC
