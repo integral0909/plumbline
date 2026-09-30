@@ -86,7 +86,7 @@ check "dump ast reports syntax errors"    1 'errors.cob:14:5: error: ELSE withou
     -- dump ast $ax/errors.cob
 check "dump ast expands copybooks"        0 'DATA 1 PAY-RECORD @2:1 in tests/golden/pp/copy/payrec.cpy' \
     -- dump ast -I tests/golden/pp/copy tests/golden/pp/basic.cob
-check "dump symbols shows sizes"          0 '^1 CUSTOMER G size=136 offset=0 section=W @4:1$' \
+check "dump symbols shows sizes"          1 '^1 CUSTOMER G size=136 offset=0 section=W @4:1$' \
     -- dump symbols tests/golden/symbols/layout.cob
 check "dump symbols reports bad pictures" 1 "layout.cob:28:33: warning: invalid character 'Q' in picture \[SY001\]" \
     -- dump symbols tests/golden/symbols/layout.cob
