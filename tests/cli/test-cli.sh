@@ -112,6 +112,32 @@ check "dump lines needs files"            2 'no input files' -- dump lines
 check "invalid --format value"            2 "invalid format 'variable'" \
     -- dump lines --format variable $fx/fixed-basic.cbl
 check "unknown dump option"               2 "unknown option '--frob'" -- dump lines --frob $fx/fixed-basic.cbl
+# check_report LABEL FORMAT EXPECTED-COUNT -- ARGS...
+# Run plumbline and validate its report with tests/tools/check_report.py.
+check_report() {
+    label=$1 format=$2 count=$3
+    shift 4
+    n=$((n + 1))
+    if err=$("$bin" "$@" 2>/dev/null | python3 tests/tools/check_report.py "$format" "$count" 2>&1); then
+        echo "ok $n - $label"
+    else
+        failed=$((failed + 1))
+        echo "not ok $n - $label"
+        echo "  # $err"
+    fi
+}
+
+check_report "json report is valid"        json 3 -- check --report json $rx/c001-unreachable.cob
+check_report "sarif report is valid"       sarif 3 -- check --report sarif $rx/c001-unreachable.cob
+check_report "empty sarif report is valid" sarif 0 -- check --report sarif --disable PLB-C001 --disable go-to $rx/c001-unreachable.cob
+check "reports keep the exit code"        1 '"ruleId": "PLB-C001"' -- check --report sarif $rx/c001-unreachable.cob
+check "invalid --report format"           2 "invalid --report format 'xml'" -- check --report xml $rx/c001-unreachable.cob
+
+tmp=$(mktemp -d)
+cp $rx/c001-unreachable.cob "$tmp/with space.cob"
+check_report "sarif encodes spaces in uris" sarif 3 -- check --report sarif "$tmp/with space.cob"
+rm -rf "$tmp"
+
 echo "1..$n"
 echo "# cli: $n assertions, $failed failed"
 [ "$failed" -eq 0 ]
