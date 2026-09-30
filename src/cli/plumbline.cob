@@ -17,6 +17,7 @@ WORKING-STORAGE SECTION.
 COPY "plbver.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
+COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
 78  MAX-INPUTS                  VALUE 256.
 01  WS-ARG-COUNT            PIC 9(4).

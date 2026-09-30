@@ -35,6 +35,7 @@ IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-LEX-INIT.
 DATA DIVISION.
 LINKAGE SECTION.
+COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
 PROCEDURE DIVISION USING PLB-TOKENS.
     MOVE 0 TO TK-COUNT TK-TEXT-USED
@@ -51,6 +52,7 @@ COPY "plbstrm.cpy".
 LINKAGE SECTION.
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
+COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
 01  LK-FILE-ID              PIC 9(4) COMP-5.
 01  LK-DEBUG                PIC X.
@@ -106,6 +108,7 @@ LINKAGE SECTION.
 COPY "plbstrm.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
+COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
 PROCEDURE DIVISION USING PLB-STREAM PLB-SOURCE-SET PLB-DIAGNOSTICS
         PLB-TOKENS.
@@ -514,6 +517,7 @@ IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-TOK-TEXT.
 DATA DIVISION.
 LINKAGE SECTION.
+COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
 01  LK-INDEX                PIC 9(9) COMP-5.
 01  LK-TEXT                 PIC X ANY LENGTH.

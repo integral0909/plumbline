@@ -7,6 +7,7 @@ DATA DIVISION.
 WORKING-STORAGE SECTION.
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
+COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
 01  WS-MODE                 PIC X.
 01  WS-DEBUG                PIC X VALUE "N".
