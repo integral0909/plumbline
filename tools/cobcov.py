@@ -34,6 +34,8 @@ TRACE_RE = re.compile(r"^Source:\s+(\S+)\s*\|\s*(\d+)\s*$")
 # Markers cobc emits that do not correspond to a traced statement:
 # program entry points and the end-of-source sentinel. Paragraph, WHEN,
 # UNTIL and VARYING markers are traced and so count as executable.
+# Markers on line 0 (such as the generated default error handler) are
+# also skipped: they have no source line to report.
 NON_STATEMENTS = {"Entry", "last"}
 
 
@@ -57,7 +59,8 @@ def read_maps(paths):
         with open(path, encoding="latin-1") as f:
             for text in f:
                 m = MAP_RE.search(text)
-                if m and m.group(2) not in NON_STATEMENTS:
+                if (m and m.group(2) not in NON_STATEMENTS
+                        and int(m.group(1)) > 0):
                     lines[m.group(3)].add(int(m.group(1)))
     return lines
 
