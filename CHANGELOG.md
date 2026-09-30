@@ -45,3 +45,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Procedure graph: sections and paragraphs, fall-through, PERFORM and
   GO TO edges with qualified name resolution, and reachability that
   respects PERFORM return semantics; `plumbline dump flow` prints it.
+- `plumbline check` with a rule engine, `--enable`/`--disable`, and
+  `--fail-on`; first rule PLB-C001 unreachable-code.
+- Level-78 constants resolved in PICTURE and OCCURS; identical
+  diagnostics reported once.

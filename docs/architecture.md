@@ -222,21 +222,30 @@ neither fallen into nor jumped to, is correctly reported as unreachable.
 `plumbline dump flow FILE` prints the units, their reachability, and their
 edges.
 
-### Analyses *(planned)*
+### Rules and reporting
 
-- **Data flow**: reaching definitions over the control-flow graph, used for
+`src/lib/plbrule.cob` (catalog and findings) and `src/lib/plbcheck.cob`
+(the rules), with tables in `copy/plbrules.cpy` and `copy/plbfind.cpy`.
+
+Each rule is one program that reads the analysis tables and reports
+findings through `PLB-FIND-AT-TOKEN`, which takes the rule's configured
+severity and does nothing for disabled rules. Findings are kept separate
+from diagnostics. Diagnostics describe problems with Plumbline's input,
+while findings describe problems in the analyzed program. Findings are
+sorted by file, line, column, and rule with a COBOL table `SORT` before
+they are printed.
+
+Rule ids are `PLB-<category><number>`, where the categories are
+correctness (C), maintainability (M), portability (P), and security (S).
+See the [rule reference](rules.md).
+
+### Planned
+
+- **Data flow**: reaching definitions over the procedure graph, for
   uninitialized-use and dead-store checks.
 - **Call graph**: static `CALL` literals across programs in one run.
-
-### Rules and reporting *(planned)*
-
-Rules are identified as `PLB-<category><number>`, for example `PLB-C001`.
-The categories are correctness (C), maintainability (M), portability (P),
-and security (S). Each rule reads the analysis tables and emits findings
-with a severity, location, and message. Findings can be suppressed inline
-(`*> plumbline: ignore PLB-C001`) or through a baseline file.
-
-Reporters write findings as plain text, JSON, or SARIF 2.1.0.
+- **Suppressions**: `*> plumbline: ignore PLB-C001` comments and baselines.
+- **Reporters**: JSON and SARIF 2.1.0.
 
 ## Design principles
 
