@@ -1,0 +1,30 @@
+UNIT @2:1
+  PROG PROGRAM BROKEN @2:1
+    DIVN IDENTIFICATION @2:1
+      IDPA PROGRAM-ID BROKEN @3:1
+      ERR @4:1
+    DIVN DATA @5:1
+      SECT WORKING-STORAGE @6:1
+        DATA 1 GOOD-ITEM @7:1
+          CLAU PICTURE X @7:15
+        ERR @8:1
+        DATA 1 NO-PERIOD @9:1
+          CLAU PICTURE X @9:15
+        DATA 1 AFTER-NO-PERIOD @10:1
+          CLAU PICTURE X @10:21
+        ERR @11:1
+    DIVN PROCEDURE @12:1
+      PARA P1 @13:1
+        SENT @14:5
+          STMT MOVE @14:10
+        SENT @15:5
+        SENT @16:5
+          ERR @16:10
+          STMT DISPLAY @16:12
+        SENT @17:5
+          STMT DISPLAY @17:12
+        SENT @18:5
+          STMT MOVE @18:5
+        SENT @19:5
+          ERR @19:5
+          STMT MOVE @19:18

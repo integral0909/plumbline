@@ -37,7 +37,7 @@ all: $(BIN)
 tests: $(TEST_BIN)
 
 # Golden suites: directory and the plumbline command it exercises.
-GOLDEN_SUITES := lexer:dump+tokens pp:dump+expanded+-I+tests/golden/pp/copy
+GOLDEN_SUITES := lexer:dump+tokens pp:dump+expanded+-I+tests/golden/pp/copy parser:dump+ast
 
 test: $(TEST_BIN) $(BIN)
 	tools/run-tests.sh $(TEST_BIN)

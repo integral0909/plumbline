@@ -1,0 +1,53 @@
+*> Statement nesting: IF/ELSE pairing, EVALUATE, inline PERFORM,
+*> conditional phrases, and statements that end at the period.
+PROCEDURE DIVISION.
+NESTED-IF.
+    IF A = 1
+        IF B = 2
+            MOVE 1 TO X
+        ELSE
+            MOVE 2 TO X
+    ELSE
+        MOVE 3 TO X.
+EXPLICIT-SCOPES.
+    IF A = 1 THEN
+        DISPLAY "ONE"
+    END-IF
+    EVALUATE TRUE
+        WHEN A = 1
+        WHEN A = 2
+            DISPLAY "SMALL"
+        WHEN OTHER
+            DISPLAY "LARGE"
+    END-EVALUATE
+    PERFORM VARYING I FROM 1 BY 1 UNTIL I > 10
+        ADD I TO TOTAL
+        IF TOTAL > 100
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    PERFORM 3 TIMES
+        DISPLAY "HI"
+    END-PERFORM.
+PHRASES.
+    READ IN-FILE
+        AT END
+            SET EOF TO TRUE
+        NOT AT END
+            ADD 1 TO RECORDS-READ
+    END-READ
+    COMPUTE C = A / B
+        ON SIZE ERROR MOVE 0 TO C
+    END-COMPUTE
+    READ IN-FILE AT END MOVE "Y" TO EOF-FLAG
+        DISPLAY "THIS BELONGS TO THE AT END PHRASE".
+JUMPS.
+    GO TO P1 P2 P3 DEPENDING ON SELECTOR.
+    IF DONE NEXT SENTENCE ELSE PERFORM WORK.
+    SEARCH TABLE-ROW VARYING IX
+        AT END DISPLAY "NOT FOUND"
+        WHEN ROW-KEY(IX) = WANTED
+            DISPLAY "FOUND"
+    END-SEARCH
+    EXEC SQL DELETE FROM PAYROLL WHERE ID = :WS-ID END-EXEC
+    STOP RUN.

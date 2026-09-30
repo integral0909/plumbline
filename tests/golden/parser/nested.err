@@ -1,0 +1,1 @@
+tests/golden/parser/nested.cob:17:1: warning: nested program has no END PROGRAM [PS011]
