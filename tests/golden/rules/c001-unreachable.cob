@@ -1,4 +1,8 @@
 *> Reachability through fall-through, PERFORM, PERFORM THRU, and GO TO.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  ERRORS             PIC 9(4).
+01  COUNTER            PIC 9(4).
 PROCEDURE DIVISION.
 MAIN-LINE.
     PERFORM INIT

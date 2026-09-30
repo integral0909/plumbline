@@ -1,3 +1,3 @@
-tests/golden/rules/c001-unreachable.cob:7:9: note: GO TO makes the flow of control hard to follow [PLB-M001]
-tests/golden/rules/c001-unreachable.cob:18:1: warning: paragraph AFTER-RANGE is never executed [PLB-C001]
-tests/golden/rules/c001-unreachable.cob:23:1: warning: paragraph NEVER-CALLED is never executed [PLB-C001]
+tests/golden/rules/c001-unreachable.cob:11:9: note: GO TO makes the flow of control hard to follow [PLB-M001]
+tests/golden/rules/c001-unreachable.cob:22:1: warning: paragraph AFTER-RANGE is never executed [PLB-C001]
+tests/golden/rules/c001-unreachable.cob:27:1: warning: paragraph NEVER-CALLED is never executed [PLB-C001]

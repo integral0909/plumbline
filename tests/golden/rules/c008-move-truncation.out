@@ -1,0 +1,5 @@
+tests/golden/rules/c008-move-truncation.cob:14:31: warning: MOVE truncates a 15-character literal to fit SHORT-TEXT (5 characters) [PLB-C008]
+tests/golden/rules/c008-move-truncation.cob:18:19: warning: MOVE loses high-order digits: 12345 has 5 integer digits, SMALL-NUM has 3 [PLB-C008]
+tests/golden/rules/c008-move-truncation.cob:21:21: warning: MOVE loses high-order digits: BIG-NUM has 7 integer digits, SMALL-NUM has 3 [PLB-C008]
+tests/golden/rules/c008-move-truncation.cob:21:31: warning: MOVE loses high-order digits: BIG-NUM has 7 integer digits, AMOUNT-OUT has 3 [PLB-C008]
+tests/golden/rules/c008-move-truncation.cob:28:29: warning: MOVE truncates a 6-character literal to fit SHORT-TEXT (5 characters) [PLB-C008]
