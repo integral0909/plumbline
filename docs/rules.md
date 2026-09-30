@@ -20,6 +20,23 @@ name (`unreachable-code`), and either can be given to `--enable` and
 Categories: **C** correctness, **M** maintainability, **P** portability,
 **S** security.
 
+## Suppressing findings
+
+A comment containing `plumbline: ignore` suppresses findings on its own
+line, or, when the comment is on a line by itself, on the line after it:
+
+```cobol
+    GO TO DONE.                   *> plumbline: ignore go-to
+*> plumbline: ignore PLB-C001
+OLD-ENTRY-POINT.
+    DISPLAY "KEPT FOR REFERENCE".
+```
+
+After `ignore`, list rule ids or names separated by spaces or commas.
+With none, every rule is suppressed for that line. Case does not matter.
+A suppression names the rules it silences, so the reason for it stays
+reviewable.
+
 ## PLB-C001 unreachable-code
 
 A paragraph or section that nothing can execute: it is not the program's

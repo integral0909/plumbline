@@ -52,5 +52,6 @@ uses [Semantic Versioning](https://semver.org/).
   PLB-C006 recursive-perform, PLB-M001 go-to, and PLB-M002 alter.
 - Rules PLB-C007 redefines-larger and PLB-M003 unused-data-item.
 - `--report json` and `--report sarif` (SARIF 2.1.0) for `plumbline check`.
+- `*> plumbline: ignore [RULE...]` comments suppress findings.
 - Level-78 constants resolved in PICTURE and OCCURS; identical
   diagnostics reported once.
