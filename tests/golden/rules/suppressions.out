@@ -1,0 +1,4 @@
+tests/golden/rules/suppressions.cob:9:1: warning: paragraph UNUSED-TWO is never executed [PLB-C001]
+tests/golden/rules/suppressions.cob:13:1: warning: paragraph UNUSED-FOUR is never executed [PLB-C001]
+tests/golden/rules/suppressions.cob:18:1: warning: paragraph UNUSED-FIVE is never executed [PLB-C001]
+tests/golden/rules/suppressions.cob:20:1: warning: paragraph UNUSED-SIX is never executed [PLB-C001]
