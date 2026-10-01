@@ -62,5 +62,8 @@
         10  JD-DSN              PIC X(44).
         *> The first DISP subparameter (NEW, OLD, SHR, MOD), or spaces.
         10  JD-DISP             PIC X(3).
+        *> "Y" for a DD without a name, which concatenates its data
+        *> set to the DD before it; it has that DD's name.
+        10  JD-CONCAT           PIC X.
         10  JD-FILE-ID          PIC 9(4) COMP-5.
         10  JD-LINE             PIC 9(9) COMP-5.

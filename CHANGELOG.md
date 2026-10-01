@@ -209,6 +209,10 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The JCL reader kept only the first data set of a concatenation; the
+  `DD` statements without a name that follow it are now read too.
+- `metrics` counted the statements before a program's first paragraph
+  as running to the end of the procedure division.
 - Copybooks shared by many files of one run are read once, rather than
   once per file, which ran into the 256-file limit.
 - Numeric literals starting with a decimal point after a sign or "(".
