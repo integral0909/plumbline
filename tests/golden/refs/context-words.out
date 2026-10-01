@@ -1,0 +1,15 @@
+24:16 KEYED-FILE (OPEN) -> other name
+25:10 KEYED-FILE (READ) -> other name
+25:21 PREVIOUS (READ) -> other name
+26:12 TODAY (ACCEPT) -> 1 TODAY @18 role=D
+26:28 YYYYMMDD (ACCEPT) -> other name
+27:13 RESULT (COMPUTE) -> 1 RESULT @20 role=D
+27:36 NEAREST-EVEN (COMPUTE) -> other name
+27:51 AMOUNT (COMPUTE) -> 1 AMOUNT @19 role=U
+28:12 REPLY (ACCEPT) -> 1 REPLY @21 role=D
+28:23 AUTO-SKIP (ACCEPT) -> other name
+28:33 REQUIRED (ACCEPT) -> other name
+29:13 COLOR (DISPLAY) -> 1 COLOR @22 role=U
+29:24 STDOUT (DISPLAY) -> other name
+31:14 STATIC (CALL) -> other name
+33:11 KEYED-FILE (CLOSE) -> other name
