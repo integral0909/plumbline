@@ -18,6 +18,7 @@
 *>   enable RULE          like --enable RULE
 *>   disable RULE         like --disable RULE
 *>   severity RULE LEVEL  report RULE as error, warning, or note
+*>   limit RULE N         the threshold of a measuring rule
 *>   fail-on LEVEL        like --fail-on LEVEL
 *>   report FORMAT        like --report FORMAT
 *>   baseline FILE        like --baseline FILE
@@ -1217,6 +1218,8 @@ APPLY-SETTING.
             PERFORM SET-RULE-ENABLED
         WHEN "severity"
             PERFORM SET-SEVERITY
+        WHEN "limit"
+            PERFORM SET-LIMIT
         WHEN "fail-on"
             PERFORM SET-FAIL-ON
         WHEN "report"
@@ -1227,6 +1230,34 @@ APPLY-SETTING.
             DISPLAY PLB-NAME ": unknown setting '"
                 FUNCTION TRIM(CF-KEY(WS-SETTING)) "'" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
+    END-EVALUATE.
+
+*> WS-ARG holds "RULE N": the threshold of a measuring rule.
+SET-LIMIT.
+    MOVE SPACES TO WS-SEVERITY-RULE WS-SEVERITY-LEVEL
+    UNSTRING WS-ARG DELIMITED BY ALL SPACE
+        INTO WS-SEVERITY-RULE WS-SEVERITY-LEVEL
+    CALL "PLB-RULE-FIND" USING PLB-RULES WS-SEVERITY-RULE WS-RULE
+    EVALUATE TRUE
+        WHEN WS-RULE = 0
+            DISPLAY PLB-NAME ": unknown rule '"
+                FUNCTION TRIM(WS-SEVERITY-RULE) "'" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        WHEN RL-LIMIT(WS-RULE) = 0
+            DISPLAY PLB-NAME ": rule '" FUNCTION TRIM(WS-SEVERITY-RULE)
+                "' has no limit" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        WHEN FUNCTION TEST-NUMVAL(WS-SEVERITY-LEVEL) NOT = 0
+        WHEN WS-SEVERITY-LEVEL = SPACES
+            DISPLAY PLB-NAME ": invalid limit '"
+                FUNCTION TRIM(WS-SEVERITY-LEVEL) "'" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        WHEN FUNCTION NUMVAL(WS-SEVERITY-LEVEL) < 1
+            DISPLAY PLB-NAME ": invalid limit '"
+                FUNCTION TRIM(WS-SEVERITY-LEVEL) "'" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        WHEN OTHER
+            MOVE FUNCTION NUMVAL(WS-SEVERITY-LEVEL) TO RL-LIMIT(WS-RULE)
     END-EVALUATE.
 
 *> WS-ARG holds "RULE LEVEL".
