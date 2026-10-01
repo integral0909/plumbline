@@ -94,6 +94,8 @@
         *> "Y" for SELECT OPTIONAL, and for a sort or merge file (SD).
         10  PF-OPTIONAL         PIC X.
         10  PF-SORT             PIC X.
+        *> ALTERNATE RECORD KEY clauses: each has a path DD of its own.
+        10  PF-ALTERNATES       PIC 9(4) COMP-5.
         *> Open modes of the OPEN statements that name the file.
         10  PF-INPUT            PIC X.
         10  PF-OUTPUT           PIC X.

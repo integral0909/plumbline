@@ -11,7 +11,8 @@ lines of IBM Enterprise COBOL, with their copybooks.
 `make corpus-carddemo` downloads a fixed commit
 (`59cc6c2fd7ebd7ef7925cad552a01a4b8b6e4d5e`) from GitHub, checks it
 against a known SHA-256, and checks all programs in one run, with every
-directory of copybooks and DB2 declarations on the copy path. None of
+directory of copybooks and DB2 declarations on the copy path, together
+with the application's 48 JCL members and procedures. None of
 CardDemo is added to this repository.
 
 ## Results
@@ -21,6 +22,7 @@ The run on 2026-10-01 takes about a second:
 | | |
 |---|---|
 | Programs | 44 (30,175 lines, without copybooks) |
+| JCL members and procedures | 48 |
 | Programs with input errors | 24, all for copybooks of CICS and MQ |
 
 The copybooks it cannot find are those that come with the products, not
@@ -50,6 +52,7 @@ with the application: `DFHAID` and `DFHBMSCA` (CICS), and `CMQV`,
 | PLB-C011 read-never-set | 1 |
 | PLB-C004 next-sentence-in-scope | 1 |
 | PLB-C003 fall-off-end | 1 |
+| PLB-J001 dd-missing | 1 |
 
 Some findings that were read and are true:
 
@@ -101,3 +104,9 @@ Some findings that were read and are true:
   holds: in `COACTUPC` and `COACTVWC`, 81 characters go into the
   75-character `WS-RETURN-MSG`, and the end of the CICS reason code is
   cut off.
+- **PLB-J001 dd-missing.** The job `CBIMPORT` runs the program of that
+  name, which opens seven files for its import; the step has DDs for
+  six. `CARD-OUTPUT ASSIGN TO CARDOUT` has none, so the step fails when
+  `CBIMPORT` opens it. Every other batch step has a DD for each file its
+  program opens, and no DD that its program does not use, once the
+  paths of alternate indexes (`XREFFIL1` for `XREFFILE`) are counted.

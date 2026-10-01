@@ -37,6 +37,9 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C029](#plb-c029-go-to-leaves-perform) | go-to-leaves-perform | warning | GO TO leaves the range of a PERFORM, which then does not return |
 | [PLB-C030](#plb-c030-value-never-used) | value-never-used | warning | Value is replaced before it is used |
 | [PLB-C031](#plb-c031-string-overflow) | string-overflow | warning | STRING always sends more than its receiver holds |
+| [PLB-J001](#plb-j001-dd-missing) | dd-missing | error | A file the step's programs open has no DD in the step |
+| [PLB-J002](#plb-j002-dd-unused) | dd-unused | note | DD is not a file of the step's programs |
+| [PLB-J003](#plb-j003-program-not-in-run) | program-not-in-run | note, off | Step runs a program that is not among those checked |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -788,6 +791,59 @@ with a prefix such as `X` or `N`). The sum is the least the statement
 sends. A `STRING` with `ON OVERFLOW` handles the case and is not
 reported, nor is a receiver with reference modification, of variable
 size, or of national usage.
+
+## PLB-J001 dd-missing
+
+The J rules check programs against the JCL that runs them, when a run
+has both: JCL files are those named `*.jcl` or `*.prc` (see
+[JCL](jcl.md)).
+
+A step that runs a program of the run, where the program, or a program
+it calls by literal name, opens a file whose DD the step does not have:
+
+```
+//RERUN    EXEC PGM=PAYUPD
+//PAYMAST  DD DSN=PAY.MASTER,DISP=SHR
+//PAYRPT   DD SYSOUT=*
+```
+
+Here PAYUPD calls PAYLOG, which opens `LOG-FILE ASSIGN TO PAYLOG`, and
+the step has no `PAYLOG` DD. The `OPEN` fails when the step runs (file status 35 for input, or an
+abend). The DD name is that of the file's `ASSIGN TO`, or its last part
+for an IBM assignment name such as `UT-S-PAYLOG`. Files that are
+`OPTIONAL`, sort files (`SD`), files no `OPEN` names, and files assigned
+to a data item or a path are not checked. A step in a procedure also
+has the DDs that job steps running the procedure add as `STEP.DDNAME`;
+with no such job step in the run, the procedure's own DDs must do.
+
+## PLB-J002 dd-unused
+
+A DD of a step that no file of the step's programs is assigned to:
+
+```
+//RERUN    EXEC PGM=PAYUPD
+//OLDFILE  DD DSN=PAY.OLD,DISP=SHR
+```
+
+when neither PAYUPD nor the programs it calls assign a file to
+`OLDFILE`.
+
+Such a DD is often left over from an earlier version of the program,
+and allocating it can hold a data set for nothing; or the program was
+meant to read it under that name. DDs the system and the runtime read
+count as used: `STEPLIB`, `JOBLIB`, names starting with `SYS`, `CEE`,
+or `SORT`, and the path of an alternate index (the file's DD name with a
+digit at its end, `PAYMAST1` for `PAYMAST`). A step whose programs
+assign a file to a name known only at run time is not checked.
+
+## PLB-J003 program-not-in-run
+
+*Off by default.* A step that runs a program the run does not have.
+Most jobs also run utilities (`IDCAMS`, `SORT`, `IEBGENER`), so the rule
+is for runs meant to hold every program of the jobs, to find a step
+whose program is missing or misspelled. Steps running programs that
+start others (`IKJEFT01` for DB2, `DFSRRC00` for IMS) are not
+followed, since the program they run is named in their input.
 
 ## PLB-M001 go-to
 

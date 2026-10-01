@@ -179,6 +179,18 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C031"
         "string-overflow" "W"
         "STRING always sends more than its receiver holds"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J001"
+        "dd-missing" "E"
+        "A file the step's programs open has no DD in the step"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J002"
+        "dd-unused" "N"
+        "DD is not a file of the step's programs"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J003"
+        "program-not-in-run" "N"
+        "Step runs a program that is not among those checked"
+    *> Most jobs also run utilities (IDCAMS, SORT, IEBGENER): on
+    *> request, for runs meant to hold every program of the jobs.
+    MOVE "N" TO RL-ENABLED(RL-COUNT)
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

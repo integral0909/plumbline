@@ -83,6 +83,9 @@ COPY "plbigr.cpy".
 01  WS-MODE                 PIC X VALUE "A".
 01  WS-DEBUG                PIC X VALUE "N".
 01  WS-DUMP-TARGET          PIC X(8).
+*> check: whether the input is JCL, by its extension.
+01  WS-IS-JCL               PIC X VALUE "N".
+01  WS-EXTENSION            PIC X(4).
 COPY "plbinput.cpy".
 *> --define NAME: names for conditional compilation (>>IF NAME DEFINED).
 01  WS-DEFINE-COUNT         PIC 9(4) COMP-5 VALUE 0.
@@ -405,10 +408,16 @@ CHECK-COMMAND.
     *> One input at a time: read it, check it, settle which of its
     *> findings comments suppress, and let its lines go. What is kept
     *> (findings, the call graph) refers to files by id and line.
+    CALL "PLB-JCL-INIT" USING PLB-JCL
     PERFORM VARYING WS-FILE-ID FROM 1 BY 1
             UNTIL WS-FILE-ID > WS-MAIN-FILES
-        PERFORM START-INPUT
-        IF SF-LOADED(WS-FILE-ID) = "Y"
+        PERFORM TEST-JCL-INPUT
+        IF WS-IS-JCL = "Y"
+            PERFORM READ-JCL-INPUT
+        ELSE
+            PERFORM START-INPUT
+        END-IF
+        IF WS-IS-JCL = "N" AND SF-LOADED(WS-FILE-ID) = "Y"
             COMPUTE WS-FIRST-FINDING = FN-COUNT + 1
             PERFORM ANALYZE-FILE
             CALL "PLB-CHECK-RUN" USING PLB-SOURCE-SET PLB-TOKENS
@@ -426,6 +435,10 @@ CHECK-COMMAND.
     CALL "PLB-CALL-RESOLVE" USING PLB-CALL-GRAPH
     CALL "PLB-RULE-CALLS" USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH
     PERFORM SUPPRESS-LATE-FINDINGS
+    *> Programs against the JCL that runs them. JCL has no suppression
+    *> comments.
+    CALL "PLB-RULE-JCL" USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH
+        PLB-JCL
     IF FN-DROPPED > 0
         PERFORM REPORT-DROPPED-FINDINGS
     END-IF
@@ -459,6 +472,33 @@ CHECK-COMMAND.
     PERFORM COUNT-FAILING
     IF WS-FAILING > 0 OR DG-ERRORS > 0
         MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+*> WS-IS-JCL = "Y" when input WS-FILE-ID is JCL: a file named
+*> *.jcl or *.prc, in either case.
+TEST-JCL-INPUT.
+    MOVE "N" TO WS-IS-JCL
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET WS-FILE-ID WS-PATH
+    CALL "PLB-STR-LENGTH" USING WS-PATH WS-PATH-LEN
+    IF WS-PATH-LEN > 4
+        MOVE FUNCTION UPPER-CASE(WS-PATH(WS-PATH-LEN - 3:4))
+            TO WS-EXTENSION
+        IF WS-EXTENSION = ".JCL" OR WS-EXTENSION = ".PRC"
+            MOVE "Y" TO WS-IS-JCL
+        END-IF
+    END-IF.
+
+READ-JCL-INPUT.
+    CALL "PLB-JCL-READ" USING WS-PATH(1:WS-PATH-LEN) WS-FILE-ID PLB-JCL
+        WS-STATUS
+    IF WS-STATUS NOT = 0
+        MOVE SPACES TO WS-OUT
+        STRING "cannot read JCL file " DELIMITED BY SIZE
+               WS-PATH(1:WS-PATH-LEN) DELIMITED BY SIZE
+            INTO WS-OUT
+        MOVE 0 TO WS-POS-LINE WS-POS-COLUMN
+        CALL "PLB-DIAG-ADD" USING PLB-DIAGNOSTICS "E" "JL001" WS-FILE-ID
+            WS-POS-LINE WS-POS-COLUMN WS-OUT
     END-IF.
 
 *> Release the input's lines. The SS-LINE indexes of findings made

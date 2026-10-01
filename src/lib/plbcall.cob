@@ -142,6 +142,7 @@ ADD-FILE.
     MOVE LS-COLUMN TO PF-COLUMN(PF-COUNT)
     MOVE LS-SRC-LINE TO PF-SRC-LINE(PF-COUNT)
     MOVE SPACES TO PF-DDNAME(PF-COUNT)
+    MOVE 0 TO PF-ALTERNATES(PF-COUNT)
     MOVE "N" TO PF-OPTIONAL(PF-COUNT) PF-SORT(PF-COUNT)
         PF-INPUT(PF-COUNT) PF-OUTPUT(PF-COUNT) PF-I-O(PF-COUNT)
         PF-EXTEND(PF-COUNT)
@@ -152,15 +153,20 @@ ADD-FILE.
             IF LS-WORD = "OPTIONAL" AND LS-T < ND-NAME(LS-N)
                 MOVE "Y" TO PF-OPTIONAL(PF-COUNT)
             END-IF
-            IF LS-WORD = "ASSIGN"
+            IF LS-WORD = "ALTERNATE"
+                ADD 1 TO PF-ALTERNATES(PF-COUNT)
+            END-IF
+            IF LS-WORD = "ASSIGN" AND PF-DDNAME(PF-COUNT) = SPACES
+                MOVE LS-T TO LS-C
                 ADD 1 TO LS-T
                 CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
                 IF TK-IS-WORD(LS-T)
                    AND (LS-WORD = "TO" OR LS-WORD = "USING")
                     ADD 1 TO LS-T
                 END-IF
+                MOVE LS-T TO LS-R
                 PERFORM ASSIGNED-DD-NAME
-                EXIT PERFORM
+                MOVE LS-R TO LS-T
             END-IF
         END-IF
     END-PERFORM.

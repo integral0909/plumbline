@@ -211,6 +211,21 @@ check "dump jcl lists steps and DDs"       0 'statements.jcl:6:     dd INFILE ds
     -- dump jcl tests/golden/jcl/statements.jcl
 check "dump jcl of a missing file"         2 'cannot read tests/golden/jcl/missing.jcl' \
     -- dump jcl tests/golden/jcl/missing.jcl
+jx=tests/fixtures/jcl
+check "a step without a DD the program opens" 1 'payroll.jcl:11:3: error: step RERUN has no DD PAYLOG for file LOG-FILE, which PAYLOG opens \[PLB-J001\]' \
+    -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
+check "a DD no program of the step uses"  1 'payroll.jcl:14:3: note: DD OLDFILE is not a file of PAYUPD or the programs it calls \[PLB-J002\]' \
+    -- check --no-config --fail-on error $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
+check_absent "a path DD, optional, sort, and override DDs are fine" 'payroll.jcl:[4-9]:\|payproc.prc' \
+    -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
+check_absent "programs not in the run are not reported by default" 'PLB-J003' \
+    -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
+check "programs not in the run on request" 1 'payroll.jcl:19:3: note: step CLEANUP runs IEFBR14, which is not among the programs checked \[PLB-J003\]' \
+    -- check --no-config --fail-on error --enable program-not-in-run $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
+check "a procedure step alone needs its DDs" 1 'payproc.prc:2:3: error: step UPD has no DD PAYLOG' \
+    -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payproc.prc
+check "a JCL file that cannot be read"    1 'JL001' \
+    -- check --no-config $jx/payupd.cob $jx/missing.jcl
 check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
 check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
     -- rules --no-config --enable evaluate-without-other

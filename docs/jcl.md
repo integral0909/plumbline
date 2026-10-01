@@ -44,3 +44,19 @@ The reader follows the rules of z/OS JCL:
 
 Symbolic parameters (`&HLQ`) are not substituted, and `INCLUDE`,
 `JCLLIB`, `SET`, `IF`, and `OUTPUT` statements are read and passed over.
+
+## Checking programs against their JCL
+
+Give `check` the JCL with the programs, and the steps are checked
+against the programs they run (see the [J rules](rules.md#plb-j001-dd-missing)):
+
+```console
+$ plumbline check app/cbl/*.cbl app/jcl/*.jcl
+app/jcl/CBIMPORT.jcl:22:3: error: step STEP01 has no DD CARDOUT for file CARD-OUTPUT, which CBIMPORT opens [PLB-J001]
+```
+
+Files named `*.jcl` or `*.prc`, in either case, are read as JCL; every
+other input is COBOL. A step's program is matched to a program of the
+run by name, and the programs it calls are followed through the call
+graph, so a file opened by a called subprogram also needs its DD in
+the step.

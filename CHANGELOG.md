@@ -91,6 +91,9 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C026 varying-limit-unreachable.
 - `plumbline dump jcl` reads JCL: jobs, procedures, steps, and DD
   statements (see docs/jcl.md).
+- `check` reads `*.jcl` and `*.prc` inputs as JCL and checks each step
+  against the programs it runs: rules PLB-J001 dd-missing, PLB-J002
+  dd-unused, and PLB-J003 program-not-in-run (off by default).
 - Rule PLB-C027 divide-by-zero.
 - Rule PLB-C028 comparison-never-true.
 - Rule PLB-C029 go-to-leaves-perform.
