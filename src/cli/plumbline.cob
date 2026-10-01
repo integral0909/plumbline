@@ -43,6 +43,7 @@
 *>   plumbline dump jcl FILE...
 *>   plumbline dump bms FILE...
 *>   plumbline dump csd FILE...
+*>   plumbline dump ims FILE...
 *>
 *> Exit codes:
 *>   0  success
@@ -77,6 +78,8 @@ COPY "plbbmsc.cpy".
 COPY "plbbms.cpy".
 COPY "plbcsdc.cpy".
 COPY "plbcsd.cpy".
+COPY "plbimsc.cpy".
+COPY "plbims.cpy".
 COPY "plbconf.cpy".
 COPY "plbmetrc.cpy".
 COPY "plbmetr.cpy".
@@ -342,6 +345,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline dump jcl FILE..."
     DISPLAY "       plumbline dump bms FILE..."
     DISPLAY "       plumbline dump csd FILE..."
+    DISPLAY "       plumbline dump ims FILE..."
     DISPLAY "Static analysis for COBOL programs."
     DISPLAY " "
     DISPLAY "Options:"
@@ -379,6 +383,7 @@ SHOW-USAGE.
     DISPLAY "  dump jcl         show the jobs, steps, and DD statements of JCL"
     DISPLAY "  dump bms         show the maps and fields of CICS BMS sources"
     DISPLAY "  dump csd         show the CICS resources DFHCSDUP input defines"
+    DISPLAY "  dump ims         show the databases and PSBs of IMS DBD and PSB sources"
     DISPLAY " "
     DISPLAY "Command options:"
     DISPLAY "  --format FORMAT  reference format: fixed, free, or auto"
@@ -2394,7 +2399,7 @@ DUMP-COMMAND.
        AND WS-ARG NOT = "symbols" AND WS-ARG NOT = "flow"
        AND WS-ARG NOT = "refs" AND WS-ARG NOT = "calls"
        AND WS-ARG NOT = "jcl" AND WS-ARG NOT = "bms"
-       AND WS-ARG NOT = "csd"
+       AND WS-ARG NOT = "csd" AND WS-ARG NOT = "ims"
         IF WS-ARG-LEN = 0
             DISPLAY PLB-NAME ": dump: missing what to dump"
                 UPON SYSERR
@@ -2420,6 +2425,10 @@ DUMP-COMMAND.
     END-IF
     IF WS-DUMP-TARGET = "csd"
         PERFORM DUMP-CSD
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-DUMP-TARGET = "ims"
+        PERFORM DUMP-IMS
         EXIT PARAGRAPH
     END-IF
     PERFORM LOAD-INPUTS
@@ -3020,6 +3029,149 @@ DUMP-CSD.
                 INTO WS-OUT WITH POINTER WS-PTR
         END-IF
         DISPLAY WS-OUT(1:WS-PTR - 1)
+    END-PERFORM.
+
+*> The databases (DBD) and program views (PSB) of IMS sources.
+DUMP-IMS.
+    CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET
+    CALL "PLB-DIAG-INIT" USING PLB-DIAGNOSTICS
+    CALL "PLB-IMS-INIT" USING PLB-IMS
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > IP-COUNT
+        CALL "PLB-SRC-ADD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            IP-PATH(WS-I) WS-MODE WS-FILE-ID
+        CALL "PLB-IMS-READ" USING IP-PATH(WS-I) WS-FILE-ID PLB-IMS
+            WS-STATUS
+        IF WS-STATUS NOT = 0
+            CALL "PLB-STR-LENGTH" USING IP-PATH(WS-I) WS-PATH-LEN
+            DISPLAY PLB-NAME ": cannot read "
+                IP-PATH(WS-I)(1:WS-PATH-LEN) UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        END-IF
+    END-PERFORM
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > XD-COUNT
+        MOVE SPACES TO WS-OUT
+        MOVE 1 TO WS-PTR
+        MOVE XD-FILE-ID(WS-I) TO WS-POS-FILE
+        MOVE XD-LINE(WS-I) TO WS-POS-LINE
+        PERFORM APPEND-JCL-POSITION
+        STRING "dbd " DELIMITED BY SIZE
+               XD-NAME(WS-I) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+        IF XD-ACCESS(WS-I) NOT = SPACES
+            STRING " access " DELIMITED BY SIZE
+                   XD-ACCESS(WS-I) DELIMITED BY SPACE
+                INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+        DISPLAY WS-OUT(1:WS-PTR - 1)
+        PERFORM VARYING WS-P FROM 1 BY 1 UNTIL WS-P > XG-COUNT
+            IF XG-DBD(WS-P) = WS-I
+                PERFORM DUMP-IMS-SEGMENT
+            END-IF
+        END-PERFORM
+    END-PERFORM
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > XP-COUNT
+        MOVE SPACES TO WS-OUT
+        MOVE 1 TO WS-PTR
+        MOVE XP-FILE-ID(WS-I) TO WS-POS-FILE
+        MOVE XP-LINE(WS-I) TO WS-POS-LINE
+        PERFORM APPEND-JCL-POSITION
+        STRING "psb " DELIMITED BY SIZE
+               XP-NAME(WS-I) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+        DISPLAY WS-OUT(1:WS-PTR - 1)
+        PERFORM VARYING WS-P FROM 1 BY 1 UNTIL WS-P > XC-COUNT
+            IF XC-PSB(WS-P) = WS-I
+                PERFORM DUMP-IMS-PCB
+            END-IF
+        END-PERFORM
+    END-PERFORM.
+
+DUMP-IMS-SEGMENT.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    MOVE XG-FILE-ID(WS-P) TO WS-POS-FILE
+    MOVE XG-LINE(WS-P) TO WS-POS-LINE
+    PERFORM APPEND-JCL-POSITION
+    STRING "  segment " DELIMITED BY SIZE
+           XG-NAME(WS-P) DELIMITED BY SPACE
+        INTO WS-OUT WITH POINTER WS-PTR
+    IF XG-PARENT(WS-P) NOT = SPACES
+        STRING " parent " DELIMITED BY SIZE
+               XG-PARENT(WS-P) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    STRING " bytes " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE XG-BYTES(WS-P) TO WS-NUM
+    PERFORM APPEND-NUM
+    DISPLAY WS-OUT(1:WS-PTR - 1)
+    PERFORM VARYING WS-C FROM 1 BY 1 UNTIL WS-C > XF-COUNT
+        IF XF-SEGMENT(WS-C) = WS-P
+            MOVE SPACES TO WS-OUT
+            MOVE 1 TO WS-PTR
+            MOVE XG-FILE-ID(WS-P) TO WS-POS-FILE
+            MOVE XF-LINE(WS-C) TO WS-POS-LINE
+            PERFORM APPEND-JCL-POSITION
+            STRING "    field " DELIMITED BY SIZE
+                   XF-NAME(WS-C) DELIMITED BY SPACE
+                   " start " DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+            MOVE XF-START(WS-C) TO WS-NUM
+            PERFORM APPEND-NUM
+            STRING " bytes " DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+            MOVE XF-BYTES(WS-C) TO WS-NUM
+            PERFORM APPEND-NUM
+            IF XF-SEQUENCE(WS-C) = "Y"
+                STRING " sequence" DELIMITED BY SIZE
+                    INTO WS-OUT WITH POINTER WS-PTR
+            END-IF
+            DISPLAY WS-OUT(1:WS-PTR - 1)
+        END-IF
+    END-PERFORM.
+
+DUMP-IMS-PCB.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    MOVE XC-FILE-ID(WS-P) TO WS-POS-FILE
+    MOVE XC-LINE(WS-P) TO WS-POS-LINE
+    PERFORM APPEND-JCL-POSITION
+    STRING "  pcb " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    IF XC-NAME(WS-P) NOT = SPACES
+        STRING XC-NAME(WS-P) DELIMITED BY SPACE
+               " " DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    STRING "type " DELIMITED BY SIZE
+           XC-TYPE(WS-P) DELIMITED BY SPACE
+        INTO WS-OUT WITH POINTER WS-PTR
+    IF XC-DBD(WS-P) NOT = SPACES
+        STRING " dbd " DELIMITED BY SIZE
+               XC-DBD(WS-P) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF XC-PROCOPT(WS-P) NOT = SPACES
+        STRING " procopt " DELIMITED BY SIZE
+               XC-PROCOPT(WS-P) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    DISPLAY WS-OUT(1:WS-PTR - 1)
+    PERFORM VARYING WS-C FROM 1 BY 1 UNTIL WS-C > XS-COUNT
+        IF XS-PCB(WS-C) = WS-P
+            MOVE SPACES TO WS-OUT
+            MOVE 1 TO WS-PTR
+            MOVE XS-FILE-ID(WS-C) TO WS-POS-FILE
+            MOVE XS-LINE(WS-C) TO WS-POS-LINE
+            PERFORM APPEND-JCL-POSITION
+            STRING "    senseg " DELIMITED BY SIZE
+                   XS-NAME(WS-C) DELIMITED BY SPACE
+                INTO WS-OUT WITH POINTER WS-PTR
+            IF XS-PARENT(WS-C) NOT = SPACES
+                STRING " parent " DELIMITED BY SIZE
+                       XS-PARENT(WS-C) DELIMITED BY SPACE
+                    INTO WS-OUT WITH POINTER WS-PTR
+            END-IF
+            DISPLAY WS-OUT(1:WS-PTR - 1)
+        END-IF
     END-PERFORM.
 
 DUMP-CALLS.

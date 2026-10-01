@@ -1,0 +1,13 @@
+* An order database: a root and two children, with sequence fields.
+         DBD   NAME=ORDERDB,ACCESS=(HIDAM,VSAM)                         
+DSG1     DATASET DD1=ORDERS,SIZE=(4096)                                 
+         SEGM  NAME=ORDER,PARENT=0,BYTES=120,                          X
+               RULES=(,HERE)                                            
+         FIELD NAME=(ORDNO,SEQ,U),START=1,BYTES=8,TYPE=C                
+         FIELD NAME=ORDDATE,START=9,BYTES=8,TYPE=C                      
+         SEGM  NAME=ORDLINE,PARENT=((ORDER,SNGL)),BYTES=60              
+         FIELD NAME=(LINENO,SEQ,U),START=1,BYTES=3,TYPE=P               
+         SEGM  NAME=ORDNOTE,PARENT=ORDER,BYTES=200                      
+         DBDGEN                                                         
+         FINISH                                                         
+         END                                                            

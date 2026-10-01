@@ -1,0 +1,9 @@
+tests/golden/ims/orders.psb:3: psb ORDREAD
+tests/golden/ims/orders.psb:3:   pcb ORDPCB type DB dbd ORDERDB procopt G
+tests/golden/ims/orders.psb:4:     senseg ORDER
+tests/golden/ims/orders.psb:5:     senseg ORDLINE parent ORDER
+tests/golden/ims/orders.psb:7: psb ORDERS
+tests/golden/ims/orders.psb:7:   pcb type TP
+tests/golden/ims/orders.psb:8:   pcb type DB dbd ORDERDB procopt A
+tests/golden/ims/orders.psb:9:     senseg ORDER
+tests/golden/ims/orders.psb:10:     senseg ORDNOTE parent ORDER
