@@ -1,0 +1,3 @@
+tests/golden/rules/c037-search-index-not-set.cob:27:12: warning: CODE-ENTRY is read but never given a value [PLB-C011]
+tests/golden/rules/c037-search-index-not-set.cob:33:12: warning: SEARCH CODE-ENTRY starts at the current value of CODE-IX, which this paragraph does not set before it [PLB-C037]
+tests/golden/rules/c037-search-index-not-set.cob:45:16: warning: SORTED-ENTRY is read but never given a value [PLB-C011]

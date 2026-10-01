@@ -105,3 +105,6 @@ check for it. They are listed here as a check of the rules:
   adds `30000` to a `PIC 9(4)` item on purpose, one computes a
   four-digit tax from a five-digit order amount, and the others add a
   `PIC 9(6)` loop counter, which stops at 10, to three-digit keys.
+- **PLB-C037 search-index-not-set** reports the test of `OCCURS ...
+  INDEXED BY` with `ASCENDING KEY`, which searches the table serially
+  without setting its index; GnuCOBOL starts it at 1.
