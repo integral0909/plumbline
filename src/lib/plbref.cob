@@ -276,8 +276,9 @@ MARK-NODE.
 *> EXEC SQL, EXEC CICS, and EXEC DLI name COBOL data among their own
 *> words: the host variables of SQL (:NAME, :RECORD.FIELD) and the
 *> arguments of CICS and DL/I options (INTO(NAME), RESP(NAME)), except
-*> the segment names of SEGMENT(...). Every other token of an EXEC
-*> statement is skipped, and so is all of any other EXEC.
+*> the segment names of SEGMENT(...) and the segment fields of
+*> WHERE (FIELD = NAME). Every other token of an EXEC statement is
+*> skipped, and so is all of any other EXEC.
 MARK-EXEC-TOKENS.
     PERFORM EXEC-LANGUAGE
     MOVE 0 TO LS-LEVEL
@@ -312,6 +313,13 @@ MARK-EXEC-TOKENS.
                 IF LS-LEVEL > 0 AND TK-IS-WORD(LS-T)
                    AND LS-IN-SEGMENT = "N"
                     MOVE "N" TO WS-TOKEN-SKIP(LS-T)
+                    *> WHERE (FIELD = item): a word before a relational
+                    *> operator is a field of the segment, not data.
+                    IF LS-EXEC-LANGUAGE = "DLI" AND LS-T < TK-COUNT
+                        IF TK-IS-OPERATOR(LS-T + 1)
+                            MOVE "Y" TO WS-TOKEN-SKIP(LS-T)
+                        END-IF
+                    END-IF
                 END-IF
         END-EVALUATE
     END-PERFORM

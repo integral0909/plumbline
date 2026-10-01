@@ -117,6 +117,8 @@ EXEC-ROLE.
             PERFORM SQL-ROLE
         WHEN "CICS"
             PERFORM CICS-ROLE
+        WHEN "DLI"
+            PERFORM DLI-ROLE
     END-EVALUATE.
 
 *> SQL: the nearest clause word before the host variable decides.
@@ -160,25 +162,7 @@ SQL-ROLE.
 CICS-ROLE.
     COMPUTE LS-T = ND-TOK-FIRST(LS-STMT) + 2
     CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-COMMAND LS-LEN
-    *> The option: the word before the "(" that encloses the argument.
-    MOVE 0 TO LS-OPTION-LEVEL
-    MOVE SPACES TO LS-KEYWORD
-    COMPUTE LS-T = RF-TOKEN(LS-R) - 1
-    PERFORM UNTIL LS-T <= ND-TOK-FIRST(LS-STMT)
-        IF TK-IS-RPAREN(LS-T)
-            ADD 1 TO LS-OPTION-LEVEL
-        END-IF
-        IF TK-IS-LPAREN(LS-T)
-            IF LS-OPTION-LEVEL = 0
-                SUBTRACT 1 FROM LS-T
-                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-KEYWORD
-                    LS-LEN
-                EXIT PERFORM
-            END-IF
-            SUBTRACT 1 FROM LS-OPTION-LEVEL
-        END-IF
-        SUBTRACT 1 FROM LS-T
-    END-PERFORM
+    PERFORM OPTION-KEYWORD
     EVALUATE TRUE
         WHEN LS-COMMAND = "FORMATTIME" AND LS-KEYWORD = "ABSTIME"
             MOVE "U" TO LS-ROLE
@@ -207,6 +191,43 @@ CICS-ROLE.
                     MOVE "X" TO LS-ROLE
             END-EVALUATE
     END-EVALUATE.
+
+*> DL/I: INTO and KEYFEEDBACK return data, the other options (FROM,
+*> WHERE, PCB, the lengths) pass it in.
+DLI-ROLE.
+    PERFORM OPTION-KEYWORD
+    EVALUATE LS-KEYWORD
+        WHEN "INTO" WHEN "KEYFEEDBACK"
+            MOVE "D" TO LS-ROLE
+        WHEN "FROM" WHEN "WHERE" WHEN "PCB" WHEN "SEGLENGTH"
+        WHEN "FIELDLENGTH" WHEN "FEEDLEN" WHEN "OFFSET" WHEN "KEYS"
+        WHEN "PSB"
+            MOVE "U" TO LS-ROLE
+        WHEN OTHER
+            MOVE "X" TO LS-ROLE
+    END-EVALUATE.
+
+*> LS-KEYWORD = the option the argument at reference LS-R belongs to:
+*> the word before the "(" that encloses it.
+OPTION-KEYWORD.
+    MOVE 0 TO LS-OPTION-LEVEL
+    MOVE SPACES TO LS-KEYWORD
+    COMPUTE LS-T = RF-TOKEN(LS-R) - 1
+    PERFORM UNTIL LS-T <= ND-TOK-FIRST(LS-STMT)
+        IF TK-IS-RPAREN(LS-T)
+            ADD 1 TO LS-OPTION-LEVEL
+        END-IF
+        IF TK-IS-LPAREN(LS-T)
+            IF LS-OPTION-LEVEL = 0
+                SUBTRACT 1 FROM LS-T
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-KEYWORD
+                    LS-LEN
+                EXIT PERFORM
+            END-IF
+            SUBTRACT 1 FROM LS-OPTION-LEVEL
+        END-IF
+        SUBTRACT 1 FROM LS-T
+    END-PERFORM.
 
 *> LS-ROLE = "-" when the reference is the operand of LENGTH OF or
 *> BYTE-LENGTH OF, or the whole argument of FUNCTION LENGTH or
