@@ -1,0 +1,18 @@
+*> PERFORM UNTIL EXIT loops until EXIT PERFORM or GOBACK leaves it:
+*> the EXIT belongs to the loop condition, and the body is the loop's.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. FOREVER.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  COUNTER             PIC 9(4) VALUE 0.
+PROCEDURE DIVISION.
+MAIN-LINE.
+    PERFORM UNTIL EXIT
+        PERFORM NEXT-STEP
+        IF COUNTER > 10
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    STOP RUN.
+NEXT-STEP.
+    ADD 1 TO COUNTER.
