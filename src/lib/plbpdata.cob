@@ -55,6 +55,7 @@ COPY "plbptok.cpy".
 01  LS-STOP                 PIC X.
 01  LS-USAGE-WORD           PIC X.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbtokc.cpy".

@@ -141,6 +141,7 @@ LOCAL-STORAGE SECTION.
 01  LS-NUM-LEN              PIC 9(9) COMP-5.
 01  LS-FIRST-ITEM           PIC X.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
@@ -433,6 +434,7 @@ LOCAL-STORAGE SECTION.
 01  LS-LEN                  PIC 9(9) COMP-5.
 01  LS-FIRST-ITEM           PIC X.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbcall.cpy".
 01  LK-FORMAT               PIC X(5).
@@ -623,6 +625,7 @@ LOCAL-STORAGE SECTION.
 01  LS-LEN                  PIC 9(9) COMP-5.
 01  LS-FIRST-ITEM           PIC X.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbigr.cpy".
 01  LK-FORMAT               PIC X(5).
@@ -746,10 +749,11 @@ DATA DIVISION.
 WORKING-STORAGE SECTION.
 COPY "plbigrc.cpy".
 COPY "plbcallc.cpy".
-*> One entry per file of the source set (SS-MAX-FILES in plbsrc.cpy).
-01  WS-FILE-VIA             PIC 9(4) COMP-5 OCCURS 256 TIMES.
-01  WS-FILE-SEEN            PIC X OCCURS 256 TIMES.
-01  WS-FILE-QUEUE           PIC 9(4) COMP-5 OCCURS 256 TIMES.
+COPY "plbsrcc.cpy".
+*> One entry per file of the source set.
+01  WS-FILE-VIA             PIC 9(4) COMP-5 OCCURS SS-MAX-FILES TIMES.
+01  WS-FILE-SEEN            PIC X OCCURS SS-MAX-FILES TIMES.
+01  WS-FILE-QUEUE           PIC 9(4) COMP-5 OCCURS SS-MAX-FILES TIMES.
 01  WS-PROG-VIA             PIC 9(9) COMP-5 OCCURS CP-MAX TIMES.
 01  WS-PROG-SEEN            PIC X OCCURS CP-MAX TIMES.
 01  WS-PROG-QUEUE           PIC 9(9) COMP-5 OCCURS CP-MAX TIMES.

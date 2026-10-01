@@ -23,6 +23,7 @@ DATA DIVISION.
 LOCAL-STORAGE SECTION.
 01  LS-FIRST                PIC 9(9) COMP-5 VALUE 1.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbrules.cpy".
 COPY "plbfind.cpy".
@@ -42,6 +43,7 @@ LOCAL-STORAGE SECTION.
 01  LS-LINE                 PIC 9(9) COMP-5.
 01  LS-SUPPRESSED           PIC X.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbrules.cpy".
 COPY "plbfind.cpy".
@@ -87,6 +89,7 @@ LOCAL-STORAGE SECTION.
 01  LS-ANY                  PIC X.
 01  LS-MARKER               PIC X(17) VALUE "PLUMBLINE: IGNORE".
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbrules.cpy".
 01  LK-RULE                 PIC 9(4) COMP-5.

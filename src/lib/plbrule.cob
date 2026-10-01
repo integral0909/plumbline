@@ -212,6 +212,7 @@ LOCAL-STORAGE SECTION.
 01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 0.
 01  LS-SRC-LINE             PIC 9(9) COMP-5 VALUE 0.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbtokc.cpy".
 COPY "plbtok.cpy".

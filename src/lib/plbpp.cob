@@ -139,6 +139,7 @@ LOCAL-STORAGE SECTION.
 01  LS-FOUND                PIC X.
 01  LS-I                    PIC 9(9) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbppopt.cpy".
 01  LK-NAME                 PIC X ANY LENGTH.
@@ -449,6 +450,7 @@ WORKING-STORAGE SECTION.
 COPY "plbtokc.cpy".
 COPY "plbtok.cpy" REPLACING ==PLB-TOKENS== BY ==WORK-TOKENS==.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbppopt.cpy".
@@ -538,6 +540,7 @@ LOCAL-STORAGE SECTION.
 01  LS-COLUMN               PIC 9(4) COMP-5.
 01  LS-DIAG-FILE            PIC 9(4) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbppopt.cpy".
@@ -1214,6 +1217,7 @@ LOCAL-STORAGE SECTION.
 01  LS-LINE-NO              PIC 9(9) COMP-5.
 01  LS-COLUMN               PIC 9(4) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbtokc.cpy".

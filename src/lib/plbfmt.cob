@@ -87,6 +87,7 @@ LOCAL-STORAGE SECTION.
 01  LS-CHANGED              PIC X.
 01  LS-MIXED                PIC X.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 01  LK-FILE-ID              PIC 9(4) COMP-5.
 01  LK-TARGET               PIC X(5).

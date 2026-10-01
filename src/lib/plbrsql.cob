@@ -40,6 +40,7 @@ LOCAL-STORAGE SECTION.
 01  LS-MESSAGE              PIC X(200).
 COPY "plbnlist.cpy".
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbtokc.cpy".
 COPY "plbtok.cpy".

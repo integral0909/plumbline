@@ -5,6 +5,7 @@ IDENTIFICATION DIVISION.
 PROGRAM-ID. TEST-PLBLEX.
 DATA DIVISION.
 WORKING-STORAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbtokc.cpy".

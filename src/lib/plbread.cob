@@ -27,6 +27,7 @@ DATA DIVISION.
 LOCAL-STORAGE SECTION.
 01  LS-B                    PIC 9(4) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET.
     MOVE 0 TO SS-FILE-COUNT SS-LINE-COUNT SS-HEAP-USED
@@ -47,6 +48,7 @@ DATA DIVISION.
 LOCAL-STORAGE SECTION.
 01  LS-BUCKET               PIC 9(4) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 01  LK-PATH                 PIC X ANY LENGTH.
@@ -85,6 +87,7 @@ LOCAL-STORAGE SECTION.
 01  LS-NO-FILE              PIC 9(4) COMP-5 VALUE 0.
 01  LS-BUCKET               PIC 9(4) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 01  LK-PATH                 PIC X ANY LENGTH.
@@ -149,6 +152,7 @@ WORKING-STORAGE SECTION.
 01  WS-DONE                 PIC X.
 01  WS-NO-FILE              PIC 9(4) COMP-5 VALUE 0.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 01  LK-FILE-ID              PIC 9(4) COMP-5.
@@ -294,6 +298,7 @@ LOCAL-STORAGE SECTION.
 01  LS-SAVED-WARNINGS       PIC 9(9) COMP-5.
 01  LS-SAVED-DROPPED        PIC 9(9) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 01  LK-FILE-ID              PIC 9(4) COMP-5.
@@ -341,6 +346,7 @@ DATA DIVISION.
 LOCAL-STORAGE SECTION.
 01  LS-F                    PIC 9(4) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 01  LK-LINES                PIC 9(9) COMP-5.
 01  LK-HEAP                 PIC 9(9) COMP-5.
@@ -367,6 +373,7 @@ DATA DIVISION.
 LOCAL-STORAGE SECTION.
 01  LS-FORMAT               PIC X.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 01  LK-FILE-ID              PIC 9(4) COMP-5.
 01  LK-MODE                 PIC X.
@@ -415,6 +422,7 @@ LOCAL-STORAGE SECTION.
 01  LS-SEQ-SPACES           PIC 9(4) COMP-5.
 01  LS-FIXED-FROM           PIC 9(4) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 01  LK-FILE-ID              PIC 9(4) COMP-5.
 01  LK-FORMAT               PIC X.
@@ -519,6 +527,7 @@ COPY "plbcls.cpy".
 01  LS-LINE-NO              PIC 9(9) COMP-5.
 01  LS-COLUMN               PIC 9(4) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 01  LK-FILE-ID              PIC 9(4) COMP-5.
@@ -592,6 +601,7 @@ IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-SRC-LINE-CONTENT.
 DATA DIVISION.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 01  LK-INDEX                PIC 9(9) COMP-5.
 01  LK-TEXT                 PIC X ANY LENGTH.
@@ -619,6 +629,7 @@ IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-SRC-LINE-TEXT.
 DATA DIVISION.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 01  LK-INDEX                PIC 9(9) COMP-5.
 01  LK-TEXT                 PIC X ANY LENGTH.
@@ -645,6 +656,7 @@ IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-SRC-FILE-PATH.
 DATA DIVISION.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 01  LK-FILE-ID              PIC 9(4) COMP-5.
 01  LK-PATH                 PIC X ANY LENGTH.
@@ -676,6 +688,7 @@ COPY "plbdiag.cpy".
 LOCAL-STORAGE SECTION.
 01  LS-STATUS               PIC 9(4) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 01  LK-FILE-ID              PIC 9(4) COMP-5.
 01  LK-LINE-NO              PIC 9(9) COMP-5.
@@ -722,6 +735,7 @@ LOCAL-STORAGE SECTION.
 01  LS-BUCKET               PIC 9(4) COMP-5.
 01  LS-F                    PIC 9(4) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 01  LK-PATH                 PIC X ANY LENGTH.
 01  LK-FILE-ID              PIC 9(4) COMP-5.
@@ -745,13 +759,15 @@ END PROGRAM PLB-SRC-FIND-PATH.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-SRC-PATH-BUCKET.
 DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbsrcc.cpy".
 LOCAL-STORAGE SECTION.
 01  LS-HASH                 PIC 9(9) COMP-5.
 01  LS-LEN                  PIC 9(9) COMP-5.
 01  LS-I                    PIC 9(9) COMP-5.
-01  LS-BUCKETS              PIC 9(9) COMP-5 VALUE 8191.
+01  LS-BUCKETS              PIC 9(9) COMP-5 VALUE SS-PATH-BUCKETS.
 LINKAGE SECTION.
-01  LK-PATH                 PIC X(512).
+01  LK-PATH                 PIC X(SS-PATH-SIZE).
 01  LK-BUCKET               PIC 9(4) COMP-5.
 PROCEDURE DIVISION USING LK-PATH LK-BUCKET.
     MOVE 0 TO LS-HASH

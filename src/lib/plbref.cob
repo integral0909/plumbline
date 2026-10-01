@@ -145,6 +145,7 @@ LOCAL-STORAGE SECTION.
     05  LS-QUAL-COUNT       PIC 9(4) COMP-5.
     05  LS-QUAL             PIC X(31) OCCURS LS-QUAL-MAX TIMES.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbtokc.cpy".

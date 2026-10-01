@@ -83,6 +83,7 @@ COPY "plbptok.cpy".
 01  LS-WANT                 PIC X(16).
 01  LS-CX-TYPE              PIC X.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbtokc.cpy".

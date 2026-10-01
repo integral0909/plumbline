@@ -65,6 +65,7 @@ LOCAL-STORAGE SECTION.
 01  LS-LINE                 PIC 9(9) COMP-5.
 01  LS-COLUMN               PIC 9(4) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbtokc.cpy".
@@ -176,6 +177,7 @@ COPY "plbptok.cpy".
 01  LS-SAME                 PIC X.
 01  LS-DETAIL               PIC X(16).
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbtokc.cpy".
@@ -376,6 +378,7 @@ COPY "plbptok.cpy".
 01  LS-DETAIL               PIC X(16).
 01  LS-DONE                 PIC X VALUE "N".
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbtokc.cpy".
@@ -484,6 +487,7 @@ COPY "plbptok.cpy".
 01  LS-DETAIL               PIC X(16).
 01  LS-NEXT                 PIC 9(9) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbtokc.cpy".

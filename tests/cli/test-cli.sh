@@ -159,6 +159,22 @@ cx=tests/fixtures/calls
 check "calls are checked across files"    1 'billing.cob:9:17: warning: argument 1 (CUST-ID, 6 bytes) is smaller than parameter LK-CUST-ID of CUSTLOOK (8 bytes) \[PLB-C014\]' \
     -- check $cx/billing.cob $cx/custlook.cob
 check "calls to programs not in the run are not checked" 0 '^$' -- check $cx/billing.cob
+# More inputs than the old limit of 256 files: tables indexed by file
+# must hold them all.
+many=$(mktemp -d)
+i=1
+while [ $i -le 300 ]; do
+    printf '       IDENTIFICATION DIVISION.\n       PROGRAM-ID. P%s.\n       PROCEDURE DIVISION.\n           GOBACK.\n' $i \
+        > "$many/p$i.cob"
+    i=$((i + 1))
+done
+printf '       01  SHARED-REC PIC X(10).\n' > "$many/shared.cpy"
+printf '       IDENTIFICATION DIVISION.\n       PROGRAM-ID. LAST.\n       DATA DIVISION.\n       WORKING-STORAGE SECTION.\n       COPY SHARED.\n       PROCEDURE DIVISION.\n           GOBACK.\n' \
+    > "$many/z-last.cob"
+check "impact over more than 256 files"   0 'included by .*z-last.cob directly' \
+    -- impact SHARED --no-config -I "$many" $(ls "$many"/*.cob)
+check "check over more than 256 files"    0 '^$' -- check --no-config -I "$many" $(ls "$many"/*.cob)
+rm -rf "$many"
 lx=tests/fixtures/lists
 check "--files-from adds the files a list names" 1 'billing.cob:9:17: .*\[PLB-C014\]' \
     -- check --no-config --files-from $lx/calls.list

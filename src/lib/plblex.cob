@@ -59,6 +59,7 @@ DATA DIVISION.
 WORKING-STORAGE SECTION.
 COPY "plbstrm.cpy".
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbtokc.cpy".
@@ -129,6 +130,7 @@ LOCAL-STORAGE SECTION.
 01  LS-BYTE-CODE REDEFINES LS-BYTE BINARY-CHAR UNSIGNED.
 LINKAGE SECTION.
 COPY "plbstrm.cpy".
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbtokc.cpy".

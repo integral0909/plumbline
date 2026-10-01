@@ -4,6 +4,7 @@ IDENTIFICATION DIVISION.
 PROGRAM-ID. TEST-PLBREAD.
 DATA DIVISION.
 WORKING-STORAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 01  WS-DIR                  PIC X(40) VALUE "tests/fixtures/reader/".

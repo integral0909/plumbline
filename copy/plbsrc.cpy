@@ -14,14 +14,10 @@
 *> appended, so releasing everything read since a mark (SS-LINE-COUNT
 *> and SS-HEAP-USED at some moment) is a rewind.
 *>
-*> The limits below are hard: exceeding one is reported as an error
-*> diagnostic and the rest of the input is not loaded.
-78  SS-MAX-FILES                VALUE 20000.
-78  SS-PATH-BUCKETS             VALUE 8191.
-78  SS-MAX-LINES                VALUE 200000.
-78  SS-HEAP-SIZE                VALUE 16000000.
-78  SS-MAX-WIDTH                VALUE 1024.
-78  SS-PATH-SIZE                VALUE 512.
+*> The limits, in plbsrcc.cpy, are hard: exceeding one is reported as
+*> an error diagnostic and the rest of the input is not loaded. A
+*> program copies plbsrcc.cpy once, before plbsrc.cpy, so that its own
+*> tables can be sized by them too.
 01  PLB-SOURCE-SET.
     05  SS-FILE-COUNT           PIC 9(4) COMP-5.
     05  SS-LINE-COUNT           PIC 9(9) COMP-5.
