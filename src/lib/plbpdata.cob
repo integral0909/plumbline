@@ -6,8 +6,10 @@
 *> entries become FD nodes (detail FD, SD, CD, or RD); data description entries become DATA nodes nested by
 *> level number:
 *>
-*>   01, 77, 78   start a new record (under the section, or under
+*>   01, 77       start a new record (under the section, or under
 *>                the FD for 01 in the file section)
+*>   78           goes under the section, without ending the record
+*>                it may appear in
 *>   02-49        go under the nearest preceding item with a lower
 *>                level number
 *>   66           goes under the current record (RENAMES)
@@ -172,12 +174,18 @@ SECTION-PARENT.
 DATA-ENTRY.
     MOVE FUNCTION NUMVAL(PX-TEXT) TO LS-LEVEL
     EVALUATE TRUE
-        WHEN LS-LEVEL = 1 OR LS-LEVEL = 77 OR LS-LEVEL = 78
+        WHEN LS-LEVEL = 1 OR LS-LEVEL = 77
             PERFORM SECTION-PARENT
             IF LS-LEVEL = 1 AND LS-IN-FILE-SECTION = "Y" AND LS-FD > 0
                 MOVE LS-FD TO LS-PARENT
             END-IF
             MOVE 0 TO WS-LEVEL-DEPTH
+        *> A constant. Micro Focus and GnuCOBOL allow it among the
+        *> entries of a record (GnuCOBOL's own EXTFH copybook lists the
+        *> values of a field right after it), so it goes under the
+        *> section and the record goes on after it.
+        WHEN LS-LEVEL = 78
+            PERFORM SECTION-PARENT
         WHEN LS-LEVEL = 66
             MOVE LS-RECORD TO LS-PARENT
         WHEN LS-LEVEL = 88
@@ -218,10 +226,10 @@ DATA-ENTRY.
         EXIT PARAGRAPH
     END-IF
     MOVE LS-LEVEL TO ND-NUM(LS-ENTRY)
-    IF LS-LEVEL = 1 OR LS-LEVEL = 77 OR LS-LEVEL = 78
+    IF LS-LEVEL = 1 OR LS-LEVEL = 77
         MOVE LS-ENTRY TO LS-RECORD
     END-IF
-    IF LS-LEVEL NOT = 66 AND LS-LEVEL NOT = 88
+    IF LS-LEVEL NOT = 66 AND LS-LEVEL NOT = 88 AND LS-LEVEL NOT = 78
        AND WS-LEVEL-DEPTH < LV-MAX
         ADD 1 TO WS-LEVEL-DEPTH
         MOVE LS-LEVEL TO LV-NUMBER(WS-LEVEL-DEPTH)
