@@ -11,8 +11,8 @@ mirror, checks it against a known SHA-256, and runs Plumbline over it:
 ```console
 $ make corpus
 programs:            459 (347213 lines with copybooks)
-seconds:             27
-with input errors:   8
+seconds:             26
+with input errors:   2
 ...
 ```
 
@@ -33,13 +33,11 @@ own with every rule at its default setting.
 |---|---|
 | Programs | 459 |
 | Lines, with copybooks | 347,213 |
-| Time, one `plumbline` run per program | 27 s |
-| Programs read without input errors | 451 |
+| Time, one `plumbline` run per program | 26 s |
+| Programs read without input errors | 457 |
 
-The 8 programs that still have input errors are:
+The 2 programs that still have input errors are:
 
-- **Report Writer** (6 programs, RW*): `RD` entries and report groups
-  are not supported. See [limits](#limits).
 - **SM207A**: `COPY ALTLB OF XXXXX047` names a library that EXEC85 would
   substitute. In the suite as distributed, the library does not exist.
 - **NC215A**: a doubled quote split across a continuation line, with the
@@ -53,9 +51,9 @@ The 8 programs that still have input errors are:
 | PLB-M003 unused-data-item | 3,251 |
 | PLB-C002 perform-and-fall-through | 747 |
 | PLB-C008 move-truncation | 476 |
-| PLB-M005 set-never-read | 314 |
+| PLB-M005 set-never-read | 313 |
 | PLB-M002 alter | 97 |
-| PLB-C009 undefined-name | 92 |
+| PLB-C009 undefined-name | 80 |
 | PLB-C003 fall-off-end | 30 |
 | PLB-C011 read-never-set | 5 |
 | PLB-C005 perform-thru-backwards | 3 |
@@ -101,6 +99,9 @@ own:
 - `DECIMAL-POINT IS COMMA` and `CURRENCY SIGN`, which change how
   pictures and numeric literals read, and repetition counts with leading
   zeros.
+- Report Writer: `RD` entries and report groups (6 programs), whose
+  clauses' numbers read as level numbers and whose report names were
+  undefined.
 
 ## Checking the findings
 
@@ -121,13 +122,12 @@ The findings were checked by rule:
   declaratives). One C011 finding was false and was fixed (the separate
   sign). The 5 C011 findings that remain are true for the code as split. For example, `IF-D34`
   in NC250A has no VALUE and nothing sets it before it is tested.
-- **PLB-C009 undefined-name.** Every finding left was read, and all 92
+- **PLB-C009 undefined-name.** Every finding left was read, and all 80
   have a cause outside Plumbline:
   - 66 name EXEC85 placeholders (`XXXXX031` and similar), which EXEC85
     replaces with names of each compiler's choosing.
   - 14 name switch conditions (`SW-1`, `ON-WRK-SWITCH-1`) declared only
     in optional code, which the split switches off.
-  - 12 name reports and report files of Report Writer programs.
 - **PLB-C008 move-truncation.** A sample was read. Literal truncations
   are true once trailing spaces are not counted (`"WRITE NOT INVALID
   END-"` into a 20-character FEATURE loses `D-`). Numeric findings
@@ -136,10 +136,9 @@ The findings were checked by rule:
 
 ## Limits
 
-- **Report Writer** is not supported: `RD` entries, report groups and
-  their clauses (`TYPE`, `LINE`, `COLUMN`, `SOURCE`, `SUM`, ...). A
-  program that uses it gets parse errors for its report section. Items
-  used only in its `SOURCE` and `SUM` clauses would also look unused.
+- **Report Writer** is parsed and its `SOURCE`, `SUM`, and `CONTROL`
+  operands count as reads, but the layout clauses (`LINE`, `COLUMN`,
+  `NEXT GROUP`) are not checked against each other or the page limits.
 - **Segmentation** (section priority numbers) is read but not modeled.
   It does not change which code can run.
 - **EXEC85 substitutions** are not made, so names such as `XXXXX031` stay

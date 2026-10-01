@@ -226,6 +226,13 @@ neither fallen into nor jumped to, is correctly reported as unreachable.
 `plumbline dump flow FILE` prints the units, their reachability, and their
 edges.
 
+Report Writer descriptions are part of the data division tree: an `RD`
+node holds its `CONTROL` clause and the report groups (01 entries with a
+`TYPE` clause), whose clauses (`LINE`, `COLUMN`, `SOURCE`, `SUM`, ...)
+are clause nodes. The identifiers in `SOURCE`, `SUM`, `TYPE CONTROL ...`,
+`CONTROL`, and `PRESENT WHEN` are scanned like the procedure division
+and become references read by their clause.
+
 ### Data references
 
 `src/lib/plbref.cob`, with its table in `copy/plbref.cpy`.

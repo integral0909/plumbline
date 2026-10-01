@@ -21,12 +21,15 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C013](#plb-c013-call-argument-count) | call-argument-count | warning | CALL passes a different number of arguments than the program takes |
 | [PLB-C014](#plb-c014-call-argument-mismatch) | call-argument-mismatch | warning | CALL argument is passed differently or is smaller than its parameter |
 | [PLB-C015](#plb-c015-recursive-call) | recursive-call | error | Program that is not RECURSIVE can be called while it is running |
+| [PLB-C016](#plb-c016-report-not-initiated) | report-not-initiated | warning | Report is generated or terminated but never initiated |
+| [PLB-C017](#plb-c017-report-not-terminated) | report-not-terminated | warning | Report is initiated but never terminated |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
 | [PLB-M004](#plb-m004-alnum-narrowing) | alnum-narrowing | note, off | MOVE from a larger alphanumeric item to a smaller one |
 | [PLB-M005](#plb-m005-set-never-read) | set-never-read | note | Data item is given values but never read |
 | [PLB-M006](#plb-m006-dynamic-call) | dynamic-call | note, off | CALL of a program named by a data item |
+| [PLB-M007](#plb-m007-detail-never-generated) | detail-never-generated | note | Report detail group is never generated |
 
 Rules marked *off* run only when enabled with `--enable`.
 
@@ -365,6 +368,43 @@ error at that point. The finding shows the chain and is reported at the
 call that closes it. Declare the program `PROGRAM-ID. NAME IS RECURSIVE`
 if the recursion is intended.
 
+## How report rules see reports
+
+A Report Writer report (an `RD` entry) is produced by `INITIATE`, then
+`GENERATE` of its detail groups (or of the report itself, for summary
+reporting), and ends with `TERMINATE`. PLB-C016, PLB-C017, and PLB-M007
+look at which reports and groups these statements name anywhere in the
+program. They do not follow the flow of control, so a report initiated
+on one path and generated on another is not reported.
+
+## PLB-C016 report-not-initiated
+
+A `GENERATE` or `TERMINATE` of a report that no `INITIATE` in the
+program starts:
+
+```cobol
+RD  MONTHLY-REPORT.
+01  MONTH-LINE TYPE DETAIL ...
+    GENERATE MONTH-LINE          *> reported: no INITIATE MONTHLY-REPORT
+```
+
+Generating or terminating a report that was not initiated is a run-time
+error.
+
+## PLB-C017 report-not-terminated
+
+A report that is initiated but that no `TERMINATE` ends:
+
+```cobol
+RD  DAILY-REPORT.                *> reported
+    INITIATE DAILY-REPORT
+    GENERATE ITEM-LINE
+    CLOSE PRINT-FILE
+```
+
+`TERMINATE` prints the final control footings and report footing, so
+without it the last totals are missing from the report.
+
 ## PLB-M001 go-to
 
 Every `GO TO` statement, reported as a note. `GO TO` makes the flow of
@@ -440,3 +480,16 @@ A `CALL` of the program named in a data item:
 Plumbline cannot tell which program such a call reaches, so the call
 rules do not check it. Enable this rule to list the calls that are left
 unchecked.
+
+## PLB-M007 detail-never-generated
+
+A detail group (`TYPE DETAIL`) with a name that no `GENERATE` names, in
+a report that is never generated as a whole:
+
+```cobol
+01  ERROR-LINE TYPE DE LINE PLUS 1.   *> reported
+```
+
+The group is either left over or meant to be generated somewhere it is
+not. Groups without names cannot be generated on their own and are not
+reported.

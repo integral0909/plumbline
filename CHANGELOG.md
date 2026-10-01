@@ -74,6 +74,9 @@ uses [Semantic Versioning](https://semver.org/).
 
 - `make corpus` runs Plumbline over the NIST COBOL-85 test suite
   (`tools/corpus/`); see `docs/corpus.md`.
+- Report Writer: RD entries, report groups, and the data their SOURCE,
+  SUM, and CONTROL clauses read; rules PLB-C016 report-not-initiated,
+  PLB-C017 report-not-terminated, and PLB-M007 detail-never-generated.
 - SORT and MERGE INPUT and OUTPUT PROCEDUREs, ALTER, CD entries, the
   fields of DEBUG-ITEM, DECIMAL-POINT IS COMMA, and CURRENCY SIGN.
 
