@@ -45,6 +45,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J002](#plb-j002-dd-unused) | dd-unused | note | DD is not a file of the step's programs |
 | [PLB-J003](#plb-j003-program-not-in-run) | program-not-in-run | note, off | Step runs a program that is not among those checked |
 | [PLB-J004](#plb-j004-dd-cannot-be-read) | dd-cannot-be-read | error | A file the program only reads has a DD that gives it no data |
+| [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -943,6 +944,27 @@ for the spool and cannot be read at all. `DD DUMMY`, which reads as an
 empty file, is left alone: it is how a job leaves out an input on
 purpose. Files that a program also opens for output, `I-O`, or `EXTEND`
 are not checked.
+
+## PLB-K001 cics-resource-undefined
+
+An `EXEC CICS` command that names a file, transaction, program, mapset,
+or transient data queue that the CICS resource definitions of the run
+do not define:
+
+```cobol
+    EXEC CICS RETURN TRANSID('ORD9') END-EXEC
+```
+
+The command fails when it runs (`FILENOTFOUND`, `PGMIDERR`, `INVREQ`,
+`QIDERR`), often only on the path that is tested least. The rule needs
+the definitions: DFHCSDUP input among the inputs, as `*.csd` files (see
+[CICS](cics.md)). It checks `FILE` and `DATASET`, `TRANSID`, `PROGRAM`
+of `XCTL`, `LINK`, and `LOAD`, `MAPSET`, and the `QUEUE` of `WRITEQ TD`
+and `READQ TD`, when the name is a literal or a data item whose `VALUE`
+is a literal and that no statement changes. A program of the run counts
+as defined, since CICS may install it by autoinstall. Resources that
+CICS supplies are left out: queues whose names start with `C` (`CSSL`,
+`CSMT`) and programs whose names start with `DFH` or `CEE`.
 
 ## PLB-M001 go-to
 

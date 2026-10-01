@@ -28,7 +28,7 @@ COPY "plbcallc.cpy".
 COPY "plbcall.cpy".
 PROCEDURE DIVISION USING PLB-CALL-GRAPH.
     MOVE 0 TO CP-COUNT CA-COUNT CC-COUNT CG-COUNT CP-DROPPED PF-COUNT
-        PM-COUNT
+        PM-COUNT PU-COUNT
     GOBACK.
 END PROGRAM PLB-CALL-INIT.
 
@@ -73,6 +73,8 @@ LOCAL-STORAGE SECTION.
 01  LS-MAP-NAME             PIC X(31).
 01  LS-MAPSET-NAME          PIC X(31).
 01  LS-MAP-TOKEN            PIC 9(9) COMP-5.
+01  LS-COMMAND              PIC X(31).
+01  LS-QUEUE-KIND           PIC X(31).
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -120,6 +122,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
                         PERFORM NOTE-OPEN
                     WHEN "EXEC"
                         PERFORM NOTE-MAP
+                        PERFORM NOTE-RESOURCES
                 END-EVALUATE
         END-EVALUATE
     END-PERFORM
@@ -418,6 +421,76 @@ CONSTANT-TEXT.
         END-IF
         MOVE ND-NEXT(LS-I) TO LS-I
     END-PERFORM.
+
+*> CICS resources --------------------------------------------------
+
+*> EXEC CICS command ... KEYWORD(name): the files, transactions,
+*> programs, mapsets, and transient data queues the command names, when
+*> the name is a constant.
+NOTE-RESOURCES.
+    COMPUTE LS-T = ND-TOK-FIRST(LS-N) + 1
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+    IF LS-WORD NOT = "CICS"
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-T
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-COMMAND LS-LEN
+    COMPUTE LS-C = LS-T + 1
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C LS-WORD LS-LEN
+    MOVE LS-WORD TO LS-QUEUE-KIND
+    MOVE LS-N TO LS-UP
+    PERFORM PROGRAM-OF-NODE
+    IF LS-P = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-T FROM LS-T BY 1 UNTIL LS-T >= ND-TOK-LAST(LS-N)
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            MOVE SPACE TO LS-KIND
+            EVALUATE LS-WORD
+                WHEN "FILE" WHEN "DATASET"
+                    MOVE "F" TO LS-KIND
+                WHEN "TRANSID"
+                    MOVE "T" TO LS-KIND
+                WHEN "PROGRAM"
+                    IF LS-COMMAND = "XCTL" OR LS-COMMAND = "LINK"
+                       OR LS-COMMAND = "LOAD"
+                        MOVE "P" TO LS-KIND
+                    END-IF
+                WHEN "MAPSET"
+                    MOVE "M" TO LS-KIND
+                WHEN "QUEUE"
+                    IF LS-QUEUE-KIND = "TD"
+                        MOVE "Q" TO LS-KIND
+                    END-IF
+            END-EVALUATE
+            COMPUTE LS-C = LS-T + 1
+            IF LS-KIND NOT = SPACE AND TK-IS-LPAREN(LS-C)
+                ADD 1 TO LS-C
+                PERFORM CONSTANT-TEXT
+                IF LS-TEXT NOT = SPACES
+                    PERFORM ADD-RESOURCE-USE
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
+
+ADD-RESOURCE-USE.
+    IF PU-COUNT >= PU-MAX
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO PU-COUNT
+    MOVE LS-P TO PU-PROGRAM(PU-COUNT)
+    MOVE LS-KIND TO PU-KIND(PU-COUNT)
+    MOVE LS-TEXT TO PU-NAME(PU-COUNT)
+    MOVE LS-COMMAND TO PU-COMMAND(PU-COUNT)
+    MOVE LS-T TO LS-K
+    MOVE LS-C TO LS-T
+    PERFORM TOKEN-POSITION
+    MOVE LS-K TO LS-T
+    MOVE LS-FILE-ID TO PU-FILE-ID(PU-COUNT)
+    MOVE LS-LINE TO PU-LINE(PU-COUNT)
+    MOVE LS-COLUMN TO PU-COLUMN(PU-COUNT).
 
 *> Programs and parameters ----------------------------------------
 

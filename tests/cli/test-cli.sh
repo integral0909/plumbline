@@ -280,6 +280,19 @@ check "dump csd lists resources"          0 'orders.csd:4: transaction ORD1 grou
     -- dump csd tests/golden/csd/orders.csd
 check "dump csd of a missing file"         2 'cannot read tests/golden/csd/missing.csd' \
     -- dump csd tests/golden/csd/missing.csd
+kx="tests/fixtures/cics/ordmenu.cob tests/golden/csd/orders.csd"
+check "a CICS file the definitions do not have" 1 'ordmenu.cob:16:32: error: EXEC CICS READ names file ORDHIST, which the CICS definitions do not define \[PLB-K001\]' \
+    -- check --no-config $kx
+check "a CICS program the definitions do not have" 1 'ordmenu.cob:28:28: error: EXEC CICS LINK names program ORDPRICE' \
+    -- check --no-config $kx
+check "a transaction the definitions do not have" 1 'ordmenu.cob:32:30: error: EXEC CICS RETURN names transaction ORD9' \
+    -- check --no-config $kx
+check_absent "defined, supplied, and run programs' resources" 'ordmenu.cob:\(12\|20\|23\|29\|30\|31\):[0-9]*: error' \
+    -- check --no-config $kx
+check_absent "no definitions, no CICS resource checks" 'PLB-K001' \
+    -- check --no-config tests/fixtures/cics/ordmenu.cob
+check "dump calls lists CICS resources"    0 '^resource file ORDFILE tests/fixtures/cics/ordmenu.cob:12:25 READ by ORDMENU$' \
+    -- dump calls tests/fixtures/cics/ordmenu.cob
 check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
 check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
     -- rules --no-config --enable evaluate-without-other

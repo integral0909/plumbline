@@ -53,7 +53,10 @@ find app \( -iname '*.jcl' -o -iname '*.prc' \) | sort > ../jcl.list
 jobs=$(wc -l < ../jcl.list | tr -d ' ')
 find app -iname '*.bms' | sort > ../bms.list
 maps=$(wc -l < ../bms.list | tr -d ' ')
-cat ../programs.list ../jcl.list ../bms.list > ../inputs.list
+# The CICS resource definitions of the application and its extensions.
+find app -iname '*.csd' | sort > ../csd.list
+definitions=$(wc -l < ../csd.list | tr -d ' ')
+cat ../programs.list ../jcl.list ../bms.list ../csd.list > ../inputs.list
 
 # The few sources with tabs were written with stops every 4 columns.
 start=$(date +%s)
@@ -66,6 +69,7 @@ cd ../out
 echo "programs:            $programs ($lines lines, without copybooks)"
 echo "JCL members:         $jobs"
 echo "BMS sources:         $maps"
+echo "CICS definitions:    $definitions"
 echo "seconds, one run:    $((end - start))"
 echo "with input errors:   $(grep ': error: ' diagnostics.txt | cut -d: -f1 | sort -u | wc -l | tr -d ' ')"
 echo
