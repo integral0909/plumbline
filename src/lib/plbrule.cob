@@ -121,6 +121,15 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-S001"
         "dynamic-sql" "N"
         "SQL text is built at run time"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-S002"
+        "hard-coded-credential" "W"
+        "Credential is written into the program"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-S003"
+        "sensitive-data-displayed" "W"
+        "DISPLAY writes a credential or personal data"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-S004"
+        "shell-command" "N"
+        "Shell command is taken from a data item"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
