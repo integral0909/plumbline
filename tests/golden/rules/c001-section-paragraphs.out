@@ -1,0 +1,3 @@
+tests/golden/rules/c001-section-paragraphs.cob:12:1: warning: paragraph DEAD-CALLER is never executed [PLB-C001]
+tests/golden/rules/c001-section-paragraphs.cob:17:1: warning: paragraph SAY-GOODBYE is never executed [PLB-C001]
+tests/golden/rules/c001-section-paragraphs.cob:19:1: warning: section UNUSED is never executed [PLB-C001]

@@ -52,7 +52,7 @@ The 2 programs that still have input errors are:
 | Rule | Findings |
 |------|---------:|
 | PLB-M001 go-to | 20,574 |
-| PLB-C001 unreachable-code | 5,501 |
+| PLB-C001 unreachable-code | 5,666 |
 | PLB-M003 unused-data-item | 3,238 |
 | PLB-C008 move-truncation | 476 |
 | PLB-M005 set-never-read | 313 |

@@ -65,11 +65,18 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
 END PROGRAM PLB-CHECK-RUN.
 
 *> PLB-C001 unreachable-code: a paragraph or section that no entry
-*> point, fall-through, PERFORM, or GO TO reaches. Paragraphs of an
-*> unreachable section are covered by the finding for the section.
+*> point, fall-through, PERFORM, or GO TO reaches. A section is
+*> reported when none of its code runs, and that finding covers its
+*> paragraphs; a section whose paragraphs are performed one by one,
+*> though control never enters at its header, is in use.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-C001.
 DATA DIVISION.
+WORKING-STORAGE SECTION.
+*> Per unit that is a section: "Y" when it or one of its paragraphs
+*> executes. A section can be used only through PERFORMs of its
+*> paragraphs, without control ever entering at its header.
+01  WS-SECTION-USED         PIC X OCCURS 20000 TIMES.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-U                    PIC 9(9) COMP-5.
@@ -88,16 +95,31 @@ COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
         PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C001" LS-RULE
+    IF FU-COUNT > 20000
+        GOBACK
+    END-IF
     PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > FU-COUNT
-        IF FU-REACHED(LS-U) = "N" AND FU-KIND(LS-U) NOT = "D"
-            IF FU-SECTION(LS-U) = 0
-                PERFORM REPORT-UNIT
-            ELSE
-                IF FU-REACHED(FU-SECTION(LS-U)) = "Y"
+        MOVE FU-REACHED(LS-U) TO WS-SECTION-USED(LS-U)
+    END-PERFORM
+    PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > FU-COUNT
+        IF FU-REACHED(LS-U) = "Y" AND FU-SECTION(LS-U) > 0
+            MOVE "Y" TO WS-SECTION-USED(FU-SECTION(LS-U))
+        END-IF
+    END-PERFORM
+    PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > FU-COUNT
+        EVALUATE TRUE
+            WHEN FU-REACHED(LS-U) = "Y" OR FU-KIND(LS-U) = "D"
+                CONTINUE
+            *> A section none of whose code runs: one finding for all.
+            WHEN FU-KIND(LS-U) = "S"
+                IF WS-SECTION-USED(LS-U) = "N"
                     PERFORM REPORT-UNIT
                 END-IF
-            END-IF
-        END-IF
+            WHEN FU-SECTION(LS-U) = 0
+                PERFORM REPORT-UNIT
+            WHEN WS-SECTION-USED(FU-SECTION(LS-U)) = "Y"
+                PERFORM REPORT-UNIT
+        END-EVALUATE
     END-PERFORM
     GOBACK.
 
