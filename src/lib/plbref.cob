@@ -71,9 +71,13 @@ LOCAL-STORAGE SECTION.
 01  LS-OK                   PIC X.
 01  LS-GLOBAL               PIC X.
 01  LS-FULL                 PIC X VALUE "N".
+*> Qualifiers of the reference being resolved, innermost first. Level
+*> numbers go up to 49 and a file name can qualify a record, so 50
+*> covers every valid reference.
+78  LS-QUAL-MAX             VALUE 50.
 01  LS-QUALIFIERS.
     05  LS-QUAL-COUNT       PIC 9(4) COMP-5.
-    05  LS-QUAL             PIC X(31) OCCURS 8 TIMES.
+    05  LS-QUAL             PIC X(31) OCCURS LS-QUAL-MAX TIMES.
 LINKAGE SECTION.
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
@@ -242,7 +246,7 @@ CONSIDER-TOKEN.
         IF NOT TK-IS-WORD(LS-K) OR TK-TEXT-LEN(LS-K) > 31
             EXIT PERFORM
         END-IF
-        IF LS-QUAL-COUNT < 8
+        IF LS-QUAL-COUNT < LS-QUAL-MAX
             ADD 1 TO LS-QUAL-COUNT
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K
                 LS-QUAL(LS-QUAL-COUNT) LS-LEN
