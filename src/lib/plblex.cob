@@ -379,6 +379,13 @@ SCAN-TOKEN.
             ELSE
                 PERFORM SCAN-SPECIAL
             END-IF
+        WHEN LS-CH = "("
+            PERFORM MEASURE-PAREN-TAG
+            IF LS-TAG-LEN > 0
+                PERFORM SCAN-WORD-OR-NUMBER
+            ELSE
+                PERFORM SCAN-SPECIAL
+            END-IF
         *> A sign starts a number when digits, or a decimal point and
         *> digits, follow it: +1, -.5.
         WHEN (LS-CH = "+" OR LS-CH = "-")
@@ -499,10 +506,14 @@ SCAN-WORD-OR-NUMBER.
                 MOVE "N" TO LS-ALL-DIGITS
                 ADD 1 TO LS-POS
             WHEN OTHER
-                IF ST-TEXT(LS-POS:1) NOT = ":"
-                    EXIT PERFORM
-                END-IF
-                PERFORM MEASURE-TAG
+                EVALUATE ST-TEXT(LS-POS:1)
+                    WHEN ":"
+                        PERFORM MEASURE-TAG
+                    WHEN "("
+                        PERFORM MEASURE-PAREN-TAG
+                    WHEN OTHER
+                        MOVE 0 TO LS-TAG-LEN
+                END-EVALUATE
                 IF LS-TAG-LEN = 0
                     EXIT PERFORM
                 END-IF
@@ -628,6 +639,43 @@ MEASURE-TAG.
     END-PERFORM
     IF LS-J <= ST-LEN AND LS-J > LS-POS + 1
         IF ST-TEXT(LS-J:1) = ":"
+            COMPUTE LS-TAG-LEN = LS-J - LS-POS + 1
+        END-IF
+    END-IF.
+
+*> LS-POS is on "(". A partial word in parentheses, as in
+*> FLG-(TAG)-NOT-OK or (TAG)O, that COPY ... REPLACING ==(TAG)== BY
+*> ... completes (IBM Enterprise COBOL): set LS-TAG-LEN to its length
+*> when it is part of a word, that is, when the word so far ends with
+*> a hyphen or a word character follows the ")"; else 0. A subscript
+*> such as A(I) is neither.
+MEASURE-PAREN-TAG.
+    MOVE 0 TO LS-TAG-LEN
+    MOVE LS-POS TO LS-J
+    ADD 1 TO LS-J
+    PERFORM UNTIL LS-J > ST-LEN
+        MOVE ST-TEXT(LS-J:1) TO LS-BYTE-CHAR
+        MOVE WS-CLASS(LS-BYTE-CODE + 1) TO LS-NEXT-CLS
+        IF LS-NEXT-CLS NOT = "W" AND LS-NEXT-CLS NOT = "D"
+                AND LS-NEXT-CLS NOT = "H"
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-J
+    END-PERFORM
+    IF LS-J > ST-LEN OR LS-J = LS-POS + 1
+        EXIT PARAGRAPH
+    END-IF
+    IF ST-TEXT(LS-J:1) NOT = ")"
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-CLASS-POS = LS-J + 1
+    PERFORM CLASS-AT
+    IF LS-CLASS-OF = "W" OR LS-CLASS-OF = "D" OR LS-CLASS-OF = "H"
+        COMPUTE LS-TAG-LEN = LS-J - LS-POS + 1
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-POS > 1
+        IF ST-TEXT(LS-POS - 1:1) = "-"
             COMPUTE LS-TAG-LEN = LS-J - LS-POS + 1
         END-IF
     END-IF.

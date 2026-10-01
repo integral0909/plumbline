@@ -287,7 +287,8 @@ END PROGRAM PLB-PP-RESOLVE.
 *> token POS, looking no further than LIMIT?
 *>   KIND "F": the pattern's tokens equal the tokens starting at POS.
 *>             A pattern that is a single tag word such as :PFX: also
-*>             matches inside a longer word: :PFX:-RECORD.
+*>             matches inside a longer word: :PFX:-RECORD; so does
+*>             a pattern of (PFX), in FLG-(PFX)-OK.
 *>   KIND "L": the word at POS begins with the pattern word.
 *>   KIND "T": the word at POS ends with the pattern word.
 *> MATCHED receives:
@@ -307,6 +308,7 @@ LOCAL-STORAGE SECTION.
 01  LS-PAT-LEN              PIC 9(9) COMP-5.
 01  LS-REP-LEN              PIC 9(9) COMP-5.
 01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-PAT-TEXT             PIC X(64).
 LINKAGE SECTION.
 COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
@@ -333,7 +335,23 @@ PROCEDURE DIVISION USING PLB-TOKENS LK-KIND LK-PAT-FROM LK-PAT-TO
         WHEN LK-PAT-FROM = LK-PAT-TO AND TK-IS-WORD(LK-PAT-FROM)
              AND TK-TEXT(TK-TEXT-OFF(LK-PAT-FROM):1) = ":"
              AND TK-TEXT-LEN(LK-PAT-FROM) > 2
+            MOVE TK-TEXT-LEN(LK-PAT-FROM) TO LS-PAT-LEN
+            MOVE TK-TEXT(TK-TEXT-OFF(LK-PAT-FROM):LS-PAT-LEN)
+                TO LS-PAT-TEXT
             PERFORM MATCH-TAG
+        *> ==(TAG)== (IBM Enterprise COBOL): the same as a :TAG:, for
+        *> words that hold (TAG) as a part.
+        WHEN LK-PAT-TO = LK-PAT-FROM + 2 AND TK-IS-LPAREN(LK-PAT-FROM)
+             AND TK-IS-WORD(LK-PAT-FROM + 1) AND TK-IS-RPAREN(LK-PAT-TO)
+            PERFORM MATCH-FULL
+            IF LK-MATCHED = "N"
+                MOVE SPACES TO LS-PAT-TEXT
+                COMPUTE LS-PAT-LEN = TK-TEXT-LEN(LK-PAT-FROM + 1) + 2
+                STRING "(" TK-TEXT(TK-TEXT-OFF(LK-PAT-FROM + 1)
+                           :TK-TEXT-LEN(LK-PAT-FROM + 1)) ")"
+                    DELIMITED BY SIZE INTO LS-PAT-TEXT
+                PERFORM MATCH-TAG-IN-WORD
+            END-IF
         WHEN OTHER
             PERFORM MATCH-FULL
     END-EVALUATE
@@ -347,10 +365,20 @@ MATCH-TAG.
     IF NOT TK-IS-WORD(LK-POS)
         EXIT PARAGRAPH
     END-IF
-    MOVE TK-TEXT-LEN(LK-POS) TO LS-WORD-LEN
-    MOVE TK-TEXT-LEN(LK-PAT-FROM) TO LS-PAT-LEN
-    IF LS-WORD-LEN = LS-PAT-LEN
+    IF TK-TEXT-LEN(LK-POS) = LS-PAT-LEN
         PERFORM MATCH-FULL
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM MATCH-TAG-IN-WORD.
+
+*> Each occurrence of LS-PAT-TEXT(1:LS-PAT-LEN) in the word at LK-POS
+*> is replaced by the text of the (single-word or empty) replacement.
+MATCH-TAG-IN-WORD.
+    IF NOT TK-IS-WORD(LK-POS)
+        EXIT PARAGRAPH
+    END-IF
+    MOVE TK-TEXT-LEN(LK-POS) TO LS-WORD-LEN
+    IF LS-WORD-LEN <= LS-PAT-LEN
         EXIT PARAGRAPH
     END-IF
     IF LK-REP-TO > LK-REP-FROM
@@ -366,7 +394,7 @@ MATCH-TAG.
     PERFORM UNTIL LS-K > LS-WORD-LEN
         IF LS-K + LS-PAT-LEN - 1 <= LS-WORD-LEN
            AND TK-TEXT(TK-TEXT-OFF(LK-POS) + LS-K - 1:LS-PAT-LEN)
-               = TK-TEXT(TK-TEXT-OFF(LK-PAT-FROM):LS-PAT-LEN)
+               = LS-PAT-TEXT(1:LS-PAT-LEN)
             MOVE "W" TO LK-MATCHED
             IF LS-REP-LEN > 0
                 STRING TK-TEXT(TK-TEXT-OFF(LK-REP-FROM):LS-REP-LEN)
