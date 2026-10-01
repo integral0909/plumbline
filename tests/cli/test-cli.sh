@@ -126,6 +126,26 @@ check "dump lines needs files"            2 'no input files' -- dump lines
 check "invalid --format value"            2 "invalid format 'variable'" \
     -- dump lines --format variable $fx/fixed-basic.cbl
 check "unknown dump option"               2 "unknown option '--frob'" -- dump lines --frob $fx/fixed-basic.cbl
+bx=tests/fixtures/baseline
+check "--baseline hides the findings it lists" 0 '^$' -- check --baseline $bx/c001.baseline $rx/c001-unreachable.cob
+check "findings not in the baseline are reported" 1 'NEVER-CALLED is never executed' \
+    -- check --baseline $bx/c001-partial.baseline $rx/c001-unreachable.cob
+check "a missing baseline is an error"    1 'cannot open baseline nope.baseline' \
+    -- check --baseline nope.baseline $rx/c001-unreachable.cob
+check "a file that is not a baseline"     1 'is not a Plumbline baseline' \
+    -- check --baseline $rx/c001-unreachable.cob $rx/c001-unreachable.cob
+check "--baseline needs a file"           2 '--baseline needs a file' -- check $rx/c001-unreachable.cob --baseline
+check "each baseline line matches one finding" 0 'twice.cob:7:5: note: GO TO' \
+    -- check --disable unreachable-code --baseline $bx/twice-once.baseline $bx/twice.cob
+tmp_baseline=$(mktemp)
+check "--write-baseline writes findings"  0 "wrote 3 findings to $tmp_baseline" \
+    -- check --write-baseline "$tmp_baseline" $rx/c001-unreachable.cob
+check "a written baseline hides its findings" 0 '^$' -- check --baseline "$tmp_baseline" $rx/c001-unreachable.cob
+rm -f "$tmp_baseline"
+check "--write-baseline to a bad path"    1 'cannot write baseline' \
+    -- check --write-baseline no/such/dir/b.txt $rx/c001-unreachable.cob
+
+
 # check_report LABEL FORMAT EXPECTED-COUNT -- ARGS...
 # Run plumbline and validate its report with tests/tools/check_report.py.
 check_report() {

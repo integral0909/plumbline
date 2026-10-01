@@ -5,7 +5,8 @@
 *>   plumbline check [-I DIR]... [--format ...] [--debug]
 *>                   [--enable RULE]... [--disable RULE]...
 *>                   [--fail-on error|warning|note|never]
-*>                   [--report text|json|sarif] FILE...
+*>                   [--report text|json|sarif]
+*>                   [--baseline FILE | --write-baseline FILE] FILE...
 *>   plumbline dump lines  [--format fixed|free|auto] FILE...
 *>   plumbline dump tokens [--format fixed|free|auto] [--debug] FILE...
 *>   plumbline dump expanded [-I DIR]... [--format ...] [--debug] FILE...
@@ -91,6 +92,9 @@ COPY "plbcall.cpy".
 01  WS-POS-FILE             PIC 9(4) COMP-5.
 01  WS-POS-LINE             PIC 9(9) COMP-5.
 01  WS-POS-COLUMN           PIC 9(4) COMP-5.
+01  WS-BASELINE             PIC X(512) VALUE SPACES.
+01  WS-WRITE-BASELINE       PIC X(512) VALUE SPACES.
+01  WS-BASELINE-COUNT       PIC 9(9) COMP-5.
 
 PROCEDURE DIVISION.
 MAIN-LOGIC.
@@ -184,7 +188,11 @@ SHOW-USAGE.
     DISPLAY "  --disable RULE   disable a rule (id or name; repeatable)"
     DISPLAY "  --fail-on LEVEL  exit 1 on findings at or above LEVEL:"
     DISPLAY "                   error, warning (default), note, never"
-    DISPLAY "  --report FORMAT  text (default), json, or sarif".
+    DISPLAY "  --report FORMAT  text (default), json, or sarif"
+    DISPLAY "  --baseline FILE  do not report the findings listed in FILE"
+    DISPLAY "  --write-baseline FILE"
+    DISPLAY "                   write the findings to FILE instead of"
+    DISPLAY "                   reporting them".
 
 *> check --------------------------------------------------------
 
@@ -212,6 +220,14 @@ CHECK-COMMAND.
     CALL "PLB-RULE-CALLS" USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH
     CALL "PLB-FIND-SUPPRESS" USING PLB-SOURCE-SET PLB-RULES PLB-FINDINGS
     CALL "PLB-FIND-SORT" USING PLB-FINDINGS
+    IF WS-WRITE-BASELINE NOT = SPACES
+        PERFORM WRITE-BASELINE
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-BASELINE NOT = SPACES
+        CALL "PLB-BASELINE-APPLY" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            PLB-RULES PLB-FINDINGS WS-BASELINE WS-BASELINE-COUNT
+    END-IF
     EVALUATE WS-REPORT
         WHEN "json"
             CALL "PLB-REPORT-JSON" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
@@ -230,6 +246,23 @@ CHECK-COMMAND.
     PERFORM COUNT-FAILING
     IF WS-FAILING > 0 OR DG-ERRORS > 0
         MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+*> Record the findings as accepted, rather than report them. A
+*> baseline that is in use is not applied: the new one lists all
+*> findings.
+WRITE-BASELINE.
+    CALL "PLB-BASELINE-WRITE" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+        PLB-RULES PLB-FINDINGS WS-WRITE-BASELINE WS-BASELINE-COUNT
+    PERFORM REPORT-DIAGNOSTICS
+    IF DG-ERRORS > 0
+        MOVE 1 TO WS-EXIT-CODE
+    ELSE
+        MOVE WS-BASELINE-COUNT TO WS-NUM
+        CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+        CALL "PLB-STR-LENGTH" USING WS-WRITE-BASELINE WS-PATH-LEN
+        DISPLAY PLB-NAME ": wrote " WS-NUM-TEXT(1:WS-NUM-LEN)
+            " findings to " WS-WRITE-BASELINE(1:WS-PATH-LEN) UPON SYSERR
     END-IF.
 
 *> Findings at or above the --fail-on level.
@@ -930,6 +963,23 @@ PARSE-INPUT-ARGS.
     PERFORM UNTIL WS-ARG-INDEX > WS-ARG-COUNT OR WS-EXIT-CODE NOT = 0
         PERFORM NEXT-ARG
         EVALUATE TRUE
+            WHEN WS-ARG = "--baseline"
+                PERFORM NEXT-ARG
+                IF WS-ARG-LEN = 0
+                    DISPLAY PLB-NAME ": --baseline needs a file" UPON SYSERR
+                    PERFORM SUGGEST-HELP
+                ELSE
+                    MOVE WS-ARG TO WS-BASELINE
+                END-IF
+            WHEN WS-ARG = "--write-baseline"
+                PERFORM NEXT-ARG
+                IF WS-ARG-LEN = 0
+                    DISPLAY PLB-NAME ": --write-baseline needs a file"
+                        UPON SYSERR
+                    PERFORM SUGGEST-HELP
+                ELSE
+                    MOVE WS-ARG TO WS-WRITE-BASELINE
+                END-IF
             WHEN WS-ARG = "--format"
                 PERFORM NEXT-ARG
                 PERFORM SET-MODE

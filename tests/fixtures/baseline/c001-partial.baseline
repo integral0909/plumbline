@@ -1,0 +1,3 @@
+# plumbline baseline 1
+PLB-M001 | tests/golden/rules/c001-unreachable.cob | GO TO makes the flow of control hard to follow | GO TO ABEND
+PLB-C001 | tests/golden/rules/c001-unreachable.cob | paragraph AFTER-RANGE is never executed | AFTER-RANGE.
