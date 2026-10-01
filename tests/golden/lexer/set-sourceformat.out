@@ -1,0 +1,18 @@
+tests/golden/lexer/set-sourceformat.cbl:2:8: word     IDENTIFICATION
+tests/golden/lexer/set-sourceformat.cbl:2:23: word     DIVISION
+tests/golden/lexer/set-sourceformat.cbl:2:31: period   .
+tests/golden/lexer/set-sourceformat.cbl:3:8: word     PROGRAM-ID
+tests/golden/lexer/set-sourceformat.cbl:3:18: period   .
+tests/golden/lexer/set-sourceformat.cbl:3:20: word     SWITCH
+tests/golden/lexer/set-sourceformat.cbl:3:26: period   .
+tests/golden/lexer/set-sourceformat.cbl:4:8: word     PROCEDURE
+tests/golden/lexer/set-sourceformat.cbl:4:18: word     DIVISION
+tests/golden/lexer/set-sourceformat.cbl:4:26: period   .
+tests/golden/lexer/set-sourceformat.cbl:6:1: word     DISPLAY
+tests/golden/lexer/set-sourceformat.cbl:6:9: alnum    "free here"
+tests/golden/lexer/set-sourceformat.cbl:8:12: word     DISPLAY
+tests/golden/lexer/set-sourceformat.cbl:8:20: alnum    "fixed again"
+tests/golden/lexer/set-sourceformat.cbl:9:12: word     STOP
+tests/golden/lexer/set-sourceformat.cbl:9:17: word     RUN
+tests/golden/lexer/set-sourceformat.cbl:9:20: period   .
+tests/golden/lexer/set-sourceformat.cbl:9:20: eof

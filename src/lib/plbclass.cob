@@ -346,6 +346,7 @@ PROCEDURE DIVISION USING LK-TEXT LK-FORMAT.
             END-IF
             PERFORM DECODE-FORMAT
         WHEN "$SET"
+        WHEN ">>SET"
             PERFORM VARYING LS-I FROM 2 BY 1 UNTIL LS-I >= LS-COUNT
                 IF LS-TOKEN(LS-I) = "SOURCEFORMAT"
                     ADD 1 TO LS-I

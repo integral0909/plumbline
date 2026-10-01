@@ -357,7 +357,8 @@ DIRECTIVE-CONSTANTS.
                     LS-DIRECTIVE-WORD(3)
             MOVE SPACES TO LS-TEXT
             EVALUATE TRUE
-                WHEN LS-DIRECTIVE-WORD(1) = "$SET"
+                WHEN (LS-DIRECTIVE-WORD(1) = "$SET"
+                      OR LS-DIRECTIVE-WORD(1) = ">>SET")
                      AND LS-DIRECTIVE-WORD(2) = "CONSTANT"
                 WHEN LS-DIRECTIVE-WORD(1) = ">>DEFINE"
                      AND LS-DIRECTIVE-WORD(2) = "CONSTANT"
@@ -401,6 +402,13 @@ INDEX-NAMES.
             WHEN LS-TEXT = "INDEXED"
                 MOVE "Y" TO LS-IN-INDEXED
             WHEN LS-TEXT = "ASCENDING" OR LS-TEXT = "DESCENDING"
+                MOVE "N" TO LS-IN-INDEXED
+            *> Report Writer: OCCURS n TIMES VARYING counter FROM ...
+            *> declares the counter.
+            WHEN LS-TEXT = "VARYING"
+                MOVE "V" TO LS-IN-INDEXED
+            WHEN LS-IN-INDEXED = "V"
+                PERFORM ADD-OTHER-IF-USER-WORD
                 MOVE "N" TO LS-IN-INDEXED
             WHEN LS-IN-INDEXED = "Y"
                 PERFORM ADD-OTHER-IF-USER-WORD

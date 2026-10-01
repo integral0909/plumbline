@@ -891,7 +891,7 @@ DIRECTIVE.
             IF LS-ACTIVE = "Y"
                 PERFORM DEFINE-DIRECTIVE
             END-IF
-        WHEN "$SET"
+        WHEN "$SET" WHEN ">>SET"
             IF LS-ACTIVE = "Y" AND LS-WORD(2) = "CONSTANT"
                 MOVE LS-WORD(3) TO LS-NAME
                 PERFORM ADD-NAME
