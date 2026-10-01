@@ -4,7 +4,7 @@
 *> in source order (a section comes before its paragraphs). Execution
 *> falls from each unit into the next one in the same program unless
 *> the unit's last statement ends it (STOP RUN, GOBACK, EXIT PROGRAM,
-*> or an unconditional GO TO). Edges record PERFORM and GO TO.
+*> an unconditional GO TO, or EXEC CICS RETURN, XCTL, or ABEND). Edges record PERFORM and GO TO.
 78  FU-MAX                      VALUE 20000.
 78  FE-MAX                      VALUE 100000.
 01  PLB-FLOW.
