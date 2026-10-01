@@ -6,7 +6,10 @@ import subprocess
 import unittest
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
-PLUMBLINE = os.path.join(ROOT, "build", "bin", "plumbline")
+# make test names the program to run, which under make coverage is a
+# wrapper that records the statements it executes.
+PLUMBLINE = os.environ.get(
+    "PLUMBLINE", os.path.join(ROOT, "build", "bin", "plumbline"))
 SAMPLE = os.path.abspath(os.path.join(
     ROOT, "tests", "golden", "rules", "c001-unreachable.cob"))
 URI = "file://" + SAMPLE
