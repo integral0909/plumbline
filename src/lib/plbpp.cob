@@ -814,8 +814,46 @@ PARSE-OPERAND.
            OR TK-IS-NUMBER OF WORK-TOKENS (LS-J)
             MOVE LS-J TO LS-OPERAND-FROM LS-OPERAND-TO
             ADD 1 TO LS-J
+            IF TK-IS-WORD OF WORK-TOKENS (LS-OPERAND-FROM)
+                PERFORM EXTEND-IDENTIFIER
+            END-IF
         ELSE
             MOVE "N" TO LS-OK
+        END-IF
+    END-IF.
+
+*> An operand that is an identifier runs on over IN|OF qualifiers and
+*> one parenthesized subscript: A OF B IN C (1, 2). LS-J is after the
+*> word; on return it is after the identifier.
+EXTEND-IDENTIFIER.
+    PERFORM UNTIL LS-J + 1 > FR-END(LS-F)
+        IF NOT TK-IS-WORD OF WORK-TOKENS (LS-J + 1)
+            EXIT PERFORM
+        END-IF
+        CALL "PLB-TOK-IS-WORD" USING WORK-TOKENS LS-J "OF" LS-IS
+        IF LS-IS = "N"
+            CALL "PLB-TOK-IS-WORD" USING WORK-TOKENS LS-J "IN" LS-IS
+        END-IF
+        IF LS-IS = "N"
+            EXIT PERFORM
+        END-IF
+        ADD 2 TO LS-J
+        COMPUTE LS-OPERAND-TO = LS-J - 1
+    END-PERFORM
+    IF LS-J <= FR-END(LS-F)
+        IF TK-IS-LPAREN OF WORK-TOKENS (LS-J)
+            MOVE LS-J TO LS-K
+            PERFORM UNTIL LS-K > FR-END(LS-F)
+                IF TK-IS-RPAREN OF WORK-TOKENS (LS-K)
+                    MOVE LS-K TO LS-OPERAND-TO
+                    COMPUTE LS-J = LS-K + 1
+                    EXIT PERFORM
+                END-IF
+                IF TK-IS-PERIOD OF WORK-TOKENS (LS-K)
+                    EXIT PERFORM
+                END-IF
+                ADD 1 TO LS-K
+            END-PERFORM
         END-IF
     END-IF.
 
