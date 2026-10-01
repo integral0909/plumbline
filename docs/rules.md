@@ -9,6 +9,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-B001](#plb-b001-map-fields-overlap) | map-fields-overlap | error | Two fields of a BMS map share screen positions |
 | [PLB-B002](#plb-b002-field-outside-map) | field-outside-map | error | A BMS field ends past the end of its map |
 | [PLB-B003](#plb-b003-map-not-in-mapset) | map-not-in-mapset | error | Program sends or receives a map its mapset does not define |
+| [PLB-B004](#plb-b004-symbolic-map-stale) | symbolic-map-stale | error | Symbolic map copybook does not match its BMS map |
 | [PLB-C001](#plb-c001-unreachable-code) | unreachable-code | warning | Paragraph or section can never be executed |
 | [PLB-C002](#plb-c002-perform-and-fall-through) | perform-and-fall-through | warning | Paragraph is both performed and fallen into |
 | [PLB-C003](#plb-c003-fall-off-end) | fall-off-end | warning | Control can run off the end of the procedure division |
@@ -148,6 +149,30 @@ is a literal and that no statement changes (the common
 `LIT-THISMAP` constants). A command without `MAPSET` uses the mapset
 of the map's own name. Names set at run time, and mapsets that are not
 among the inputs, are not checked.
+
+## PLB-B004 symbolic-map-stale
+
+A program's symbolic map that does not match the BMS map of the run it
+was generated from. For map `M`, BMS generates the record `MI` (and
+`MO` redefining it), with four items for each named field `F`: `FL`,
+the length typed in; `FF` and `FA`, flag and attribute; and `FI`, the
+data. The rule reports:
+
+- a field of the map with no `FI` item in the record;
+- an `FI` item whose length is not the field's `LENGTH`;
+- an `FI` item with an `FL` item beside it, for a field the map does
+  not have.
+
+```
+CUSTNMI has 25 characters, but field CUSTNM of map SCRMAP has LENGTH=30
+```
+
+Each means the copybook was generated from another version of the map.
+`RECEIVE MAP` and `SEND MAP` then move the program's data to other
+places than the screen's fields: values are cut short, or land in the
+next field. Assemble the map again and compile the programs that copy
+it. The findings are in the copybook, once for each program that
+copies it.
 
 ## PLB-C001 unreachable-code
 

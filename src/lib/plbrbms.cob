@@ -220,3 +220,194 @@ APPEND-NUM.
     STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
         INTO LS-MESSAGE WITH POINTER LS-PTR.
 END PROGRAM PLB-RULE-BMS.
+
+*> PLB-B004 symbolic-map-stale: a program's symbolic map, the copybook
+*> that BMS generates from a map, does not match the map. For map M,
+*> the symbolic map is the record MI, and each named field F of the
+*> map has the items FL (length), FF and FA (flag and attribute), and
+*> FI (the data) in it. The rule checks, for each map of the run whose
+*> MI record the program has:
+*>
+*>   - every named field of the map has its FI item, as long as the
+*>     field's LENGTH;
+*>   - every FI item that has an FL item beside it is a field of the
+*>     map.
+*>
+*> A copybook generated from an older version of the map puts the
+*> program's data at the wrong places on the screen.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-SYMBOLIC-MAPS.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbbmsc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-M                    PIC 9(9) COMP-5.
+01  LS-F                    PIC 9(9) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-G                    PIC 9(9) COMP-5.
+01  LS-ITEM                 PIC 9(9) COMP-5.
+01  LS-FOUND                PIC X.
+01  LS-NAME                 PIC X(31).
+01  LS-FIELD                PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-TOKEN                PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-SIZE-TEXT            PIC X(20).
+01  LS-SIZE-LEN             PIC 9(9) COMP-5.
+01  LS-LENGTH-TEXT          PIC X(20).
+01  LS-LENGTH-LEN           PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbsym.cpy".
+COPY "plbbms.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-SYMBOLS PLB-BMS
+        PLB-RULES PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-B004" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y" OR BM-COUNT = 0 OR SY-COUNT = 0
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-M FROM 1 BY 1 UNTIL LS-M > BM-COUNT
+        IF BM-NAME(LS-M) NOT = SPACES
+            MOVE SPACES TO LS-NAME
+            STRING BM-NAME(LS-M) DELIMITED BY SPACE
+                   "I" DELIMITED BY SIZE
+                INTO LS-NAME
+            PERFORM VARYING LS-G FROM 1 BY 1 UNTIL LS-G > SY-COUNT
+                IF SY-NAME(LS-G) = LS-NAME AND SY-LEVEL(LS-G) = 1
+                    PERFORM CHECK-RECORD
+                END-IF
+            END-PERFORM
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> Record LS-G is the symbolic map of map LS-M.
+CHECK-RECORD.
+    PERFORM VARYING LS-F FROM BM-FIELD-FIRST(LS-M) BY 1
+            UNTIL LS-F >= BM-FIELD-FIRST(LS-M) + BM-FIELD-COUNT(LS-M)
+        IF BF-NAME(LS-F) NOT = SPACES
+            MOVE SPACES TO LS-FIELD
+            STRING BF-NAME(LS-F) DELIMITED BY SPACE
+                   "I" DELIMITED BY SIZE
+                INTO LS-FIELD
+            PERFORM FIND-ITEM
+            IF LS-ITEM = 0
+                PERFORM REPORT-MISSING
+            ELSE
+                IF SY-SIZE(LS-ITEM) NOT = BF-LENGTH(LS-F)
+                   AND BF-LENGTH(LS-F) > 0
+                    PERFORM REPORT-LENGTH
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM
+    *> Items of fields the map no longer has: FI with FL beside it.
+    PERFORM VARYING LS-S FROM LS-G BY 1 UNTIL LS-S > SY-COUNT
+        IF LS-S > LS-G AND SY-LEVEL(LS-S) = 1
+            EXIT PERFORM
+        END-IF
+        PERFORM CHECK-EXTRA-ITEM
+    END-PERFORM.
+
+*> LS-ITEM = the item named LS-FIELD in record LS-G, or 0.
+FIND-ITEM.
+    MOVE 0 TO LS-ITEM
+    PERFORM VARYING LS-S FROM LS-G BY 1 UNTIL LS-S > SY-COUNT
+        IF LS-S > LS-G AND SY-LEVEL(LS-S) = 1
+            EXIT PERFORM
+        END-IF
+        IF SY-NAME(LS-S) = LS-FIELD
+            MOVE LS-S TO LS-ITEM
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+*> Item LS-S: when its name ends in I and the record has the name
+*> with L instead, the map must have a field of the name without I.
+CHECK-EXTRA-ITEM.
+    MOVE SY-NAME(LS-S) TO LS-NAME
+    CALL "PLB-STR-LENGTH" USING LS-NAME LS-LEN
+    IF LS-LEN < 2 OR LS-LEN > 8
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-NAME(LS-LEN:1) NOT = "I"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-NAME TO LS-FIELD
+    MOVE "L" TO LS-FIELD(LS-LEN:1)
+    MOVE LS-S TO LS-TOKEN
+    PERFORM FIND-ITEM
+    MOVE LS-TOKEN TO LS-S
+    IF LS-ITEM = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "N" TO LS-FOUND
+    PERFORM VARYING LS-F FROM BM-FIELD-FIRST(LS-M) BY 1
+            UNTIL LS-F >= BM-FIELD-FIRST(LS-M) + BM-FIELD-COUNT(LS-M)
+        IF BF-NAME(LS-F) = LS-NAME(1:LS-LEN - 1)
+            MOVE "Y" TO LS-FOUND
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-FOUND = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    STRING "symbolic map item " DELIMITED BY SIZE
+           LS-NAME(1:LS-LEN) DELIMITED BY SIZE
+           " is for a field " DELIMITED BY SIZE
+           LS-NAME(1:LS-LEN - 1) DELIMITED BY SIZE
+           " that map " DELIMITED BY SIZE
+           BM-NAME(LS-M) DELIMITED BY SPACE
+           " does not have" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    MOVE SY-NAME-TOKEN(LS-S) TO LS-TOKEN
+    PERFORM REPORT-AT-TOKEN.
+
+REPORT-MISSING.
+    MOVE SPACES TO LS-MESSAGE
+    STRING "symbolic map " DELIMITED BY SIZE
+           SY-NAME(LS-G) DELIMITED BY SPACE
+           " has no item " DELIMITED BY SIZE
+           LS-FIELD DELIMITED BY SPACE
+           " for field " DELIMITED BY SIZE
+           BF-NAME(LS-F) DELIMITED BY SPACE
+           " of map " DELIMITED BY SIZE
+           BM-NAME(LS-M) DELIMITED BY SPACE
+        INTO LS-MESSAGE
+    MOVE SY-NAME-TOKEN(LS-G) TO LS-TOKEN
+    PERFORM REPORT-AT-TOKEN.
+
+REPORT-LENGTH.
+    MOVE SY-SIZE(LS-ITEM) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-SIZE-TEXT LS-SIZE-LEN
+    MOVE BF-LENGTH(LS-F) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-LENGTH-TEXT LS-LENGTH-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING LS-FIELD DELIMITED BY SPACE
+           " has " DELIMITED BY SIZE
+           LS-SIZE-TEXT(1:LS-SIZE-LEN) DELIMITED BY SIZE
+           " characters, but field " DELIMITED BY SIZE
+           BF-NAME(LS-F) DELIMITED BY SPACE
+           " of map " DELIMITED BY SIZE
+           BM-NAME(LS-M) DELIMITED BY SPACE
+           " has LENGTH=" DELIMITED BY SIZE
+           LS-LENGTH-TEXT(1:LS-LENGTH-LEN) DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    MOVE SY-NAME-TOKEN(LS-ITEM) TO LS-TOKEN
+    PERFORM REPORT-AT-TOKEN.
+
+REPORT-AT-TOKEN.
+    IF LS-TOKEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-TOKEN LS-MESSAGE.
+END PROGRAM PLB-RULE-SYMBOLIC-MAPS.
