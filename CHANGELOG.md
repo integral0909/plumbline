@@ -74,6 +74,8 @@ uses [Semantic Versioning](https://semver.org/).
 
 - `make corpus` runs Plumbline over the NIST COBOL-85 test suite
   (`tools/corpus/`); see `docs/corpus.md`.
+- `plumbline lsp`: a language server with diagnostics, outline, go to
+  definition, and hover.
 - `plumbline format --to fixed|free [--check]`: rewrite a file in the
   other reference format without changing its tokens.
 - HTML report (`--report html`): one self-contained page with source
@@ -113,3 +115,5 @@ uses [Semantic Versioning](https://semver.org/).
 - Qualified and subscripted identifiers as COPY REPLACING operands.
 - file-status-not-checked no longer stops at a statement in another
   branch of the same IF or EVALUATE.
+- PERFORM UNTIL EXIT is a loop, and paragraphs holding an ENTRY
+  statement are entry points.

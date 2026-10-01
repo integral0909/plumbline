@@ -364,6 +364,20 @@ input instead of written. The test of the formatter is that it changes
 no token: `tests/tools/roundtrip_format.py` compares the tokens of a
 file with those of its free and fixed versions.
 
+### Language server
+
+`src/lib/plblsp.cob` and the `lsp` part of `src/cli/plumbline.cob`.
+
+Messages are read a byte at a time from standard input, opened as a
+file of one-byte records, because a pipe cannot be read by position.
+Replies are written with `DISPLAY` and flushed with the C library's
+`fflush`. `PLB-JSON-GET` finds the first `"key":` in a message and
+decodes its value. That is enough for the few fields the server reads,
+because a quote inside a JSON string is always escaped. On each change,
+the editor's text is written to a copy, and the copy goes through the
+same steps as `plumbline check`. Position requests look up the token at
+the position, then its reference or procedure name.
+
 ### Rules and reporting
 
 `src/lib/plbrule.cob` (catalog and findings) and `src/lib/plbcheck.cob`

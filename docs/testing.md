@@ -7,7 +7,7 @@
 | Unit | `tests/unit/test-*.cob` | `tools/run-tests.sh` |
 | CLI end-to-end | `tests/cli/test-cli.sh` | shell |
 | Golden files | `tests/golden/<suite>/` | `tests/golden/run-golden.sh` |
-| Tooling | `tests/tools/test_*.py` | `python3 -m unittest` |
+| Tooling and language server | `tests/tools/test_*.py` | `python3 -m unittest` |
 
 ## Unit tests
 
