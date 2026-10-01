@@ -251,6 +251,14 @@ PROCEDURE DIVISION USING PLB-RULES LK-ID LK-NAME LK-SEVERITY LK-TITLE.
         MOVE "Y" TO RL-ENABLED(RL-COUNT)
         MOVE LK-TITLE TO RL-TITLE(RL-COUNT)
         MOVE 0 TO RL-LIMIT(RL-COUNT)
+    ELSE
+        *> A rule left out would change what the next MOVE to
+        *> RL-ENABLED(RL-COUNT) or RL-LIMIT(RL-COUNT) applies to.
+        DISPLAY "plumbline: internal error: the rule catalog is full ("
+            "raise RL-MAX in plbrules.cpy)" UPON SYSERR
+        MOVE 3 TO RETURN-CODE
+        *> plumbline: ignore stop-run-in-called-program -- nothing can go on
+        STOP RUN
     END-IF
     GOBACK.
 END PROGRAM PLB-RULE-DEFINE.
