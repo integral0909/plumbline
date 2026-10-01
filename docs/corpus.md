@@ -64,6 +64,7 @@ The 2 programs that still have input errors are:
 | PLB-M008 file-not-closed | 14 |
 | PLB-C030 value-never-used | 12 |
 | PLB-C003 fall-off-end | 11 |
+| PLB-C031 string-overflow | 6 |
 | PLB-C022 open-mode-mismatch | 6 |
 | PLB-C011 read-never-set | 5 |
 | PLB-C005 perform-thru-backwards | 3 |
@@ -163,6 +164,9 @@ The findings were checked by rule:
   counted as replacing a whole group, and a store to an `OCCURS
   DEPENDING ON` count, which a later `MOVE` to the table's group
   reads.
+- **PLB-C031 string-overflow.** All 6 are in NC217A, which tests
+  `STRING` overflowing its receiver without `ON OVERFLOW` and checks
+  the truncated result.
 - **PLB-C008 move-truncation.** A sample was read. Literal truncations
   are true once trailing spaces are not counted (`"WRITE NOT INVALID
   END-"` into a 20-character FEATURE loses `D-`). Numeric findings

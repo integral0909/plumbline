@@ -41,6 +41,7 @@ with the application: `DFHAID` and `DFHBMSCA` (CICS), and `CMQV`,
 | PLB-M013 unused-copybook | 30 |
 | PLB-C002 perform-and-fall-through | 23 |
 | PLB-C020 file-status-not-checked | 10 |
+| PLB-C031 string-overflow | 9 |
 | PLB-C030 value-never-used | 7 |
 | PLB-M002 alter | 4 |
 | PLB-M008 file-not-closed | 3 |
@@ -95,3 +96,8 @@ Some findings that were read and are true:
   the online programs (`CSMSG01Y`, `CSUSR01Y`), and file records in
   batch programs that do not read those files (`CVCUS01Y` in
   `CBTRN01C`).
+- **PLB-C031 string-overflow.** Nine error messages are built with
+  `STRING ... DELIMITED BY SIZE` from more text than their receiver
+  holds: in `COACTUPC` and `COACTVWC`, 81 characters go into the
+  75-character `WS-RETURN-MSG`, and the end of the CICS reason code is
+  cut off.

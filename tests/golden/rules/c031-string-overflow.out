@@ -1,0 +1,2 @@
+tests/golden/rules/c031-string-overflow.cob:19:14: warning: STRING sends at least 26 characters into FULL-NAME (20), so the rest is lost [PLB-C031]
+tests/golden/rules/c031-string-overflow.cob:23:29: warning: STRING sends at least 34 characters into MESSAGE-TEXT (30), so the rest is lost [PLB-C031]

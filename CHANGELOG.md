@@ -93,6 +93,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C028 comparison-never-true.
 - Rule PLB-C029 go-to-leaves-perform.
 - Rule PLB-C030 value-never-used.
+- Rule PLB-C031 string-overflow.
 - Rule PLB-M011 evaluate-without-other (off by default).
 - Rule PLB-M012 deep-nesting (off by default, limit 5).
 - Rule PLB-M013 unused-copybook.

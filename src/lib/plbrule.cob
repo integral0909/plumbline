@@ -176,6 +176,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C030"
         "value-never-used" "W"
         "Value is replaced before it is used"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C031"
+        "string-overflow" "W"
+        "STRING always sends more than its receiver holds"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

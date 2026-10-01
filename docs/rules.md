@@ -36,6 +36,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C028](#plb-c028-comparison-never-true) | comparison-never-true | warning | Data item is compared with a value it cannot hold |
 | [PLB-C029](#plb-c029-go-to-leaves-perform) | go-to-leaves-perform | warning | GO TO leaves the range of a PERFORM, which then does not return |
 | [PLB-C030](#plb-c030-value-never-used) | value-never-used | warning | Value is replaced before it is used |
+| [PLB-C031](#plb-c031-string-overflow) | string-overflow | warning | STRING always sends more than its receiver holds |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -758,6 +759,35 @@ item do not replace it. Not followed at all:
   which the table or item that depends on them reads;
 - programs with `USE FOR DEBUGGING`, whose declaratives run on
   references that the statements do not show.
+
+## PLB-C031 string-overflow
+
+A `STRING` whose operands delimited by size are longer, together,
+than the item they go into:
+
+```cobol
+05  WS-RETURN-MSG  PIC X(75).
+    ...
+    STRING 'Account:' WS-CARD-RID-ACCT-ID-X ' not found in'
+           ' Cross ref file.  Resp:' ERROR-RESP ' Reas:' ERROR-RESP2
+           DELIMITED BY SIZE
+        INTO WS-RETURN-MSG                  *> 81 characters: reported
+```
+
+An operand `DELIMITED BY SIZE` is sent whole, so this statement always
+overflows. `STRING` stops at the end of the receiver, and without `ON
+OVERFLOW` nothing tells that the end of the text was lost (here, most
+of the reason code).
+
+The rule adds up the operands delimited by size: data items by their
+size, literals by their length, figurative constants as one
+character. Operands delimited by anything else may send any part of
+themselves and are not counted; neither are operands whose size the
+source does not show (reference modification, functions, literals
+with a prefix such as `X` or `N`). The sum is the least the statement
+sends. A `STRING` with `ON OVERFLOW` handles the case and is not
+reported, nor is a receiver with reference modification, of variable
+size, or of national usage.
 
 ## PLB-M001 go-to
 
