@@ -25,6 +25,9 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C017](#plb-c017-report-not-terminated) | report-not-terminated | warning | Report is initiated but never terminated |
 | [PLB-C018](#plb-c018-sql-not-checked) | sql-not-checked | warning | Result of an SQL statement is not checked |
 | [PLB-C019](#plb-c019-cics-response-not-checked) | cics-response-not-checked | warning | Response of a CICS command is not checked |
+| [PLB-C020](#plb-c020-file-status-not-checked) | file-status-not-checked | warning | FILE STATUS is not tested after an I/O statement |
+| [PLB-C021](#plb-c021-file-not-opened) | file-not-opened | warning | File is used but never opened |
+| [PLB-C022](#plb-c022-open-mode-mismatch) | open-mode-mismatch | error | I/O statement needs an open mode the file is never opened in |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -32,6 +35,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M005](#plb-m005-set-never-read) | set-never-read | note | Data item is given values but never read |
 | [PLB-M006](#plb-m006-dynamic-call) | dynamic-call | note, off | CALL of a program named by a data item |
 | [PLB-M007](#plb-m007-detail-never-generated) | detail-never-generated | note | Report detail group is never generated |
+| [PLB-M008](#plb-m008-file-not-closed) | file-not-closed | note | File is opened but never closed |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 
 Rules marked *off* run only when enabled with `--enable`.
@@ -465,6 +469,60 @@ command. `NOHANDLE` without `RESP` discards errors altogether. A command
 with neither abends on an error, which is CICS's safe default, and is
 not reported.
 
+## How file rules see files
+
+PLB-C020, PLB-C021, PLB-C022, and PLB-M008 look at each program's files
+(`SELECT`), their records (`FD`), and the I/O statements that name them:
+`OPEN` and `CLOSE`, `READ`, `START`, and `DELETE` of a file, and `WRITE`
+and `REWRITE` of one of its records. A file's open modes are those of
+every `OPEN` in the program that names it. The rules do not follow the
+flow of control. An `EXTERNAL` file is shared with other programs, so
+only PLB-C020 applies to it.
+
+## PLB-C020 file-status-not-checked
+
+An I/O statement on a file that has a `FILE STATUS` item, where nothing
+tests the item afterwards:
+
+```cobol
+    OPEN OUTPUT REPORT-FILE                  *> reported
+    WRITE REPORT-LINE FROM HEADING
+```
+
+A statement counts as checked when its own `AT END` or `INVALID KEY`
+phrase handles errors, when a `USE AFTER ERROR PROCEDURE` declarative
+covers the file (by name or by its open mode), or when the status item
+or one of its condition names (level 88) is named after it. That can be
+in the same paragraph before the next statement on the file, or in a
+paragraph performed from there. `CLOSE` is not checked.
+
+After a failed `OPEN`, every later statement on the file fails too, and
+after a failed `WRITE` the record is simply not there.
+
+## PLB-C021 file-not-opened
+
+An I/O statement on a file that no `OPEN` in the program opens:
+
+```cobol
+    WRITE AUDIT-LINE FROM CUST-NAME          *> reported
+```
+
+The statement fails at run time with status 48 or 49 (or 47 for a
+`READ`).
+
+## PLB-C022 open-mode-mismatch
+
+An I/O statement that none of the file's open modes allows:
+
+```cobol
+    OPEN INPUT CUST-FILE
+    ...
+    REWRITE CUST-REC                         *> reported: needs I-O
+```
+
+`READ` and `START` need `INPUT` or `I-O`, `WRITE` needs `OUTPUT`,
+`EXTEND`, or `I-O`, and `REWRITE` and `DELETE` need `I-O`.
+
 ## PLB-M001 go-to
 
 Every `GO TO` statement, reported as a note. `GO TO` makes the flow of
@@ -553,6 +611,20 @@ a report that is never generated as a whole:
 The group is either left over or meant to be generated somewhere it is
 not. Groups without names cannot be generated on their own and are not
 reported.
+
+## PLB-M008 file-not-closed
+
+A file that the program opens but never closes:
+
+```cobol
+    SELECT LOG-FILE ASSIGN TO "LOG"          *> reported
+    ...
+    OPEN EXTEND LOG-FILE
+```
+
+Most runtimes close files when the run ends, but the last records of an
+unclosed output file can be lost when a program is called rather than
+run, and the file stays locked for others.
 
 ## PLB-S001 dynamic-sql
 
