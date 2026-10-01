@@ -95,6 +95,14 @@ subscripts:
   offsets are subscripted compares the wrong text. That is why
   reference modifiers are left unchecked.
 
+## Rule reference
+
+`tests/tools/test_rules_doc.py` runs `plumbline rules --report json`
+and checks that `docs/rules.md` has a row and a section for every rule,
+with the name, default severity, default state, and title of the
+catalog. A rule cannot be added, renamed, or retuned without its
+documentation.
+
 ## Formatter round trip
 
 `make test` also runs `tests/tools/roundtrip_format.py` on every golden

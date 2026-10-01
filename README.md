@@ -63,6 +63,9 @@ a build artifact. In both, input diagnostics are part of the
 report rather than printed to standard error.
 
 See the [rule reference](docs/rules.md) for what each rule looks for.
+`plumbline rules` lists the rules with their severity and whether they
+are on, after `plumbline.conf` and the options are applied
+(`--report json` for tools).
 
 The `dump` commands show Plumbline's view of a program at each stage,
 which helps when a result is surprising: `dump lines`, `dump tokens`,
