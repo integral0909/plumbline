@@ -226,6 +226,14 @@ neither fallen into nor jumped to, is correctly reported as unreachable.
 `plumbline dump flow FILE` prints the units, their reachability, and their
 edges.
 
+Embedded languages: inside `EXEC SQL` the host variables (`:NAME`,
+`:RECORD.FIELD`) and inside `EXEC CICS` the option arguments are
+scanned for references, and every other token is skipped; their roles
+come from the SQL clause or CICS option around them. `EXEC SQL INCLUDE`
+is expanded by the preprocessor like `COPY`. `EXEC CICS RETURN`, `XCTL`,
+and `ABEND` end a unit, and `EXEC SQL WHENEVER ... GO TO` or `PERFORM`
+gets a PROC node like the statements it stands for.
+
 Report Writer descriptions are part of the data division tree: an `RD`
 node holds its `CONTROL` clause and the report groups (01 entries with a
 `TYPE` clause), whose clauses (`LINE`, `COLUMN`, `SOURCE`, `SUM`, ...)

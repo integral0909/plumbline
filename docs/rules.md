@@ -23,6 +23,8 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C015](#plb-c015-recursive-call) | recursive-call | error | Program that is not RECURSIVE can be called while it is running |
 | [PLB-C016](#plb-c016-report-not-initiated) | report-not-initiated | warning | Report is generated or terminated but never initiated |
 | [PLB-C017](#plb-c017-report-not-terminated) | report-not-terminated | warning | Report is initiated but never terminated |
+| [PLB-C018](#plb-c018-sql-not-checked) | sql-not-checked | warning | Result of an SQL statement is not checked |
+| [PLB-C019](#plb-c019-cics-response-not-checked) | cics-response-not-checked | warning | Response of a CICS command is not checked |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -30,6 +32,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M005](#plb-m005-set-never-read) | set-never-read | note | Data item is given values but never read |
 | [PLB-M006](#plb-m006-dynamic-call) | dynamic-call | note, off | CALL of a program named by a data item |
 | [PLB-M007](#plb-m007-detail-never-generated) | detail-never-generated | note | Report detail group is never generated |
+| [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 
 Rules marked *off* run only when enabled with `--enable`.
 
@@ -405,6 +408,63 @@ RD  DAILY-REPORT.                *> reported
 `TERMINATE` prints the final control footings and report footing, so
 without it the last totals are missing from the report.
 
+## How embedded SQL and CICS are read
+
+Inside `EXEC SQL ... END-EXEC`, the host variables (`:NAME`, and
+`:RECORD.FIELD` for a field of a record) are references to COBOL data.
+`INTO` sets them, as in `SELECT ... INTO` and `FETCH ... INTO`, and so
+does `SET :x = ...`. Everywhere else they are read. Inside `EXEC CICS`,
+the arguments of options are references. Options that return data set
+their argument (`INTO`, `SET`, `RESP`, `RESP2`), options that pass data
+read it (`FROM`, `RIDFLD`), and `LENGTH` and `ITEM` do both. Every
+option of `ASSIGN`, `INQUIRE`, and `FORMATTIME` returns a value.
+
+`EXEC SQL INCLUDE member` includes the member like `COPY`. The SQLCA
+fields (`SQLCODE`, `SQLSTATE`, ...) and the CICS EIB fields (`EIBCALEN`,
+`EIBRESP`, ...) are known names. `EXEC CICS RETURN`, `XCTL`, and `ABEND`
+end a paragraph like `GOBACK`. The procedures of `EXEC SQL WHENEVER ...
+GO TO` and `PERFORM` count as jumped to or performed.
+
+## PLB-C018 sql-not-checked
+
+An SQL statement whose result nothing tests:
+
+```cobol
+    EXEC SQL SELECT NAME INTO :CUST-NAME FROM CUSTOMER
+             WHERE ID = :CUST-ID END-EXEC          *> reported
+    EXEC SQL UPDATE CUSTOMER SET SEEN = 'Y' ... END-EXEC
+```
+
+A statement counts as checked when a statement after it in the same
+paragraph names `SQLCODE` or `SQLSTATE` before the next SQL statement,
+or a paragraph performed from there does, or `WHENEVER SQLERROR` with an
+action other than `CONTINUE` is in force. A check that is only reached
+by falling into the next paragraph is not seen. `SELECT`, `INSERT`,
+`UPDATE`, `DELETE`, `FETCH`, `OPEN`, `PREPARE`, `EXECUTE`, `CALL`,
+`MERGE`, and `CONNECT` are checked. `CLOSE`, `COMMIT`, and `ROLLBACK`
+are not.
+
+An unchecked `FETCH` loops forever at the end of the data, and an
+unchecked `UPDATE` fails silently.
+
+## PLB-C019 cics-response-not-checked
+
+A CICS command whose response is not tested:
+
+```cobol
+    EXEC CICS WRITE FILE('LOG') FROM(REC) RIDFLD(KEY)
+         RESP(WS-RESP) END-EXEC                   *> reported if WS-RESP
+    EXEC CICS RETURN END-EXEC                     *> is not tested first
+    EXEC CICS DELETE FILE('TEMP') RIDFLD(KEY) NOHANDLE END-EXEC
+                                                  *> reported
+```
+
+With `RESP(item)`, the item has to be tested (or `EIBRESP`, or a
+paragraph performed in between has to test it) before the next CICS
+command. `NOHANDLE` without `RESP` discards errors altogether. A command
+with neither abends on an error, which is CICS's safe default, and is
+not reported.
+
 ## PLB-M001 go-to
 
 Every `GO TO` statement, reported as a note. `GO TO` makes the flow of
@@ -493,3 +553,17 @@ a report that is never generated as a whole:
 The group is either left over or meant to be generated somewhere it is
 not. Groups without names cannot be generated on their own and are not
 reported.
+
+## PLB-S001 dynamic-sql
+
+SQL text that the program builds at run time and hands to the database:
+
+```cobol
+    EXEC SQL PREPARE STMT FROM :SQL-TEXT END-EXEC       *> noted
+    EXEC SQL EXECUTE IMMEDIATE :SQL-TEXT END-EXEC       *> noted
+```
+
+If outside input (a screen, a file, a message) reaches the text without
+being checked, it can change what the statement does: SQL injection.
+Static SQL with host variables keeps data and statement apart. Use it
+where possible, and check the text where not.
