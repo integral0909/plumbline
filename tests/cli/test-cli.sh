@@ -314,6 +314,29 @@ check "inventory lists jobs"                0 '^  step NIGHTLY runs procedure PA
     -- inventory $ax
 check "inventory lists transactions"        0 '^transaction PAYM runs PAYMENU$' \
     -- inventory $ax
+vx="tests/fixtures/cics/ordmenu.cob tests/golden/csd/orders.csd tests/fixtures/bms/screens.cob tests/fixtures/bms/custmnt.cob tests/fixtures/bms/screens.bms tests/golden/rules/q001-sql-tables.cob tests/golden/jcl/starters.jcl tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/paylog.cob"
+check "inventory lists CICS resources"    0 '^  uses file ORDHIST (READ)$' -- inventory $vx
+check "inventory lists a program's maps"  0 '^  map HELPMAP of mapset SCRSET$' -- inventory $vx
+check "inventory lists a program's tables" 0 '^  table PAY.LEAVERS select delete$' -- inventory $vx
+check "inventory lists who uses a map"    0 '^  used by CUSTMNT$' -- inventory $vx
+check "inventory lists IMS and DB2 steps" 0 '^  step DB2STEP runs PAYDB2 through IKJEFT01$' -- inventory $vx
+n=$((n + 1))
+if "$bin" inventory --report json $vx | python3 -c '
+import json, sys
+doc = json.load(sys.stdin)
+programs = {p["name"]: p for p in doc["programs"]}
+assert programs["TABLES"]["tables"][0] == {"name": "PAY.EMPLOYEE", "uses": "declare select update"}
+assert {"map": "SCRMAP", "mapset": "SCRSET"} in programs["SCREENS"]["maps"]
+assert {"kind": "file", "name": "ORDHIST"} in programs["ORDMENU"]["resources"]
+assert programs["PAYLOG"]["calledBy"] == ["PAYUPD"]
+assert doc["transactions"][0] == {"name": "ORD1", "program": "ORDMENU"}
+assert doc["jobs"][0]["steps"][1]["runs"] == "PAYDB2"
+' 2>/dev/null; then
+    echo "ok $n - inventory json holds each part"
+else
+    failed=$((failed + 1))
+    echo "not ok $n - inventory json holds each part"
+fi
 check "inventory refuses sarif"             2 "invalid --report format 'sarif' (expected text or json)" \
     -- inventory --report sarif $jx/payupd.cob
 n=$((n + 1))
