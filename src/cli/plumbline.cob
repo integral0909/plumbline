@@ -226,6 +226,9 @@ MAIN-LOGIC.
             WHEN "lsp"
                 MOVE "lsp" TO WS-COMMAND
                 PERFORM LSP-COMMAND
+            WHEN "rules"
+                MOVE "rules" TO WS-COMMAND
+                PERFORM RULES-COMMAND
             WHEN OTHER
                 IF WS-ARG(1:1) = "-"
                     PERFORM UNKNOWN-OPTION
@@ -267,6 +270,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline impact NAME [OPTION]... FILE..."
     DISPLAY "       plumbline format --to fixed|free [--check] FILE..."
     DISPLAY "       plumbline lsp [OPTION]..."
+    DISPLAY "       plumbline rules [--report text|json] [OPTION]..."
     DISPLAY "       plumbline dump lines [--format FORMAT] FILE..."
     DISPLAY "       plumbline dump tokens [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump expanded [-I DIR]... [--format FORMAT] [--debug] FILE..."
@@ -294,6 +298,8 @@ SHOW-USAGE.
     DISPLAY "  format           rewrite a file in fixed or free format"
     DISPLAY "                   (--to); --check only tells whether"
     DISPLAY "                   that would change it"
+    DISPLAY "  rules            list the rules, with their severity and"
+    DISPLAY "                   whether they are on, as configured"
     DISPLAY "  lsp              run as a language server for editors, on"
     DISPLAY "                   standard input and output"
     DISPLAY "  dump lines       show how each source line was read"
@@ -329,6 +335,22 @@ SHOW-USAGE.
     DISPLAY "  --write-baseline FILE"
     DISPLAY "                   write the findings to FILE instead of"
     DISPLAY "                   reporting them".
+
+*> rules --------------------------------------------------------
+
+*> The rules, with the settings of the configuration and the options
+*> applied: what plumbline check would run.
+RULES-COMMAND.
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF IP-COUNT > 0
+        DISPLAY PLB-NAME ": rules takes no files" UPON SYSERR
+        PERFORM SUGGEST-HELP
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-RULES-LIST" USING PLB-RULES WS-REPORT.
 
 *> check --------------------------------------------------------
 
@@ -2097,6 +2119,7 @@ PARSE-INPUT-ARGS.
         END-EVALUATE
     END-PERFORM
     IF WS-EXIT-CODE = 0 AND IP-COUNT = 0 AND WS-COMMAND NOT = "lsp"
+       AND WS-COMMAND NOT = "rules"
         DISPLAY PLB-NAME ": no input files" UPON SYSERR
         PERFORM SUGGEST-HELP
     END-IF.
@@ -2302,6 +2325,7 @@ SET-REPORT.
         WHEN WS-ARG = "text" AND WS-COMMAND NOT = "graph"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "sarif" AND WS-COMMAND NOT = "metrics"
+             AND WS-COMMAND NOT = "rules"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "html" AND WS-COMMAND = "check"
             MOVE WS-ARG TO WS-REPORT
@@ -2318,6 +2342,11 @@ SET-REPORT.
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected text, json, or csv)" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        WHEN WS-COMMAND = "rules"
+            DISPLAY PLB-NAME ": invalid --report format '"
+                WS-ARG(1:WS-ARG-LEN)
+                "' (expected text or json)" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
         WHEN OTHER
             DISPLAY PLB-NAME ": invalid --report format '"

@@ -201,6 +201,16 @@ check "evaluate-without-other finds the EVALUATE" 0 'evaluate.cob:12:12: note: E
     -- check --no-config --enable evaluate-without-other --fail-on error tests/fixtures/rules/evaluate.cob
 check_absent "an EVALUATE with WHEN OTHER is fine" 'evaluate.cob:8:' \
     -- check --no-config --enable PLB-M011 tests/fixtures/rules/evaluate.cob
+check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
+check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
+    -- rules --no-config --enable evaluate-without-other
+check "rules shows limits from the config" 0 'PLB-M009  complex-paragraph .* on .*(limit 10)$' \
+    -- rules --config tests/fixtures/config/limits.conf
+check "rules as JSON"                     0 '"id": "PLB-C023", "name": "subscript-out-of-range", "severity": "error", "enabled": true' \
+    -- rules --no-config --report json
+check "rules takes no files"              2 'rules takes no files' -- rules --no-config x.cob
+check "rules has no sarif report"         2 "invalid --report format 'sarif' (expected text or json)" \
+    -- rules --report sarif
 lx=tests/fixtures/lists
 check "--files-from adds the files a list names" 1 'billing.cob:9:17: .*\[PLB-C014\]' \
     -- check --no-config --files-from $lx/calls.list
