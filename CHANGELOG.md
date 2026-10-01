@@ -89,6 +89,9 @@ uses [Semantic Versioning](https://semver.org/).
   refmod-out-of-range, for literal subscripts and reference modifiers.
 - Rule PLB-C025 stop-run-in-called-program.
 - Rule PLB-C026 varying-limit-unreachable.
+- `plumbline dump csd` reads CICS resource definitions, the DFHCSDUP
+  input that defines transactions, programs, mapsets, and files (see
+  docs/cics.md).
 - `plumbline dump bms` reads CICS BMS maps: mapsets, maps, and their
   fields (see docs/bms.md). `check` reads `*.bms` inputs and checks
   their maps: rules PLB-B001 map-fields-overlap, PLB-B002

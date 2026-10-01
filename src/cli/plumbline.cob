@@ -41,6 +41,7 @@
 *>   plumbline dump calls [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump jcl FILE...
 *>   plumbline dump bms FILE...
+*>   plumbline dump csd FILE...
 *>
 *> Exit codes:
 *>   0  success
@@ -73,6 +74,8 @@ COPY "plbjclc.cpy".
 COPY "plbjcl.cpy".
 COPY "plbbmsc.cpy".
 COPY "plbbms.cpy".
+COPY "plbcsdc.cpy".
+COPY "plbcsd.cpy".
 COPY "plbconf.cpy".
 COPY "plbmetrc.cpy".
 COPY "plbmetr.cpy".
@@ -318,6 +321,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline dump calls [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump jcl FILE..."
     DISPLAY "       plumbline dump bms FILE..."
+    DISPLAY "       plumbline dump csd FILE..."
     DISPLAY "Static analysis for COBOL programs."
     DISPLAY " "
     DISPLAY "Options:"
@@ -352,6 +356,7 @@ SHOW-USAGE.
     DISPLAY "  dump calls       show programs, their parameters, and CALLs"
     DISPLAY "  dump jcl         show the jobs, steps, and DD statements of JCL"
     DISPLAY "  dump bms         show the maps and fields of CICS BMS sources"
+    DISPLAY "  dump csd         show the CICS resources DFHCSDUP input defines"
     DISPLAY " "
     DISPLAY "Command options:"
     DISPLAY "  --format FORMAT  reference format: fixed, free, or auto"
@@ -2013,6 +2018,7 @@ DUMP-COMMAND.
        AND WS-ARG NOT = "symbols" AND WS-ARG NOT = "flow"
        AND WS-ARG NOT = "refs" AND WS-ARG NOT = "calls"
        AND WS-ARG NOT = "jcl" AND WS-ARG NOT = "bms"
+       AND WS-ARG NOT = "csd"
         IF WS-ARG-LEN = 0
             DISPLAY PLB-NAME ": dump: missing what to dump"
                 UPON SYSERR
@@ -2034,6 +2040,10 @@ DUMP-COMMAND.
     END-IF
     IF WS-DUMP-TARGET = "bms"
         PERFORM DUMP-BMS
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-DUMP-TARGET = "csd"
+        PERFORM DUMP-CSD
         EXIT PARAGRAPH
     END-IF
     PERFORM LOAD-INPUTS
@@ -2584,6 +2594,52 @@ DUMP-BMS-FIELD.
             INTO WS-OUT WITH POINTER WS-PTR
     END-IF
     DISPLAY WS-OUT(1:WS-PTR - 1).
+
+*> path:line: TYPE NAME group GROUP [program P | dsname D]
+DUMP-CSD.
+    CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET
+    CALL "PLB-DIAG-INIT" USING PLB-DIAGNOSTICS
+    CALL "PLB-CSD-INIT" USING PLB-CSD
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > IP-COUNT
+        CALL "PLB-SRC-ADD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            IP-PATH(WS-I) WS-MODE WS-FILE-ID
+        CALL "PLB-CSD-READ" USING IP-PATH(WS-I) WS-FILE-ID PLB-CSD
+            WS-STATUS
+        IF WS-STATUS NOT = 0
+            CALL "PLB-STR-LENGTH" USING IP-PATH(WS-I) WS-PATH-LEN
+            DISPLAY PLB-NAME ": cannot read "
+                IP-PATH(WS-I)(1:WS-PATH-LEN) UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        END-IF
+    END-PERFORM
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > CR-COUNT
+        MOVE SPACES TO WS-OUT
+        MOVE 1 TO WS-PTR
+        MOVE CR-FILE-ID(WS-I) TO WS-POS-FILE
+        MOVE CR-LINE(WS-I) TO WS-POS-LINE
+        PERFORM APPEND-JCL-POSITION
+        STRING FUNCTION LOWER-CASE(CR-TYPE(WS-I)) DELIMITED BY SPACE
+               " " DELIMITED BY SIZE
+               CR-NAME(WS-I) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+        IF CR-GROUP(WS-I) NOT = SPACES
+            STRING " group " DELIMITED BY SIZE
+                   CR-GROUP(WS-I) DELIMITED BY SPACE
+                INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+        IF CR-TARGET(WS-I) NOT = SPACES
+            IF CR-TYPE(WS-I) = "FILE"
+                STRING " dsname " DELIMITED BY SIZE
+                    INTO WS-OUT WITH POINTER WS-PTR
+            ELSE
+                STRING " program " DELIMITED BY SIZE
+                    INTO WS-OUT WITH POINTER WS-PTR
+            END-IF
+            STRING CR-TARGET(WS-I) DELIMITED BY SPACE
+                INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+        DISPLAY WS-OUT(1:WS-PTR - 1)
+    END-PERFORM.
 
 DUMP-CALLS.
     CALL "PLB-CALL-INIT" USING PLB-CALL-GRAPH
