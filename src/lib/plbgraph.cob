@@ -421,6 +421,9 @@ DATA DIVISION.
 WORKING-STORAGE SECTION.
 COPY "plbcallc.cpy".
 LOCAL-STORAGE SECTION.
+*> Holds an index taken from another table: GnuCOBOL 3.2 built with
+*> -fec=EC-BOUND-SUBSCRIPT miscompiles a subscript nested two deep.
+01  LS-OWNER                PIC 9(9) COMP-5.
 01  LS-C                    PIC 9(9) COMP-5.
 01  LS-D                    PIC 9(9) COMP-5.
 01  LS-P                    PIC 9(9) COMP-5.
@@ -488,7 +491,8 @@ CALL-ENDS.
                 INTO LS-TO
             MOVE "dynamic" TO LS-KIND
         WHEN CC-TO(LS-C) > 0
-            MOVE CP-NAME(CP-OWNER(CC-TO(LS-C))) TO LS-TO
+            MOVE CP-OWNER(CC-TO(LS-C)) TO LS-OWNER
+            MOVE CP-NAME(LS-OWNER) TO LS-TO
             MOVE "call" TO LS-KIND
         WHEN OTHER
             MOVE CC-TARGET(LS-C) TO LS-TO
