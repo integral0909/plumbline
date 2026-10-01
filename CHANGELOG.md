@@ -140,6 +140,8 @@ uses [Semantic Versioning](https://semver.org/).
   `$IF`/`$ELSE`/`$END` with `DEFINED` and `SET` conditions, and
   `--define NAME` (`-D`).
 - `--tab-width N` (`tab-width` in `plumbline.conf`), as `cobc -ftab-width`.
+- A Visual Studio Code extension (`editors/vscode`) that runs the
+  language server.
 - `plumbline lsp` finds references and highlights them, telling reads
   from writes, renames data items and procedures, gives folding
   ranges, offers quick fixes that suppress a finding, finds symbols

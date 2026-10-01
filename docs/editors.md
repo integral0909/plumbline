@@ -30,6 +30,12 @@ Every change is analyzed from a copy of the editor's text in the
 temporary directory (`$TMPDIR`, else `/tmp`). The copy is deleted when
 the file is closed and when the server stops.
 
+## Visual Studio Code
+
+`editors/vscode` holds an extension that starts `plumbline lsp` for
+COBOL files; its README says how to build and install it, and its
+settings name the program and its options.
+
 ## Neovim
 
 ```lua
@@ -55,8 +61,7 @@ vim.api.nvim_create_autocmd("FileType", {
 ## Other editors
 
 Any editor or extension that can start a language server for a file
-type can run `plumbline lsp`. Plumbline does not come with an extension
-of its own.
+type can run `plumbline lsp`.
 
 ## Limits
 
