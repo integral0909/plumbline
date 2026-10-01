@@ -1,0 +1,96 @@
+UNIT @3:1
+  PROG PROGRAM SALESRPT @3:1
+    DIVN IDENTIFICATION @3:1
+      IDPA PROGRAM-ID SALESRPT @4:1
+    DIVN ENVIRONMENT @5:1
+      SECT INPUT-OUTPUT @6:1
+        OTHR FILE-CONTROL @7:1
+          SELE SALES-FILE @8:5
+          SELE PRINT-FILE @10:5
+    DIVN DATA @11:1
+      SECT FILE @12:1
+        FD FD SALES-FILE @13:1
+          DATA 1 SALES-REC @14:1
+            DATA 5 SR-REGION @15:5
+              CLAU PICTURE X(4) @15:25
+            DATA 5 SR-AMOUNT @16:5
+              CLAU PICTURE 9(7)V99 @16:25
+        FD FD PRINT-FILE @17:1
+      SECT WORKING-STORAGE @19:1
+        DATA 1 SALES-STATUS @20:1
+          CLAU PICTURE XX @20:25
+        DATA 1 END-OF-SALES @21:1
+          CLAU PICTURE X @21:25
+          CLAU VALUE @21:31
+      SECT REPORT @22:1
+        FD RD SALES-REPORT @23:1
+          CLAU CONTROL @24:5
+          DATA 1 @29:1
+            CLAU TYPE PAGE @29:5
+            DATA 5 @30:5
+              CLAU LINE @30:9
+              DATA 10 @31:9
+                CLAU COLUMN @31:13
+                CLAU PICTURE X(20) @31:25
+                CLAU VALUE @31:35
+              DATA 10 @32:9
+                CLAU COLUMN @32:13
+                CLAU PICTURE Z9 @32:25
+                CLAU SOURCE @32:32
+          DATA 1 SALES-LINE @33:1
+            CLAU TYPE DETAIL @33:16
+            CLAU LINE @33:31
+            DATA 5 @34:5
+              CLAU COLUMN @34:9
+              CLAU PICTURE X(4) @34:25
+              CLAU SOURCE @34:34
+              CLAU GROUP-INDICATE @34:51
+            DATA 5 @35:5
+              CLAU COLUMN @35:9
+              CLAU PICTURE Z(6)9.99 @35:25
+              CLAU SOURCE @35:38
+          DATA 1 @36:1
+            CLAU TYPE CONTROL @36:5
+            CLAU NEXT-GROUP @36:36
+            DATA 5 @37:5
+              CLAU LINE @37:9
+              DATA 10 @38:9
+                CLAU COLUMN @38:13
+                CLAU PICTURE X(10) @38:25
+                CLAU VALUE @38:35
+              DATA 10 REGION-TOTAL @39:9
+                CLAU COLUMN @39:26
+                CLAU PICTURE Z(7)9.99 @39:36
+                CLAU SUM @40:25
+          DATA 1 @41:1
+            CLAU TYPE CONTROL @41:5
+            CLAU LINE @41:32
+            DATA 5 @42:5
+              CLAU COLUMN @42:9
+              CLAU PICTURE X(10) @42:25
+              CLAU VALUE @42:35
+            DATA 5 @43:5
+              CLAU COLUMN @43:9
+              CLAU PICTURE Z(8)9.99 @43:25
+              CLAU SUM @43:38
+    DIVN PROCEDURE @44:1
+      PARA MAIN-LINE @45:1
+        SENT @46:5
+          STMT OPEN @46:5
+          STMT IF @47:5
+            COND IF @47:8
+            BLCK THEN @48:9
+              STMT DISPLAY @48:9
+              STMT STOP @49:9
+          STMT INITIATE @51:5
+          STMT PERFORM @52:5
+            COND LOOP @52:13
+            BLCK BODY @53:9
+              STMT READ @53:9
+                BLCK AT-END @54:13
+                  STMT MOVE @54:20
+                BLCK NOT-AT-END @55:13
+                  STMT GENERATE @55:24
+          STMT TERMINATE @58:5
+          STMT CLOSE @59:5
+          STMT STOP @60:5

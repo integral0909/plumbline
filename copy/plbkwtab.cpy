@@ -9,7 +9,7 @@
 *> The list covers the reserved words of the 2014 standard that matter
 *> to analysis, plus common GnuCOBOL and IBM extensions. It must stay
 *> sorted: tests/unit/test-plbkw.cob checks the order.
-78  KW-COUNT                    VALUE 453.
+78  KW-COUNT                    VALUE 454.
 01  WS-KEYWORD-VALUES.
     05  FILLER PIC X(32) VALUE "ACCEPT                         V".
     05  FILLER PIC X(32) VALUE "ACCESS                         R".
@@ -262,7 +262,7 @@
     05  FILLER PIC X(32) VALUE "LINAGE                         R".
     05  FILLER PIC X(32) VALUE "LINAGE-COUNTER                 R".
     05  FILLER PIC X(32) VALUE "LINE                           R".
-    05  FILLER PIC X(32) VALUE "LINE-COUNTER                   R".
+    05  FILLER PIC X(32) VALUE "LINE-COUNTER                   S".
     05  FILLER PIC X(32) VALUE "LINES                          R".
     05  FILLER PIC X(32) VALUE "LINKAGE                        R".
     05  FILLER PIC X(32) VALUE "LOCAL-STORAGE                  R".
@@ -313,7 +313,7 @@
     05  FILLER PIC X(32) VALUE "PACKED-DECIMAL                 R".
     05  FILLER PIC X(32) VALUE "PADDING                        R".
     05  FILLER PIC X(32) VALUE "PAGE                           R".
-    05  FILLER PIC X(32) VALUE "PAGE-COUNTER                   R".
+    05  FILLER PIC X(32) VALUE "PAGE-COUNTER                   S".
     05  FILLER PIC X(32) VALUE "PARAGRAPH                      R".
     05  FILLER PIC X(32) VALUE "PERFORM                        V".
     05  FILLER PIC X(32) VALUE "PF                             R".
@@ -364,6 +364,7 @@
     05  FILLER PIC X(32) VALUE "REPORTS                        R".
     05  FILLER PIC X(32) VALUE "REPOSITORY                     R".
     05  FILLER PIC X(32) VALUE "RESERVE                        R".
+    05  FILLER PIC X(32) VALUE "RESET                          R".
     05  FILLER PIC X(32) VALUE "RESUME                         V".
     05  FILLER PIC X(32) VALUE "RETURN                         V".
     05  FILLER PIC X(32) VALUE "RETURN-CODE                    S".

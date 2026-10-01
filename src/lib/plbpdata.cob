@@ -2,8 +2,8 @@
 *> plbpdata: parser for the data division.
 *>
 *> Sections (FILE, WORKING-STORAGE, LOCAL-STORAGE, LINKAGE, REPORT,
-*> SCREEN, COMMUNICATION) become SECT nodes; FD, SD, and CD entries
-*> become FD nodes (detail FD, SD, or CD); data description entries become DATA nodes nested by
+*> SCREEN, COMMUNICATION) become SECT nodes; FD, SD, CD, and RD
+*> entries become FD nodes (detail FD, SD, CD, or RD); data description entries become DATA nodes nested by
 *> level number:
 *>
 *>   01, 77, 78   start a new record (under the section, or under
@@ -12,6 +12,12 @@
 *>                level number
 *>   66           goes under the current record (RENAMES)
 *>   88           goes under the item just described
+*>
+*> Report Writer: the 01 entries of the report section go under their
+*> RD, the CONTROL clause of an RD becomes a CLAU node of the RD, and
+*> the report clauses of entries (TYPE, LINE, NEXT GROUP, COLUMN,
+*> SOURCE, SUM, GROUP INDICATE, PRESENT WHEN) become CLAU nodes that
+*> hold their operands. TYPE names the token of its type code.
 *>
 *> Clauses become CLAU nodes. PICTURE, REDEFINES, and RENAMES name
 *> their operand token; OCCURS gets a DEPENDING child when it has one;
@@ -38,6 +44,7 @@ COPY "plbptok.cpy".
 01  LS-RECORD               PIC 9(9) COMP-5.
 01  LS-ENTRY                PIC 9(9) COMP-5.
 01  LS-CLAUSE               PIC 9(9) COMP-5.
+01  LS-NEXT-IS-GROUP        PIC X.
 01  LS-PARENT               PIC 9(9) COMP-5.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-LEVEL                PIC 9(4) COMP-5.
@@ -71,6 +78,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
                      = "SECTION"
                 PERFORM DATA-SECTION
             WHEN PX-TEXT = "FD" OR PX-TEXT = "SD" OR PX-TEXT = "CD"
+                 OR PX-TEXT = "RD"
                 PERFORM FILE-DESCRIPTION
             WHEN PX-KIND = "N"
                 PERFORM DATA-ENTRY
@@ -88,7 +96,9 @@ DATA-SECTION.
     CALL "PLB-AST-ADD" USING PLB-AST PS-DIVISION "SECT" LS-DETAIL
         PS-POS LS-SECTION
     PERFORM CHECK-SECTION-NODE
-    IF PX-TEXT = "FILE"
+    *> Records of the file and report sections belong to their FD or
+    *> RD.
+    IF PX-TEXT = "FILE" OR PX-TEXT = "REPORT"
         MOVE "Y" TO LS-IN-FILE-SECTION
     ELSE
         MOVE "N" TO LS-IN-FILE-SECTION
@@ -116,7 +126,40 @@ FILE-DESCRIPTION.
         MOVE PS-POS TO ND-NAME(LS-FD)
     END-IF
     MOVE 0 TO LS-RECORD WS-LEVEL-DEPTH
+    IF ND-DETAIL(LS-FD) = "RD"
+        PERFORM REPORT-CONTROLS
+    END-IF
     CALL "PLB-PX-SKIP-PERIOD" USING PLB-TOKENS PLB-PARSE-STATE.
+
+*> RD name [CODE lit] [CONTROL[S] [IS|ARE] [FINAL] name...] [PAGE ...]
+*> The CONTROL clause becomes a CLAU node of the RD; it runs to PAGE,
+*> CODE, or the period.
+REPORT-CONTROLS.
+    PERFORM UNTIL PS-POS >= PS-END
+        CALL "PLB-PX-TOKEN" USING PLB-TOKENS PS-POS PLB-PX-VIEW
+        IF PX-KIND = "."
+            EXIT PERFORM
+        END-IF
+        IF PX-TEXT = "CONTROL" OR PX-TEXT = "CONTROLS"
+            CALL "PLB-AST-ADD" USING PLB-AST LS-FD "CLAU" "CONTROL"
+                PS-POS LS-CLAUSE
+            IF LS-CLAUSE = 0
+                MOVE "Y" TO PS-FULL
+                EXIT PERFORM
+            END-IF
+            ADD 1 TO PS-POS
+            PERFORM UNTIL PS-POS >= PS-END
+                CALL "PLB-PX-TOKEN" USING PLB-TOKENS PS-POS PLB-PX-VIEW
+                IF PX-KIND = "." OR PX-TEXT = "PAGE" OR PX-TEXT = "CODE"
+                    EXIT PERFORM
+                END-IF
+                ADD 1 TO PS-POS
+            END-PERFORM
+            COMPUTE ND-TOK-LAST(LS-CLAUSE) = PS-POS - 1
+        ELSE
+            ADD 1 TO PS-POS
+        END-IF
+    END-PERFORM.
 
 SECTION-PARENT.
     MOVE PS-DIVISION TO LS-PARENT
@@ -228,6 +271,7 @@ ENTRY-CLAUSE.
     END-IF
 
     PERFORM CHECK-USAGE-WORD
+    PERFORM CHECK-NEXT-GROUP
     EVALUATE TRUE
         WHEN PX-TEXT = "PIC" OR PX-TEXT = "PICTURE"
             MOVE "PICTURE" TO LS-DETAIL
@@ -284,6 +328,33 @@ ENTRY-CLAUSE.
                 OR PX-TEXT = "BASED"
             MOVE PX-TEXT TO LS-DETAIL
             PERFORM OPEN-CLAUSE
+        *> Report Writer clauses.
+        WHEN PX-TEXT = "TYPE"
+            MOVE "TYPE" TO LS-DETAIL
+            PERFORM OPEN-CLAUSE
+            PERFORM SKIP-IS
+            IF LS-CLAUSE > 0 AND TK-IS-WORD(PS-POS)
+                MOVE PS-POS TO ND-NAME(LS-CLAUSE)
+            END-IF
+            PERFORM SKIP-OPERANDS
+        WHEN PX-TEXT = "NEXT" AND LS-NEXT-IS-GROUP = "Y"
+            MOVE "NEXT-GROUP" TO LS-DETAIL
+            PERFORM OPEN-CLAUSE
+            ADD 1 TO PS-POS
+            PERFORM SKIP-OPERANDS
+        WHEN PX-TEXT = "GROUP"
+            MOVE "GROUP-INDICATE" TO LS-DETAIL
+            PERFORM OPEN-CLAUSE
+            PERFORM SKIP-OPERANDS
+        WHEN PX-TEXT = "LINE" OR PX-TEXT = "COLUMN" OR PX-TEXT = "COL"
+                OR PX-TEXT = "SOURCE" OR PX-TEXT = "SUM"
+                OR PX-TEXT = "PRESENT"
+            MOVE PX-TEXT TO LS-DETAIL
+            IF PX-TEXT = "COL"
+                MOVE "COLUMN" TO LS-DETAIL
+            END-IF
+            PERFORM OPEN-CLAUSE
+            PERFORM SKIP-OPERANDS
         WHEN OTHER
             *> A clause Plumbline does not model: keep it in the
             *> entry's token range.
@@ -358,8 +429,24 @@ CHECK-CLAUSE-START.
         WHEN "REDEFINES" WHEN "OCCURS" WHEN "USAGE" WHEN "SIGN"
         WHEN "JUST" WHEN "JUSTIFIED" WHEN "SYNC" WHEN "SYNCHRONIZED"
         WHEN "BLANK" WHEN "EXTERNAL" WHEN "GLOBAL" WHEN "BASED"
+        WHEN "TYPE" WHEN "LINE" WHEN "COLUMN" WHEN "COL" WHEN "SOURCE"
+        WHEN "SUM" WHEN "GROUP" WHEN "PRESENT"
             MOVE "Y" TO LS-STOP
+        WHEN "NEXT"
+            *> NEXT GROUP starts a clause; LINE NEXT PAGE does not.
+            PERFORM CHECK-NEXT-GROUP
+            MOVE LS-NEXT-IS-GROUP TO LS-STOP
     END-EVALUATE.
+
+*> LS-NEXT-IS-GROUP = "Y" when the token after PS-POS is GROUP.
+CHECK-NEXT-GROUP.
+    MOVE "N" TO LS-NEXT-IS-GROUP
+    IF PS-POS + 1 < PS-END AND TK-IS-WORD(PS-POS + 1)
+        IF TK-TEXT(TK-TEXT-OFF(PS-POS + 1):TK-TEXT-LEN(PS-POS + 1))
+           = "GROUP"
+            MOVE "Y" TO LS-NEXT-IS-GROUP
+        END-IF
+    END-IF.
 
 *> OCCURS n [TO m] [TIMES] [DEPENDING [ON] name] [ASCENDING|DESCENDING
 *> [KEY] [IS] names] [INDEXED [BY] names]. DEPENDING gets a child.
