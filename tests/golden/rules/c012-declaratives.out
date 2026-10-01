@@ -1,0 +1,1 @@
+tests/golden/rules/c012-declaratives.cob:30:14: warning: ERRORS is used before it is given a value [PLB-C012]
