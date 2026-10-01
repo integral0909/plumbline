@@ -12,10 +12,12 @@
 *>
 *> Reachability starts at the first unit of each program and at every
 *> declarative section. Control flows (FU-FLOWED) from an entry, from
-*> a unit that flows and falls through, and to a GO TO target. A
-*> PERFORM runs every unit of its range, but returns at the end of it:
-*> a unit reached only by PERFORM does not carry control on into the
-*> unit after the range.
+*> a unit that flows and falls through, and to the target of a GO TO
+*> in a unit that flows. A PERFORM runs every unit of its range, but
+*> returns at the end of it: a unit reached only by PERFORM, or by a
+*> GO TO in such a unit (GO TO xxx-EXIT), does not carry control on
+*> into the unit after the range. A GO TO that leaves a performed
+*> range for good is therefore not followed past its target.
 *>
 *> Diagnostic codes raised here:
 *>   FL001  error    PERFORM or GO TO names no paragraph or section
@@ -488,9 +490,17 @@ COMPUTE-REACHABILITY.
                 UNTIL LS-E > WS-EDGE-LAST(LS-A)
             IF FE-TO(LS-E) > 0
                 EVALUATE FE-KIND(LS-E)
+                    *> A GO TO in code that control flows into carries
+                    *> the flow on; one in a paragraph reached only by
+                    *> PERFORM, as GO TO xxx-EXIT at the end of a THRU
+                    *> range, stays within that PERFORM.
                     WHEN "G"
                         MOVE FE-TO(LS-E) TO LS-U
-                        PERFORM ENQUEUE-FLOW
+                        IF FU-FLOWED(LS-A) = "Y"
+                            PERFORM ENQUEUE-FLOW
+                        ELSE
+                            PERFORM ENQUEUE-REACHED
+                        END-IF
                     WHEN "P"
                         PERFORM ENQUEUE-RANGE
                 END-EVALUATE
@@ -522,6 +532,12 @@ ENQUEUE-RANGE.
         END-IF
         MOVE FU-NEXT(LS-U) TO LS-U
     END-PERFORM.
+
+ENQUEUE-REACHED.
+    IF FU-REACHED(LS-U) = "N"
+        MOVE "Y" TO FU-REACHED(LS-U)
+        PERFORM PUSH
+    END-IF.
 
 ENQUEUE-FLOW.
     IF FU-FLOWED(LS-U) = "N"
