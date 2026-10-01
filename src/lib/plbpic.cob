@@ -417,8 +417,11 @@ PROCEDURE DIVISION USING PLB-PIC-INFO LK-USAGE LK-BYTES.
                     MOVE 16 TO LK-BYTES
             END-EVALUATE
         WHEN "COMP-X" WHEN "COMPUTATIONAL-X"
-            *> The fewest bytes whose range covers the digits.
+            *> PIC X(n) COMP-X (Micro Focus) is n bytes; with a numeric
+            *> picture, the fewest bytes whose range covers the digits.
             EVALUATE TRUE
+                WHEN PI-CATEGORY = "X" OR PI-CATEGORY = "A"
+                    MOVE PI-SIZE TO LK-BYTES
                 WHEN PI-DIGITS <= 2   MOVE 1 TO LK-BYTES
                 WHEN PI-DIGITS <= 4   MOVE 2 TO LK-BYTES
                 WHEN PI-DIGITS <= 7   MOVE 3 TO LK-BYTES
