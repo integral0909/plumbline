@@ -211,6 +211,17 @@ for kind in performs calls copybooks; do
     fi
 done
 
+check "format to free"                    0 '^    MOVE LONG-NAME-PART-TWO TO X.$' -- format --to free $gx/continuation.cbl
+check "format starts free output with its format" 0 '^>>SOURCE FORMAT IS FREE$' -- format --to free $gx/continuation.cbl
+check "format --check on a file to change" 1 'is not in free format' -- format --to free --check $gx/continuation.cbl
+check "format --check on a file in format" 0 '^$' -- format --to fixed --check $gx/continuation.cbl
+check "format needs --to"                 2 'format needs --to fixed or --to free' -- format $gx/continuation.cbl
+check "format refuses an unknown target"  2 "invalid --to 'variable'" -- format --to variable $gx/continuation.cbl
+check "format writes one file"            2 'give one file, or use --check' -- format --to free $gx/continuation.cbl $gx/continuation.cbl
+check "format splits long free lines"     0 '^      -    "ormat line has room for".$' -- format --to fixed tests/fixtures/format/long-lines.cob
+check "format moves headers to area A"    0 '^       MAIN-LINE\.$' -- format --to fixed tests/fixtures/format/long-lines.cob
+check "format keeps EXIT out of area A"   0 '^               EXIT\.$' -- format --to fixed tests/fixtures/format/long-lines.cob
+
 # check_report LABEL FORMAT EXPECTED-COUNT -- ARGS...
 # Run plumbline and validate its report with tests/tools/check_report.py.
 check_report() {
