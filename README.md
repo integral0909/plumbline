@@ -208,6 +208,7 @@ with the same paths each time.
 
 - [Rule reference](docs/rules.md)
 - [Diagnostics](docs/diagnostics.md): problems reading the input, and limits
+- [COBOL dialects](docs/dialects.md): what Plumbline reads, and what not
 - [Using Plumbline in an editor](docs/editors.md)
 - [Running Plumbline on the NIST COBOL-85 suite](docs/corpus.md)
 - [Running Plumbline on GnuCOBOL's test suite](docs/corpus-gnucobol.md)
