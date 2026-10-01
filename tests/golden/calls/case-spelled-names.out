@@ -1,0 +1,5 @@
+program PROG tests/golden/calls/case-spelled-names.cob:6:13
+program PROG tests/golden/calls/case-spelled-names.cob:12:13 in PROG
+program HELPER tests/golden/calls/case-spelled-names.cob:18:13
+call tests/golden/calls/case-spelled-names.cob:8:10 PROG -> PROG tests/golden/calls/case-spelled-names.cob:12:13
+call tests/golden/calls/case-spelled-names.cob:9:10 PROG -> HELPER tests/golden/calls/case-spelled-names.cob:18:13

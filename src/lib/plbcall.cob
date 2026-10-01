@@ -67,6 +67,7 @@ LOCAL-STORAGE SECTION.
 01  LS-LINE                 PIC 9(9) COMP-5.
 01  LS-COLUMN               PIC 9(4) COMP-5.
 01  LS-SRC-LINE             PIC 9(9) COMP-5.
+01  LS-SPELLING             PIC X(31).
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -136,6 +137,8 @@ ADD-PROGRAM.
     MOVE ND-NAME(LS-N) TO LS-T
     PERFORM TOKEN-NAME
     MOVE LS-TEXT TO CP-NAME(LS-P)
+    PERFORM TOKEN-SPELLING
+    MOVE LS-SPELLING TO CP-SPELLING(LS-P)
     PERFORM TOKEN-POSITION
     MOVE LS-FILE-ID TO CP-FILE-ID(LS-P)
     MOVE LS-LINE TO CP-LINE(LS-P)
@@ -279,6 +282,8 @@ ADD-ENTRY.
     MOVE 0 TO CP-PARAM-COUNT(LS-P)
     PERFORM TOKEN-NAME
     MOVE LS-TEXT TO CP-NAME(LS-P)
+    PERFORM TOKEN-SPELLING
+    MOVE LS-SPELLING TO CP-SPELLING(LS-P)
     PERFORM TOKEN-POSITION
     MOVE LS-FILE-ID TO CP-FILE-ID(LS-P)
     MOVE LS-LINE TO CP-LINE(LS-P)
@@ -331,6 +336,8 @@ ADD-CALL.
     MOVE LS-SRC-LINE TO CC-SRC-LINE(LS-C)
     PERFORM TOKEN-NAME
     MOVE LS-TEXT TO CC-TARGET(LS-C)
+    PERFORM TOKEN-SPELLING
+    MOVE LS-SPELLING TO CC-SPELLING(LS-C)
     IF TK-IS-ALNUM(LS-T)
         MOVE "N" TO CC-DYNAMIC(LS-C)
         ADD 1 TO LS-T
@@ -572,6 +579,28 @@ TOKEN-NAME.
         MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
     END-IF.
 
+*> LS-SPELLING = token LS-T as written: the lexer upper-cases words,
+*> so a word is taken from its source line; a literal's value keeps
+*> its case.
+TOKEN-SPELLING.
+    MOVE SPACES TO LS-SPELLING
+    IF LS-T < 1 OR LS-T > TK-COUNT
+        EXIT PARAGRAPH
+    END-IF
+    IF NOT TK-IS-WORD(LS-T)
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-SPELLING LS-LEN
+        EXIT PARAGRAPH
+    END-IF
+    MOVE TK-SRC-LINE(LS-T) TO LS-SRC-LINE
+    IF LS-SRC-LINE = 0 OR LS-SRC-LINE > SS-LINE-COUNT
+       OR TK-SPAN(LS-T) > 31 OR TK-SPAN(LS-T) = 0
+       OR TK-COLUMN(LS-T) + TK-SPAN(LS-T) - 1 > SL-TEXT-LEN(LS-SRC-LINE)
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-SPELLING LS-LEN
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SS-HEAP(SL-TEXT-OFF(LS-SRC-LINE) + TK-COLUMN(LS-T) - 1
+        :TK-SPAN(LS-T)) TO LS-SPELLING.
+
 *> Where token LS-T is.
 TOKEN-POSITION.
     MOVE 0 TO LS-FILE-ID LS-LINE LS-COLUMN LS-SRC-LINE
@@ -595,6 +624,7 @@ LOCAL-STORAGE SECTION.
 01  LS-A                    PIC 9(9) COMP-5.
 01  LS-FROM                 PIC 9(9) COMP-5.
 01  LS-FOUND                PIC 9(9) COMP-5.
+01  LS-EXACT                PIC 9(9) COMP-5.
 LINKAGE SECTION.
 COPY "plbcallc.cpy".
 COPY "plbcall.cpy".
@@ -609,7 +639,18 @@ PROCEDURE DIVISION USING PLB-CALL-GRAPH.
 
 RESOLVE-CALL.
     MOVE CC-FROM(LS-C) TO LS-FROM
-    *> 1. Contained in the caller, or the caller itself.
+    *> 1. Contained in the caller, or the caller itself; a name spelled
+    *> the same way, case included, before one that only matches
+    *> without regard to case.
+    PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+        IF CP-NAME(LS-P) = CC-TARGET(LS-C) AND CP-KIND(LS-P) = "P"
+           AND (CP-PARENT(LS-P) = LS-FROM OR LS-P = LS-FROM)
+           AND CP-SPELLING(LS-P) = CC-SPELLING(LS-C)
+            MOVE LS-P TO CC-TO(LS-C)
+            MOVE 1 TO CC-MATCHES(LS-C)
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
     PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
         IF CP-NAME(LS-P) = CC-TARGET(LS-C) AND CP-KIND(LS-P) = "P"
            AND (CP-PARENT(LS-P) = LS-FROM OR LS-P = LS-FROM)
@@ -641,5 +682,20 @@ RESOLVE-CALL.
     END-PERFORM
     IF CC-MATCHES(LS-C) = 1
         MOVE LS-FOUND TO CC-TO(LS-C)
+    END-IF
+    *> Several, told apart by case: the one spelled the same way.
+    IF CC-MATCHES(LS-C) > 1
+        MOVE 0 TO LS-EXACT LS-FOUND
+        PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+            IF CP-NAME(LS-P) = CC-TARGET(LS-C) AND CP-PARENT(LS-P) = 0
+               AND CP-SPELLING(LS-P) = CC-SPELLING(LS-C)
+                ADD 1 TO LS-EXACT
+                MOVE LS-P TO LS-FOUND
+            END-IF
+        END-PERFORM
+        IF LS-EXACT = 1
+            MOVE LS-FOUND TO CC-TO(LS-C)
+            MOVE 1 TO CC-MATCHES(LS-C)
+        END-IF
     END-IF.
 END PROGRAM PLB-CALL-RESOLVE.

@@ -15,6 +15,9 @@
     05  CP-COUNT                PIC 9(9) COMP-5.
     05  CP-ENTRY                OCCURS CP-MAX TIMES.
         10  CP-NAME             PIC X(31).
+        *> The name as written, case kept: GnuCOBOL keeps PROG and
+        *> prog apart.
+        10  CP-SPELLING         PIC X(31).
         *>   P program   E ENTRY point of program CP-OWNER
         10  CP-KIND             PIC X.
         *> The program itself, or for an ENTRY, the program it is in.
@@ -57,6 +60,7 @@
         *> The literal program name, or for a dynamic call the name of
         *> the data item holding it.
         10  CC-TARGET           PIC X(31).
+        10  CC-SPELLING         PIC X(31).
         10  CC-DYNAMIC          PIC X.
         *> Set by PLB-CALL-RESOLVE: the program called (0: not found
         *> in this run, or ambiguous), and how many programs of the
