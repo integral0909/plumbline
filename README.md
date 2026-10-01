@@ -189,6 +189,7 @@ with the same paths each time.
 ## Documentation
 
 - [Rule reference](docs/rules.md)
+- [Diagnostics](docs/diagnostics.md): problems reading the input, and limits
 - [Using Plumbline in an editor](docs/editors.md)
 - [Running Plumbline on the NIST COBOL-85 suite](docs/corpus.md)
 - [Architecture](docs/architecture.md)

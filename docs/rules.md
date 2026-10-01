@@ -28,6 +28,8 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C020](#plb-c020-file-status-not-checked) | file-status-not-checked | warning | FILE STATUS is not tested after an I/O statement |
 | [PLB-C021](#plb-c021-file-not-opened) | file-not-opened | warning | File is used but never opened |
 | [PLB-C022](#plb-c022-open-mode-mismatch) | open-mode-mismatch | error | I/O statement needs an open mode the file is never opened in |
+| [PLB-C023](#plb-c023-subscript-out-of-range) | subscript-out-of-range | error | Literal subscript is outside the table |
+| [PLB-C024](#plb-c024-refmod-out-of-range) | refmod-out-of-range | error | Literal reference modification is outside the item |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -531,6 +533,46 @@ An I/O statement that none of the file's open modes allows:
 
 `READ` and `START` need `INPUT` or `I-O`, `WRITE` needs `OUTPUT`,
 `EXTEND`, or `I-O`, and `REWRITE` and `DELETE` need `I-O`.
+
+## PLB-C023 subscript-out-of-range
+
+A subscript written as a number that is below 1 or past the table's
+OCCURS:
+
+```cobol
+01  MONTH-TABLE.
+    05  MONTH-NAME  PIC X(9) OCCURS 12 TIMES.
+    ...
+    MOVE "SMARCH" TO MONTH-NAME (13)                *> reported
+    MOVE "NONE" TO MONTH-NAME (0)                   *> reported
+    MOVE MONTH-NAME (I + 12) TO OUT-TEXT            *> not checked
+```
+
+At run time such a subscript reads or overwrites whatever follows the
+table, unless the program was compiled with subscript checking. Each
+dimension of a table inside a table is checked against its own OCCURS:
+for `GRID-CELL (2, 5)` in a 3 by 4 grid, the 5 is reported. With
+`OCCURS ... DEPENDING ON`, the subscript is checked against the maximum.
+Only literal subscripts are checked, and only when there is one per
+dimension.
+
+## PLB-C024 refmod-out-of-range
+
+A reference modification written with numbers that reaches outside the
+item:
+
+```cobol
+01  CODE-TEXT  PIC X(8).
+    ...
+    MOVE CODE-TEXT (5:6) TO OUT-TEXT                *> ends at 10: reported
+    MOVE CODE-TEXT (9:) TO OUT-TEXT                 *> starts past the end
+    MOVE CODE-TEXT (0:2) TO OUT-TEXT                *> starts at 0
+    MOVE CODE-TEXT (I:9) TO OUT-TEXT                *> 9 is too long anywhere
+```
+
+Positions count characters, from 1. Items whose characters are not
+bytes (national, boolean), numeric items that are not `DISPLAY`, and
+tables whose size depends on `OCCURS ... DEPENDING ON` are not checked.
 
 ## PLB-M001 go-to
 

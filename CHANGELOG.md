@@ -85,6 +85,10 @@ uses [Semantic Versioning](https://semver.org/).
 - Error FN001 when a run has more findings than it can keep.
 - `--files-from LIST` reads the files to analyze from a list, or from
   standard input with `-`.
+- Rules PLB-C023 subscript-out-of-range and PLB-C024
+  refmod-out-of-range, for literal subscripts and reference modifiers.
+- `make check-bounds` runs the tests on a build that checks subscripts.
+- [Diagnostics reference](docs/diagnostics.md).
 - `plumbline format --to fixed|free [--check]`: rewrite a file in the
   other reference format without changing its tokens.
 - HTML report (`--report html`): one self-contained page with source
