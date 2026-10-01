@@ -7,7 +7,8 @@
 *> Programs (CP) include ENTRY points; each has a list of parameters
 *> (CA), its PROCEDURE DIVISION USING or ENTRY ... USING items. Calls
 *> (CC) each have a list of arguments (CG). The files of each program
-*> (PF) say which DD name the job step must provide.
+*> (PF) say which DD name the job step must provide, and the maps of
+*> each program (PM) which BMS maps it sends and receives.
 *>
 *> Names are compared without regard to case: CP-NAME and CC-TARGET
 *> are upper-cased.
@@ -106,3 +107,17 @@
         10  PF-LINE             PIC 9(9) COMP-5.
         10  PF-COLUMN           PIC 9(4) COMP-5.
         10  PF-SRC-LINE         PIC 9(9) COMP-5.
+    05  PM-COUNT                PIC 9(9) COMP-5.
+    05  PM-ENTRY                OCCURS PM-MAX TIMES.
+        10  PM-PROGRAM          PIC 9(9) COMP-5.
+        *> EXEC CICS SEND MAP (S) or RECEIVE MAP (R), with the map and
+        *> mapset it names: a literal, or a data item whose VALUE is
+        *> one and that no statement changes. MAPSET left out is the
+        *> map's own name.
+        10  PM-COMMAND          PIC X.
+        10  PM-MAP              PIC X(8).
+        10  PM-MAPSET           PIC X(8).
+        10  PM-FILE-ID          PIC 9(4) COMP-5.
+        10  PM-LINE             PIC 9(9) COMP-5.
+        10  PM-COLUMN           PIC 9(4) COMP-5.
+        10  PM-SRC-LINE         PIC 9(9) COMP-5.

@@ -28,6 +28,7 @@ COPY "plbcallc.cpy".
 COPY "plbcall.cpy".
 PROCEDURE DIVISION USING PLB-CALL-GRAPH.
     MOVE 0 TO CP-COUNT CA-COUNT CC-COUNT CG-COUNT CP-DROPPED PF-COUNT
+        PM-COUNT
     GOBACK.
 END PROGRAM PLB-CALL-INIT.
 
@@ -68,6 +69,10 @@ LOCAL-STORAGE SECTION.
 01  LS-COLUMN               PIC 9(4) COMP-5.
 01  LS-SRC-LINE             PIC 9(9) COMP-5.
 01  LS-SPELLING             PIC X(31).
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-MAP-NAME             PIC X(31).
+01  LS-MAPSET-NAME          PIC X(31).
+01  LS-MAP-TOKEN            PIC 9(9) COMP-5.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -113,6 +118,8 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
                         PERFORM NOTE-STOP-RUN
                     WHEN "OPEN"
                         PERFORM NOTE-OPEN
+                    WHEN "EXEC"
+                        PERFORM NOTE-MAP
                 END-EVALUATE
         END-EVALUATE
     END-PERFORM
@@ -289,6 +296,127 @@ NOTE-OPEN-FILE.
             END-EVALUATE
             EXIT PERFORM
         END-IF
+    END-PERFORM.
+
+*> Maps --------------------------------------------------------------
+
+*> EXEC CICS SEND MAP(name) [MAPSET(name)] or RECEIVE MAP(...).
+NOTE-MAP.
+    COMPUTE LS-T = ND-TOK-FIRST(LS-N) + 1
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+    IF LS-WORD NOT = "CICS"
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-T
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+    IF LS-WORD = "SEND"
+        MOVE "S" TO LS-KIND
+    ELSE
+        IF LS-WORD = "RECEIVE"
+            MOVE "R" TO LS-KIND
+        ELSE
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    MOVE SPACES TO LS-MAP-NAME LS-MAPSET-NAME
+    MOVE 0 TO LS-MAP-TOKEN
+    PERFORM VARYING LS-T FROM LS-T BY 1 UNTIL LS-T >= ND-TOK-LAST(LS-N)
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            COMPUTE LS-C = LS-T + 1
+            IF (LS-WORD = "MAP" OR LS-WORD = "MAPSET")
+               AND TK-IS-LPAREN(LS-C)
+                ADD 1 TO LS-C
+                PERFORM CONSTANT-TEXT
+                IF LS-WORD = "MAP"
+                    MOVE LS-TEXT TO LS-MAP-NAME
+                    MOVE LS-C TO LS-MAP-TOKEN
+                ELSE
+                    MOVE LS-TEXT TO LS-MAPSET-NAME
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM
+    *> SEND TEXT, SEND CONTROL, or a map named at run time.
+    IF LS-MAP-TOKEN = 0 OR LS-MAP-NAME = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-MAPSET-NAME = SPACES
+        MOVE LS-MAP-NAME TO LS-MAPSET-NAME
+        *> A MAPSET operand that is not a constant: unknown.
+        PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-N) BY 1
+                UNTIL LS-T >= ND-TOK-LAST(LS-N)
+            IF TK-IS-WORD(LS-T)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+                IF LS-WORD = "MAPSET"
+                    EXIT PARAGRAPH
+                END-IF
+            END-IF
+        END-PERFORM
+    END-IF
+    MOVE LS-N TO LS-UP
+    PERFORM PROGRAM-OF-NODE
+    IF LS-P = 0 OR PM-COUNT >= PM-MAX
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO PM-COUNT
+    MOVE LS-P TO PM-PROGRAM(PM-COUNT)
+    MOVE LS-KIND TO PM-COMMAND(PM-COUNT)
+    MOVE LS-MAP-NAME TO PM-MAP(PM-COUNT)
+    MOVE LS-MAPSET-NAME TO PM-MAPSET(PM-COUNT)
+    MOVE LS-MAP-TOKEN TO LS-T
+    PERFORM TOKEN-POSITION
+    MOVE LS-FILE-ID TO PM-FILE-ID(PM-COUNT)
+    MOVE LS-LINE TO PM-LINE(PM-COUNT)
+    MOVE LS-COLUMN TO PM-COLUMN(PM-COUNT)
+    MOVE LS-SRC-LINE TO PM-SRC-LINE(PM-COUNT).
+
+*> LS-TEXT = the constant at token LS-C, upper-cased: a literal, or a
+*> data item whose VALUE is a literal and that no statement gives a
+*> value; spaces when it is neither.
+CONSTANT-TEXT.
+    MOVE SPACES TO LS-TEXT
+    IF LS-C > TK-COUNT
+        EXIT PARAGRAPH
+    END-IF
+    IF TK-IS-ALNUM(LS-C)
+        IF TK-TEXT-LEN(LS-C) <= 8
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C LS-TEXT LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+        END-IF
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-REF-AT(LS-C) = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE WS-REF-AT(LS-C) TO LS-R
+    IF RF-KIND(LS-R) NOT = "D"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE RF-SYMBOL(LS-R) TO LS-S
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > RF-COUNT
+        IF RF-SYMBOL(LS-I) = LS-S AND RF-KIND(LS-I) = "D"
+           AND (RF-ROLE(LS-I) = "D" OR RF-ROLE(LS-I) = "B"
+                OR RF-ROLE(LS-I) = "X")
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    *> The literal of its VALUE clause.
+    MOVE ND-FIRST(SY-NODE(LS-S)) TO LS-I
+    PERFORM UNTIL LS-I = 0
+        IF ND-KIND(LS-I) = "CLAU" AND ND-DETAIL(LS-I) = "VALUE"
+            PERFORM VARYING LS-K FROM ND-TOK-FIRST(LS-I) BY 1
+                    UNTIL LS-K > ND-TOK-LAST(LS-I)
+                IF TK-IS-ALNUM(LS-K) AND TK-TEXT-LEN(LS-K) <= 8
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT
+                        LS-LEN
+                    MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+                    EXIT PARAGRAPH
+                END-IF
+            END-PERFORM
+            EXIT PARAGRAPH
+        END-IF
+        MOVE ND-NEXT(LS-I) TO LS-I
     END-PERFORM.
 
 *> Programs and parameters ----------------------------------------

@@ -91,8 +91,9 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C026 varying-limit-unreachable.
 - `plumbline dump bms` reads CICS BMS maps: mapsets, maps, and their
   fields (see docs/bms.md). `check` reads `*.bms` inputs and checks
-  their maps: rules PLB-B001 map-fields-overlap and PLB-B002
-  field-outside-map.
+  their maps: rules PLB-B001 map-fields-overlap, PLB-B002
+  field-outside-map, and PLB-B003 map-not-in-mapset, against the
+  SEND and RECEIVE MAP commands of the programs.
 - `plumbline dump jcl` reads JCL: jobs, procedures, steps, and DD
   statements (see docs/jcl.md).
 - `check` reads `*.jcl` and `*.prc` inputs as JCL and checks each step

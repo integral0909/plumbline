@@ -4,6 +4,8 @@
 *>   PLB-B001  map-fields-overlap   two fields of a map share screen
 *>                                  positions
 *>   PLB-B002  field-outside-map    a field ends past the end of its map
+*>   PLB-B003  map-not-in-mapset    a program sends or receives a map
+*>                                  that its mapset does not define
 *>
 *> On the screen a field takes its attribute byte, at POS, and LENGTH
 *> bytes of data after it; a field with OCCURS=n takes that n times.
@@ -17,9 +19,14 @@ PROGRAM-ID. PLB-RULE-BMS.
 DATA DIVISION.
 WORKING-STORAGE SECTION.
 COPY "plbbmsc.cpy".
+COPY "plbcallc.cpy".
 LOCAL-STORAGE SECTION.
 01  LS-RULE-OVERLAP         PIC 9(4) COMP-5.
 01  LS-RULE-OUTSIDE         PIC 9(4) COMP-5.
+01  LS-RULE-UNDEFINED       PIC 9(4) COMP-5.
+01  LS-U                    PIC 9(9) COMP-5.
+01  LS-SET                  PIC 9(9) COMP-5.
+01  LS-FOUND                PIC X.
 01  LS-M                    PIC 9(9) COMP-5.
 01  LS-F                    PIC 9(9) COMP-5.
 01  LS-G                    PIC 9(9) COMP-5.
@@ -46,13 +53,52 @@ LINKAGE SECTION.
 COPY "plbrules.cpy".
 COPY "plbfind.cpy".
 COPY "plbbms.cpy".
-PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-BMS.
+COPY "plbcall.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-BMS PLB-CALL-GRAPH.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-B001" LS-RULE-OVERLAP
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-B002" LS-RULE-OUTSIDE
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-B003" LS-RULE-UNDEFINED
     PERFORM VARYING LS-M FROM 1 BY 1 UNTIL LS-M > BM-COUNT
         PERFORM CHECK-MAP
     END-PERFORM
+    PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > PM-COUNT
+        PERFORM CHECK-MAP-USE
+    END-PERFORM
     GOBACK.
+
+*> PLB-B003: map use LS-U names a mapset of the run that has no map
+*> of that name. Mapsets that are not among the BMS sources are not
+*> judged.
+CHECK-MAP-USE.
+    MOVE 0 TO LS-SET
+    PERFORM VARYING LS-M FROM 1 BY 1 UNTIL LS-M > BS-COUNT
+        IF BS-NAME(LS-M) = PM-MAPSET(LS-U)
+            MOVE LS-M TO LS-SET
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-SET = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "N" TO LS-FOUND
+    PERFORM VARYING LS-M FROM 1 BY 1 UNTIL LS-M > BM-COUNT
+        IF BM-MAPSET(LS-M) = LS-SET AND BM-NAME(LS-M) = PM-MAP(LS-U)
+            MOVE "Y" TO LS-FOUND
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-FOUND = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    STRING "map " DELIMITED BY SIZE
+           PM-MAP(LS-U) DELIMITED BY SPACE
+           " is not defined in mapset " DELIMITED BY SIZE
+           PM-MAPSET(LS-U) DELIMITED BY SPACE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE-UNDEFINED
+        PM-FILE-ID(LS-U) PM-LINE(LS-U) PM-COLUMN(LS-U) LS-ZERO
+        LS-MESSAGE.
 
 *> Fields are checked against the fields before them in the source,
 *> and each field is reported once.

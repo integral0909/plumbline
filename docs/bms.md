@@ -43,7 +43,10 @@ that byte. A field without `ATTRB` is `ASKIP` (protected); one with an
 Give `check` the BMS sources (`*.bms`, in either case) with the
 programs, and each map is checked: fields that overlap
 ([PLB-B001](rules.md#plb-b001-map-fields-overlap)), and fields past the
-end of the map ([PLB-B002](rules.md#plb-b002-field-outside-map)).
+end of the map ([PLB-B002](rules.md#plb-b002-field-outside-map)). The
+programs' `SEND MAP` and `RECEIVE MAP` commands are checked against the
+maps ([PLB-B003](rules.md#plb-b003-map-not-in-mapset)); `dump calls`
+lists the maps each program uses.
 
 ```console
 $ plumbline check app/bms/*.bms

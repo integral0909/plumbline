@@ -255,6 +255,14 @@ check_absent "adjacent BMS fields are fine" 'screens.bms:[456]:' \
     -- check --no-config $bx
 check "a BMS field past the end of its map" 1 'screens.bms:14:1: error: field WIDE ends past the end of map SMALL (5 lines of 40) \[PLB-B002\]' \
     -- check --no-config $bx
+check "a map its mapset does not define" 1 'screens.cob:20:24: error: map HELPMAP is not defined in mapset SCRSET \[PLB-B003\]' \
+    -- check --no-config tests/fixtures/bms/screens.cob $bx
+check "a map without MAPSET is in the mapset of its name" 1 'screens.cob:30:24: error: map SCRSET is not defined in mapset SCRSET' \
+    -- check --no-config tests/fixtures/bms/screens.cob $bx
+check_absent "maps named at run time and mapsets outside the run" 'screens.cob:\(1[58]\|2[58]\):[0-9]*: error' \
+    -- check --no-config tests/fixtures/bms/screens.cob $bx
+check "dump calls lists the maps a program uses" 0 '^map SCRMAP of mapset SCRSET tests/fixtures/bms/screens.cob:17:27 received by SCREENS$' \
+    -- dump calls tests/fixtures/bms/screens.cob
 check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
 check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
     -- rules --no-config --enable evaluate-without-other
