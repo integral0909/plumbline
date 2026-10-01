@@ -88,6 +88,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rules PLB-C023 subscript-out-of-range and PLB-C024
   refmod-out-of-range, for literal subscripts and reference modifiers.
 - Rule PLB-C025 stop-run-in-called-program.
+- Rule PLB-M011 evaluate-without-other (off by default).
 - `make check-bounds` runs the tests on a build that checks subscripts.
 - [Diagnostics reference](docs/diagnostics.md).
 - `plumbline format --to fixed|free [--check]`: rewrite a file in the

@@ -41,6 +41,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M008](#plb-m008-file-not-closed) | file-not-closed | note | File is opened but never closed |
 | [PLB-M009](#plb-m009-complex-paragraph) | complex-paragraph | note, off | Paragraph or section is more complex than the limit |
 | [PLB-M010](#plb-m010-long-paragraph) | long-paragraph | note, off | Paragraph or section has more statements than the limit |
+| [PLB-M011](#plb-m011-evaluate-without-other) | evaluate-without-other | note, *off* | EVALUATE has no WHEN OTHER |
 | [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, *off* | CALL of a compiler library routine |
 | [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
@@ -727,6 +728,22 @@ paragraph PRINT-SUMMARY has 87 statements (limit 50)
 ```
 
 Off by default, like PLB-M009.
+
+## PLB-M011 evaluate-without-other
+
+*Off by default.* An `EVALUATE` without `WHEN OTHER`:
+
+```cobol
+    EVALUATE STATUS-CODE                *> noted
+        WHEN 1 DISPLAY "OPEN"
+        WHEN 2 DISPLAY "CLOSED"
+    END-EVALUATE
+```
+
+A value that no `WHEN` matches does nothing, silently. Often that is
+what was meant, so the rule is for teams whose convention is that
+every `EVALUATE` says what happens to the other values, if only
+`WHEN OTHER CONTINUE`.
 
 ## PLB-P001 vendor-routine
 
