@@ -24,11 +24,6 @@ LOCAL-STORAGE SECTION.
 01  LS-STMT                 PIC 9(9) COMP-5.
 01  LS-T                    PIC 9(9) COMP-5.
 01  LS-K                    PIC 9(9) COMP-5.
-01  LS-U                    PIC 9(9) COMP-5.
-01  LS-V                    PIC 9(9) COMP-5.
-01  LS-E                    PIC 9(9) COMP-5.
-01  LS-LAST                 PIC 9(9) COMP-5.
-01  LS-END                  PIC 9(9) COMP-5.
 01  LS-STOP                 PIC 9(9) COMP-5.
 01  LS-LANGUAGE             PIC X(31).
 01  LS-COMMAND              PIC X(31).
@@ -43,6 +38,7 @@ LOCAL-STORAGE SECTION.
 01  LS-RESP                 PIC 9(9) COMP-5.
 01  LS-NOHANDLE             PIC X.
 01  LS-MESSAGE              PIC X(200).
+COPY "plbnlist.cpy".
 LINKAGE SECTION.
 COPY "plbsrc.cpy".
 COPY "plbtokc.cpy".
@@ -230,17 +226,11 @@ CICS-STATEMENT.
 *> LS-STMT in its paragraph, before the next EXEC of the same language,
 *> or in a paragraph performed from there.
 FOLLOWING-CHECK.
-    MOVE "N" TO LS-FOUND
-    PERFORM UNIT-OF-STATEMENT
-    IF LS-U = 0
-        EXIT PARAGRAPH
-    END-IF
-    MOVE ND-TOK-LAST(FU-NODE(LS-U)) TO LS-END
     *> Where the next EXEC of the same language starts, if it does.
-    MOVE LS-END TO LS-STOP
+    MOVE 0 TO LS-STOP
     COMPUTE LS-T = ND-TOK-LAST(LS-STMT) + 1
-    PERFORM UNTIL LS-T > LS-END
-        IF TK-IS-WORD(LS-T) AND LS-T < LS-END
+    PERFORM UNTIL LS-T >= TK-COUNT
+        IF TK-IS-WORD(LS-T)
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
             IF LS-TEXT = "EXEC"
                 COMPUTE LS-K = LS-T + 1
@@ -253,68 +243,9 @@ FOLLOWING-CHECK.
         END-IF
         ADD 1 TO LS-T
     END-PERFORM
-    COMPUTE LS-T = ND-TOK-LAST(LS-STMT) + 1
-    MOVE LS-STOP TO LS-LAST
-    PERFORM SCAN-RANGE
-    IF LS-FOUND = "Y"
-        EXIT PARAGRAPH
-    END-IF
-    *> PERFORMs between the statement and the stop.
-    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > FE-COUNT
-        IF FE-KIND(LS-E) = "P" AND FE-FROM(LS-E) = LS-U
-           AND FE-TO(LS-E) > 0
-            IF ND-TOK-FIRST(FE-STMT(LS-E)) > ND-TOK-LAST(LS-STMT)
-               AND ND-TOK-FIRST(FE-STMT(LS-E)) < LS-STOP
-                PERFORM SCAN-PERFORMED
-                IF LS-FOUND = "Y"
-                    EXIT PERFORM
-                END-IF
-            END-IF
-        END-IF
-    END-PERFORM.
-
-*> The tokens of every unit in edge LS-E's range.
-SCAN-PERFORMED.
-    MOVE FE-TO(LS-E) TO LS-V
-    PERFORM UNTIL LS-V = 0 OR LS-FOUND = "Y"
-        MOVE ND-TOK-FIRST(FU-NODE(LS-V)) TO LS-T
-        MOVE ND-TOK-LAST(FU-NODE(LS-V)) TO LS-LAST
-        PERFORM SCAN-RANGE
-        IF LS-V = FE-THRU(LS-E) OR FE-THRU(LS-E) = 0
-            EXIT PERFORM
-        END-IF
-        MOVE FU-NEXT(LS-V) TO LS-V
-    END-PERFORM.
-
-*> LS-FOUND = "Y" when a word from LS-T to LS-LAST is LS-WANT-1 or
-*> LS-WANT-2.
-SCAN-RANGE.
-    PERFORM UNTIL LS-T > LS-LAST
-        IF TK-IS-WORD(LS-T)
-            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
-            IF LS-TEXT = LS-WANT-1 OR LS-TEXT = LS-WANT-2
-                MOVE "Y" TO LS-FOUND
-                EXIT PERFORM
-            END-IF
-        END-IF
-        ADD 1 TO LS-T
-    END-PERFORM.
-
-*> LS-U = the innermost unit (paragraph, else section or division
-*> start) whose tokens hold statement LS-STMT; 0 when none does.
-UNIT-OF-STATEMENT.
-    MOVE 0 TO LS-U
-    PERFORM VARYING LS-V FROM 1 BY 1 UNTIL LS-V > FU-COUNT
-        IF ND-TOK-FIRST(FU-NODE(LS-V)) <= ND-TOK-FIRST(LS-STMT)
-           AND ND-TOK-LAST(FU-NODE(LS-V)) >= ND-TOK-LAST(LS-STMT)
-            IF LS-U = 0
-                MOVE LS-V TO LS-U
-            ELSE
-                IF ND-TOK-FIRST(FU-NODE(LS-V))
-                   >= ND-TOK-FIRST(FU-NODE(LS-U))
-                    MOVE LS-V TO LS-U
-                END-IF
-            END-IF
-        END-IF
-    END-PERFORM.
+    MOVE 2 TO NL-COUNT
+    MOVE LS-WANT-1 TO NL-NAME(1)
+    MOVE LS-WANT-2 TO NL-NAME(2)
+    CALL "PLB-NAMED-AFTER" USING PLB-TOKENS PLB-AST PLB-FLOW LS-STMT
+        LS-STOP PLB-NAME-LIST LS-FOUND.
 END PROGRAM PLB-RULE-EMBEDDED.
