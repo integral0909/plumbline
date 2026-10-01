@@ -14,5 +14,13 @@ for f in src/lib/*.cob src/cli/*.cob tests/harness/*.cob tests/unit/*.cob; do
         printf 'selfcheck: %s\n%s\n' "$f" "$err"
     fi
 done
-printf 'selfcheck: %d files checked, %d with findings or diagnostics\n' "$checked" "$failed"
+# Once more with every file in one run, so that calls between programs
+# in different files are checked too.
+checked=$((checked + 1))
+if ! err=$("$bin" check -I copy -I tests/harness src/lib/*.cob src/cli/*.cob \
+        tests/harness/*.cob tests/unit/*.cob 2>&1) || [ -n "$err" ]; then
+    failed=$((failed + 1))
+    printf 'selfcheck: all files in one run\n%s\n' "$err"
+fi
+printf 'selfcheck: %d runs, %d with findings or diagnostics\n' "$checked" "$failed"
 [ "$failed" -eq 0 ]

@@ -1,0 +1,6 @@
+tests/golden/rules/c013-c015-calls.cob:15:17: warning: PRICING takes 2 parameters, but this CALL passes 1 [PLB-C013]
+tests/golden/rules/c013-c015-calls.cob:17:17: warning: argument 1 (SHORT-ID, 4 bytes) is smaller than parameter ORDER-KEY of PRICING (8 bytes) [PLB-C014]
+tests/golden/rules/c013-c015-calls.cob:19:17: warning: argument 1 ("A12", 3 bytes) is smaller than parameter ORDER-KEY of PRICING (8 bytes) [PLB-C014]
+tests/golden/rules/c013-c015-calls.cob:21:17: warning: argument 2 is passed BY VALUE, but PRICING takes ORDER-AMOUNT BY REFERENCE [PLB-C014]
+tests/golden/rules/c013-c015-calls.cob:38:21: error: DISCOUNT can be called while it is running (DISCOUNT -> PRICING -> DISCOUNT), but it is not RECURSIVE [PLB-C015]
+tests/golden/rules/c013-c015-calls.cob:53:21: error: PRICING can be called while it is running (PRICING -> DISCOUNT -> PRICING), but it is not RECURSIVE [PLB-C015]
