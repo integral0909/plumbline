@@ -240,6 +240,10 @@ check "packed-even-digits counts decimals"  0 'packed.cob:8:9: note: RATE is pac
     -- check --no-config --enable packed-even-digits tests/fixtures/rules/packed.cob
 check_absent "odd counts and other usages are fine" 'packed.cob:\(9\|10\|11\):' \
     -- check --no-config --enable packed-even-digits tests/fixtures/rules/packed.cob
+check "dump bms lists maps and fields"     0 'orders.bms:8:     field ORDNUM at 3,10 length 8 input numeric' \
+    -- dump bms tests/golden/bms/orders.bms
+check "dump bms of a missing file"         2 'cannot read tests/golden/bms/missing.bms' \
+    -- dump bms tests/golden/bms/missing.bms
 check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
 check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
     -- rules --no-config --enable evaluate-without-other

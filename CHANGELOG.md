@@ -89,6 +89,8 @@ uses [Semantic Versioning](https://semver.org/).
   refmod-out-of-range, for literal subscripts and reference modifiers.
 - Rule PLB-C025 stop-run-in-called-program.
 - Rule PLB-C026 varying-limit-unreachable.
+- `plumbline dump bms` reads CICS BMS maps: mapsets, maps, and their
+  fields (see docs/bms.md).
 - `plumbline dump jcl` reads JCL: jobs, procedures, steps, and DD
   statements (see docs/jcl.md).
 - `check` reads `*.jcl` and `*.prc` inputs as JCL and checks each step
