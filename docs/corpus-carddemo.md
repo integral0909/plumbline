@@ -157,3 +157,13 @@ Some findings that were read and are true:
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)
   is sensitive to, with `PROCOPT=AP`.
+
+## Program documentation
+
+`plumbline doc` over the base application's 29 programs, with its JCL,
+maps, and CICS definitions, writes 29 pages (about 12,600 lines of
+Markdown) in about 1.3 seconds. The 23 paragraphs its tables mark as
+never run are the 23 that PLB-C001 reports. Most are `-EXIT`
+paragraphs after an `EXEC CICS RETURN`, and copies of `SEND-LONG-TEXT`,
+a debugging aid the programs share. `COACTVWC` defines `0000-MAIN-EXIT`
+twice, and both copies show.
