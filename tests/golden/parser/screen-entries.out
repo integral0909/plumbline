@@ -9,7 +9,7 @@ UNIT @4:1
       SECT SCREEN @9:1
         DATA 1 MAIN-SCREEN @10:1
           DATA 5 @11:5
-            CLAU BLANK-WHEN-ZERO @11:9
+            CLAU BLANK @11:9
           DATA 5 @12:5
             CLAU LINE @12:9
             CLAU COLUMN @12:16

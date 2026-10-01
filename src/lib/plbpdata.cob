@@ -344,8 +344,17 @@ ENTRY-CLAUSE.
             MOVE "SYNCHRONIZED" TO LS-DETAIL
             PERFORM OPEN-CLAUSE
             PERFORM SKIP-OPERANDS
+        *> BLANK WHEN ZERO; in the screen section also BLANK SCREEN
+        *> and BLANK LINE.
         WHEN PX-TEXT = "BLANK"
             MOVE "BLANK-WHEN-ZERO" TO LS-DETAIL
+            COMPUTE LS-NEXT = PS-POS + 1
+            IF LS-NEXT < PS-END AND TK-IS-WORD(LS-NEXT)
+                IF TK-TEXT(TK-TEXT-OFF(LS-NEXT):TK-TEXT-LEN(LS-NEXT))
+                   = "SCREEN" OR "LINE"
+                    MOVE "BLANK" TO LS-DETAIL
+                END-IF
+            END-IF
             PERFORM OPEN-CLAUSE
             PERFORM SKIP-OPERANDS
         WHEN PX-TEXT = "EXTERNAL" OR PX-TEXT = "GLOBAL"
