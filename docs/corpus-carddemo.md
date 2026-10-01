@@ -56,6 +56,8 @@ with the application: `DFHAID` and `DFHBMSCA` (CICS), and `CMQV`,
 | PLB-C011 read-never-set | 1 |
 | PLB-C004 next-sentence-in-scope | 1 |
 | PLB-C003 fall-off-end | 1 |
+| PLB-C033 self-move | 2 |
+| PLB-C032 duplicate-when | 2 |
 | PLB-J001 dd-missing | 1 |
 | PLB-A001 unused-program | 1 |
 
@@ -142,3 +144,10 @@ Some findings that were read and are true:
   `IKJEFT01`, which the JCL reader follows into `PARM` and `SYSTSIN`.
 - **PLB-Q001 sql-table-undeclared.** None: the DB2 programs include the
   DCLGEN member of every table they use.
+- **PLB-C032 duplicate-when.** In the card list (`COCRDLIC`) and the
+  transaction type list (`COTRTLIC`), two `WHEN`s test `CCARD-AID-PFK07
+  AND CA-FIRST-PAGE`: PF7 on the first page. The second, under a comment
+  that says what it is for, never runs.
+- **PLB-C033 self-move.** `COACCT01` and `CODATE01` move
+  `WS-CICS-RESP2-CD` to itself, and then build an error message from
+  `WS-CICS-RESP2-CD-D`, which the MOVE was meant to fill.
