@@ -6,7 +6,8 @@
 *>
 *> Programs (CP) include ENTRY points; each has a list of parameters
 *> (CA), its PROCEDURE DIVISION USING or ENTRY ... USING items. Calls
-*> (CC) each have a list of arguments (CG).
+*> (CC) each have a list of arguments (CG). The files of each program
+*> (PF) say which DD name the job step must provide.
 *>
 *> Names are compared without regard to case: CP-NAME and CC-TARGET
 *> are upper-cased.
@@ -82,3 +83,24 @@
         10  CG-SIZE             PIC 9(9) COMP-5.
     *> Programs, calls, or arguments that did not fit.
     05  CP-DROPPED              PIC 9(9) COMP-5.
+    05  PF-COUNT                PIC 9(9) COMP-5.
+    05  PF-ENTRY                OCCURS PF-MAX TIMES.
+        10  PF-PROGRAM          PIC 9(9) COMP-5.
+        10  PF-NAME             PIC X(31).
+        *> The DD name of SELECT ... ASSIGN TO: the name, or its last
+        *> part after a hyphen (UT-S-INFILE is DD INFILE). Spaces when
+        *> the file is assigned to a data item, a path, or a device.
+        10  PF-DDNAME           PIC X(8).
+        *> "Y" for SELECT OPTIONAL, and for a sort or merge file (SD).
+        10  PF-OPTIONAL         PIC X.
+        10  PF-SORT             PIC X.
+        *> Open modes of the OPEN statements that name the file.
+        10  PF-INPUT            PIC X.
+        10  PF-OUTPUT           PIC X.
+        10  PF-I-O              PIC X.
+        10  PF-EXTEND           PIC X.
+        *> Where the file is named in its SELECT.
+        10  PF-FILE-ID          PIC 9(4) COMP-5.
+        10  PF-LINE             PIC 9(9) COMP-5.
+        10  PF-COLUMN           PIC 9(4) COMP-5.
+        10  PF-SRC-LINE         PIC 9(9) COMP-5.

@@ -1,0 +1,7 @@
+program FILES tests/golden/calls/files.cob:5:13
+file MASTER tests/golden/calls/files.cob:9:12 of FILES dd MASTERIN input
+file CONTROLS tests/golden/calls/files.cob:10:21 of FILES dd CONTROLS optional input
+file REPORT-OUT tests/golden/calls/files.cob:11:12 of FILES dd REPORT1 output
+file WORK-FILE tests/golden/calls/files.cob:12:12 of FILES dd SORTWK1 sort
+file LOG-FILE tests/golden/calls/files.cob:13:12 of FILES dd ? extend
+file LOCAL-FILE tests/golden/calls/files.cob:14:12 of FILES dd ? i-o

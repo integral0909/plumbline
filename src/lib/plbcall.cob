@@ -27,7 +27,7 @@ LINKAGE SECTION.
 COPY "plbcallc.cpy".
 COPY "plbcall.cpy".
 PROCEDURE DIVISION USING PLB-CALL-GRAPH.
-    MOVE 0 TO CP-COUNT CA-COUNT CC-COUNT CG-COUNT CP-DROPPED
+    MOVE 0 TO CP-COUNT CA-COUNT CC-COUNT CG-COUNT CP-DROPPED PF-COUNT
     GOBACK.
 END PROGRAM PLB-CALL-INIT.
 
@@ -97,6 +97,12 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
                 IF ND-DETAIL(LS-N) = "USING"
                     PERFORM ADD-USING-PARAMETER
                 END-IF
+            WHEN "SELE"
+                PERFORM ADD-FILE
+            WHEN "FD"
+                IF ND-DETAIL(LS-N) = "SD"
+                    PERFORM NOTE-SORT-FILE
+                END-IF
             WHEN "STMT"
                 EVALUATE ND-DETAIL(LS-N)
                     WHEN "CALL"
@@ -105,10 +111,179 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
                         PERFORM ADD-ENTRY
                     WHEN "STOP"
                         PERFORM NOTE-STOP-RUN
+                    WHEN "OPEN"
+                        PERFORM NOTE-OPEN
                 END-EVALUATE
         END-EVALUATE
     END-PERFORM
     GOBACK.
+
+*> Files -----------------------------------------------------------
+
+*> SELECT [OPTIONAL] name ASSIGN [TO|USING] assignment.
+ADD-FILE.
+    MOVE LS-N TO LS-UP
+    PERFORM PROGRAM-OF-NODE
+    IF LS-P = 0 OR ND-NAME(LS-N) = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF PF-COUNT >= PF-MAX
+        ADD 1 TO CP-DROPPED
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO PF-COUNT
+    MOVE LS-P TO PF-PROGRAM(PF-COUNT)
+    MOVE ND-NAME(LS-N) TO LS-T
+    PERFORM TOKEN-NAME
+    MOVE LS-TEXT TO PF-NAME(PF-COUNT)
+    PERFORM TOKEN-POSITION
+    MOVE LS-FILE-ID TO PF-FILE-ID(PF-COUNT)
+    MOVE LS-LINE TO PF-LINE(PF-COUNT)
+    MOVE LS-COLUMN TO PF-COLUMN(PF-COUNT)
+    MOVE LS-SRC-LINE TO PF-SRC-LINE(PF-COUNT)
+    MOVE SPACES TO PF-DDNAME(PF-COUNT)
+    MOVE "N" TO PF-OPTIONAL(PF-COUNT) PF-SORT(PF-COUNT)
+        PF-INPUT(PF-COUNT) PF-OUTPUT(PF-COUNT) PF-I-O(PF-COUNT)
+        PF-EXTEND(PF-COUNT)
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-N) BY 1
+            UNTIL LS-T >= ND-TOK-LAST(LS-N)
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            IF LS-WORD = "OPTIONAL" AND LS-T < ND-NAME(LS-N)
+                MOVE "Y" TO PF-OPTIONAL(PF-COUNT)
+            END-IF
+            IF LS-WORD = "ASSIGN"
+                ADD 1 TO LS-T
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+                IF TK-IS-WORD(LS-T)
+                   AND (LS-WORD = "TO" OR LS-WORD = "USING")
+                    ADD 1 TO LS-T
+                END-IF
+                PERFORM ASSIGNED-DD-NAME
+                EXIT PERFORM
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> PF-DDNAME from the assignment at LS-T: a name, or a literal, that
+*> is not a data item of the program.
+ASSIGNED-DD-NAME.
+    IF LS-T > ND-TOK-LAST(LS-N)
+        EXIT PARAGRAPH
+    END-IF
+    IF NOT TK-IS-WORD(LS-T) AND NOT TK-IS-ALNUM(LS-T)
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-REF-AT(LS-T) > 0
+        IF RF-KIND(WS-REF-AT(LS-T)) = "D"
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    IF TK-TEXT-LEN(LS-T) > 31
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD
+    *> A data item holding the name (the environment division's names
+    *> are not in the reference table).
+    IF TK-IS-WORD(LS-T)
+        PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
+            IF SY-NAME(LS-S) = LS-WORD
+                EXIT PARAGRAPH
+            END-IF
+        END-PERFORM
+    END-IF
+    *> The DD name is the last part: UT-S-INFILE, S-INFILE, AS-INFILE.
+    MOVE 0 TO LS-I
+    PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > LS-LEN
+        IF LS-WORD(LS-C:1) = "-"
+            MOVE LS-C TO LS-I
+        END-IF
+    END-PERFORM
+    IF LS-I > 0
+        MOVE LS-WORD(LS-I + 1:) TO LS-TEXT
+    ELSE
+        MOVE LS-WORD TO LS-TEXT
+    END-IF
+    *> A DD name has 1 to 8 letters, digits, or national characters,
+    *> and does not start with a digit.
+    CALL "PLB-STR-LENGTH" USING LS-TEXT LS-LEN
+    IF LS-LEN = 0 OR LS-LEN > 8
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-TEXT(1:1) IS NUMERIC
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > LS-LEN
+        IF LS-TEXT(LS-C:1) NOT ALPHABETIC-UPPER
+           AND LS-TEXT(LS-C:1) NOT NUMERIC
+           AND LS-TEXT(LS-C:1) NOT = "#" AND NOT = "@" AND NOT = "$"
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    *> Device names of other compilers are not DD names.
+    EVALUATE LS-TEXT
+        WHEN "DISK" WHEN "PRINTER" WHEN "KEYBOARD" WHEN "DISPLAY"
+        WHEN "CARD-READER" WHEN "RANDOM" WHEN "DYNAMIC" WHEN "EXTERNAL"
+            EXIT PARAGRAPH
+    END-EVALUATE
+    MOVE LS-TEXT TO PF-DDNAME(PF-COUNT).
+
+*> SD name: a sort or merge work file, which the sort program
+*> allocates; it needs no DD of its own.
+NOTE-SORT-FILE.
+    IF ND-NAME(LS-N) = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-N TO LS-UP
+    PERFORM PROGRAM-OF-NODE
+    MOVE ND-NAME(LS-N) TO LS-T
+    PERFORM TOKEN-NAME
+    PERFORM VARYING LS-I FROM PF-COUNT BY -1 UNTIL LS-I = 0
+        IF PF-PROGRAM(LS-I) = LS-P AND PF-NAME(LS-I) = LS-TEXT
+            MOVE "Y" TO PF-SORT(LS-I)
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+*> OPEN {INPUT|OUTPUT|I-O|EXTEND} names ...: each file named gets the
+*> mode before it.
+NOTE-OPEN.
+    MOVE LS-N TO LS-UP
+    PERFORM PROGRAM-OF-NODE
+    IF LS-P = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACE TO LS-MODE
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-N) BY 1
+            UNTIL LS-T > ND-TOK-LAST(LS-N)
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            EVALUATE LS-WORD
+                WHEN "INPUT"   MOVE "I" TO LS-MODE
+                WHEN "OUTPUT"  MOVE "O" TO LS-MODE
+                WHEN "I-O"     MOVE "U" TO LS-MODE
+                WHEN "EXTEND"  MOVE "E" TO LS-MODE
+                WHEN OTHER
+                    IF LS-MODE NOT = SPACE
+                        PERFORM NOTE-OPEN-FILE
+                    END-IF
+            END-EVALUATE
+        END-IF
+    END-PERFORM.
+
+NOTE-OPEN-FILE.
+    PERFORM VARYING LS-I FROM PF-COUNT BY -1 UNTIL LS-I = 0
+        IF PF-PROGRAM(LS-I) = LS-P AND PF-NAME(LS-I) = LS-WORD
+            EVALUATE LS-MODE
+                WHEN "I"  MOVE "Y" TO PF-INPUT(LS-I)
+                WHEN "O"  MOVE "Y" TO PF-OUTPUT(LS-I)
+                WHEN "U"  MOVE "Y" TO PF-I-O(LS-I)
+                WHEN "E"  MOVE "Y" TO PF-EXTEND(LS-I)
+            END-EVALUATE
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
 
 *> Programs and parameters ----------------------------------------
 
