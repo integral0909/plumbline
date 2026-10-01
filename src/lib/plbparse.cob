@@ -111,8 +111,11 @@ END PROGRAM PLB-PX-SKIP-PERIOD.
 
 *> PLB-PX-IS-HEADER: RESULT receives the division named at token
 *> INDEX when it starts "<name> DIVISION" (IDENTIFICATION, ID,
-*> ENVIRONMENT, DATA, PROCEDURE), "END" for "END PROGRAM" and similar
-*> ends of a compilation unit, or spaces.
+*> ENVIRONMENT, DATA, PROCEDURE), "PROGRAM-ID" for "PROGRAM-ID." or
+*> "FUNCTION-ID.", which start a program when the IDENTIFICATION
+*> DIVISION header is left out (COBOL 2002 made it optional), "END"
+*> for "END PROGRAM" and similar ends of a compilation unit, or
+*> spaces.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-PX-IS-HEADER.
 DATA DIVISION.
@@ -145,6 +148,11 @@ PROCEDURE DIVISION USING PLB-TOKENS LK-INDEX LK-RESULT.
         WHEN "PROCEDURE"
             IF PX-TEXT = "DIVISION"
                 MOVE LS-FIRST TO LK-RESULT
+            END-IF
+        WHEN "PROGRAM-ID"
+        WHEN "FUNCTION-ID"
+            IF PX-KIND = "."
+                MOVE "PROGRAM-ID" TO LK-RESULT
             END-IF
         WHEN "END"
             IF PX-TEXT = "PROGRAM" OR PX-TEXT = "FUNCTION"
@@ -377,6 +385,9 @@ COPY "plbptok.cpy".
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-DETAIL               PIC X(16).
 01  LS-DONE                 PIC X VALUE "N".
+*> "Y" once the division's PROGRAM-ID is read: another one starts the
+*> next program.
+01  LS-HAS-ID               PIC X VALUE "N".
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -390,6 +401,10 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
         PLB-AST PLB-PARSE-STATE.
     PERFORM UNTIL PS-POS >= PS-END OR LS-DONE = "Y" OR PS-FULL = "Y"
         CALL "PLB-PX-IS-HEADER" USING PLB-TOKENS PS-POS LS-HEADER
+        IF LS-HEADER = "PROGRAM-ID" AND LS-HAS-ID = "N"
+            MOVE "Y" TO LS-HAS-ID
+            MOVE SPACES TO LS-HEADER
+        END-IF
         IF LS-HEADER NOT = SPACES
             EXIT PERFORM
         END-IF
