@@ -26,7 +26,8 @@
 *>   - In the identification division, AUTHOR, INSTALLATION,
 *>     DATE-WRITTEN, DATE-COMPILED, SECURITY, and REMARKS take a
 *>     comment entry: free text, which may hold anything, up to the
-*>     next line that starts another paragraph or a division. It
+*>     next line that starts another paragraph (a paragraph name and
+*>     a period), a division (NAME DIVISION), or END PROGRAM. It
 *>     yields no tokens.
 *>
 *> Diagnostic codes raised here:
@@ -228,15 +229,39 @@ SKIP-COMMENT-ENTRY.
                 EVALUATE LS-WORD
                     WHEN "AUTHOR" WHEN "INSTALLATION" WHEN "DATE-WRITTEN"
                     WHEN "DATE-COMPILED" WHEN "SECURITY" WHEN "REMARKS"
-                    WHEN "PROGRAM-ID" WHEN "IDENTIFICATION" WHEN "ID"
-                    WHEN "ENVIRONMENT" WHEN "DATA" WHEN "PROCEDURE"
+                    WHEN "PROGRAM-ID"
+                        PERFORM SKIP-SPACES-AT
+                        IF LS-AT <= ST-LEN
+                            IF ST-TEXT(LS-AT:1) = "."
+                                EXIT PERFORM
+                            END-IF
+                        END-IF
+                    WHEN "IDENTIFICATION" WHEN "ID" WHEN "ENVIRONMENT"
+                    WHEN "DATA" WHEN "PROCEDURE"
+                        PERFORM SKIP-SPACES-AT
+                        PERFORM WORD-AT
+                        IF LS-WORD = "DIVISION"
+                            EXIT PERFORM
+                        END-IF
                     WHEN "END"
-                        EXIT PERFORM
+                        PERFORM SKIP-SPACES-AT
+                        PERFORM WORD-AT
+                        IF LS-WORD = "PROGRAM"
+                            EXIT PERFORM
+                        END-IF
                 END-EVALUATE
             END-IF
         ELSE
             ADD 1 TO LS-POS
         END-IF
+    END-PERFORM.
+
+SKIP-SPACES-AT.
+    PERFORM UNTIL LS-AT > ST-LEN
+        IF ST-TEXT(LS-AT:1) NOT = SPACE
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-AT
     END-PERFORM.
 
 *> LS-WORD = the upper-cased word at stream position LS-AT.
