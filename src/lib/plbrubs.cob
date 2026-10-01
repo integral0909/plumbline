@@ -227,6 +227,15 @@ BUILD-EVENTS.
             *> After the statement's own operands.
             MOVE ND-TOK-LAST(FE-STMT(LS-E)) TO EV-KEY(WS-EVENT-COUNT)
             MOVE 2 TO EV-RANK(WS-EVENT-COUNT)
+            *> An ALTER makes the GO TO of the altered unit, at its end,
+            *> go to the edge's target.
+            IF FE-KIND(LS-E) = "A"
+                MOVE FE-ALTERED(LS-E) TO EV-UNIT(WS-EVENT-COUNT)
+                IF FE-ALTERED(LS-E) > 0
+                    MOVE ND-TOK-LAST(FU-NODE(FE-ALTERED(LS-E)))
+                        TO EV-KEY(WS-EVENT-COUNT)
+                END-IF
+            END-IF
             IF FE-KIND(LS-E) = "P"
                 MOVE "P" TO EV-TYPE(WS-EVENT-COUNT)
             ELSE

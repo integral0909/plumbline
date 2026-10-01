@@ -58,6 +58,10 @@ LOCAL-STORAGE SECTION.
 01  LS-MATCHES              PIC 9(9) COMP-5.
 01  LS-QUAL-UNIT            PIC 9(9) COMP-5.
 01  LS-FULL                 PIC X VALUE "N".
+*> The PROC node of the paragraph an ALTER names, for its next edge.
+01  LS-ALTERED              PIC 9(9) COMP-5 VALUE 0.
+*> "Y" when some ALTER edge resolved.
+01  LS-HAS-ALTER            PIC X VALUE "N".
 01  LS-HEAD                 PIC 9(9) COMP-5.
 01  LS-TAIL                 PIC 9(9) COMP-5.
 01  LS-TEXT                 PIC X(31).
@@ -211,16 +215,26 @@ ADD-EDGE.
         END-IF
         EXIT PARAGRAPH
     END-IF
+    *> ALTER x TO y: remember x for the edge to y.
+    IF ND-DETAIL(LS-NODE) = "ALTERED"
+        MOVE LS-NODE TO LS-ALTERED
+        EXIT PARAGRAPH
+    END-IF
     IF FE-COUNT >= FE-MAX
         PERFORM GRAPH-FULL
         EXIT PARAGRAPH
     END-IF
     ADD 1 TO FE-COUNT
-    IF ND-DETAIL(LS-NODE) = "GO"
-        MOVE "G" TO FE-KIND(FE-COUNT)
-    ELSE
-        MOVE "P" TO FE-KIND(FE-COUNT)
-    END-IF
+    MOVE 0 TO FE-ALTERED(FE-COUNT)
+    EVALUATE ND-DETAIL(LS-NODE)
+        WHEN "GO"
+            MOVE "G" TO FE-KIND(FE-COUNT)
+        WHEN "ALTER"
+            MOVE "A" TO FE-KIND(FE-COUNT)
+            MOVE LS-ALTERED TO FE-ALTERED(FE-COUNT)
+        WHEN OTHER
+            MOVE "P" TO FE-KIND(FE-COUNT)
+    END-EVALUATE
     MOVE LS-UNIT TO FE-FROM(FE-COUNT)
     MOVE 0 TO FE-TO(FE-COUNT)
     *> FE-THRU holds the THRU PROC node until resolution.
@@ -280,6 +294,16 @@ RESOLVE-EDGE.
     PERFORM RESOLVE-PROC-NODE
     MOVE LS-FOUND TO FE-TO(LS-E)
     MOVE LS-FOUND TO LS-A
+    IF FE-KIND(LS-E) = "A" AND FE-ALTERED(LS-E) > 0
+        MOVE FE-ALTERED(LS-E) TO LS-NODE
+        PERFORM RESOLVE-PROC-NODE
+        MOVE LS-FOUND TO FE-ALTERED(LS-E)
+        IF LS-FOUND = 0
+            MOVE 0 TO FE-TO(LS-E)
+        ELSE
+            MOVE "Y" TO LS-HAS-ALTER
+        END-IF
+    END-IF
     IF FE-THRU(LS-E) > 0
         MOVE FE-THRU(LS-E) TO LS-NODE
         PERFORM RESOLVE-PROC-NODE
@@ -439,14 +463,25 @@ COMPUTE-REACHABILITY.
         PERFORM VARYING LS-E FROM WS-EDGE-FIRST(LS-A) BY 1
                 UNTIL LS-E > WS-EDGE-LAST(LS-A)
             IF FE-TO(LS-E) > 0
-                IF FE-KIND(LS-E) = "G"
-                    MOVE FE-TO(LS-E) TO LS-U
-                    PERFORM ENQUEUE-FLOW
-                ELSE
-                    PERFORM ENQUEUE-RANGE
-                END-IF
+                EVALUATE FE-KIND(LS-E)
+                    WHEN "G"
+                        MOVE FE-TO(LS-E) TO LS-U
+                        PERFORM ENQUEUE-FLOW
+                    WHEN "P"
+                        PERFORM ENQUEUE-RANGE
+                END-EVALUATE
             END-IF
         END-PERFORM
+        *> An altered GO TO in this unit may go where an ALTER says.
+        IF LS-HAS-ALTER = "Y"
+            PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > FE-COUNT
+                IF FE-KIND(LS-E) = "A" AND FE-ALTERED(LS-E) = LS-A
+                   AND FE-TO(LS-E) > 0
+                    MOVE FE-TO(LS-E) TO LS-U
+                    PERFORM ENQUEUE-FLOW
+                END-IF
+            END-PERFORM
+        END-IF
     END-PERFORM.
 
 *> Every unit from the edge's target to the end of its THRU range

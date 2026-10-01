@@ -39,6 +39,9 @@
     05  FE-COUNT                PIC 9(9) COMP-5.
     05  FE-ENTRY                OCCURS FE-MAX TIMES.
         *>   P  PERFORM          G  GO TO
+        *>   A  ALTER x TO [PROCEED TO] y: the GO TO in unit FE-ALTERED
+        *>      may now go to FE-TO. FE-FROM is the unit of the ALTER
+        *>      statement, so that each unit's edges stay together.
         10  FE-KIND             PIC X.
         10  FE-FROM             PIC 9(9) COMP-5.
         *> Target unit, and for PERFORM ... THRU the last unit of the
@@ -48,3 +51,6 @@
         *> The statement and the PROC node naming the target.
         10  FE-STMT             PIC 9(9) COMP-5.
         10  FE-PROC             PIC 9(9) COMP-5.
+        *> For an A edge, the PROC node naming the altered paragraph
+        *> until resolution, then its unit (0: not found). 0 otherwise.
+        10  FE-ALTERED          PIC 9(9) COMP-5.

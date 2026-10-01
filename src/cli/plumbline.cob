@@ -604,12 +604,28 @@ DUMP-ONE-UNIT.
 DUMP-ONE-EDGE.
     MOVE SPACES TO WS-OUT
     MOVE 1 TO WS-PTR
-    IF FE-KIND(WS-E) = "G"
-        STRING "  go " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
-    ELSE
-        STRING "  perform " DELIMITED BY SIZE
-            INTO WS-OUT WITH POINTER WS-PTR
-    END-IF
+    EVALUATE FE-KIND(WS-E)
+        WHEN "G"
+            STRING "  go " DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN "A"
+            *>  alter PARA-1 to PARA-2: the GO TO in PARA-1 may now go
+            *>  to PARA-2.
+            STRING "  alter " DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+            IF FE-ALTERED(WS-E) = 0
+                STRING "?" DELIMITED BY SIZE
+                    INTO WS-OUT WITH POINTER WS-PTR
+            ELSE
+                STRING FU-NAME(FE-ALTERED(WS-E)) DELIMITED BY SPACE
+                    INTO WS-OUT WITH POINTER WS-PTR
+            END-IF
+            STRING " to " DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN OTHER
+            STRING "  perform " DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+    END-EVALUATE
     IF FE-TO(WS-E) = 0
         STRING "?" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
     ELSE
