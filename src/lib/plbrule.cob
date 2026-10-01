@@ -130,6 +130,15 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-S004"
         "shell-command" "N"
         "Shell command is taken from a data item"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-P001"
+        "vendor-routine" "N"
+        "CALL of a compiler library routine"
+    *> Most programs built with one compiler call its library on
+    *> purpose: this rule is for code meant to move between compilers.
+    MOVE "N" TO RL-ENABLED(RL-COUNT)
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-P002"
+        "hard-coded-path" "W"
+        "File is assigned to a path on one machine"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

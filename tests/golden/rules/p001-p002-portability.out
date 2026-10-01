@@ -1,0 +1,4 @@
+tests/golden/rules/p001-p002-portability.cob:9:32: warning: file /var/data/in.dat is a path on one machine; assign a name resolved at run time [PLB-P002]
+tests/golden/rules/p001-p002-portability.cob:10:31: warning: file C:\DATA\OUT.DAT is a path on one machine; assign a name resolved at run time [PLB-P002]
+tests/golden/rules/p001-p002-portability.cob:27:41: warning: file ../shared/item.dat (VALUE of ITEM-PATH) is a path on one machine; assign a name resolved at run time [PLB-P002]
+tests/golden/rules/p001-p002-portability.cob:31:54: note: RESULT is given a value but never read [PLB-M005]
