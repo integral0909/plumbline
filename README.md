@@ -161,8 +161,8 @@ line of their own.
 
 `plumbline layout` lists the records of programs and copybooks with
 each item's level, picture, usage, start position, length, and OCCURS
-count, as text, JSON, or CSV: the layout a file transfer or a program
-in another language needs.
+count, as text, JSON, CSV, or a Markdown table: the layout a file
+transfer or a program in another language needs.
 
 ```console
 $ plumbline layout copybooks/order.cpy

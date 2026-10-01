@@ -379,7 +379,9 @@ check "layout csv names what an item redefines" 0 '^ORDER-RECORD,5,ORDER-DATE-PA
     -- layout --report csv $lx/order.cpy
 check_absent "layout leaves out constants and condition names" 'MAX-ORDERS\|ORDER-OPEN' \
     -- layout $lx/orders.cob
-check "layout refuses sarif"              2 "invalid --report format 'sarif' (expected text, json, or csv)" \
+check "layout as Markdown"                 0 '^| 05 | ORDER-AMOUNT | `S9(9)V99` | COMP-3 | 12 | 6 |  |$' \
+    -- layout --report md $lx/order.cpy
+check "layout refuses sarif"              2 "invalid --report format 'sarif' (expected text, json, csv, or md)" \
     -- layout --report sarif $lx/order.cpy
 n=$((n + 1))
 if "$bin" layout --report json $lx/order.cpy $lx/orders.cob | python3 -c '

@@ -40,7 +40,7 @@
 *>   plumbline dump refs [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump calls [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline inventory [--report text|json] [OPTION]... FILE...
-*>   plumbline layout [--report text|json|csv] [OPTION]... FILE...
+*>   plumbline layout [--report text|json|csv|md] [OPTION]... FILE...
 *>   plumbline dump jcl FILE...
 *>   plumbline dump bms FILE...
 *>   plumbline dump csd FILE...
@@ -338,7 +338,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline graph [--kind KIND] [OPTION]... FILE..."
     DISPLAY "       plumbline impact NAME [OPTION]... FILE..."
     DISPLAY "       plumbline inventory [--report text|json] [OPTION]... FILE..."
-    DISPLAY "       plumbline layout [--report text|json|csv] [OPTION]... FILE..."
+    DISPLAY "       plumbline layout [--report text|json|csv|md] [OPTION]... FILE..."
     DISPLAY "       plumbline format --to fixed|free [--check] FILE..."
     DISPLAY "       plumbline lsp [OPTION]..."
     DISPLAY "       plumbline rules [--report text|json] [OPTION]..."
@@ -775,8 +775,9 @@ INVENTORY-COMMAND.
     END-IF
     PERFORM ADD-INPUTS
     PERFORM ANALYZE-RUN
+    MOVE 0 TO WS-P
     CALL "PLB-INVENTORY" USING PLB-SOURCE-SET PLB-CALL-GRAPH PLB-JCL
-        PLB-CSD PLB-BMS WS-REPORT
+        PLB-CSD PLB-BMS WS-REPORT WS-P
     PERFORM REPORT-DIAGNOSTICS
     IF DG-ERRORS > 0
         MOVE 1 TO WS-EXIT-CODE
@@ -805,8 +806,9 @@ LAYOUT-COMMAND.
         PERFORM START-INPUT
         IF SF-LOADED(WS-FILE-ID) = "Y"
             PERFORM ANALYZE-FILE
+            MOVE 0 TO WS-P
             CALL "PLB-LAYOUT-RECORDS" USING PLB-SOURCE-SET PLB-TOKENS
-                PLB-AST PLB-SYMBOLS WS-REPORT WS-FIRST
+                PLB-AST PLB-SYMBOLS WS-REPORT WS-FIRST WS-P
             PERFORM END-INPUT
         END-IF
     END-PERFORM
@@ -4228,15 +4230,22 @@ SET-REPORT.
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "dot" AND WS-COMMAND = "graph"
             MOVE WS-ARG TO WS-REPORT
+        WHEN WS-ARG = "md" AND WS-COMMAND = "layout"
+            MOVE WS-ARG TO WS-REPORT
         WHEN WS-COMMAND = "graph"
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected dot or json)" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
-        WHEN WS-COMMAND = "metrics" OR WS-COMMAND = "layout"
+        WHEN WS-COMMAND = "metrics"
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected text, json, or csv)" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        WHEN WS-COMMAND = "layout"
+            DISPLAY PLB-NAME ": invalid --report format '"
+                WS-ARG(1:WS-ARG-LEN)
+                "' (expected text, json, csv, or md)" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
         WHEN WS-COMMAND = "rules" OR WS-COMMAND = "inventory"
             DISPLAY PLB-NAME ": invalid --report format '"
