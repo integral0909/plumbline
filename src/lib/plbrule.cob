@@ -128,6 +128,9 @@ PROCEDURE DIVISION USING PLB-RULES.
         "Statements are nested deeper than the limit"
     MOVE 5 TO RL-LIMIT(RL-COUNT)
     MOVE "N" TO RL-ENABLED(RL-COUNT)
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M013"
+        "unused-copybook" "N"
+        "Copybook declares data the program never uses"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-S001"
         "dynamic-sql" "N"
         "SQL text is built at run time"

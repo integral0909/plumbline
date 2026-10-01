@@ -48,6 +48,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M010](#plb-m010-long-paragraph) | long-paragraph | note, off | Paragraph or section has more statements than the limit |
 | [PLB-M011](#plb-m011-evaluate-without-other) | evaluate-without-other | note, off | EVALUATE has no WHEN OTHER |
 | [PLB-M012](#plb-m012-deep-nesting) | deep-nesting | note, off | Statements are nested deeper than the limit |
+| [PLB-M013](#plb-m013-unused-copybook) | unused-copybook | note | Copybook declares data the program never uses |
 | [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, off | CALL of a compiler library routine |
 | [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
@@ -922,6 +923,27 @@ levels into a paragraph of their own, or testing the exceptional cases
 first and leaving, usually flattens the code. Like the size limits,
 where the limit lies is a team's choice: `limit deep-nesting N` in
 `plumbline.conf` changes it.
+
+## PLB-M013 unused-copybook
+
+A `COPY` in working-storage or local-storage whose copybook declares
+data items, none of which the program uses:
+
+```
+none of the items copybook cvcus01y.cpy declares is used
+```
+
+The finding is at the `COPY` statement, so it can be suppressed there
+for one program while the copybook stays in use elsewhere. Items count
+as used as for [PLB-M003](#plb-m003-unused-data-item): by name in the
+procedure division or the environment division, through a member, a
+group, a condition name, or a `REDEFINES`. A constant (level 78) also
+counts as used when the data division sizes an item with it (`OCCURS
+ADDRESS-LINES`, `PIC X(NAME-LEN)`).
+
+A copybook that only copies other copybooks is judged by them. One
+that holds anything else is not reported: file or linkage entries,
+`GLOBAL` or `EXTERNAL` items, or code.
 
 ## PLB-P001 vendor-routine
 

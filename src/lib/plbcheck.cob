@@ -2,8 +2,8 @@
 *> plbcheck: running the analysis rules.
 *>
 *> PLB-CHECK-RUN runs every enabled rule over one analyzed file: its
-*> expanded tokens, syntax tree, symbol table, procedure graph, and
-*> data references.
+*> expanded tokens, syntax tree, symbol table, procedure graph, data
+*> references, and the copybooks it includes.
 *> Each rule is its own program, named after its rule id.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
@@ -19,10 +19,12 @@ COPY "plbast.cpy".
 COPY "plbsym.cpy".
 COPY "plbflow.cpy".
 COPY "plbref.cpy".
+COPY "plbincl.cpy".
 COPY "plbrules.cpy".
 COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
-        PLB-SYMBOLS PLB-FLOW PLB-REFS PLB-RULES PLB-FINDINGS.
+        PLB-SYMBOLS PLB-FLOW PLB-REFS PLB-INCLUSIONS PLB-RULES
+        PLB-FINDINGS.
     CALL "PLB-RULE-C001" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
         PLB-FLOW PLB-RULES PLB-FINDINGS
     CALL "PLB-RULE-C002" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
@@ -38,7 +40,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
     CALL "PLB-RULE-C007" USING PLB-SOURCE-SET PLB-TOKENS PLB-SYMBOLS
         PLB-RULES PLB-FINDINGS
     CALL "PLB-RULE-M003" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
-        PLB-SYMBOLS PLB-RULES PLB-FINDINGS
+        PLB-SYMBOLS PLB-INCLUSIONS PLB-RULES PLB-FINDINGS
     CALL "PLB-RULE-NAMES" USING PLB-SOURCE-SET PLB-TOKENS PLB-REFS
         PLB-RULES PLB-FINDINGS
     CALL "PLB-RULE-C008" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST

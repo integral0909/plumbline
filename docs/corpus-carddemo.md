@@ -38,6 +38,7 @@ with the application: `DFHAID` and `DFHBMSCA` (CICS), and `CMQV`,
 | PLB-M005 set-never-read | 72 |
 | PLB-C019 cics-response-not-checked | 42 |
 | PLB-C001 unreachable-code | 33 |
+| PLB-M013 unused-copybook | 30 |
 | PLB-C002 perform-and-fall-through | 23 |
 | PLB-C020 file-status-not-checked | 10 |
 | PLB-C030 value-never-used | 7 |
@@ -89,3 +90,8 @@ Some findings that were read and are true:
   fills the screen header, a few lines apart, with no use in between.
   The first move is left over; the routine was copied from program to
   program with it.
+- **PLB-M013 unused-copybook.** 30 `COPY` statements bring in record
+  layouts that their program never uses: message and user layouts in
+  the online programs (`CSMSG01Y`, `CSUSR01Y`), and file records in
+  batch programs that do not read those files (`CVCUS01Y` in
+  `CBTRN01C`).

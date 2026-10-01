@@ -189,7 +189,7 @@ while [ $i -le 300 ]; do
     i=$((i + 1))
 done
 printf '       01  SHARED-REC PIC X(10).\n' > "$many/shared.cpy"
-printf '       IDENTIFICATION DIVISION.\n       PROGRAM-ID. LAST.\n       DATA DIVISION.\n       WORKING-STORAGE SECTION.\n       COPY SHARED.\n       PROCEDURE DIVISION.\n           GOBACK.\n' \
+printf '       IDENTIFICATION DIVISION.\n       PROGRAM-ID. LAST.\n       DATA DIVISION.\n       WORKING-STORAGE SECTION.\n       COPY SHARED.\n       PROCEDURE DIVISION.\n           MOVE SPACES TO SHARED-REC\n           DISPLAY SHARED-REC\n           GOBACK.\n' \
     > "$many/z-last.cob"
 check "impact over more than 256 files"   0 'included by .*z-last.cob directly' \
     -- impact SHARED --no-config -I "$many" "$many"/*.cob
