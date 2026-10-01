@@ -23,6 +23,11 @@
 *>     trailing period, comma, or semicolon.
 *>   - "==" delimits pseudo-text; ( ) : . are tokens of their own.
 *>   - Operators: + - * / ** = < > <= >= <> &
+*>   - In the identification division, AUTHOR, INSTALLATION,
+*>     DATE-WRITTEN, DATE-COMPILED, SECURITY, and REMARKS take a
+*>     comment entry: free text, which may hold anything, up to the
+*>     next line that starts another paragraph or a division. It
+*>     yields no tokens.
 *>
 *> Diagnostic codes raised here:
 *>   LX001  error    alphanumeric literal not terminated on its line
@@ -107,6 +112,10 @@ LOCAL-STORAGE SECTION.
 01  LS-MESSAGE              PIC X(200).
 01  LS-J                    PIC 9(9) COMP-5.
 01  LS-TAG-LEN              PIC 9(9) COMP-5.
+01  LS-IN-IDENTIFICATION    PIC X VALUE "N".
+01  LS-WORD                 PIC X(31).
+01  LS-WORD-LEN             PIC 9(9) COMP-5.
+01  LS-AT                   PIC 9(9) COMP-5.
 LINKAGE SECTION.
 COPY "plbstrm.cpy".
 COPY "plbsrc.cpy".
@@ -127,6 +136,7 @@ PROCEDURE DIVISION USING PLB-STREAM PLB-SOURCE-SET PLB-DIAGNOSTICS
             ADD 1 TO LS-POS
         ELSE
             PERFORM SCAN-TOKEN
+            PERFORM CHECK-COMMENT-ENTRY
         END-IF
     END-PERFORM
 
@@ -164,6 +174,86 @@ INIT-CLASSES.
     MOVE "Q" TO WS-CLASS(FUNCTION ORD('"'))
     MOVE "Q" TO WS-CLASS(FUNCTION ORD("'"))
     MOVE "Y" TO WS-CLASSES-READY.
+
+*> Follow which division the tokens are in, and after the period of a
+*> paragraph that takes a comment entry, skip the entry.
+CHECK-COMMENT-ENTRY.
+    IF TK-COUNT < 2
+        EXIT PARAGRAPH
+    END-IF
+    IF TK-FILE-ID(TK-COUNT - 1) NOT = ST-FILE-ID
+       OR NOT TK-IS-WORD(TK-COUNT - 1)
+       OR TK-TEXT-LEN(TK-COUNT - 1) > LENGTH OF LS-WORD
+        EXIT PARAGRAPH
+    END-IF
+    MOVE TK-TEXT(TK-TEXT-OFF(TK-COUNT - 1):TK-TEXT-LEN(TK-COUNT - 1))
+        TO LS-WORD
+    IF TK-IS-WORD(TK-COUNT)
+        IF TK-TEXT(TK-TEXT-OFF(TK-COUNT):TK-TEXT-LEN(TK-COUNT))
+           = "DIVISION"
+            IF LS-WORD = "IDENTIFICATION" OR LS-WORD = "ID"
+                MOVE "Y" TO LS-IN-IDENTIFICATION
+            ELSE
+                MOVE "N" TO LS-IN-IDENTIFICATION
+            END-IF
+        END-IF
+        EXIT PARAGRAPH
+    END-IF
+    IF TK-IS-PERIOD(TK-COUNT) AND LS-IN-IDENTIFICATION = "Y"
+        EVALUATE LS-WORD
+            WHEN "AUTHOR" WHEN "INSTALLATION" WHEN "DATE-WRITTEN"
+            WHEN "DATE-COMPILED" WHEN "SECURITY" WHEN "REMARKS"
+                PERFORM SKIP-COMMENT-ENTRY
+        END-EVALUATE
+    END-IF.
+
+*> Move LS-POS to the start of the next line that begins with a word
+*> ending the comment entry, or a directive; or past the stream.
+SKIP-COMMENT-ENTRY.
+    PERFORM UNTIL LS-POS > ST-LEN
+        IF ST-TEXT(LS-POS:1) = X"0A"
+            ADD 1 TO LS-POS
+            MOVE LS-POS TO LS-AT
+            PERFORM UNTIL LS-AT > ST-LEN
+                IF ST-TEXT(LS-AT:1) NOT = SPACE
+                    EXIT PERFORM
+                END-IF
+                ADD 1 TO LS-AT
+            END-PERFORM
+            IF LS-AT <= ST-LEN
+                IF ST-TEXT(LS-AT:1) = ">" OR ST-TEXT(LS-AT:1) = "$"
+                    EXIT PERFORM
+                END-IF
+                PERFORM WORD-AT
+                EVALUATE LS-WORD
+                    WHEN "AUTHOR" WHEN "INSTALLATION" WHEN "DATE-WRITTEN"
+                    WHEN "DATE-COMPILED" WHEN "SECURITY" WHEN "REMARKS"
+                    WHEN "PROGRAM-ID" WHEN "IDENTIFICATION" WHEN "ID"
+                    WHEN "ENVIRONMENT" WHEN "DATA" WHEN "PROCEDURE"
+                    WHEN "END"
+                        EXIT PERFORM
+                END-EVALUATE
+            END-IF
+        ELSE
+            ADD 1 TO LS-POS
+        END-IF
+    END-PERFORM.
+
+*> LS-WORD = the upper-cased word at stream position LS-AT.
+WORD-AT.
+    MOVE SPACES TO LS-WORD
+    MOVE 0 TO LS-WORD-LEN
+    PERFORM UNTIL LS-AT > ST-LEN OR LS-WORD-LEN >= LENGTH OF LS-WORD
+        IF WS-CLASS(FUNCTION ORD(ST-TEXT(LS-AT:1))) NOT = "W"
+           AND WS-CLASS(FUNCTION ORD(ST-TEXT(LS-AT:1))) NOT = "D"
+           AND WS-CLASS(FUNCTION ORD(ST-TEXT(LS-AT:1))) NOT = "H"
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-WORD-LEN
+        MOVE FUNCTION UPPER-CASE(ST-TEXT(LS-AT:1))
+            TO LS-WORD(LS-WORD-LEN:1)
+        ADD 1 TO LS-AT
+    END-PERFORM.
 
 *> Scan one token starting at LS-POS (not a separator).
 SCAN-TOKEN.
