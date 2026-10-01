@@ -52,6 +52,7 @@ COPY "plbpic.cpy".
 01  LS-TEXT                 PIC X(256).
 01  LS-LEN                  PIC 9(9) COMP-5.
 01  LS-HAS-PICTURE          PIC X.
+01  LS-HAS-CONSTANT         PIC X.
 01  LS-FULL                 PIC X VALUE "N".
 01  LS-TIMES                PIC 9(9) COMP-5.
 01  LS-DETAIL               PIC X(20).
@@ -142,7 +143,7 @@ DESCRIBE-ITEM.
         MOVE WS-NODE-SYMBOL(ND-PARENT(LS-NODE)) TO SY-PARENT(LS-S)
     END-IF
 
-    MOVE "N" TO LS-HAS-PICTURE
+    MOVE "N" TO LS-HAS-PICTURE LS-HAS-CONSTANT
     MOVE ND-FIRST(LS-NODE) TO LS-CHILD
     PERFORM UNTIL LS-CHILD = 0
         IF ND-KIND(LS-CHILD) = "CLAU"
@@ -161,7 +162,7 @@ DESCRIBE-ITEM.
             MOVE "C" TO SY-CATEGORY(LS-S)
         WHEN SY-LEVEL(LS-S) = 66
             MOVE "R" TO SY-CATEGORY(LS-S)
-        WHEN SY-LEVEL(LS-S) = 78
+        WHEN SY-LEVEL(LS-S) = 78 OR LS-HAS-CONSTANT = "Y"
             MOVE "K" TO SY-CATEGORY(LS-S)
         WHEN LS-HAS-PICTURE = "Y"
             MOVE LS-SAVED-PIC TO PLB-PIC-INFO
@@ -179,7 +180,7 @@ DESCRIBE-ITEM.
                     SY-USAGE(LS-S) SY-SIZE(LS-S)
             END-IF
     END-EVALUATE
-    IF SY-LEVEL(LS-S) = 78
+    IF SY-LEVEL(LS-S) = 78 OR LS-HAS-CONSTANT = "Y"
         PERFORM REMEMBER-CONSTANT
     END-IF
     *> PIC X ANY LENGTH (a linkage item that takes the caller's
@@ -226,6 +227,8 @@ DESCRIBE-CLAUSE.
             END-IF
         WHEN "VALUE"
             MOVE "Y" TO SY-HAS-VALUE(LS-S)
+        WHEN "CONSTANT"
+            MOVE "Y" TO LS-HAS-CONSTANT SY-HAS-VALUE(LS-S)
         WHEN "OCCURS"
             PERFORM DESCRIBE-OCCURS
         WHEN "REDEFINES"
@@ -422,7 +425,8 @@ FIND-CONSTANT.
         END-IF
     END-PERFORM.
 
-*> 78 NAME VALUE n: remember n when it is an unsigned integer.
+*> 78 NAME VALUE n, or 01 NAME CONSTANT [IS GLOBAL] [AS] n: remember
+*> n when it is an unsigned integer.
 REMEMBER-CONSTANT.
     IF SY-NAME(LS-S) = SPACES OR WS-CONSTANT-COUNT >= 1000
         EXIT PARAGRAPH
@@ -430,11 +434,17 @@ REMEMBER-CONSTANT.
     MOVE ND-FIRST(LS-NODE) TO LS-CHILD
     PERFORM UNTIL LS-CHILD = 0
         IF ND-DETAIL(LS-CHILD) = "VALUE"
+           OR ND-DETAIL(LS-CHILD) = "CONSTANT"
             COMPUTE LS-TOKEN = ND-TOK-FIRST(LS-CHILD) + 1
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT LS-LEN
-            IF LS-TEXT = "IS"
+            PERFORM UNTIL LS-TOKEN >= ND-TOK-LAST(LS-CHILD)
+                    OR NOT TK-IS-WORD(LS-TOKEN)
+                    OR (LS-TEXT NOT = "IS" AND LS-TEXT NOT = "GLOBAL"
+                        AND LS-TEXT NOT = "AS")
                 ADD 1 TO LS-TOKEN
-            END-IF
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT
+                    LS-LEN
+            END-PERFORM
             IF TK-IS-NUMBER(LS-TOKEN) AND TK-TEXT-LEN(LS-TOKEN) <= 10
                 CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT
                     LS-LEN
