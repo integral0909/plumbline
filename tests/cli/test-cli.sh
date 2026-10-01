@@ -371,11 +371,16 @@ check "graph of calls"                    0 '^  "MENU" -> "BILLING";$' \
 check "graph of copybooks"                0 "\"$ix/custio.cpy\" -> \"$ix/custrec.cpy\";" \
     -- graph --kind copybooks -I $ix $ix/custlook.cob $ix/billing.cob
 check "graph refuses an unknown kind"     2 "invalid --kind 'data'" -- graph --kind data $ix/menu.cob
+check "graph of jobs"                     0 '"PAYROLL (job)" -> "PAYPROC (proc)" \[label="NIGHTLY"\];' \
+    -- graph --kind jobs tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/payroll.jcl tests/fixtures/jcl/payproc.prc
+check "graph of jobs marks programs not in the run" 0 '"IEFBR14" \[style=dashed\];' \
+    -- graph --kind jobs tests/fixtures/jcl/payroll.jcl
 check "graph refuses csv"                 2 "invalid --report format 'csv' (expected dot or json)" \
     -- graph --report csv $ix/menu.cob
-for kind in performs calls copybooks; do
+for kind in performs calls copybooks jobs; do
     n=$((n + 1))
     if "$bin" graph --kind $kind --report json -I $ix $ix/custlook.cob $ix/billing.cob $ix/menu.cob \
+            tests/fixtures/jcl/payroll.jcl \
             | python3 -m json.tool >/dev/null 2>&1; then
         echo "ok $n - graph json is valid ($kind)"
     else

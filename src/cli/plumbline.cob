@@ -24,7 +24,7 @@
 *>   baseline FILE        like --baseline FILE
 *>   plumbline metrics [-I DIR]... [--format ...] [--debug]
 *>                     [--report text|json|csv] FILE...
-*>   plumbline graph [--kind performs|calls|copybooks]
+*>   plumbline graph [--kind performs|calls|copybooks|jobs]
 *>                   [--report dot|json] [-I DIR]... FILE...
 *>   plumbline impact NAME [-I DIR]... FILE...
 *>   plumbline format --to fixed|free [--format ...] FILE
@@ -326,8 +326,9 @@ SHOW-USAGE.
     DISPLAY "                   and their paragraphs"
     DISPLAY "  graph            draw the PERFORM graph of each program"
     DISPLAY "                   (--kind performs), the CALL graph"
-    DISPLAY "                   (calls), or the copybook graph"
-    DISPLAY "                   (copybooks), as DOT or JSON"
+    DISPLAY "                   (calls), the copybook graph"
+    DISPLAY "                   (copybooks), or what JCL jobs run"
+    DISPLAY "                   (jobs), as DOT or JSON"
     DISPLAY "  impact NAME      list what includes copybook NAME or"
     DISPLAY "                   calls program NAME, directly or not"
     DISPLAY "  format           rewrite a file in fixed or free format"
@@ -614,10 +615,16 @@ ANALYZE-RUN.
     MOVE WS-MODE TO PO-FORMAT
     MOVE WS-DEBUG TO PO-DEBUG
     MOVE "Y" TO WS-FIRST
+    CALL "PLB-JCL-INIT" USING PLB-JCL
     PERFORM VARYING WS-FILE-ID FROM 1 BY 1
             UNTIL WS-FILE-ID > WS-MAIN-FILES
-        PERFORM START-INPUT
-        IF SF-LOADED(WS-FILE-ID) = "Y"
+        PERFORM TEST-JCL-INPUT
+        IF WS-IS-JCL = "Y"
+            PERFORM READ-JCL-INPUT
+        ELSE
+            PERFORM START-INPUT
+        END-IF
+        IF WS-IS-JCL = "N" AND SF-LOADED(WS-FILE-ID) = "Y"
             PERFORM ANALYZE-FILE
             CALL "PLB-GRAPH-INCLUDES-ADD" USING PLB-INCLUSIONS
                 PLB-INCLUDE-GRAPH
@@ -647,6 +654,8 @@ GRAPH-COMMAND.
         WHEN "copybooks"
             CALL "PLB-GRAPH-INCLUDES" USING PLB-SOURCE-SET
                 PLB-INCLUDE-GRAPH WS-REPORT
+        WHEN "jobs"
+            CALL "PLB-GRAPH-JOBS" USING PLB-CALL-GRAPH PLB-JCL WS-REPORT
     END-EVALUATE
     CALL "PLB-GRAPH-END" USING WS-REPORT
     PERFORM REPORT-DIAGNOSTICS
@@ -2904,11 +2913,12 @@ PARSE-INPUT-ARGS.
                 PERFORM NEXT-ARG
                 EVALUATE WS-ARG
                     WHEN "performs" WHEN "calls" WHEN "copybooks"
+                    WHEN "jobs"
                         MOVE WS-ARG TO WS-GRAPH-KIND
                     WHEN OTHER
                         DISPLAY PLB-NAME ": invalid --kind '"
                             WS-ARG(1:WS-ARG-LEN)
-                            "' (expected performs, calls, or copybooks)"
+                            "' (expected performs, calls, copybooks, or jobs)"
                             UPON SYSERR
                         MOVE 2 TO WS-EXIT-CODE
                 END-EVALUATE

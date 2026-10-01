@@ -60,3 +60,15 @@ other input is COBOL. A step's program is matched to a program of the
 run by name, and the programs it calls are followed through the call
 graph, so a file opened by a called subprogram also needs its DD in
 the step.
+
+## Drawing the jobs
+
+`plumbline graph --kind jobs` draws which jobs and procedures run which
+programs, with each step as an edge labelled with the step's name.
+Jobs are named `NAME (job)` and procedures `NAME (proc)`, since a job
+is often named after its program; programs that are not among the
+inputs, such as utilities, are drawn dashed.
+
+```console
+$ plumbline graph --kind jobs app/cbl/*.cbl app/jcl/*.jcl | dot -Tsvg -o jobs.svg
+```
