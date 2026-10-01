@@ -164,6 +164,7 @@ DESCRIBE-ITEM.
             IF NOT PI-IS-INVALID OF PLB-PIC-INFO
                 CALL "PLB-PIC-STORAGE" USING PLB-PIC-INFO SY-USAGE(LS-S)
                     SY-SIZE(LS-S)
+                PERFORM ADD-SEPARATE-SIGN
             END-IF
         WHEN OTHER
             PERFORM CATEGORY-WITHOUT-PICTURE
@@ -233,6 +234,42 @@ DESCRIBE-CLAUSE.
             *> A usage clause: USAGE IS COMP-3 or plain COMP-3.
             MOVE LS-DETAIL TO SY-USAGE(LS-S)
     END-EVALUATE.
+
+*> SIGN ... SEPARATE [CHARACTER] gives a signed display item a
+*> character of its own for the sign. The nearest SIGN clause counts:
+*> the item's, or else that of the group it is in.
+ADD-SEPARATE-SIGN.
+    IF PI-SIGNED OF PLB-PIC-INFO NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    IF SY-USAGE(LS-S) NOT = SPACES AND SY-USAGE(LS-S) NOT = "DISPLAY"
+       AND SY-USAGE(LS-S) NOT = "NATIONAL"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-S TO LS-P
+    PERFORM UNTIL LS-P = 0
+        MOVE ND-FIRST(SY-NODE(LS-P)) TO LS-CHILD
+        PERFORM UNTIL LS-CHILD = 0
+            IF ND-KIND(LS-CHILD) = "CLAU" AND ND-DETAIL(LS-CHILD) = "SIGN"
+                PERFORM VARYING LS-TOKEN FROM ND-TOK-FIRST(LS-CHILD) BY 1
+                        UNTIL LS-TOKEN > ND-TOK-LAST(LS-CHILD)
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT
+                        LS-LEN
+                    IF LS-TEXT = "SEPARATE" AND TK-IS-WORD(LS-TOKEN)
+                        IF PI-IS-NATIONAL OF PLB-PIC-INFO
+                           OR SY-USAGE(LS-S) = "NATIONAL"
+                            ADD 2 TO SY-SIZE(LS-S)
+                        ELSE
+                            ADD 1 TO SY-SIZE(LS-S)
+                        END-IF
+                    END-IF
+                END-PERFORM
+                EXIT PARAGRAPH
+            END-IF
+            MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+        END-PERFORM
+        MOVE SY-PARENT(LS-P) TO LS-P
+    END-PERFORM.
 
 *> Replace each "(NAME)" in LS-TEXT whose NAME is a level-78 constant
 *> of the current program by "(value)".
