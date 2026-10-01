@@ -351,6 +351,19 @@ JSON. `PLB-IMPACT` searches the include or call graph backwards from a
 copybook or program. For each file or program it reaches, it notes the
 one it was reached through.
 
+### Formatter
+
+`src/lib/plbfmt.cob`.
+
+The formatter works from the reader's line table (kind, indicator,
+content columns, inline comment, and the quote of a literal left open),
+not from tokens. Comments and layout are kept, and only the reference
+format changes. A line, or a line and its continuations, becomes one or
+more output lines. In `--check` mode those lines are compared with the
+input instead of written. The test of the formatter is that it changes
+no token: `tests/tools/roundtrip_format.py` compares the tokens of a
+file with those of its free and fixed versions.
+
 ### Rules and reporting
 
 `src/lib/plbrule.cob` (catalog and findings) and `src/lib/plbcheck.cob`

@@ -74,6 +74,8 @@ uses [Semantic Versioning](https://semver.org/).
 
 - `make corpus` runs Plumbline over the NIST COBOL-85 test suite
   (`tools/corpus/`); see `docs/corpus.md`.
+- `plumbline format --to fixed|free [--check]`: rewrite a file in the
+  other reference format without changing its tokens.
 - HTML report (`--report html`): one self-contained page with source
   excerpts.
 - `plumbline graph` (PERFORM, CALL, and copybook graphs as DOT or
@@ -109,3 +111,5 @@ uses [Semantic Versioning](https://semver.org/).
 - Trailing spaces of a literal are not counted as truncated characters.
 - Picture strings no longer take the == that ends pseudo-text.
 - Qualified and subscripted identifiers as COPY REPLACING operands.
+- file-status-not-checked no longer stops at a statement in another
+  branch of the same IF or EVALUATE.
