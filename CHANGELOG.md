@@ -83,6 +83,8 @@ uses [Semantic Versioning](https://semver.org/).
 - `plumbline check` holds the lines of one input at a time and takes up
   to 10,000 inputs (was 256); the NIST suite checks in one run.
 - Error FN001 when a run has more findings than it can keep.
+- `--files-from LIST` reads the files to analyze from a list, or from
+  standard input with `-`.
 - `plumbline format --to fixed|free [--check]`: rewrite a file in the
   other reference format without changing its tokens.
 - HTML report (`--report html`): one self-contained page with source

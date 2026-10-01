@@ -35,9 +35,18 @@ Findings go to standard output as `file:line:column: severity: message
 code is 1 when there are findings at or above the `--fail-on` level
 (`warning` by default), so `plumbline check` can gate a build.
 
+A whole source tree can be checked in one run, which also checks the
+calls between its programs. `check` holds one program's source at a
+time and takes up to 10,000 files:
+
+```console
+$ find src -name '*.cbl' | plumbline check -I copybooks --files-from -
+```
+
 | Option | Meaning |
 |--------|---------|
 | `-I DIR` | search `DIR` for copybooks (repeatable) |
+| `--files-from LIST` | also analyze the files listed in `LIST`, one per line (`-` for standard input) |
 | `--format fixed\|free\|auto` | reference format of the sources (default `auto`) |
 | `--enable RULE`, `--disable RULE` | turn a rule on or off, by id or name |
 | `--fail-on error\|warning\|note\|never` | the lowest severity that fails the run |
