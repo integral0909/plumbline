@@ -55,6 +55,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M012](#plb-m012-deep-nesting) | deep-nesting | note, off | Statements are nested deeper than the limit |
 | [PLB-M013](#plb-m013-unused-copybook) | unused-copybook | note | Copybook declares data the program never uses |
 | [PLB-M014](#plb-m014-sql-select-star) | sql-select-star | note | Embedded SQL selects every column with SELECT * |
+| [PLB-M015](#plb-m015-packed-even-digits) | packed-even-digits | note, off | Packed-decimal item has an even number of digits |
 | [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, off | CALL of a compiler library routine |
 | [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
@@ -1065,6 +1066,22 @@ The host variables of `INTO` or `FETCH` must match the table's columns
 one for one, in order. With `SELECT *` they do so only until a column
 is added, and nothing in the program says which columns it reads.
 Name the columns. `COUNT(*)` is not reported.
+
+## PLB-M015 packed-even-digits
+
+*Off by default.* A packed-decimal item (`COMP-3`, `PACKED-DECIMAL`)
+with an even number of digits:
+
+```
+TOTAL is packed with 4 digits; 5 take the same bytes
+```
+
+Packed decimal stores two digits a byte, with the sign in the last half
+byte, so `PIC S9(4) COMP-3` takes the same 3 bytes as `PIC S9(5)`, and
+its first half byte is unused. IBM compilers generate extra code to
+keep that half byte zero, and data written by another program can
+hide a digit there that the picture does not show. Many shops' coding
+standards ask for odd digit counts; the rule is for them.
 
 ## PLB-P001 vendor-routine
 

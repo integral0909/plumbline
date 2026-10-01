@@ -134,6 +134,11 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M014"
         "sql-select-star" "N"
         "Embedded SQL selects every column with SELECT *"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M015"
+        "packed-even-digits" "N"
+        "Packed-decimal item has an even number of digits"
+    *> A shop's coding standard: on request.
+    MOVE "N" TO RL-ENABLED(RL-COUNT)
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-S001"
         "dynamic-sql" "N"
         "SQL text is built at run time"
