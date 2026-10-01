@@ -41,8 +41,8 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M008](#plb-m008-file-not-closed) | file-not-closed | note | File is opened but never closed |
 | [PLB-M009](#plb-m009-complex-paragraph) | complex-paragraph | note, off | Paragraph or section is more complex than the limit |
 | [PLB-M010](#plb-m010-long-paragraph) | long-paragraph | note, off | Paragraph or section has more statements than the limit |
-| [PLB-M011](#plb-m011-evaluate-without-other) | evaluate-without-other | note, *off* | EVALUATE has no WHEN OTHER |
-| [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, *off* | CALL of a compiler library routine |
+| [PLB-M011](#plb-m011-evaluate-without-other) | evaluate-without-other | note, off | EVALUATE has no WHEN OTHER |
+| [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, off | CALL of a compiler library routine |
 | [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
