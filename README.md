@@ -47,6 +47,7 @@ $ find src -name '*.cbl' | plumbline check -I copybooks --files-from -
 |--------|---------|
 | `-I DIR` | search `DIR` for copybooks (repeatable) |
 | `--files-from LIST` | also analyze the files listed in `LIST`, one per line (`-` for standard input) |
+| `-D NAME`, `--define NAME` | `NAME` is defined for conditional compilation |
 | `--format fixed\|free\|auto` | reference format of the sources (default `auto`) |
 | `--enable RULE`, `--disable RULE` | turn a rule on or off, by id or name |
 | `--fail-on error\|warning\|note\|never` | the lowest severity that fails the run |
@@ -162,13 +163,25 @@ fail-on error
 baseline plumbline.baseline
 ```
 
-`include`, `format`, `enable`, `disable`, `fail-on`, `report`, and
-`baseline` work like the options of the same names. `severity RULE
+`include`, `format`, `enable`, `disable`, `fail-on`, `report`,
+`define`, and `baseline` work like the options of the same names. `severity RULE
 LEVEL` reports a rule as `error`, `warning`, or `note`, and `limit RULE
 N` sets the threshold of a rule that measures something, such as
 `limit complex-paragraph 20`. Options given on
 the command line are applied after the file, so they override it. Paths
 in the file are relative to the directory `plumbline` runs in.
+
+## Conditional compilation
+
+Plumbline follows `>>IF`, `>>ELIF`, `>>ELSE`, and `>>END-IF`, and Micro
+Focus `$IF`, `$ELSE`, and `$END`, when the condition is one it can
+decide: `NAME [IS] [NOT] DEFINED` or `NAME [IS] [NOT] SET`. A name is
+defined by `>>DEFINE` or `$SET CONSTANT` earlier in the file, or by
+`--define NAME` (`define NAME` in `plumbline.conf`) for the whole run.
+The lines of a branch that is not compiled are left out of the
+analysis; `plumbline dump lines` shows them as `skipped`. When a
+condition is anything else, such as a comparison of values, every
+branch is analyzed, as if each were compiled.
 
 ## Adopting Plumbline in existing code
 

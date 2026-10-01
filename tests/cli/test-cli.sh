@@ -211,6 +211,16 @@ check "rules as JSON"                     0 '"id": "PLB-C023", "name": "subscrip
 check "rules takes no files"              2 'rules takes no files' -- rules --no-config x.cob
 check "rules has no sarif report"         2 "invalid --report format 'sarif' (expected text or json)" \
     -- rules --report sarif
+sx=tests/golden/symbols
+check "--define decides >>IF NAME SET"    0 '^1 PTR-NUM U size=8 .*usage=BINARY-DOUBLE' \
+    -- dump symbols --no-config --define P64 $sx/conditional-compilation.cob
+check "-D takes NAME=VALUE"               0 '^1 PTR-NUM U size=8 ' \
+    -- dump symbols --no-config -D p64=1 $sx/conditional-compilation.cob
+check "lines left out are shown as skipped" 0 'conditional-compilation.cob:12: skipped' \
+    -- dump lines --no-config $sx/conditional-compilation.cob
+check "--define needs a name"             2 '--define needs a name' -- check --define
+check "--define rejects long names"       2 'name longer than 31 characters' \
+    -- check --define ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFG x.cob
 lx=tests/fixtures/lists
 check "--files-from adds the files a list names" 1 'billing.cob:9:17: .*\[PLB-C014\]' \
     -- check --no-config --files-from $lx/calls.list

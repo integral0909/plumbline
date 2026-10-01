@@ -91,6 +91,16 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C026 varying-limit-unreachable.
 - Rule PLB-M011 evaluate-without-other (off by default).
 - `plumbline rules [--report text|json]` lists the rules as configured.
+- Conditional compilation: `>>IF`/`>>ELIF`/`>>ELSE`/`>>END-IF` and
+  `$IF`/`$ELSE`/`$END` with `DEFINED` and `SET` conditions, and
+  `--define NAME` (`-D`).
+- `make corpus-gnucobol`: GnuCOBOL's run-time test programs as a second
+  corpus; the dialect support it led to: radix literals (`B#101`,
+  `%47`, `H"80"`), `PERFORM FOREVER`, `XML GENERATE`/`JSON GENERATE`
+  phrases, `CONSTANT` entries, level 78 inside records, the `OPTIONS`
+  paragraph, programs without an `IDENTIFICATION DIVISION` header,
+  literal program names in `END PROGRAM`, indented `$SET`, `>>`
+  in column 7, special registers, and context-sensitive words.
 - `make check-bounds` runs the tests on a build that checks subscripts.
 - [Diagnostics reference](docs/diagnostics.md).
 - `plumbline format --to fixed|free [--check]`: rewrite a file in the

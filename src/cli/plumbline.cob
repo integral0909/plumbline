@@ -81,6 +81,10 @@ COPY "plbigr.cpy".
 01  WS-DEBUG                PIC X VALUE "N".
 01  WS-DUMP-TARGET          PIC X(8).
 COPY "plbinput.cpy".
+*> --define NAME: names for conditional compilation (>>IF NAME DEFINED).
+01  WS-DEFINE-COUNT         PIC 9(4) COMP-5 VALUE 0.
+01  WS-DEFINES.
+    05  WS-DEFINE           PIC X(31) OCCURS 64 TIMES.
 01  WS-LIST-STATUS          PIC 9(4) COMP-5.
 01  WS-LIST-LINE            PIC 9(9) COMP-5.
 01  WS-I                    PIC 9(9) COMP-5.
@@ -316,6 +320,9 @@ SHOW-USAGE.
     DISPLAY "                   (default auto)"
     DISPLAY "  --debug          treat debugging lines as code"
     DISPLAY "  -I DIR           search DIR for copybooks (repeatable)"
+    DISPLAY "  -D, --define NAME"
+    DISPLAY "                   NAME is defined for conditional"
+    DISPLAY "                   compilation (>>IF NAME DEFINED)"
     DISPLAY "  --files-from LIST"
     DISPLAY "                   also analyze the files listed in LIST,"
     DISPLAY "                   one per line (- for standard input)"
@@ -2038,6 +2045,9 @@ PARSE-INPUT-ARGS.
                 ELSE
                     MOVE WS-ARG TO WS-WRITE-BASELINE
                 END-IF
+            WHEN WS-ARG = "--define" OR WS-ARG = "-D"
+                PERFORM NEXT-ARG
+                PERFORM ADD-DEFINE
             WHEN WS-ARG = "--files-from"
                 PERFORM NEXT-ARG
                 IF WS-ARG-LEN = 0
@@ -2123,6 +2133,37 @@ PARSE-INPUT-ARGS.
         DISPLAY PLB-NAME ": no input files" UPON SYSERR
         PERFORM SUGGEST-HELP
     END-IF.
+
+*> --define NAME[=VALUE]: NAME is defined for >>IF NAME DEFINED and
+*> $IF NAME DEFINED. The value is not used.
+ADD-DEFINE.
+    MOVE 0 TO WS-J
+    INSPECT WS-ARG(1:WS-ARG-LEN + 1) TALLYING WS-J
+        FOR CHARACTERS BEFORE INITIAL "="
+    EVALUATE TRUE
+        WHEN WS-ARG-LEN = 0 OR WS-J = 0
+            DISPLAY PLB-NAME ": --define needs a name" UPON SYSERR
+            PERFORM SUGGEST-HELP
+        WHEN WS-J > 31
+            DISPLAY PLB-NAME ": name longer than 31 characters: "
+                WS-ARG(1:WS-J) UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        WHEN WS-DEFINE-COUNT >= 64
+            DISPLAY PLB-NAME ": too many --define names (limit 64)"
+                UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        WHEN OTHER
+            ADD 1 TO WS-DEFINE-COUNT
+            MOVE FUNCTION UPPER-CASE(WS-ARG(1:WS-J))
+                TO WS-DEFINE(WS-DEFINE-COUNT)
+    END-EVALUATE.
+
+*> The --define names, for the source set just initialized.
+APPLY-DEFINES.
+    PERFORM VARYING WS-J FROM 1 BY 1 UNTIL WS-J > WS-DEFINE-COUNT
+        MOVE WS-DEFINE(WS-J) TO SS-DEFINE(WS-J)
+    END-PERFORM
+    MOVE WS-DEFINE-COUNT TO SS-DEFINE-COUNT.
 
 *> --files-from WS-ARG: add the files it lists ("-": standard input).
 READ-FILE-LIST.
@@ -2231,6 +2272,8 @@ APPLY-SETTING.
             PERFORM SET-REPORT
         WHEN "baseline"
             MOVE WS-ARG TO WS-BASELINE
+        WHEN "define"
+            PERFORM ADD-DEFINE
         WHEN OTHER
             DISPLAY PLB-NAME ": unknown setting '"
                 FUNCTION TRIM(CF-KEY(WS-SETTING)) "'" UPON SYSERR
@@ -2393,6 +2436,7 @@ END-INPUT.
 *> Give every input an id, in order, without reading it yet.
 ADD-INPUTS.
     CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET
+    PERFORM APPLY-DEFINES
     CALL "PLB-DIAG-INIT" USING PLB-DIAGNOSTICS
     PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > IP-COUNT
         CALL "PLB-SRC-ADD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
@@ -2401,6 +2445,7 @@ ADD-INPUTS.
 
 LOAD-INPUTS.
     CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET
+    PERFORM APPLY-DEFINES
     CALL "PLB-DIAG-INIT" USING PLB-DIAGNOSTICS
     PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > IP-COUNT
         CALL "PLB-SRC-LOAD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
@@ -2421,6 +2466,7 @@ DUMP-ONE-LINE.
         DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
 
     EVALUATE TRUE
+        WHEN SL-SKIPPED(WS-I) = "Y"    MOVE "skipped"   TO WS-KIND-NAME
         WHEN SL-IS-CODE(WS-I)          MOVE "code"      TO WS-KIND-NAME
         WHEN SL-IS-BLANK(WS-I)         MOVE "blank"     TO WS-KIND-NAME
         WHEN SL-IS-COMMENT(WS-I)       MOVE "comment"   TO WS-KIND-NAME
