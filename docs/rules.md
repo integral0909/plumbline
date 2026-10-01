@@ -34,6 +34,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C026](#plb-c026-varying-limit-unreachable) | varying-limit-unreachable | warning | PERFORM VARYING waits for a value its counter cannot hold |
 | [PLB-C027](#plb-c027-divide-by-zero) | divide-by-zero | error | Divisor is a literal zero |
 | [PLB-C028](#plb-c028-comparison-never-true) | comparison-never-true | warning | Data item is compared with a value it cannot hold |
+| [PLB-C029](#plb-c029-go-to-leaves-perform) | go-to-leaves-perform | warning | GO TO leaves the range of a PERFORM, which then does not return |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -689,6 +690,36 @@ not report:
 
 A numeric item that holds invalid data (spaces, after a `MOVE` to its
 group) still never compares greater than its picture allows.
+
+## PLB-C029 go-to-leaves-perform
+
+A `GO TO` inside a performed range whose target is outside it:
+
+```cobol
+    PERFORM COUNT-RECORD
+    ...
+COUNT-RECORD.
+    ADD 1 TO COUNTER
+    IF COUNTER > 100
+        GO TO SUMMARY                       *> reported
+    END-IF.
+```
+
+A `PERFORM` returns when control reaches the end of its range. After
+this `GO TO` it never does: control runs on from `SUMMARY`, and the
+statement after the `PERFORM` is skipped. When the range is performed
+again later, its return point may still be set from the first time,
+so some compilers then return to the wrong place.
+
+The range is the performed paragraph or section, or `A THRU B`, and
+the procedures of `SORT` and `MERGE` count as ranges too. A `GO TO` to
+a paragraph inside the range (`GO TO READ-EXIT`) is fine. So is a
+`GO TO` to code that ends the run, directly or by falling through
+other paragraphs into `STOP RUN`, `GOBACK`, `EXIT PROGRAM`, or the end
+of the program: that is how many programs leave on an error. A target
+that itself ends with a `GO TO` is reported, even when that `GO TO`
+leads to the end of the run. Each `GO TO` is reported once, for the
+first `PERFORM` whose range it leaves.
 
 ## PLB-M001 go-to
 

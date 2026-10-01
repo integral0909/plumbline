@@ -60,6 +60,7 @@ The 2 programs that still have input errors are:
 | PLB-C020 file-status-not-checked | 105 |
 | PLB-M002 alter | 97 |
 | PLB-C009 undefined-name | 80 |
+| PLB-C029 go-to-leaves-perform | 80 |
 | PLB-M008 file-not-closed | 14 |
 | PLB-C003 fall-off-end | 11 |
 | PLB-C022 open-mode-mismatch | 6 |
@@ -148,6 +149,12 @@ The findings were checked by rule:
   tests of the I-O status codes that read a file opened only for output
   on purpose, and then expect status 47. One false finding, a WRITE to
   an `EXTERNAL` file that another program opens, was fixed.
+- **PLB-C029 go-to-leaves-perform.** A sample was read, and the findings
+  are true. Most are error exits: a `RETURN ... AT END GO TO
+  RETURN-ERROR` inside a performed section, where RETURN-ERROR reports
+  the failure and jumps to the end of the sort's output procedure. The
+  others are in the segmentation tests (SG102A), which leave performed
+  sections on purpose.
 - **PLB-C008 move-truncation.** A sample was read. Literal truncations
   are true once trailing spaces are not counted (`"WRITE NOT INVALID
   END-"` into a 20-character FEATURE loses `D-`). Numeric findings

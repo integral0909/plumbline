@@ -167,6 +167,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C028"
         "comparison-never-true" "W"
         "Data item is compared with a value it cannot hold"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C029"
+        "go-to-leaves-perform" "W"
+        "GO TO leaves the range of a PERFORM, which then does not return"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
