@@ -1,0 +1,2 @@
+tests/golden/rules/c025-stop-run.cob:16:5: warning: STOP RUN in PAYSTEP, which MAIN-RUN calls, ends the whole run; GOBACK returns to the caller [PLB-C025]
+tests/golden/rules/c025-stop-run.cob:21:5: warning: STOP RUN in nested program ROUNDER ends the whole run; GOBACK returns to its caller [PLB-C025]

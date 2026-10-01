@@ -145,6 +145,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C024"
         "refmod-out-of-range" "E"
         "Literal reference modification is outside the item"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C025"
+        "stop-run-in-called-program" "W"
+        "STOP RUN in a program that is called"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

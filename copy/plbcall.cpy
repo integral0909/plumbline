@@ -31,6 +31,13 @@
         10  CP-RECURSIVE        PIC X.
         10  CP-PARAM-FIRST      PIC 9(9) COMP-5.
         10  CP-PARAM-COUNT      PIC 9(4) COMP-5.
+        *> Where the program's first STOP RUN is (CP-STOP-LINE 0:
+        *> it has none). A STOP RUN of a nested program is that
+        *> program's own.
+        10  CP-STOP-FILE-ID     PIC 9(4) COMP-5.
+        10  CP-STOP-LINE        PIC 9(9) COMP-5.
+        10  CP-STOP-COLUMN      PIC 9(4) COMP-5.
+        10  CP-STOP-SRC-LINE    PIC 9(9) COMP-5.
     05  CA-COUNT                PIC 9(9) COMP-5.
     05  CA-ENTRY                OCCURS CA-MAX TIMES.
         10  CA-NAME             PIC X(31).
