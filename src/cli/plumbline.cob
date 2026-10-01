@@ -39,6 +39,7 @@
 *>   plumbline dump flow [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump refs [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump calls [-I DIR]... [--format ...] [--debug] FILE...
+*>   plumbline dump jcl FILE...
 *>
 *> Exit codes:
 *>   0  success
@@ -67,6 +68,8 @@ COPY "plbfind.cpy".
 COPY "plbref.cpy".
 COPY "plbcallc.cpy".
 COPY "plbcall.cpy".
+COPY "plbjclc.cpy".
+COPY "plbjcl.cpy".
 COPY "plbconf.cpy".
 COPY "plbmetrc.cpy".
 COPY "plbmetr.cpy".
@@ -307,6 +310,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline dump flow [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump refs [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump calls [-I DIR]... [--format FORMAT] [--debug] FILE..."
+    DISPLAY "       plumbline dump jcl FILE..."
     DISPLAY "Static analysis for COBOL programs."
     DISPLAY " "
     DISPLAY "Options:"
@@ -338,6 +342,7 @@ SHOW-USAGE.
     DISPLAY "  dump flow        show paragraphs, sections, and control flow"
     DISPLAY "  dump refs        show what each name in the procedures refers to"
     DISPLAY "  dump calls       show programs, their parameters, and CALLs"
+    DISPLAY "  dump jcl         show the jobs, steps, and DD statements of JCL"
     DISPLAY " "
     DISPLAY "Command options:"
     DISPLAY "  --format FORMAT  reference format: fixed, free, or auto"
@@ -1929,6 +1934,7 @@ DUMP-COMMAND.
        AND WS-ARG NOT = "expanded" AND WS-ARG NOT = "ast"
        AND WS-ARG NOT = "symbols" AND WS-ARG NOT = "flow"
        AND WS-ARG NOT = "refs" AND WS-ARG NOT = "calls"
+       AND WS-ARG NOT = "jcl"
         IF WS-ARG-LEN = 0
             DISPLAY PLB-NAME ": dump: missing what to dump"
                 UPON SYSERR
@@ -1942,6 +1948,10 @@ DUMP-COMMAND.
 
     PERFORM PARSE-INPUT-ARGS
     IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-DUMP-TARGET = "jcl"
+        PERFORM DUMP-JCL
         EXIT PARAGRAPH
     END-IF
     PERFORM LOAD-INPUTS
@@ -2252,6 +2262,145 @@ DUMP-REFS.
 *>     call path:line:col CALLER -> TARGET RESOLUTION
 *>       argument item|literal|omitted|other TEXT MODE SIZE
 *> SIZE is in bytes, or ? when not known.
+*> JCL is not COBOL source: each file is registered for its path and
+*> read by the JCL reader.
+DUMP-JCL.
+    CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET
+    CALL "PLB-DIAG-INIT" USING PLB-DIAGNOSTICS
+    CALL "PLB-JCL-INIT" USING PLB-JCL
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > IP-COUNT
+        CALL "PLB-SRC-ADD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            IP-PATH(WS-I) WS-MODE WS-FILE-ID
+        CALL "PLB-JCL-READ" USING IP-PATH(WS-I) WS-FILE-ID PLB-JCL
+            WS-STATUS
+        IF WS-STATUS NOT = 0
+            CALL "PLB-STR-LENGTH" USING IP-PATH(WS-I) WS-PATH-LEN
+            DISPLAY PLB-NAME ": cannot read "
+                IP-PATH(WS-I)(1:WS-PATH-LEN) UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        END-IF
+    END-PERFORM
+    *> In source order: jobs and procedures, their steps, each step's
+    *> DDs.
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > JJ-COUNT
+        MOVE SPACES TO WS-OUT
+        MOVE 1 TO WS-PTR
+        MOVE JJ-FILE-ID(WS-I) TO WS-POS-FILE
+        MOVE JJ-LINE(WS-I) TO WS-POS-LINE
+        PERFORM APPEND-JCL-POSITION
+        STRING "job " DELIMITED BY SIZE
+               JJ-NAME(WS-I) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+        DISPLAY WS-OUT(1:WS-PTR - 1)
+        PERFORM VARYING WS-P FROM 1 BY 1 UNTIL WS-P > JS-COUNT
+            IF JS-JOB(WS-P) = WS-I
+                PERFORM DUMP-JCL-STEP
+            END-IF
+        END-PERFORM
+    END-PERFORM
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > JP-COUNT
+        MOVE SPACES TO WS-OUT
+        MOVE 1 TO WS-PTR
+        MOVE JP-FILE-ID(WS-I) TO WS-POS-FILE
+        MOVE JP-LINE(WS-I) TO WS-POS-LINE
+        PERFORM APPEND-JCL-POSITION
+        STRING "proc " DELIMITED BY SIZE
+               JP-NAME(WS-I) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+        IF JP-INSTREAM(WS-I) = "Y"
+            STRING " in-stream" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+        DISPLAY WS-OUT(1:WS-PTR - 1)
+        PERFORM VARYING WS-P FROM 1 BY 1 UNTIL WS-P > JS-COUNT
+            IF JS-PROC(WS-P) = WS-I
+                PERFORM DUMP-JCL-STEP
+            END-IF
+        END-PERFORM
+    END-PERFORM.
+
+DUMP-JCL-STEP.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    MOVE JS-FILE-ID(WS-P) TO WS-POS-FILE
+    MOVE JS-LINE(WS-P) TO WS-POS-LINE
+    PERFORM APPEND-JCL-POSITION
+    STRING "  step " DELIMITED BY SIZE
+        INTO WS-OUT WITH POINTER WS-PTR
+    IF JS-NAME(WS-P) = SPACES
+        STRING "-" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    ELSE
+        STRING JS-NAME(WS-P) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    EVALUATE JS-KIND(WS-P)
+        WHEN "P"
+            STRING " pgm " DELIMITED BY SIZE
+                   JS-TARGET(WS-P) DELIMITED BY SPACE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN "R"
+            STRING " proc " DELIMITED BY SIZE
+                   JS-TARGET(WS-P) DELIMITED BY SPACE
+                INTO WS-OUT WITH POINTER WS-PTR
+    END-EVALUATE
+    DISPLAY WS-OUT(1:WS-PTR - 1)
+    PERFORM VARYING WS-C FROM JS-DD-FIRST(WS-P) BY 1
+            UNTIL WS-C >= JS-DD-FIRST(WS-P) + JS-DD-COUNT(WS-P)
+        PERFORM DUMP-JCL-DD
+    END-PERFORM.
+
+DUMP-JCL-DD.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    MOVE JD-FILE-ID(WS-C) TO WS-POS-FILE
+    MOVE JD-LINE(WS-C) TO WS-POS-LINE
+    PERFORM APPEND-JCL-POSITION
+    STRING "    dd " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    IF JD-QUALIFIER(WS-C) NOT = SPACES
+        STRING JD-QUALIFIER(WS-C) DELIMITED BY SPACE
+               "." DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    STRING JD-NAME(WS-C) DELIMITED BY SPACE
+        INTO WS-OUT WITH POINTER WS-PTR
+    EVALUATE JD-KIND(WS-C)
+        WHEN "D"
+            STRING " dsn " DELIMITED BY SIZE
+                   JD-DSN(WS-C) DELIMITED BY SPACE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN "S"
+            STRING " sysout" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN "M"
+            STRING " dummy" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN "I"
+            STRING " in-stream data" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN OTHER
+            STRING " other" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+    END-EVALUATE
+    IF JD-DISP(WS-C) NOT = SPACES
+        STRING " disp " DELIMITED BY SIZE
+               JD-DISP(WS-C) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    DISPLAY WS-OUT(1:WS-PTR - 1).
+
+*> path:line: for a position in a JCL file.
+APPEND-JCL-POSITION.
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET WS-POS-FILE WS-PATH
+    CALL "PLB-STR-LENGTH" USING WS-PATH WS-PATH-LEN
+    IF WS-PATH-LEN > 0
+        STRING WS-PATH(1:WS-PATH-LEN) DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    STRING ":" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE WS-POS-LINE TO WS-NUM
+    PERFORM APPEND-NUM
+    STRING ": " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR.
+
 DUMP-CALLS.
     CALL "PLB-CALL-INIT" USING PLB-CALL-GRAPH
     MOVE SS-FILE-COUNT TO WS-MAIN-FILES

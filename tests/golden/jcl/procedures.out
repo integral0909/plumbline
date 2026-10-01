@@ -1,0 +1,8 @@
+tests/golden/jcl/procedures.jcl:1: job BATCH
+tests/golden/jcl/procedures.jcl:8:   step RUN1 proc LOADER
+tests/golden/jcl/procedures.jcl:9:     dd LOAD.LOG dummy
+tests/golden/jcl/procedures.jcl:10:   step RUN2 pgm IEFBR14
+tests/golden/jcl/procedures.jcl:3: proc LOADER in-stream
+tests/golden/jcl/procedures.jcl:4:   step LOAD pgm LOADPGM
+tests/golden/jcl/procedures.jcl:5:     dd INPUT dsn &FILE disp SHR
+tests/golden/jcl/procedures.jcl:6:     dd LOG sysout

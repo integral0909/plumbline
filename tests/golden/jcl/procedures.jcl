@@ -1,0 +1,10 @@
+//BATCH    JOB CLASS=A
+//* An in-stream procedure, then the job's steps.
+//LOADER   PROC FILE=
+//LOAD     EXEC PGM=LOADPGM
+//INPUT    DD DSN=&FILE,DISP=SHR
+//LOG      DD SYSOUT=*
+//         PEND
+//RUN1     EXEC LOADER,FILE=PROD.DAILY
+//LOAD.LOG DD DUMMY
+//RUN2     EXEC PGM=IEFBR14

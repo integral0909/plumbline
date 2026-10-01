@@ -89,6 +89,8 @@ uses [Semantic Versioning](https://semver.org/).
   refmod-out-of-range, for literal subscripts and reference modifiers.
 - Rule PLB-C025 stop-run-in-called-program.
 - Rule PLB-C026 varying-limit-unreachable.
+- `plumbline dump jcl` reads JCL: jobs, procedures, steps, and DD
+  statements (see docs/jcl.md).
 - Rule PLB-C027 divide-by-zero.
 - Rule PLB-C028 comparison-never-true.
 - Rule PLB-C029 go-to-leaves-perform.

@@ -207,6 +207,10 @@ check_absent "deep-nesting reports it once" 'nesting.cob:2[0-9]:' \
     -- check --config tests/fixtures/config/nesting.conf tests/fixtures/rules/nesting.cob
 check "deep-nesting allows 5 levels by default" 0 '^$' \
     -- check --no-config --enable deep-nesting tests/fixtures/rules/nesting.cob
+check "dump jcl lists steps and DDs"       0 'statements.jcl:6:     dd INFILE dsn PROD.PAYROLL.MASTER disp OLD' \
+    -- dump jcl tests/golden/jcl/statements.jcl
+check "dump jcl of a missing file"         2 'cannot read tests/golden/jcl/missing.jcl' \
+    -- dump jcl tests/golden/jcl/missing.jcl
 check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
 check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
     -- rules --no-config --enable evaluate-without-other

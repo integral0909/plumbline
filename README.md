@@ -72,7 +72,7 @@ are on, after `plumbline.conf` and the options are applied
 The `dump` commands show Plumbline's view of a program at each stage,
 which helps when a result is surprising: `dump lines`, `dump tokens`,
 `dump expanded`, `dump ast`, `dump symbols`, `dump flow`, `dump refs`,
-and `dump calls`.
+`dump calls`, and, for JCL, `dump jcl` (see [JCL](docs/jcl.md)).
 
 Give `check` all the programs that call each other in one run. Calls
 between them are then checked against the programs they call: the

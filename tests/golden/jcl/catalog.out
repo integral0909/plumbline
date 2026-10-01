@@ -1,0 +1,6 @@
+tests/golden/jcl/catalog.prc:1: proc PAYBKUP
+tests/golden/jcl/catalog.prc:2:   step COPY pgm IEBGENER
+tests/golden/jcl/catalog.prc:3:     dd SYSUT1 dsn PROD.PAYROLL.MASTER disp SHR
+tests/golden/jcl/catalog.prc:4:     dd SYSUT2 dsn PROD.PAYROLL.BACKUP disp MOD
+tests/golden/jcl/catalog.prc:5:     dd SYSIN dummy
+tests/golden/jcl/catalog.prc:6:     dd SYSPRINT sysout

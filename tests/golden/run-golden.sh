@@ -26,7 +26,7 @@ n=0
 failed=0
 echo "TAP version 13"
 echo "# suite: golden $(basename "$dir")"
-for input in "$dir"/*.cob "$dir"/*.cbl; do
+for input in "$dir"/*.cob "$dir"/*.cbl "$dir"/*.jcl "$dir"/*.prc; do
     [ -e "$input" ] || continue
     n=$((n + 1))
     base=${input%.*}

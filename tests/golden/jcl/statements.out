@@ -1,0 +1,14 @@
+tests/golden/jcl/statements.jcl:1: job PAYROLL
+tests/golden/jcl/statements.jcl:5:   step EXTRACT pgm PAYEXT
+tests/golden/jcl/statements.jcl:6:     dd INFILE dsn PROD.PAYROLL.MASTER disp OLD
+tests/golden/jcl/statements.jcl:8:     dd OUTFILE dsn PROD.PAYROLL.EXTRACT(+1) disp NEW
+tests/golden/jcl/statements.jcl:11:     dd REPORT sysout
+tests/golden/jcl/statements.jcl:12:     dd SYSIN in-stream data
+tests/golden/jcl/statements.jcl:14:     dd NOTHING dummy
+tests/golden/jcl/statements.jcl:15:     dd CARDS in-stream data
+tests/golden/jcl/statements.jcl:18:   step SUMMARY pgm PAYSUM
+tests/golden/jcl/statements.jcl:20:     dd INFILE dsn PROD.PAYROLL.EXTRACT(0) disp SHR
+tests/golden/jcl/statements.jcl:21:   step BACKUP proc PAYBKUP
+tests/golden/jcl/statements.jcl:22:     dd COPY.INPUT dsn PROD.PAYROLL.EXTRACT(0) disp SHR
+tests/golden/jcl/statements.jcl:25: job NEXTJOB
+tests/golden/jcl/statements.jcl:26:   step STEP1 proc INSTRM
