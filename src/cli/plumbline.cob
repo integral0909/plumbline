@@ -5,7 +5,7 @@
 *>   plumbline check [-I DIR]... [--format ...] [--debug]
 *>                   [--enable RULE]... [--disable RULE]...
 *>                   [--fail-on error|warning|note|never]
-*>                   [--report text|json|sarif]
+*>                   [--report text|json|sarif|html]
 *>                   [--baseline FILE | --write-baseline FILE] FILE...
 *>
 *> Every command first reads the settings in plumbline.conf in the
@@ -251,7 +251,7 @@ SHOW-USAGE.
     DISPLAY "  --disable RULE   disable a rule (id or name; repeatable)"
     DISPLAY "  --fail-on LEVEL  exit 1 on findings at or above LEVEL:"
     DISPLAY "                   error, warning (default), note, never"
-    DISPLAY "  --report FORMAT  text (default), json, or sarif; for"
+    DISPLAY "  --report FORMAT  text (default), json, sarif, or html; for"
     DISPLAY "                   metrics: text, json, or csv; for"
     DISPLAY "                   graph: dot (default) or json"
     DISPLAY "  --baseline FILE  do not report the findings listed in FILE"
@@ -299,6 +299,9 @@ CHECK-COMMAND.
                 PLB-RULES PLB-FINDINGS
         WHEN "sarif"
             CALL "PLB-REPORT-SARIF" USING PLB-SOURCE-SET
+                PLB-DIAGNOSTICS PLB-RULES PLB-FINDINGS
+        WHEN "html"
+            CALL "PLB-REPORT-HTML" USING PLB-SOURCE-SET
                 PLB-DIAGNOSTICS PLB-RULES PLB-FINDINGS
         WHEN OTHER
             PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > FN-COUNT
@@ -1432,6 +1435,8 @@ SET-REPORT.
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "sarif" AND WS-COMMAND NOT = "metrics"
             MOVE WS-ARG TO WS-REPORT
+        WHEN WS-ARG = "html" AND WS-COMMAND = "check"
+            MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "csv" AND WS-COMMAND = "metrics"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "dot" AND WS-COMMAND = "graph"
@@ -1449,7 +1454,7 @@ SET-REPORT.
         WHEN OTHER
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
-                "' (expected text, json, or sarif)" UPON SYSERR
+                "' (expected text, json, sarif, or html)" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
     END-EVALUATE.
 

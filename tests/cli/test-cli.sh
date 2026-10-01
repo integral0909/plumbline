@@ -175,7 +175,7 @@ check "metrics csv quotes paths"          0 '^"tests/golden/metrics/complexity.c
     -- metrics --report csv $mx/complexity.cob
 check "metrics refuses sarif"             2 "invalid --report format 'sarif' (expected text, json, or csv)" \
     -- metrics --report sarif $mx/complexity.cob
-check "check refuses csv"                 2 "invalid --report format 'csv' (expected text, json, or sarif)" \
+check "check refuses csv"                 2 "invalid --report format 'csv' (expected text, json, sarif, or html)" \
     -- check --report csv $mx/complexity.cob
 n=$((n + 1))
 if "$bin" metrics --report json $mx/complexity.cob $rx/c001-unreachable.cob | python3 -m json.tool >/dev/null 2>&1; then
@@ -229,6 +229,20 @@ check_report() {
 check_report "json report is valid"        json 3 -- check --report json $rx/c001-unreachable.cob
 check_report "sarif report is valid"       sarif 3 -- check --report sarif $rx/c001-unreachable.cob
 check_report "empty sarif report is valid" sarif 0 -- check --report sarif --disable PLB-C001 --disable go-to $rx/c001-unreachable.cob
+n=$((n + 1))
+if err=$("$bin" check --report html $rx/c001-unreachable.cob | python3 tests/tools/check_html.py 3 2>&1); then
+    echo "ok $n - html report is well formed"
+else
+    failed=$((failed + 1)); echo "not ok $n - html report is well formed"; echo "  # $err"
+fi
+check "html report escapes source text"   1 '    10      IF ERRORS &gt; 0' -- check --report html $rx/c001-unreachable.cob
+check "html report marks the line"        1 '^<mark>    11          GO TO ABEND</mark>$' -- check --report html $rx/c001-unreachable.cob
+n=$((n + 1))
+if err=$("$bin" check --report html --baseline $bx/c001.baseline $rx/c001-unreachable.cob | python3 tests/tools/check_html.py 0 2>&1); then
+    echo "ok $n - html report leaves out baselined findings"
+else
+    failed=$((failed + 1)); echo "not ok $n - html report leaves out baselined findings"; echo "  # $err"
+fi
 check "reports keep the exit code"        1 '"ruleId": "PLB-C001"' -- check --report sarif $rx/c001-unreachable.cob
 check "invalid --report format"           2 "invalid --report format 'xml'" -- check --report xml $rx/c001-unreachable.cob
 
