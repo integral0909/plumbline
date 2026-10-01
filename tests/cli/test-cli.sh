@@ -162,6 +162,23 @@ check "plumbline.conf in the current directory is read" 0 '^$' -- check ../../..
 check "--no-config skips plumbline.conf"  1 'GO TO makes' -- check --no-config ../../../golden/rules/c001-unreachable.cob
 run_dir=.
 
+mx=tests/golden/metrics
+check "metrics csv has a header"          0 '^file,program,kind,name,line,lines,statements,complexity,nesting$' \
+    -- metrics --report csv $mx/complexity.cob
+check "metrics csv quotes paths"          0 '^"tests/golden/metrics/complexity.cob",METRICS,paragraph,DECIDE,15,' \
+    -- metrics --report csv $mx/complexity.cob
+check "metrics refuses sarif"             2 "invalid --report format 'sarif' (expected text, json, or csv)" \
+    -- metrics --report sarif $mx/complexity.cob
+check "check refuses csv"                 2 "invalid --report format 'csv' (expected text, json, or sarif)" \
+    -- check --report csv $mx/complexity.cob
+n=$((n + 1))
+if "$bin" metrics --report json $mx/complexity.cob $rx/c001-unreachable.cob | python3 -m json.tool >/dev/null 2>&1; then
+    echo "ok $n - metrics json is valid for several files"
+else
+    failed=$((failed + 1))
+    echo "not ok $n - metrics json is valid for several files"
+fi
+
 # check_report LABEL FORMAT EXPECTED-COUNT -- ARGS...
 # Run plumbline and validate its report with tests/tools/check_report.py.
 check_report() {
