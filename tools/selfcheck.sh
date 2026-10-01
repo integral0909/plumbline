@@ -15,12 +15,18 @@ for f in src/lib/*.cob src/cli/*.cob tests/harness/*.cob tests/unit/*.cob; do
     fi
 done
 # Once more with every file in one run, so that calls between programs
-# in different files are checked too.
-checked=$((checked + 1))
-if ! err=$("$bin" check -I copy -I tests/harness src/lib/*.cob src/cli/*.cob \
-        tests/harness/*.cob tests/unit/*.cob 2>&1) || [ -n "$err" ]; then
-    failed=$((failed + 1))
-    printf 'selfcheck: all files in one run\n%s\n' "$err"
+# in different files are checked too. Not under make coverage: traced,
+# that run writes a trace of several gigabytes, and the CLI tests
+# already cover runs over many files.
+if [ -n "${PLB_COV_DIR:-}" ]; then
+    printf 'selfcheck: all files in one run skipped while tracing\n'
+else
+    checked=$((checked + 1))
+    if ! err=$("$bin" check -I copy -I tests/harness src/lib/*.cob src/cli/*.cob \
+            tests/harness/*.cob tests/unit/*.cob 2>&1) || [ -n "$err" ]; then
+        failed=$((failed + 1))
+        printf 'selfcheck: all files in one run\n%s\n' "$err"
+    fi
 fi
 printf 'selfcheck: %d runs, %d with findings or diagnostics\n' "$checked" "$failed"
 [ "$failed" -eq 0 ]
