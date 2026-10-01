@@ -261,9 +261,18 @@ ENTRY-CLAUSE.
         MOVE "Y" TO LS-ENTRY-DONE
         EXIT PARAGRAPH
     END-IF
+    *> A level number where a clause should be: the entry before it
+    *> lacks its period. A level number starts its line; other numbers
+    *> are operands of clauses Plumbline does not model, such as the
+    *> colors of a screen entry.
+    IF PX-KIND = "N" AND PS-POS > 1
+        IF TK-SRC-LINE(PS-POS) = TK-SRC-LINE(PS-POS - 1)
+           AND TK-FILE-ID(PS-POS) = TK-FILE-ID(PS-POS - 1)
+            ADD 1 TO PS-POS
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
     IF PX-KIND = "N"
-        *> A level number where a clause should be: the entry before
-        *> it lacks its period.
         CALL "PLB-PX-DIAG" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
             PLB-TOKENS PS-POS "E" "PS008"
             "data description entry must end with a period"
