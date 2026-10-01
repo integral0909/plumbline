@@ -1,0 +1,5 @@
+1 PTR-NUM U size=4 offset=0 usage=BINARY-LONG section=W @10:1
+1 BUF X size=200 offset=0 section=W @17:1
+1 KEPT-A X size=1 offset=0 section=W @22:1
+1 KEPT-B X size=1 offset=0 section=W @24:1
+1 WIDE-ONLY X size=1 offset=0 section=W @31:1

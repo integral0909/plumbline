@@ -30,7 +30,7 @@ LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET.
-    MOVE 0 TO SS-FILE-COUNT SS-LINE-COUNT SS-HEAP-USED
+    MOVE 0 TO SS-FILE-COUNT SS-LINE-COUNT SS-HEAP-USED SS-DEFINE-COUNT
     PERFORM VARYING LS-B FROM 1 BY 1 UNTIL LS-B > SS-PATH-BUCKETS
         MOVE 0 TO SS-PATH-HEAD(LS-B)
     END-PERFORM
@@ -212,6 +212,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS LK-FILE-ID
         SF-MODE(LK-FILE-ID)
     CALL "PLB-SRC-CLASSIFY-FILE" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
         LK-FILE-ID
+    CALL "PLB-SRC-CONDITIONALS" USING PLB-SOURCE-SET LK-FILE-ID
     IF WS-FULL = "N"
         MOVE 0 TO LK-STATUS
     END-IF
@@ -564,6 +565,7 @@ CLASSIFY-ONE.
     MOVE CL-COMMENT-COL TO SL-COMMENT-COL(LS-INDEX)
     MOVE CL-AREA-A      TO SL-AREA-A(LS-INDEX)
     MOVE CL-OPEN-QUOTE  TO SL-OPEN-QUOTE(LS-INDEX)
+    MOVE "N" TO SL-SKIPPED(LS-INDEX)
     MOVE SL-LINE-NO(LS-INDEX) TO LS-LINE-NO
 
     IF CL-PROBLEM = "I"
@@ -780,3 +782,254 @@ PROCEDURE DIVISION USING LK-PATH LK-BUCKET.
     COMPUTE LK-BUCKET = FUNCTION MOD(LS-HASH, LS-BUCKETS) + 1
     GOBACK.
 END PROGRAM PLB-SRC-PATH-BUCKET.
+
+*> PLB-SRC-CONDITIONALS: conditional compilation in file FILE-ID.
+*>
+*>     >>IF condition ... [>>ELIF condition ...] [>>ELSE ...] >>END-IF
+*>     $IF condition ... [$ELSE ...] $END            (Micro Focus)
+*>
+*> Lines in a branch that is not compiled get SL-SKIPPED "Y". The
+*> conditions Plumbline decides are NAME [IS] [NOT] DEFINED and
+*> NAME [IS] [NOT] SET, where a name is defined by >>DEFINE or
+*> $SET CONSTANT earlier in the file, or for the run (--define). For
+*> any other condition every branch is kept, as if each were compiled:
+*> the analysis then sees all of the code.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SRC-CONDITIONALS.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+78  CD-MAX-DEPTH            VALUE 32.
+78  CD-MAX-NAMES            VALUE 256.
+LOCAL-STORAGE SECTION.
+01  LS-L                    PIC 9(9) COMP-5.
+01  LS-LAST                 PIC 9(9) COMP-5.
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-TEXT                 PIC X(1024).
+01  LS-REST                 PIC X(1024).
+01  LS-WORDS.
+    05  LS-WORD             PIC X(31) OCCURS 6 TIMES.
+01  LS-W                    PIC 9(4) COMP-5.
+01  LS-ACTIVE               PIC X.
+01  LS-KNOWN                PIC X.
+01  LS-TRUE                 PIC X.
+01  LS-NAME                 PIC X(31).
+01  LS-FOUND                PIC X.
+01  LS-I                    PIC 9(4) COMP-5.
+*> One entry per open >>IF: whether the branch being read is compiled,
+*> whether the condition could be decided, whether a branch was
+*> already taken, and whether the >>IF itself is in compiled code.
+01  LS-DEPTH                PIC 9(4) COMP-5 VALUE 0.
+01  LS-LEVELS.
+    05  LS-LEVEL            OCCURS CD-MAX-DEPTH TIMES.
+        10  LV-ACTIVE       PIC X.
+        10  LV-KNOWN        PIC X.
+        10  LV-TAKEN        PIC X.
+        10  LV-OUTER        PIC X.
+*> Names defined: those of the run, then those of the file.
+01  LS-NAME-COUNT           PIC 9(4) COMP-5 VALUE 0.
+01  LS-NAMES.
+    05  LS-DEFINED          PIC X(31) OCCURS CD-MAX-NAMES TIMES.
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+01  LK-FILE-ID              PIC 9(4) COMP-5.
+PROCEDURE DIVISION USING PLB-SOURCE-SET LK-FILE-ID.
+    IF SF-LOADED(LK-FILE-ID) NOT = "Y" OR SF-LINE-COUNT(LK-FILE-ID) = 0
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > SS-DEFINE-COUNT
+        MOVE SS-DEFINE(LS-I) TO LS-NAME
+        PERFORM ADD-NAME
+    END-PERFORM
+    COMPUTE LS-LAST = SF-FIRST-LINE(LK-FILE-ID)
+        + SF-LINE-COUNT(LK-FILE-ID) - 1
+    PERFORM VARYING LS-L FROM SF-FIRST-LINE(LK-FILE-ID) BY 1
+            UNTIL LS-L > LS-LAST
+        PERFORM CURRENT-ACTIVE
+        IF SL-IS-DIRECTIVE(LS-L)
+            PERFORM DIRECTIVE
+        ELSE
+            IF LS-ACTIVE = "N"
+                MOVE "Y" TO SL-SKIPPED(LS-L)
+            END-IF
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+CURRENT-ACTIVE.
+    IF LS-DEPTH = 0
+        MOVE "Y" TO LS-ACTIVE
+    ELSE
+        MOVE LV-ACTIVE(LS-DEPTH) TO LS-ACTIVE
+    END-IF.
+
+*> The words of directive line LS-L, upper case, with ">> IF" read
+*> as ">>IF".
+DIRECTIVE.
+    CALL "PLB-SRC-LINE-CONTENT" USING PLB-SOURCE-SET LS-L LS-TEXT LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+    IF LS-TEXT(1:3) = ">> "
+        MOVE LS-TEXT(4:) TO LS-REST
+        MOVE LS-REST TO LS-TEXT(3:)
+    END-IF
+    MOVE SPACES TO LS-WORDS
+    UNSTRING LS-TEXT DELIMITED BY ALL SPACE
+        INTO LS-WORD(1) LS-WORD(2) LS-WORD(3) LS-WORD(4) LS-WORD(5)
+            LS-WORD(6)
+    EVALUATE LS-WORD(1)
+        WHEN ">>IF" WHEN "$IF"
+            PERFORM OPEN-IF
+        WHEN ">>ELIF"
+            PERFORM ELSE-IF
+        WHEN ">>ELSE" WHEN "$ELSE"
+            PERFORM ELSE-BRANCH
+        WHEN ">>END-IF" WHEN "$END" WHEN "$END-IF"
+            IF LS-DEPTH > 0
+                SUBTRACT 1 FROM LS-DEPTH
+            END-IF
+        WHEN ">>DEFINE"
+            IF LS-ACTIVE = "Y"
+                PERFORM DEFINE-DIRECTIVE
+            END-IF
+        WHEN "$SET"
+            IF LS-ACTIVE = "Y" AND LS-WORD(2) = "CONSTANT"
+                MOVE LS-WORD(3) TO LS-NAME
+                PERFORM ADD-NAME
+            END-IF
+    END-EVALUATE.
+
+OPEN-IF.
+    IF LS-DEPTH >= CD-MAX-DEPTH
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-DEPTH
+    MOVE LS-ACTIVE TO LV-OUTER(LS-DEPTH)
+    PERFORM DECIDE-CONDITION
+    MOVE LS-KNOWN TO LV-KNOWN(LS-DEPTH)
+    IF LS-KNOWN = "Y"
+        MOVE LS-TRUE TO LV-TAKEN(LS-DEPTH)
+        IF LS-ACTIVE = "Y" AND LS-TRUE = "Y"
+            MOVE "Y" TO LV-ACTIVE(LS-DEPTH)
+        ELSE
+            MOVE "N" TO LV-ACTIVE(LS-DEPTH)
+        END-IF
+    ELSE
+        MOVE "N" TO LV-TAKEN(LS-DEPTH)
+        MOVE LS-ACTIVE TO LV-ACTIVE(LS-DEPTH)
+    END-IF.
+
+*> >>ELIF: compiled when no branch was taken and its condition holds.
+ELSE-IF.
+    IF LS-DEPTH = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF LV-KNOWN(LS-DEPTH) = "N"
+        MOVE LV-OUTER(LS-DEPTH) TO LV-ACTIVE(LS-DEPTH)
+        EXIT PARAGRAPH
+    END-IF
+    IF LV-TAKEN(LS-DEPTH) = "Y"
+        MOVE "N" TO LV-ACTIVE(LS-DEPTH)
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM DECIDE-CONDITION
+    IF LS-KNOWN = "N"
+        *> From here on the branches cannot be told apart.
+        MOVE "N" TO LV-KNOWN(LS-DEPTH)
+        MOVE LV-OUTER(LS-DEPTH) TO LV-ACTIVE(LS-DEPTH)
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-TRUE TO LV-TAKEN(LS-DEPTH)
+    IF LV-OUTER(LS-DEPTH) = "Y" AND LS-TRUE = "Y"
+        MOVE "Y" TO LV-ACTIVE(LS-DEPTH)
+    ELSE
+        MOVE "N" TO LV-ACTIVE(LS-DEPTH)
+    END-IF.
+
+ELSE-BRANCH.
+    IF LS-DEPTH = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF LV-KNOWN(LS-DEPTH) = "N"
+        MOVE LV-OUTER(LS-DEPTH) TO LV-ACTIVE(LS-DEPTH)
+        EXIT PARAGRAPH
+    END-IF
+    IF LV-OUTER(LS-DEPTH) = "Y" AND LV-TAKEN(LS-DEPTH) = "N"
+        MOVE "Y" TO LV-ACTIVE(LS-DEPTH)
+    ELSE
+        MOVE "N" TO LV-ACTIVE(LS-DEPTH)
+    END-IF
+    MOVE "Y" TO LV-TAKEN(LS-DEPTH).
+
+*> The condition in words 2 onward: NAME [IS] [NOT] DEFINED|SET.
+*> LS-KNOWN = "Y" when it is of that form; LS-TRUE its value.
+DECIDE-CONDITION.
+    MOVE "N" TO LS-KNOWN LS-TRUE
+    MOVE LS-WORD(2) TO LS-NAME
+    MOVE 3 TO LS-W
+    IF LS-WORD(LS-W) = "IS"
+        ADD 1 TO LS-W
+    END-IF
+    IF LS-WORD(LS-W) = "NOT"
+        ADD 1 TO LS-W
+        IF LS-WORD(LS-W) = "DEFINED" OR LS-WORD(LS-W) = "SET"
+            IF LS-WORD(LS-W + 1) = SPACES
+                MOVE "Y" TO LS-KNOWN
+                PERFORM FIND-NAME
+                IF LS-FOUND = "N"
+                    MOVE "Y" TO LS-TRUE
+                END-IF
+            END-IF
+        END-IF
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-WORD(LS-W) = "DEFINED" OR LS-WORD(LS-W) = "SET"
+        IF LS-WORD(LS-W + 1) = SPACES
+            MOVE "Y" TO LS-KNOWN
+            PERFORM FIND-NAME
+            MOVE LS-FOUND TO LS-TRUE
+        END-IF
+    END-IF.
+
+*> >>DEFINE [CONSTANT] NAME [AS value | AS PARAMETER | OFF]. A name
+*> AS PARAMETER is defined only when the run defines it.
+DEFINE-DIRECTIVE.
+    MOVE 2 TO LS-W
+    IF LS-WORD(LS-W) = "CONSTANT"
+        ADD 1 TO LS-W
+    END-IF
+    MOVE LS-WORD(LS-W) TO LS-NAME
+    IF LS-NAME = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    EVALUATE TRUE
+        WHEN LS-WORD(LS-W + 1) = "OFF"
+            PERFORM REMOVE-NAME
+        WHEN LS-WORD(LS-W + 1) = "AS" AND LS-WORD(LS-W + 2) = "PARAMETER"
+            CONTINUE
+        WHEN OTHER
+            PERFORM ADD-NAME
+    END-EVALUATE.
+
+FIND-NAME.
+    MOVE "N" TO LS-FOUND
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > LS-NAME-COUNT
+        IF LS-DEFINED(LS-I) = LS-NAME
+            MOVE "Y" TO LS-FOUND
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+ADD-NAME.
+    PERFORM FIND-NAME
+    IF LS-FOUND = "N" AND LS-NAME-COUNT < CD-MAX-NAMES
+        ADD 1 TO LS-NAME-COUNT
+        MOVE LS-NAME TO LS-DEFINED(LS-NAME-COUNT)
+    END-IF.
+
+REMOVE-NAME.
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > LS-NAME-COUNT
+        IF LS-DEFINED(LS-I) = LS-NAME
+            MOVE SPACES TO LS-DEFINED(LS-I)
+        END-IF
+    END-PERFORM.
+END PROGRAM PLB-SRC-CONDITIONALS.

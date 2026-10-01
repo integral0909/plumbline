@@ -281,7 +281,8 @@ PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
             COMPUTE LS-FROM = LS-LEAD + 4
             PERFORM SCAN-CONTENT
         WHEN LS-WORD(1:2) = ">>"
-        WHEN LS-WORD = "$SET "
+        *> Micro Focus directives: $SET, $IF, $ELSE, $END, $DISPLAY.
+        WHEN LS-WORD(1:1) = "$"
             MOVE ">" TO CL-KIND
             MOVE LS-LEAD TO LS-FROM
             PERFORM SCAN-CONTENT
