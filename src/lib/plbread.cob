@@ -414,6 +414,7 @@ LOCAL-STORAGE SECTION.
 01  LS-LAST                 PIC 9(9) COMP-5.
 01  LS-SAMPLED              PIC 9(9) COMP-5.
 01  LS-AGAINST              PIC 9(9) COMP-5.
+01  LS-FIXED-SIGNS          PIC 9(9) COMP-5.
 01  LS-LINE                 PIC X(1024).
 01  LS-LEAD                 PIC 9(4) COMP-5.
 01  LS-FROM                 PIC 9(4) COMP-5 VALUE 1.
@@ -429,7 +430,7 @@ COPY "plbsrc.cpy".
 01  LK-FORMAT               PIC X.
 PROCEDURE DIVISION USING PLB-SOURCE-SET LK-FILE-ID LK-FORMAT.
     MOVE "X" TO LK-FORMAT
-    MOVE 0 TO LS-SAMPLED LS-AGAINST
+    MOVE 0 TO LS-SAMPLED LS-AGAINST LS-FIXED-SIGNS
     COMPUTE LS-LAST = SF-FIRST-LINE(LK-FILE-ID)
         + SF-LINE-COUNT(LK-FILE-ID) - 1
     PERFORM VARYING LS-INDEX FROM SF-FIRST-LINE(LK-FILE-ID) BY 1
@@ -455,7 +456,12 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET LK-FILE-ID LK-FORMAT.
             END-IF
         END-IF
     END-PERFORM
+    *> Free when lines against fixed format are more than a fifth of
+    *> those sampled, or when there are any and not one line has a
+    *> sign of fixed format: an indicator in column 7 or a sequence
+    *> area filled in.
     IF LS-AGAINST * 5 > LS-SAMPLED
+       OR (LS-AGAINST > 0 AND LS-FIXED-SIGNS = 0)
         MOVE "F" TO LK-FORMAT
     END-IF
     GOBACK.
@@ -502,8 +508,13 @@ CHECK-LINE.
             ADD 1 TO LS-AGAINST
         WHEN SL-TEXT-LEN(LS-INDEX) < 7
             CONTINUE
-        WHEN LS-LINE(7:1) = SPACE OR "*" OR "/" OR "-" OR "D" OR "d"
-                           OR "$"
+        WHEN LS-LINE(7:1) = "*" OR "/" OR "-" OR "D" OR "d" OR "$"
+            ADD 1 TO LS-FIXED-SIGNS
+        *> A sequence number or tag: columns 1 to 6 used, 7 blank.
+        WHEN LS-SEQ-SPACES = 0 AND LS-LINE(7:1) = SPACE
+             AND SL-TEXT-LEN(LS-INDEX) > 7
+            ADD 1 TO LS-FIXED-SIGNS
+        WHEN LS-LINE(7:1) = SPACE
             CONTINUE
         WHEN OTHER
             ADD 1 TO LS-AGAINST
