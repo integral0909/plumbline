@@ -6,6 +6,7 @@
 *>   PLB-C005  perform-thru-backwards
 *>   PLB-C006  recursive-perform
 *>   PLB-C029  go-to-leaves-perform
+*>   PLB-C035  duplicate-paragraph
 *> ---------------------------------------------------------------
 
 *> PLB-C002 perform-and-fall-through: a paragraph that is the target
@@ -329,3 +330,89 @@ REPORT-GO-TO.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-TOKEN LS-MESSAGE.
 END PROGRAM PLB-RULE-C029.
+
+*> PLB-C035 duplicate-paragraph: a paragraph whose name an earlier
+*> paragraph of the same section already has (or, outside sections,
+*> of the same program), or a section whose name an earlier section of
+*> the program has. A reference to the name cannot say which one it
+*> means: compilers reject it, or take the first, and the second is
+*> then code that never runs.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-C035.
+DATA DIVISION.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-U                    PIC 9(9) COMP-5.
+01  LS-V                    PIC 9(9) COMP-5.
+01  LS-NAME                 PIC X(31).
+01  LS-TOKEN                PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+01  LS-PTR                  PIC 9(9) COMP-5.
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbflow.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
+        PLB-RULES PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C035" LS-RULE
+    PERFORM VARYING LS-U FROM 2 BY 1 UNTIL LS-U > FU-COUNT
+        IF FU-KIND(LS-U) = "P" OR FU-KIND(LS-U) = "S"
+            MOVE FUNCTION UPPER-CASE(FU-NAME(LS-U)) TO LS-NAME
+            PERFORM FIND-EARLIER
+            IF LS-V > 0
+                PERFORM REPORT-UNIT
+            END-IF
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> LS-V: the first unit before LS-U of the same kind and name in the
+*> same scope, or 0.
+FIND-EARLIER.
+    PERFORM VARYING LS-V FROM 1 BY 1 UNTIL LS-V >= LS-U
+        IF FU-PROGRAM(LS-V) = FU-PROGRAM(LS-U)
+           AND FU-KIND(LS-V) = FU-KIND(LS-U)
+           AND FUNCTION UPPER-CASE(FU-NAME(LS-V)) = LS-NAME
+            IF FU-KIND(LS-U) = "S"
+               OR FU-SECTION(LS-V) = FU-SECTION(LS-U)
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+    END-PERFORM
+    MOVE 0 TO LS-V.
+
+REPORT-UNIT.
+    MOVE ND-NAME(FU-NODE(LS-V)) TO LS-TOKEN
+    MOVE SL-LINE-NO(TK-SRC-LINE(LS-TOKEN)) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    IF FU-KIND(LS-U) = "S"
+        STRING "section " DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    ELSE
+        STRING "paragraph " DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    STRING FU-NAME(LS-U) DELIMITED BY SPACE
+           " is already defined on line " DELIMITED BY SIZE
+           LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    IF FU-KIND(LS-U) = "P" AND FU-SECTION(LS-U) > 0
+        STRING " of section " DELIMITED BY SIZE
+               FU-NAME(FU-SECTION(LS-U)) DELIMITED BY SPACE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    MOVE ND-NAME(FU-NODE(LS-U)) TO LS-TOKEN
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-TOKEN LS-MESSAGE.
+END PROGRAM PLB-RULE-C035.

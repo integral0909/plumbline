@@ -82,7 +82,7 @@ The code's letters name the stage that reports it.
 | Code | Severity | Meaning |
 |------|----------|---------|
 | FL001 | error | `PERFORM` or `GO TO` names no paragraph or section of the program. |
-| FL002 | warning | A paragraph name is used without qualification but is defined in more than one section. |
+| FL002 | warning | A paragraph name is used without qualification but is defined more than once: in more than one section, or twice outside sections. |
 | FL003 | error | The procedure graph is full. |
 
 ## Baselines (BL)

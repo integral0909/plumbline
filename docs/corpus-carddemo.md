@@ -153,6 +153,10 @@ Some findings that were read and are true:
 - **PLB-C033 self-move.** `COACCT01` and `CODATE01` move
   `WS-CICS-RESP2-CD` to itself, and then build an error message from
   `WS-CICS-RESP2-CD-D`, which the MOVE was meant to fill.
+- **PLB-C035 duplicate-paragraph.** `COACTVWC` defines
+  `0000-MAIN-EXIT` on lines 408 and 411. Nothing performs either, so
+  the program compiles; a `PERFORM 0000-MAIN-EXIT` added later would
+  not. The NIST and GnuCOBOL suites have no repeats.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)

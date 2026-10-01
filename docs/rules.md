@@ -45,6 +45,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C032](#plb-c032-duplicate-when) | duplicate-when | warning | EVALUATE has a WHEN that repeats an earlier one |
 | [PLB-C033](#plb-c033-self-move) | self-move | warning | MOVE of an item to itself |
 | [PLB-C034](#plb-c034-linkage-not-addressed) | linkage-not-addressed | error | LINKAGE record is used but nothing gives it an address |
+| [PLB-C035](#plb-c035-duplicate-paragraph) | duplicate-paragraph | warning | Paragraph or section name defined twice in the same scope |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -959,6 +960,32 @@ redefine an addressed record share its address. In a program with `EXEC
 CICS`, `DFHEIBLK` and `DFHCOMMAREA` count as passed, since CICS passes
 them. Constants (level 78) need no address. Each record is reported
 once, at its first use.
+
+## PLB-C035 duplicate-paragraph
+
+A paragraph with the name of an earlier paragraph of the same section,
+or a section with the name of an earlier section of the program:
+
+```cobol
+0000-MAIN-EXIT.
+    EXIT
+    .
+0000-MAIN-EXIT.                             *> reported
+    EXIT
+    .
+```
+
+A `PERFORM` or `GO TO` of the name cannot say which paragraph it means,
+and qualifying it with the section does not help, so compilers reject
+it: GnuCOBOL says the name "is ambiguous; needs qualification", and it
+rejects a repeated section outright. A repeat that nothing names still
+compiles, and is code that never runs. Paragraphs
+outside any section count as one scope per program. The same paragraph
+name in two sections is fine, as each section's paragraphs can use it
+unqualified; a reference from elsewhere that does not say which
+section it means is a diagnostic of its own (FL002). Names are compared
+without regard to case. Each repeat is reported at its name, with the
+line of the first.
 
 ## PLB-I001 pcb-dbd-unknown
 
