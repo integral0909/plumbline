@@ -9,7 +9,7 @@
 *> The list covers the reserved words of the 2014 standard that matter
 *> to analysis, plus common GnuCOBOL and IBM extensions. It must stay
 *> sorted: tests/unit/test-plbkw.cob checks the order.
-78  KW-COUNT                    VALUE 447.
+78  KW-COUNT                    VALUE 453.
 01  WS-KEYWORD-VALUES.
     05  FILLER PIC X(32) VALUE "ACCEPT                         V".
     05  FILLER PIC X(32) VALUE "ACCESS                         R".
@@ -122,7 +122,13 @@
     05  FILLER PIC X(32) VALUE "DAY                            R".
     05  FILLER PIC X(32) VALUE "DAY-OF-WEEK                    R".
     05  FILLER PIC X(32) VALUE "DE                             R".
+    05  FILLER PIC X(32) VALUE "DEBUG-CONTENTS                 S".
     05  FILLER PIC X(32) VALUE "DEBUG-ITEM                     S".
+    05  FILLER PIC X(32) VALUE "DEBUG-LINE                     S".
+    05  FILLER PIC X(32) VALUE "DEBUG-NAME                     S".
+    05  FILLER PIC X(32) VALUE "DEBUG-SUB-1                    S".
+    05  FILLER PIC X(32) VALUE "DEBUG-SUB-2                    S".
+    05  FILLER PIC X(32) VALUE "DEBUG-SUB-3                    S".
     05  FILLER PIC X(32) VALUE "DEBUGGING                      R".
     05  FILLER PIC X(32) VALUE "DECIMAL-POINT                  R".
     05  FILLER PIC X(32) VALUE "DECLARATIVES                   R".

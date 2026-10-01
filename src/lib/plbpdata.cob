@@ -2,8 +2,8 @@
 *> plbpdata: parser for the data division.
 *>
 *> Sections (FILE, WORKING-STORAGE, LOCAL-STORAGE, LINKAGE, REPORT,
-*> SCREEN, COMMUNICATION) become SECT nodes; FD and SD entries become
-*> FD nodes; data description entries become DATA nodes nested by
+*> SCREEN, COMMUNICATION) become SECT nodes; FD, SD, and CD entries
+*> become FD nodes (detail FD, SD, or CD); data description entries become DATA nodes nested by
 *> level number:
 *>
 *>   01, 77, 78   start a new record (under the section, or under
@@ -70,7 +70,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
                  AND TK-TEXT(TK-TEXT-OFF(LS-NEXT):TK-TEXT-LEN(LS-NEXT))
                      = "SECTION"
                 PERFORM DATA-SECTION
-            WHEN PX-TEXT = "FD" OR PX-TEXT = "SD"
+            WHEN PX-TEXT = "FD" OR PX-TEXT = "SD" OR PX-TEXT = "CD"
                 PERFORM FILE-DESCRIPTION
             WHEN PX-KIND = "N"
                 PERFORM DATA-ENTRY
@@ -101,7 +101,7 @@ CHECK-SECTION-NODE.
         MOVE "Y" TO PS-FULL
     END-IF.
 
-*> FD|SD file-name clauses... .
+*> FD|SD file-name clauses... .  CD cd-name clauses... .
 FILE-DESCRIPTION.
     PERFORM SECTION-PARENT
     MOVE PX-TEXT TO LS-DETAIL

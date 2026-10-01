@@ -138,6 +138,18 @@ MARK-NODE.
                 MOVE ND-NAME(LS-NODE) TO LS-T
                 PERFORM ADD-OTHER-IF-USER-WORD
             END-IF
+            *> A communication description declares the data names in
+            *> its clauses (STATUS KEY IS name, or a list of names); the
+            *> runtime gives them their values.
+            IF ND-DETAIL(LS-NODE) = "CD"
+                PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
+                        UNTIL LS-T > ND-TOK-LAST(LS-NODE)
+                    IF TK-IS-PERIOD(LS-T)
+                        EXIT PERFORM
+                    END-IF
+                    PERFORM ADD-OTHER-IF-USER-WORD
+                END-PERFORM
+            END-IF
         WHEN "CLAU"
             IF ND-DETAIL(LS-NODE) = "OCCURS"
                 PERFORM INDEX-NAMES
