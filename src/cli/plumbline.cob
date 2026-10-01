@@ -175,6 +175,18 @@ COPY "plbinput.cpy".
 01  WS-LSP-HIGHLIGHT        PIC X.
 01  WS-LSP-DECLARATION      PIC X.
 01  WS-LSP-QUALIFIER        PIC X(31).
+*> textDocument/rename: the new name, and the tokens to change, by
+*> file.
+01  WS-LSP-NEW-NAME         PIC X(31).
+01  WS-LSP-NEW-LEN          PIC 9(9) COMP-5.
+01  WS-LSP-OLD-NAME         PIC X(31).
+01  WS-LSP-UPPER-NAME       PIC X(31).
+01  WS-LSP-WORD-KIND        PIC X.
+78  LSP-EDIT-MAX            VALUE 10000.
+01  WS-LSP-EDITS.
+    05  WS-LSP-EDIT-COUNT   PIC 9(9) COMP-5.
+    05  WS-LSP-EDIT-TOKEN   PIC 9(9) COMP-5 OCCURS LSP-EDIT-MAX TIMES.
+    05  WS-LSP-EDIT-DONE    PIC X OCCURS LSP-EDIT-MAX TIMES.
 01  WS-LSP-FIRST            PIC X.
 01  WS-LSP-SEVERITY         PIC X.
 01  WS-LSP-TEXT-PATH        PIC X(512).
@@ -744,6 +756,10 @@ LSP-MESSAGE.
         WHEN "textDocument/documentHighlight"
             MOVE "Y" TO WS-LSP-HIGHLIGHT
             PERFORM LSP-REFERENCES
+        WHEN "textDocument/prepareRename"
+            PERFORM LSP-PREPARE-RENAME
+        WHEN "textDocument/rename"
+            PERFORM LSP-RENAME
         WHEN OTHER
             *> A request (with an id) must be answered.
             IF WS-LSP-ID-KIND NOT = "-"
@@ -770,7 +786,9 @@ LSP-INITIALIZE.
            '"definitionProvider":true,' DELIMITED BY SIZE
            '"hoverProvider":true,' DELIMITED BY SIZE
            '"referencesProvider":true,' DELIMITED BY SIZE
-           '"documentHighlightProvider":true},' DELIMITED BY SIZE
+           '"documentHighlightProvider":true,' DELIMITED BY SIZE
+           '"renameProvider":{"prepareProvider":true}},'
+           DELIMITED BY SIZE
            '"serverInfo":{"name":"' DELIMITED BY SIZE
            PLB-NAME DELIMITED BY SPACE
            '","version":"' DELIMITED BY SIZE
@@ -1178,6 +1196,13 @@ LSP-REFERENCES.
     END-IF
     STRING "[" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
     MOVE "Y" TO WS-LSP-FIRST
+    PERFORM LSP-COLLECT-REFERENCES
+    STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> LSP-APPEND-REFERENCE for the declaration of the target (when
+*> WS-LSP-DECLARATION is "Y") and each reference to it.
+LSP-COLLECT-REFERENCES.
     IF WS-LSP-SYMBOL > 0
         IF WS-LSP-DECLARATION = "Y"
             MOVE SY-NAME-TOKEN(WS-LSP-SYMBOL) TO WS-LSP-TOKEN
@@ -1215,9 +1240,7 @@ LSP-REFERENCES.
                 PERFORM LSP-PROC-NAMES-UNIT
             END-IF
         END-PERFORM
-    END-IF
-    STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
-    PERFORM LSP-SEND-OUT.
+    END-IF.
 
 *> PROC node WS-NODE names unit WS-LSP-UNIT: list it.
 LSP-PROC-NAMES-UNIT.
@@ -1252,7 +1275,7 @@ LSP-PROC-NAMES-UNIT.
     MOVE "1" TO WS-LSP-KIND
     PERFORM LSP-APPEND-REFERENCE.
 
-*> One location (references) or highlight of WS-LSP-KIND (1 text,
+*> One location (references) or highlight (or for a rename, an edit) of WS-LSP-KIND (1 text,
 *> 2 read, 3 write) for token WS-LSP-TOKEN, unless it is outside the
 *> document for a highlight, or has no source line.
 LSP-APPEND-REFERENCE.
@@ -1260,6 +1283,10 @@ LSP-APPEND-REFERENCE.
         EXIT PARAGRAPH
     END-IF
     IF TK-SRC-LINE(WS-LSP-TOKEN) = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-HIGHLIGHT = "R"
+        PERFORM LSP-ADD-EDIT
         EXIT PARAGRAPH
     END-IF
     IF WS-LSP-HIGHLIGHT = "Y" AND TK-FILE-ID(WS-LSP-TOKEN) NOT = 1
@@ -1286,6 +1313,183 @@ LSP-APPEND-REFERENCE.
     ELSE
         PERFORM LSP-APPEND-LOCATION
     END-IF.
+
+*> Renaming ---------------------------------------------------------
+
+*> textDocument/prepareRename: the range of the name at the position
+*> when it names a data item or procedure, else null.
+LSP-PREPARE-RENAME.
+    PERFORM LSP-POSITION
+    PERFORM LSP-TARGET
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-SYMBOL = 0 AND WS-LSP-UNIT = 0
+        STRING "null" DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    ELSE
+        MOVE SL-LINE-NO(TK-SRC-LINE(WS-LSP-TOKEN)) TO WS-LSP-LINE
+        MOVE TK-COLUMN(WS-LSP-TOKEN) TO WS-LSP-CHAR
+        PERFORM LSP-APPEND-RANGE
+    END-IF
+    STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> textDocument/rename: a workspace edit that changes the declaration
+*> and every reference, in the document and its copybooks. Names that
+*> come from COPY REPLACING are not where the old name is written, and
+*> are left alone; the new name must be a user-defined word.
+LSP-RENAME.
+    MOVE "newName" TO WS-LSP-NAME
+    PERFORM LSP-GET
+    MOVE SPACES TO WS-LSP-NEW-NAME
+    MOVE 0 TO WS-LSP-NEW-LEN
+    IF WS-LSP-VALUE-LEN >= 1 AND WS-LSP-VALUE-LEN <= 31
+        MOVE WS-LSP-VALUE-LEN TO WS-LSP-NEW-LEN
+        MOVE WS-LSP-VALUE(1:WS-LSP-NEW-LEN) TO WS-LSP-NEW-NAME
+    END-IF
+    PERFORM LSP-CHECK-NEW-NAME
+    IF WS-LSP-NEW-LEN = 0
+        PERFORM LSP-START-RESPONSE
+        STRING '"error":{"code":-32602,"message":"not a COBOL '
+               'user-defined word"}}' DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        PERFORM LSP-SEND-OUT
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM LSP-POSITION
+    PERFORM LSP-TARGET
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-SYMBOL = 0 AND WS-LSP-UNIT = 0
+        STRING "null}" DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        PERFORM LSP-SEND-OUT
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-SYMBOL > 0
+        MOVE SY-NAME(WS-LSP-SYMBOL) TO WS-LSP-OLD-NAME
+    ELSE
+        MOVE FU-NAME(WS-LSP-UNIT) TO WS-LSP-OLD-NAME
+    END-IF
+    MOVE FUNCTION UPPER-CASE(WS-LSP-OLD-NAME) TO WS-LSP-OLD-NAME
+    MOVE "R" TO WS-LSP-HIGHLIGHT
+    MOVE "Y" TO WS-LSP-DECLARATION
+    MOVE 0 TO WS-LSP-EDIT-COUNT
+    PERFORM LSP-COLLECT-REFERENCES
+    *> {"changes":{URI:[edits], ...}}, one key per file.
+    STRING '{"changes":{' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE "Y" TO WS-LSP-FIRST
+    PERFORM VARYING WS-J FROM 1 BY 1 UNTIL WS-J > WS-LSP-EDIT-COUNT
+        IF WS-LSP-EDIT-DONE(WS-J) = "N"
+            PERFORM LSP-APPEND-FILE-EDITS
+        END-IF
+    END-PERFORM
+    STRING "}}}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> WS-LSP-NEW-LEN = 0 unless WS-LSP-NEW-NAME is a user-defined word:
+*> letters, digits, hyphens, and underscores, with a letter, no hyphen
+*> at either end, and not a reserved word. Its case is kept.
+LSP-CHECK-NEW-NAME.
+    IF WS-LSP-NEW-LEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE FUNCTION UPPER-CASE(WS-LSP-NEW-NAME) TO WS-LSP-UPPER-NAME
+    MOVE 0 TO WS-K
+    PERFORM VARYING WS-C FROM 1 BY 1 UNTIL WS-C > WS-LSP-NEW-LEN
+        EVALUATE WS-LSP-UPPER-NAME(WS-C:1)
+            WHEN "A" THRU "Z"
+                ADD 1 TO WS-K
+            WHEN "0" THRU "9"
+            WHEN "-"
+            WHEN "_"
+                CONTINUE
+            WHEN OTHER
+                MOVE 0 TO WS-LSP-NEW-LEN
+                EXIT PARAGRAPH
+        END-EVALUATE
+    END-PERFORM
+    IF WS-K = 0 OR WS-LSP-NEW-NAME(1:1) = "-"
+       OR WS-LSP-NEW-NAME(WS-LSP-NEW-LEN:1) = "-"
+        MOVE 0 TO WS-LSP-NEW-LEN
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-KW-LOOKUP" USING WS-LSP-UPPER-NAME WS-LSP-WORD-KIND
+    IF WS-LSP-WORD-KIND NOT = SPACE
+        MOVE 0 TO WS-LSP-NEW-LEN
+    END-IF.
+
+*> Keep token WS-LSP-TOKEN for the rename when the old name is written
+*> there, once.
+LSP-ADD-EDIT.
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-LSP-TOKEN WS-LSP-NAME
+        WS-TOKEN-LEN
+    IF FUNCTION UPPER-CASE(WS-LSP-NAME) NOT = WS-LSP-OLD-NAME
+       OR TK-SPAN(WS-LSP-TOKEN) NOT = WS-TOKEN-LEN
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING WS-K FROM 1 BY 1 UNTIL WS-K > WS-LSP-EDIT-COUNT
+        IF TK-FILE-ID(WS-LSP-EDIT-TOKEN(WS-K)) = TK-FILE-ID(WS-LSP-TOKEN)
+           AND TK-SRC-LINE(WS-LSP-EDIT-TOKEN(WS-K))
+               = TK-SRC-LINE(WS-LSP-TOKEN)
+           AND TK-COLUMN(WS-LSP-EDIT-TOKEN(WS-K)) = TK-COLUMN(WS-LSP-TOKEN)
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    IF WS-LSP-EDIT-COUNT < LSP-EDIT-MAX
+        ADD 1 TO WS-LSP-EDIT-COUNT
+        MOVE WS-LSP-TOKEN TO WS-LSP-EDIT-TOKEN(WS-LSP-EDIT-COUNT)
+        MOVE "N" TO WS-LSP-EDIT-DONE(WS-LSP-EDIT-COUNT)
+    END-IF.
+
+*> "URI":[edits] for the file of edit WS-J and the later edits in it.
+LSP-APPEND-FILE-EDITS.
+    IF WS-LSP-PTR > LSP-SIZE - 4096
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST
+    MOVE WS-LSP-EDIT-TOKEN(WS-J) TO WS-LSP-TOKEN
+    IF TK-FILE-ID(WS-LSP-TOKEN) = 1
+        CALL "PLB-JSON-STRING" USING DOC-URI(WS-LSP-DOC-INDEX) WS-LSP-OUT
+            WS-LSP-PTR
+    ELSE
+        CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET
+            TK-FILE-ID(WS-LSP-TOKEN) WS-PATH
+        MOVE SPACES TO WS-LSP-TEXT-PATH
+        STRING "file://" DELIMITED BY SIZE
+               WS-PATH DELIMITED BY SPACE
+            INTO WS-LSP-TEXT-PATH
+        CALL "PLB-JSON-STRING" USING WS-LSP-TEXT-PATH WS-LSP-OUT
+            WS-LSP-PTR
+    END-IF
+    STRING ":[" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM VARYING WS-K FROM WS-J BY 1 UNTIL WS-K > WS-LSP-EDIT-COUNT
+        IF WS-LSP-EDIT-DONE(WS-K) = "N"
+           AND TK-FILE-ID(WS-LSP-EDIT-TOKEN(WS-K))
+               = TK-FILE-ID(WS-LSP-EDIT-TOKEN(WS-J))
+           AND WS-LSP-PTR <= LSP-SIZE - 2048
+            IF WS-K > WS-J
+                STRING "," DELIMITED BY SIZE
+                    INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+            END-IF
+            MOVE "Y" TO WS-LSP-EDIT-DONE(WS-K)
+            MOVE WS-LSP-EDIT-TOKEN(WS-K) TO WS-LSP-TOKEN
+            MOVE SL-LINE-NO(TK-SRC-LINE(WS-LSP-TOKEN)) TO WS-LSP-LINE
+            MOVE TK-COLUMN(WS-LSP-TOKEN) TO WS-LSP-CHAR
+            STRING '{"range":' DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+            PERFORM LSP-APPEND-RANGE
+            STRING ',"newText":"' DELIMITED BY SIZE
+                   WS-LSP-NEW-NAME(1:WS-LSP-NEW-LEN) DELIMITED BY SIZE
+                   '"}' DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        END-IF
+    END-PERFORM
+    STRING "]" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
 
 *> Hover over a data item: its level, name, picture, usage, size, and
 *> place in its record.

@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+import tempfile
 import unittest
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
@@ -91,6 +92,8 @@ class LanguageServerTest(unittest.TestCase):
         self.assertTrue(self.capabilities["hoverProvider"])
         self.assertTrue(self.capabilities["referencesProvider"])
         self.assertTrue(self.capabilities["documentHighlightProvider"])
+        self.assertTrue(
+            self.capabilities["renameProvider"]["prepareProvider"])
         self.assertTrue(self.capabilities["documentSymbolProvider"])
 
     def test_diagnostics_on_open(self):
@@ -190,6 +193,84 @@ class LanguageServerTest(unittest.TestCase):
         self.assertEqual(kinds[self.position("IF ERRORS")["line"]], 2)
         self.assertEqual(kinds[self.position("MOVE 0 TO ERRORS")["line"]], 3)
         self.assertIn(self.position("01  ERRORS")["line"], kinds)
+
+    def rename(self, needle, offset, new_name):
+        return self.server.request("textDocument/rename", {
+            "textDocument": {"uri": URI},
+            "position": self.position(needle, offset),
+            "newName": new_name})
+
+    def apply(self, edits):
+        lines = self.text.splitlines(keepends=True)
+        for edit in sorted(edits, key=lambda e: (e["range"]["start"]["line"],
+                                                 e["range"]["start"]["character"]),
+                           reverse=True):
+            start, end = edit["range"]["start"], edit["range"]["end"]
+            self.assertEqual(start["line"], end["line"])
+            line = lines[start["line"]]
+            lines[start["line"]] = (line[:start["character"]] + edit["newText"]
+                                    + line[end["character"]:])
+        return "".join(lines)
+
+    def test_rename_a_data_item(self):
+        reply = self.rename("IF ERRORS", len("IF "), "Failures")
+        edits = reply["result"]["changes"][URI]
+        self.assertEqual(len(edits), 3)
+        renamed = self.apply(edits)
+        self.assertNotIn("ERRORS", renamed)
+        self.assertIn("01  Failures", renamed)
+        self.assertIn("MOVE 0 TO Failures.", renamed)
+
+    def test_rename_a_paragraph(self):
+        reply = self.rename("ABEND.", 0, "FAIL-EXIT")
+        renamed = self.apply(reply["result"]["changes"][URI])
+        self.assertIn("GO TO FAIL-EXIT", renamed)
+        self.assertIn("FAIL-EXIT.", renamed)
+        self.assertNotIn("ABEND", renamed)
+
+    def test_rename_to_a_reserved_word(self):
+        for name in ("MOVE", "-X", "X-", "123", "A B", ""):
+            reply = self.rename("IF ERRORS", len("IF "), name)
+            self.assertEqual(reply["error"]["code"], -32602, name)
+
+    def test_rename_in_a_copybook(self):
+        with tempfile.TemporaryDirectory() as directory:
+            copybook = os.path.join(directory, "totals.cpy")
+            with open(copybook, "w") as f:
+                f.write("01  TOTAL-AMOUNT PIC 9(7).\n")
+            program = os.path.join(directory, "report.cob")
+            text = ("IDENTIFICATION DIVISION.\nPROGRAM-ID. REPORT1.\n"
+                    "DATA DIVISION.\nWORKING-STORAGE SECTION.\n"
+                    "COPY totals.\nPROCEDURE DIVISION.\n"
+                    "    ADD 1 TO TOTAL-AMOUNT\n"
+                    "    DISPLAY TOTAL-AMOUNT\n    GOBACK.\n")
+            uri = "file://" + os.path.realpath(program)
+            self.server.notify("textDocument/didOpen", {"textDocument": {
+                "uri": uri, "languageId": "cobol", "version": 1,
+                "text": text}})
+            self.server.receive()
+            reply = self.server.request("textDocument/rename", {
+                "textDocument": {"uri": uri},
+                "position": {"line": 6, "character": 15},
+                "newName": "GRAND-TOTAL"})
+            changes = reply["result"]["changes"]
+            self.assertEqual(len(changes[uri]), 2)
+            [declaration] = [edits for key, edits in changes.items()
+                             if key.endswith("/totals.cpy")]
+            self.assertEqual(declaration[0]["range"]["start"],
+                             {"line": 0, "character": 4})
+
+    def test_prepare_rename(self):
+        reply = self.server.request("textDocument/prepareRename", {
+            "textDocument": {"uri": URI},
+            "position": self.position("IF ERRORS", len("IF E"))})
+        self.assertEqual(reply["result"]["start"]["character"], len("    IF "))
+        self.assertEqual(reply["result"]["end"]["character"],
+                         len("    IF ERRORS"))
+        reply = self.server.request("textDocument/prepareRename", {
+            "textDocument": {"uri": URI},
+            "position": self.position("STOP RUN", 0)})
+        self.assertIsNone(reply["result"])
 
     def test_hover_on_a_data_item(self):
         reply = self.server.request("textDocument/hover", {
