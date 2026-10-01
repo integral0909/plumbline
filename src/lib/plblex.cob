@@ -122,6 +122,14 @@ LOCAL-STORAGE SECTION.
 01  LS-WORD-LEN             PIC 9(9) COMP-5.
 01  LS-AT                   PIC 9(9) COMP-5.
 01  LS-AT-CLS               PIC X.
+*> Radix literals (B#101, %47): the radix, digits, and value.
+01  LS-RADIX                PIC 9(4) COMP-5.
+01  LS-RADIX-DIGITS         PIC 9(4) COMP-5.
+01  LS-RADIX-VALUE          PIC 9(18) COMP-5.
+01  LS-RADIX-NUM            PIC S9(18) COMP-5.
+01  LS-DIGIT                PIC 9(4) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
 *> CLASS-AT: a stream position and the class of its character.
 01  LS-CLASS-POS            PIC 9(9) COMP-5.
 01  LS-CLASS-OF             PIC X.
@@ -385,6 +393,8 @@ SCAN-TOKEN.
             PERFORM SCAN-NUMBER-DIGITS
         *> A decimal point followed by digits is a number (.5) unless it
         *> ends something: a period separator is followed by a space.
+        WHEN LS-CH = "%" AND LS-NEXT-CLS = "D"
+            PERFORM SCAN-HP-OCTAL
         WHEN LS-CH = "." AND LS-NEXT-CLS = "D"
              AND (LS-POS = 1 OR ST-TEXT(LS-POS - 1:1) = SPACE
                   OR ST-TEXT(LS-POS - 1:1) = X"0A"
@@ -504,7 +514,7 @@ SCAN-WORD-OR-NUMBER.
             MOVE FUNCTION UPPER-CASE(ST-TEXT(LS-START:LS-RUN-LEN))
                 TO LS-PREFIX
             IF LS-PREFIX = "X " OR "Z " OR "N " OR "NX" OR "G "
-                       OR "B " OR "BX" OR "U "
+                       OR "B " OR "BX" OR "U " OR "H "
                 PERFORM SCAN-LITERAL
                 EXIT PARAGRAPH
             END-IF
@@ -512,8 +522,82 @@ SCAN-WORD-OR-NUMBER.
         END-IF
     END-IF
 
+    *> ACUCOBOL radix literals: B#101, O#17, X#FF, H#FF.
+    IF LS-RUN-LEN = 1 AND LS-POS < ST-LEN
+        IF ST-TEXT(LS-POS:1) = "#"
+            EVALUATE FUNCTION UPPER-CASE(ST-TEXT(LS-START:1))
+                WHEN "B"
+                    MOVE 2 TO LS-RADIX
+                WHEN "O"
+                    MOVE 8 TO LS-RADIX
+                WHEN "X" WHEN "H"
+                    MOVE 16 TO LS-RADIX
+                WHEN OTHER
+                    MOVE 0 TO LS-RADIX
+            END-EVALUATE
+            IF LS-RADIX > 0
+                COMPUTE LS-J = LS-POS + 1
+                PERFORM SCAN-RADIX-DIGITS
+                IF LS-RADIX-DIGITS > 0
+                    PERFORM ADD-RADIX-LITERAL
+                    EXIT PARAGRAPH
+                END-IF
+            END-IF
+        END-IF
+    END-IF
+
     MOVE "W" TO LS-KIND
     PERFORM TAKE-UPPER-TEXT
+    PERFORM ADD-TOKEN.
+
+*> HP COBOL octal literal: %47.
+SCAN-HP-OCTAL.
+    MOVE 8 TO LS-RADIX
+    COMPUTE LS-J = LS-POS + 1
+    PERFORM SCAN-RADIX-DIGITS
+    IF LS-RADIX-DIGITS = 0
+        PERFORM SCAN-SPECIAL
+    ELSE
+        PERFORM ADD-RADIX-LITERAL
+    END-IF.
+
+*> The digits of radix LS-RADIX from stream position LS-J: their
+*> count in LS-RADIX-DIGITS, their value in LS-RADIX-VALUE, and LS-J
+*> left after them.
+SCAN-RADIX-DIGITS.
+    MOVE 0 TO LS-RADIX-DIGITS LS-RADIX-VALUE
+    PERFORM UNTIL LS-J > ST-LEN
+        MOVE FUNCTION UPPER-CASE(ST-TEXT(LS-J:1)) TO LS-BYTE-CHAR
+        EVALUATE TRUE
+            WHEN LS-BYTE-CHAR >= "0" AND LS-BYTE-CHAR <= "9"
+                COMPUTE LS-DIGIT = LS-BYTE-CODE - 48
+            WHEN LS-BYTE-CHAR >= "A" AND LS-BYTE-CHAR <= "F"
+                COMPUTE LS-DIGIT = LS-BYTE-CODE - 55
+            WHEN OTHER
+                EXIT PERFORM
+        END-EVALUATE
+        IF LS-DIGIT >= LS-RADIX
+            EXIT PERFORM
+        END-IF
+        COMPUTE LS-RADIX-VALUE = LS-RADIX-VALUE * LS-RADIX + LS-DIGIT
+            ON SIZE ERROR
+                MOVE 0 TO LS-RADIX-DIGITS
+                EXIT PERFORM
+        END-COMPUTE
+        ADD 1 TO LS-RADIX-DIGITS
+        ADD 1 TO LS-J
+    END-PERFORM.
+
+*> A numeric literal from LS-START to LS-J whose text is its value in
+*> decimal, so that later stages see an ordinary number.
+ADD-RADIX-LITERAL.
+    MOVE LS-J TO LS-POS
+    MOVE LS-RADIX-VALUE TO LS-RADIX-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-RADIX-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE SPACES TO LS-BUF
+    MOVE LS-NUM-TEXT(1:LS-NUM-LEN) TO LS-BUF
+    MOVE LS-NUM-LEN TO LS-BUF-LEN
+    MOVE "N" TO LS-KIND
     PERFORM ADD-TOKEN.
 
 *> LS-POS is on a colon. If a tag such as :PFX: starts here, set
