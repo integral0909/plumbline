@@ -83,7 +83,7 @@ as a name where a name can stand.
 | `XML GENERATE`, `XML PARSE`, `JSON GENERATE`, `JSON PARSE` | yes |
 | `ALLOCATE`, `FREE`, `EXHIBIT`, GnuCOBOL bit operators | yes |
 | Intrinsic functions, also without `FUNCTION` under `REPOSITORY. FUNCTION ALL INTRINSIC` | yes |
-| Object-oriented COBOL (`CLASS-ID`, `METHOD-ID`, `INVOKE`) | no: class and method definitions are reported as unexpected text |
+| Object-oriented COBOL: `CLASS-ID`, `FACTORY`, `OBJECT`, `METHOD-ID`, `INTERFACE-ID`, `INVOKE` | the definitions are parsed as nested units and their code analyzed; classes and objects are not modeled (an `INVOKE` is not a call the call rules check) |
 
 ## Names
 
@@ -108,4 +108,4 @@ one spelled the same way.
   `-fintrinsics=all` or IBM's `TRUNC(BIN)`: Plumbline sees only the
   source. Rules whose result would depend on them say so.
 - Conditional compilation on conditions other than `DEFINED` and `SET`.
-- Object-oriented COBOL: class and method definitions.
+- Object-oriented COBOL beyond the structure of its definitions.

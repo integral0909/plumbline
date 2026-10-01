@@ -320,6 +320,12 @@ CONSIDER-ITEM.
 *> LS-SKIP = "Y" when the item or its record is GLOBAL or EXTERNAL.
 CHECK-SHARED.
     MOVE "N" TO LS-SKIP
+    *> Object and factory data: the methods use it.
+    IF ND-DETAIL(SY-PROGRAM(LS-S)) = "OBJECT"
+       OR ND-DETAIL(SY-PROGRAM(LS-S)) = "FACTORY"
+        MOVE "Y" TO LS-SKIP
+        EXIT PARAGRAPH
+    END-IF
     MOVE LS-S TO LS-P
     PERFORM UNTIL LS-P = 0
         MOVE ND-FIRST(SY-NODE(LS-P)) TO LS-CHILD

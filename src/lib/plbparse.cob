@@ -151,12 +151,17 @@ PROCEDURE DIVISION USING PLB-TOKENS LK-INDEX LK-RESULT.
             END-IF
         WHEN "PROGRAM-ID"
         WHEN "FUNCTION-ID"
+        WHEN "CLASS-ID"
+        WHEN "METHOD-ID"
+        WHEN "INTERFACE-ID"
             IF PX-KIND = "."
                 MOVE "PROGRAM-ID" TO LK-RESULT
             END-IF
         WHEN "END"
             IF PX-TEXT = "PROGRAM" OR PX-TEXT = "FUNCTION"
                OR PX-TEXT = "CLASS" OR PX-TEXT = "METHOD"
+               OR PX-TEXT = "OBJECT" OR PX-TEXT = "FACTORY"
+               OR PX-TEXT = "INTERFACE"
                 MOVE "END" TO LK-RESULT
             END-IF
     END-EVALUATE
@@ -219,6 +224,8 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
                 CALL "PLB-PX-IDENT" USING PLB-SOURCE-SET
                     PLB-DIAGNOSTICS PLB-TOKENS PLB-AST PLB-PARSE-STATE
             WHEN PX-TEXT = "PROGRAM-ID" OR PX-TEXT = "FUNCTION-ID"
+                 OR PX-TEXT = "CLASS-ID" OR PX-TEXT = "METHOD-ID"
+                 OR PX-TEXT = "INTERFACE-ID"
                 *> A program may start without IDENTIFICATION DIVISION.
                 PERFORM START-PROGRAM
                 MOVE "IDENTIFICATION" TO LS-HEADER
@@ -425,6 +432,9 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
         EVALUATE PX-TEXT
             WHEN "PROGRAM-ID"
             WHEN "FUNCTION-ID"
+            WHEN "CLASS-ID"
+            WHEN "METHOD-ID"
+            WHEN "INTERFACE-ID"
                 PERFORM PROGRAM-ID-PARAGRAPH
             WHEN "AUTHOR"
             WHEN "INSTALLATION"
@@ -434,6 +444,14 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
             WHEN "REMARKS"
             *> COBOL 2014: DEFAULT ROUNDED MODE, ENTRY-CONVENTION, ...
             WHEN "OPTIONS"
+                PERFORM COMMENT-PARAGRAPH
+            *> The factory and object definitions of a class: units of
+            *> their own, ended by END FACTORY and END OBJECT.
+            WHEN "FACTORY"
+            WHEN "OBJECT"
+                IF PS-PROGRAM > 0
+                    MOVE PX-TEXT TO ND-DETAIL(PS-PROGRAM)
+                END-IF
                 PERFORM COMMENT-PARAGRAPH
             WHEN OTHER
                 CALL "PLB-AST-ADD" USING PLB-AST PS-DIVISION "ERR " " "
@@ -456,9 +474,16 @@ PROGRAM-ID-PARAGRAPH.
         MOVE "Y" TO PS-FULL
         EXIT PARAGRAPH
     END-IF
-    IF PX-TEXT = "FUNCTION-ID"
-        MOVE "FUNCTION" TO ND-DETAIL(PS-PROGRAM)
-    END-IF
+    EVALUATE PX-TEXT
+        WHEN "FUNCTION-ID"
+            MOVE "FUNCTION" TO ND-DETAIL(PS-PROGRAM)
+        WHEN "CLASS-ID"
+            MOVE "CLASS" TO ND-DETAIL(PS-PROGRAM)
+        WHEN "METHOD-ID"
+            MOVE "METHOD" TO ND-DETAIL(PS-PROGRAM)
+        WHEN "INTERFACE-ID"
+            MOVE "INTERFACE" TO ND-DETAIL(PS-PROGRAM)
+    END-EVALUATE
     ADD 1 TO PS-POS
     IF TK-IS-PERIOD(PS-POS)
         ADD 1 TO PS-POS
@@ -490,6 +515,8 @@ COMMENT-PARAGRAPH.
         IF PX-TEXT = "PROGRAM-ID" OR "FUNCTION-ID" OR "AUTHOR"
                 OR "INSTALLATION" OR "DATE-WRITTEN" OR "DATE-COMPILED"
                 OR "SECURITY" OR "REMARKS" OR "OPTIONS"
+                OR "FACTORY" OR "OBJECT" OR "CLASS-ID" OR "METHOD-ID"
+                OR "INTERFACE-ID"
             EXIT PERFORM
         END-IF
         ADD 1 TO PS-POS

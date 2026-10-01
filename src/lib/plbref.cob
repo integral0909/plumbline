@@ -711,6 +711,13 @@ CHECK-FILE-QUALIFIER.
 *> LS-GLOBAL = "Y" when LS-S or its record has a GLOBAL clause.
 CHECK-GLOBAL.
     MOVE "N" TO LS-GLOBAL
+    *> The data of an object or factory definition is the instance or
+    *> class data that its methods work on.
+    IF ND-DETAIL(SY-PROGRAM(LS-S)) = "OBJECT"
+       OR ND-DETAIL(SY-PROGRAM(LS-S)) = "FACTORY"
+        MOVE "Y" TO LS-GLOBAL
+        EXIT PARAGRAPH
+    END-IF
     MOVE LS-S TO LS-A
     PERFORM UNTIL LS-A = 0 OR LS-GLOBAL = "Y"
         MOVE ND-FIRST(SY-NODE(LS-A)) TO LS-U
