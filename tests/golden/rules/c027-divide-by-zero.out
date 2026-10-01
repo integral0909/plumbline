@@ -1,0 +1,7 @@
+tests/golden/rules/c027-divide-by-zero.cob:12:12: error: division by zero; the statement fails when it runs [PLB-C027]
+tests/golden/rules/c027-divide-by-zero.cob:13:21: error: division by zero; the statement fails when it runs [PLB-C027]
+tests/golden/rules/c027-divide-by-zero.cob:14:12: error: division by zero; the statement fails when it runs [PLB-C027]
+tests/golden/rules/c027-divide-by-zero.cob:15:30: error: division by zero; the statement fails when it runs [PLB-C027]
+tests/golden/rules/c027-divide-by-zero.cob:16:36: error: division by zero; the statement fails when it runs [PLB-C027]
+tests/golden/rules/c027-divide-by-zero.cob:17:16: error: division by zero; the statement fails when it runs [PLB-C027]
+tests/golden/rules/c027-divide-by-zero.cob:18:33: error: division by zero; the statement fails when it runs [PLB-C027]

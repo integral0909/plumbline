@@ -32,6 +32,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C024](#plb-c024-refmod-out-of-range) | refmod-out-of-range | error | Literal reference modification is outside the item |
 | [PLB-C025](#plb-c025-stop-run-in-called-program) | stop-run-in-called-program | warning | STOP RUN in a program that is called |
 | [PLB-C026](#plb-c026-varying-limit-unreachable) | varying-limit-unreachable | warning | PERFORM VARYING waits for a value its counter cannot hold |
+| [PLB-C027](#plb-c027-divide-by-zero) | divide-by-zero | error | Divisor is a literal zero |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -626,6 +627,31 @@ counters stored as decimal digits (`DISPLAY` or `PACKED-DECIMAL`) are
 checked. A binary counter can hold more than its picture says when the
 compiler does not truncate binary data (IBM `TRUNC(BIN)`, GnuCOBOL
 `-fnotrunc`). Conditions with `AND` or `OR` are not checked.
+
+## PLB-C027 divide-by-zero
+
+A division whose divisor is a literal zero:
+
+```cobol
+    DIVIDE ZERO INTO TOTAL                  *> reported
+    COMPUTE RESULT = TOTAL / 0.00           *> reported
+    DIVIDE 0 BY TOTAL GIVING RESULT         *> not reported: 0 is divided
+```
+
+Dividing by zero raises the size error condition. Without an `ON SIZE
+ERROR` phrase the receiving item is left unchanged, or the program
+stops, depending on the compiler and its options, and nothing says
+which happened. Such a division is usually a placeholder that was
+never filled in, or a constant that was meant to be a data item.
+
+The rule checks the first operand of `DIVIDE ... INTO`, the operand
+after `BY` in `DIVIDE ... BY`, and the operand after `/` in any
+expression (`COMPUTE`, conditions, subscripts). A divisor is zero when
+it is `ZERO`, `ZEROS`, `ZEROES`, or a numeric literal with only zero
+digits. A statement with `ON SIZE ERROR` handles the failure and is not
+reported; test programs divide by zero this way on purpose. Divisors
+that are data items, or constants declared with level 78 or
+`CONSTANT`, are not checked.
 
 ## PLB-M001 go-to
 
