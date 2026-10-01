@@ -190,6 +190,14 @@ COPY "plbinput.cpy".
 01  WS-LSP-QUALIFIER        PIC X(31).
 *> workspace/symbol: the query, in upper case (spaces: every name).
 01  WS-LSP-QUERY            PIC X(31).
+*> callHierarchy: incoming (I) or outgoing (O), the unit at the other
+*> end of the edges being listed, and the edge.
+01  WS-LSP-DIRECTION        PIC X.
+01  WS-LSP-OTHER            PIC 9(9) COMP-5.
+01  WS-LSP-EDGE             PIC 9(9) COMP-5.
+01  WS-LSP-EDGE-2           PIC 9(9) COMP-5.
+01  WS-LSP-ITEM-UNIT        PIC 9(9) COMP-5.
+01  WS-LSP-BRACE            PIC 9(9) COMP-5.
 *> textDocument/rename: the new name, and the tokens to change, by
 *> file.
 01  WS-LSP-NEW-NAME         PIC X(31).
@@ -890,6 +898,14 @@ LSP-MESSAGE.
             PERFORM LSP-REFERENCES
         WHEN "workspace/symbol"
             PERFORM LSP-WORKSPACE-SYMBOLS
+        WHEN "textDocument/prepareCallHierarchy"
+            PERFORM LSP-PREPARE-CALL-HIERARCHY
+        WHEN "callHierarchy/incomingCalls"
+            MOVE "I" TO WS-LSP-DIRECTION
+            PERFORM LSP-HIERARCHY-CALLS
+        WHEN "callHierarchy/outgoingCalls"
+            MOVE "O" TO WS-LSP-DIRECTION
+            PERFORM LSP-HIERARCHY-CALLS
         WHEN "textDocument/codeAction"
             PERFORM LSP-CODE-ACTIONS
         WHEN "textDocument/foldingRange"
@@ -927,6 +943,7 @@ LSP-INITIALIZE.
            '"referencesProvider":true,' DELIMITED BY SIZE
            '"documentHighlightProvider":true,' DELIMITED BY SIZE
            '"foldingRangeProvider":true,' DELIMITED BY SIZE
+           '"callHierarchyProvider":true,' DELIMITED BY SIZE
            '"codeActionProvider":{"codeActionKinds":["quickfix"]},'
            DELIMITED BY SIZE
            '"renameProvider":{"prepareProvider":true}},'
@@ -1537,6 +1554,174 @@ LSP-APPEND-SUPPRESS-ACTION.
            RL-NAME(FN-RULE(WS-I)) DELIMITED BY SPACE
            '\n"}]}}}' DELIMITED BY SIZE
         INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
+*> Call hierarchy ---------------------------------------------------
+
+*> textDocument/prepareCallHierarchy: the paragraph or section named
+*> at the position, as a call hierarchy item; null for anything else.
+*> The hierarchy follows PERFORM, GO TO, and ALTER, as the procedure
+*> graph does.
+LSP-PREPARE-CALL-HIERARCHY.
+    PERFORM LSP-POSITION
+    PERFORM LSP-TARGET
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-UNIT = 0
+        STRING "null}" DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    ELSE
+        STRING "[" DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        MOVE WS-LSP-UNIT TO WS-LSP-ITEM-UNIT
+        PERFORM LSP-APPEND-HIERARCHY-ITEM
+        STRING "]}" DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    PERFORM LSP-SEND-OUT.
+
+*> callHierarchy/incomingCalls and outgoingCalls. The item comes back
+*> as the request's first uri and line: the place of the unit's name.
+*> Each unit at the other end of the edges is listed once, with the
+*> procedure names of all its edges as fromRanges.
+LSP-HIERARCHY-CALLS.
+    PERFORM LSP-POSITION
+    PERFORM LSP-TARGET
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":[' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE "Y" TO WS-LSP-FIRST
+    IF WS-LSP-UNIT > 0
+        PERFORM VARYING WS-LSP-EDGE FROM 1 BY 1
+                UNTIL WS-LSP-EDGE > FE-COUNT
+            PERFORM LSP-EDGE-OTHER-END
+            IF WS-LSP-OTHER > 0
+                PERFORM LSP-FIRST-EDGE-TO-OTHER
+                IF WS-LSP-EDGE-2 = WS-LSP-EDGE
+                   AND WS-LSP-PTR < LSP-SIZE - 8192
+                    PERFORM LSP-APPEND-HIERARCHY-CALL
+                END-IF
+            END-IF
+        END-PERFORM
+    END-IF
+    STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> WS-LSP-OTHER = the unit at the other end of edge WS-LSP-EDGE when
+*> the edge touches WS-LSP-UNIT the way asked, else 0.
+LSP-EDGE-OTHER-END.
+    MOVE 0 TO WS-LSP-OTHER
+    IF FE-TO(WS-LSP-EDGE) = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-DIRECTION = "I"
+        IF FE-TO(WS-LSP-EDGE) = WS-LSP-UNIT
+            MOVE FE-FROM(WS-LSP-EDGE) TO WS-LSP-OTHER
+        END-IF
+    ELSE
+        IF FE-FROM(WS-LSP-EDGE) = WS-LSP-UNIT
+            MOVE FE-TO(WS-LSP-EDGE) TO WS-LSP-OTHER
+        END-IF
+    END-IF.
+
+*> WS-LSP-EDGE-2 = the first edge with the same other end.
+LSP-FIRST-EDGE-TO-OTHER.
+    MOVE WS-LSP-OTHER TO WS-K
+    MOVE WS-LSP-EDGE TO WS-J
+    PERFORM VARYING WS-LSP-EDGE-2 FROM 1 BY 1
+            UNTIL WS-LSP-EDGE-2 >= WS-J
+        MOVE WS-LSP-EDGE-2 TO WS-LSP-EDGE
+        PERFORM LSP-EDGE-OTHER-END
+        IF WS-LSP-OTHER = WS-K
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    MOVE WS-J TO WS-LSP-EDGE
+    MOVE WS-K TO WS-LSP-OTHER.
+
+*> {"from"|"to": item, "fromRanges": [the procedure names]}.
+LSP-APPEND-HIERARCHY-CALL.
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST
+    IF WS-LSP-DIRECTION = "I"
+        STRING '{"from":' DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    ELSE
+        STRING '{"to":' DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE WS-LSP-OTHER TO WS-LSP-ITEM-UNIT
+    PERFORM LSP-APPEND-HIERARCHY-ITEM
+    STRING ',"fromRanges":[' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE WS-LSP-EDGE TO WS-J
+    MOVE WS-LSP-OTHER TO WS-K
+    MOVE "Y" TO WS-LSP-SEVERITY
+    PERFORM VARYING WS-LSP-EDGE FROM WS-J BY 1
+            UNTIL WS-LSP-EDGE > FE-COUNT
+        PERFORM LSP-EDGE-OTHER-END
+        IF WS-LSP-OTHER = WS-K AND FE-PROC(WS-LSP-EDGE) > 0
+            MOVE ND-NAME(FE-PROC(WS-LSP-EDGE)) TO WS-LSP-TOKEN
+            IF WS-LSP-TOKEN > 0
+                IF TK-SRC-LINE(WS-LSP-TOKEN) > 0
+                    IF WS-LSP-SEVERITY = "N"
+                        STRING "," DELIMITED BY SIZE
+                            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+                    END-IF
+                    MOVE "N" TO WS-LSP-SEVERITY
+                    MOVE SL-LINE-NO(TK-SRC-LINE(WS-LSP-TOKEN))
+                        TO WS-LSP-LINE
+                    MOVE TK-COLUMN(WS-LSP-TOKEN) TO WS-LSP-CHAR
+                    PERFORM LSP-APPEND-RANGE
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM
+    MOVE WS-J TO WS-LSP-EDGE
+    MOVE WS-K TO WS-LSP-OTHER
+    STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
+*> A CallHierarchyItem for unit WS-LSP-ITEM-UNIT: its name (or that of
+*> the division, for the code before the first paragraph), and the
+*> place of the name as range and selectionRange.
+LSP-APPEND-HIERARCHY-ITEM.
+    MOVE ND-NAME(FU-NODE(WS-LSP-ITEM-UNIT)) TO WS-LSP-TOKEN
+    IF WS-LSP-TOKEN = 0
+        MOVE ND-TOK-FIRST(FU-NODE(WS-LSP-ITEM-UNIT)) TO WS-LSP-TOKEN
+    END-IF
+    STRING '{"name":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF FU-KIND(WS-LSP-ITEM-UNIT) = "D"
+        STRING '"PROCEDURE DIVISION"' DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    ELSE
+        CALL "PLB-JSON-STRING" USING FU-NAME(WS-LSP-ITEM-UNIT)
+            WS-LSP-OUT WS-LSP-PTR
+    END-IF
+    STRING ',"kind":12,"detail":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    EVALUATE FU-KIND(WS-LSP-ITEM-UNIT)
+        WHEN "S"
+            STRING '"section",' DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        WHEN "P"
+            STRING '"paragraph",' DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        WHEN OTHER
+            STRING '"start",' DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-EVALUATE
+    *> {"uri":...,"range":...} without its braces, then the same range
+    *> as selectionRange.
+    MOVE WS-LSP-PTR TO WS-LSP-BRACE
+    PERFORM LSP-APPEND-LOCATION
+    MOVE SPACE TO WS-LSP-OUT(WS-LSP-BRACE:1)
+    SUBTRACT 1 FROM WS-LSP-PTR
+    STRING ',"selectionRange":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-APPEND-RANGE
+    STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
 
 *> Folding --------------------------------------------------------
 

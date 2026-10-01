@@ -95,6 +95,7 @@ class LanguageServerTest(unittest.TestCase):
         self.assertTrue(
             self.capabilities["renameProvider"]["prepareProvider"])
         self.assertTrue(self.capabilities["foldingRangeProvider"])
+        self.assertTrue(self.capabilities["callHierarchyProvider"])
         self.assertEqual(
             self.capabilities["codeActionProvider"]["codeActionKinds"],
             ["quickfix"])
@@ -313,6 +314,37 @@ class LanguageServerTest(unittest.TestCase):
 
     def test_no_quick_fix_without_a_finding(self):
         self.assertEqual(self.code_actions(0), [])
+
+    def hierarchy_item(self, needle, offset=0):
+        reply = self.server.request("textDocument/prepareCallHierarchy", {
+            "textDocument": {"uri": URI},
+            "position": self.position(needle, offset)})
+        return reply["result"]
+
+    def test_prepare_call_hierarchy(self):
+        [item] = self.hierarchy_item("PERFORM STEP-1", len("PERFORM "))
+        self.assertEqual(item["name"], "STEP-1")
+        self.assertEqual(item["detail"], "paragraph")
+        self.assertEqual(item["uri"], URI)
+        self.assertEqual(item["selectionRange"]["start"]["line"],
+                         self.position("STEP-1.")["line"])
+        self.assertIsNone(self.hierarchy_item("IF ERRORS", len("IF ")))
+
+    def test_incoming_calls(self):
+        [item] = self.hierarchy_item("ABEND.")
+        reply = self.server.request("callHierarchy/incomingCalls",
+                                    {"item": item})
+        [call] = reply["result"]
+        self.assertEqual(call["from"]["name"], "MAIN-LINE")
+        self.assertEqual(call["fromRanges"][0]["start"]["line"],
+                         self.position("GO TO ABEND")["line"])
+
+    def test_outgoing_calls(self):
+        [item] = self.hierarchy_item("MAIN-LINE.")
+        reply = self.server.request("callHierarchy/outgoingCalls",
+                                    {"item": item})
+        names = {call["to"]["name"] for call in reply["result"]}
+        self.assertEqual(names, {"INIT", "STEP-1", "ABEND"})
 
     def test_folding_ranges(self):
         reply = self.server.request("textDocument/foldingRange",
