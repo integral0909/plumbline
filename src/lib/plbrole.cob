@@ -209,13 +209,33 @@ CICS-ROLE.
     END-EVALUATE.
 
 *> LS-ROLE = "-" when the reference is the operand of LENGTH OF or
-*> BYTE-LENGTH OF, otherwise spaces.
+*> BYTE-LENGTH OF, or the whole argument of FUNCTION LENGTH or
+*> FUNCTION BYTE-LENGTH, otherwise spaces.
 CHECK-LENGTH-OF.
     MOVE SPACE TO LS-ROLE
     IF RF-TOKEN(LS-R) <= 2
         EXIT PARAGRAPH
     END-IF
     COMPUTE LS-T = RF-TOKEN(LS-R) - 1
+    *> FUNCTION LENGTH (item), FUNCTION BYTE-LENGTH (item): the item
+    *> is measured, not read, when it is the whole argument.
+    IF TK-IS-LPAREN(LS-T) AND LS-T > 2
+       AND RF-LAST(LS-R) < TK-COUNT
+        IF TK-IS-RPAREN(RF-LAST(LS-R) + 1)
+            SUBTRACT 1 FROM LS-T
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            IF (LS-TEXT = "LENGTH" OR LS-TEXT = "BYTE-LENGTH")
+               AND TK-IS-WORD(LS-T)
+                SUBTRACT 1 FROM LS-T
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT
+                    LS-LEN
+                IF LS-TEXT = "FUNCTION"
+                    MOVE "-" TO LS-ROLE
+                END-IF
+            END-IF
+        END-IF
+        EXIT PARAGRAPH
+    END-IF
     IF NOT TK-IS-WORD(LS-T)
         EXIT PARAGRAPH
     END-IF
