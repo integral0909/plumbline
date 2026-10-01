@@ -183,6 +183,9 @@ COPY "plbptok.cpy".
 01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
 01  LS-I                    PIC 9(9) COMP-5.
 01  LS-SAME                 PIC X.
+01  LS-END-NAME             PIC X(64).
+01  LS-PROGRAM-NAME         PIC X(64).
+01  LS-NAME-LEN             PIC 9(9) COMP-5.
 01  LS-DETAIL               PIC X(16).
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
@@ -333,8 +336,18 @@ END-PROGRAM.
     MOVE WS-PROG(WS-PROG-DEPTH) TO LS-NODE
     COMPUTE LS-I = PS-POS + 2
     IF LS-I < PS-END AND ND-NAME(LS-NODE) > 0
-        CALL "PLB-TOK-SAME" USING PLB-TOKENS LS-I ND-NAME(LS-NODE)
-            LS-SAME
+        *> A name may be written as a word or as a literal, here or in
+        *> PROGRAM-ID ("callee"); case and the spaces around a literal
+        *> name do not matter.
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-I LS-END-NAME LS-NAME-LEN
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(LS-NODE)
+            LS-PROGRAM-NAME LS-NAME-LEN
+        IF FUNCTION UPPER-CASE(FUNCTION TRIM(LS-END-NAME))
+           = FUNCTION UPPER-CASE(FUNCTION TRIM(LS-PROGRAM-NAME))
+            MOVE "Y" TO LS-SAME
+        ELSE
+            MOVE "N" TO LS-SAME
+        END-IF
         IF LS-SAME = "N"
             CALL "PLB-PX-DIAG" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
                 PLB-TOKENS LS-I "E" "PS010"
