@@ -71,7 +71,9 @@ COPY "plbmetrc.cpy".
 COPY "plbmetr.cpy".
 COPY "plbigrc.cpy".
 COPY "plbigr.cpy".
-78  MAX-INPUTS                  VALUE 256.
+*> Inputs and the copybooks they include share the source set's
+*> SS-MAX-FILES ids.
+78  MAX-INPUTS                  VALUE 10000.
 01  WS-ARG-COUNT            PIC 9(4).
 01  WS-ARG-INDEX            PIC 9(4).
 01  WS-ARG                  PIC X(1024).
@@ -182,6 +184,12 @@ COPY "plbigr.cpy".
 01  WS-LSP-EXIT-ROUTINE     PIC X(8) VALUE "_exit".
 01  WS-LSP-EXIT-STATUS      PIC S9(9) COMP-5.
 01  WS-LEN                  PIC 9(9) COMP-5.
+*> check keeps the lines of one input (and its copybooks) at a time:
+*> the source set as it was before the input was read, and the first
+*> finding the input added.
+01  WS-MARK-LINES           PIC 9(9) COMP-5.
+01  WS-MARK-HEAP            PIC 9(9) COMP-5.
+01  WS-FIRST-FINDING        PIC 9(9) COMP-5.
 
 PROCEDURE DIVISION.
 MAIN-LOGIC.
@@ -328,24 +336,42 @@ CHECK-COMMAND.
     IF WS-EXIT-CODE NOT = 0
         EXIT PARAGRAPH
     END-IF
-    PERFORM LOAD-INPUTS
+    PERFORM ADD-INPUTS
     CALL "PLB-FIND-INIT" USING PLB-FINDINGS
     CALL "PLB-CALL-INIT" USING PLB-CALL-GRAPH
     MOVE SS-FILE-COUNT TO WS-MAIN-FILES
     MOVE WS-MODE TO PO-FORMAT
     MOVE WS-DEBUG TO PO-DEBUG
+    *> One input at a time: read it, check it, settle which of its
+    *> findings comments suppress, and let its lines go. What is kept
+    *> (findings, the call graph) refers to files by id and line.
     PERFORM VARYING WS-FILE-ID FROM 1 BY 1
             UNTIL WS-FILE-ID > WS-MAIN-FILES
-        PERFORM ANALYZE-FILE
-        CALL "PLB-CHECK-RUN" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
-            PLB-SYMBOLS PLB-FLOW PLB-REFS PLB-RULES PLB-FINDINGS
-        CALL "PLB-CALL-COLLECT" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
-            PLB-SYMBOLS PLB-REFS PLB-CALL-GRAPH
+        MOVE SS-LINE-COUNT TO WS-MARK-LINES
+        MOVE SS-HEAP-USED TO WS-MARK-HEAP
+        CALL "PLB-SRC-ENSURE" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            WS-FILE-ID WS-STATUS
+        IF SF-LOADED(WS-FILE-ID) = "Y"
+            COMPUTE WS-FIRST-FINDING = FN-COUNT + 1
+            PERFORM ANALYZE-FILE
+            CALL "PLB-CHECK-RUN" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-AST PLB-SYMBOLS PLB-FLOW PLB-REFS PLB-RULES
+                PLB-FINDINGS
+            CALL "PLB-CALL-COLLECT" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-AST PLB-SYMBOLS PLB-REFS PLB-CALL-GRAPH
+            CALL "PLB-FIND-SUPPRESS-RANGE" USING PLB-SOURCE-SET
+                PLB-RULES PLB-FINDINGS WS-FIRST-FINDING FN-COUNT
+            PERFORM FORGET-SOURCE-LINES
+        END-IF
     END-PERFORM
     *> Rules about calls between programs, in any of the files.
+    COMPUTE WS-FIRST-FINDING = FN-COUNT + 1
     CALL "PLB-CALL-RESOLVE" USING PLB-CALL-GRAPH
     CALL "PLB-RULE-CALLS" USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH
-    CALL "PLB-FIND-SUPPRESS" USING PLB-SOURCE-SET PLB-RULES PLB-FINDINGS
+    PERFORM SUPPRESS-LATE-FINDINGS
+    IF FN-DROPPED > 0
+        PERFORM REPORT-DROPPED-FINDINGS
+    END-IF
     CALL "PLB-FIND-SORT" USING PLB-FINDINGS
     IF WS-WRITE-BASELINE NOT = SPACES
         PERFORM WRITE-BASELINE
@@ -377,6 +403,44 @@ CHECK-COMMAND.
     IF WS-FAILING > 0 OR DG-ERRORS > 0
         MOVE 1 TO WS-EXIT-CODE
     END-IF.
+
+*> Release the lines read since the mark. The SS-LINE indexes of
+*> findings made since WS-FIRST-FINDING point at released lines now.
+FORGET-SOURCE-LINES.
+    CALL "PLB-SRC-RELEASE" USING PLB-SOURCE-SET WS-MARK-LINES
+        WS-MARK-HEAP
+    PERFORM VARYING WS-I FROM WS-FIRST-FINDING BY 1
+            UNTIL WS-I > FN-COUNT
+        MOVE 0 TO FN-SRC-LINE(WS-I)
+    END-PERFORM.
+
+*> A report that leaves findings out must say so.
+REPORT-DROPPED-FINDINGS.
+    MOVE FN-DROPPED TO WS-NUM
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    MOVE SPACES TO WS-OUT
+    STRING WS-NUM-TEXT(1:WS-NUM-LEN) DELIMITED BY SIZE
+           " findings were left out: a run keeps at most " DELIMITED BY SIZE
+           FN-MAX DELIMITED BY SIZE
+           "; check fewer files at a time" DELIMITED BY SIZE
+        INTO WS-OUT
+    MOVE 0 TO WS-POS-FILE WS-POS-LINE WS-POS-COLUMN
+    CALL "PLB-DIAG-ADD" USING PLB-DIAGNOSTICS "E" "FN001" WS-POS-FILE
+        WS-POS-LINE WS-POS-COLUMN WS-OUT.
+
+*> Findings from WS-FIRST-FINDING on were made after the lines of
+*> their files were released: read each file again to see its
+*> suppression comments.
+SUPPRESS-LATE-FINDINGS.
+    PERFORM VARYING WS-I FROM WS-FIRST-FINDING BY 1
+            UNTIL WS-I > FN-COUNT
+        CALL "PLB-SRC-LINE-INDEX" USING PLB-SOURCE-SET FN-FILE-ID(WS-I)
+            FN-LINE(WS-I) FN-SRC-LINE(WS-I)
+        MOVE WS-I TO WS-J
+        CALL "PLB-FIND-SUPPRESS-RANGE" USING PLB-SOURCE-SET PLB-RULES
+            PLB-FINDINGS WS-I WS-J
+        MOVE 0 TO FN-SRC-LINE(WS-I)
+    END-PERFORM.
 
 *> Record the findings as accepted, rather than report them. A
 *> baseline that is in use is not applied: the new one lists all
@@ -2245,6 +2309,15 @@ SET-MODE.
                 "' (expected fixed, free, or auto)" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
     END-EVALUATE.
+
+*> Give every input an id, in order, without reading it yet.
+ADD-INPUTS.
+    CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET
+    CALL "PLB-DIAG-INIT" USING PLB-DIAGNOSTICS
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > WS-INPUT-COUNT
+        CALL "PLB-SRC-ADD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            WS-INPUT(WS-I) WS-MODE WS-FILE-ID
+    END-PERFORM.
 
 LOAD-INPUTS.
     CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET

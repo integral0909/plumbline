@@ -31,6 +31,22 @@ check() {
     fi
 }
 
+# check_file LABEL PATTERN FILE: a line of FILE matches PATTERN.
+check_file() {
+    n=$((n + 1))
+    if grep -q -- "$2" "$3"; then
+        echo "ok $n - $1"
+    else
+        failed=$((failed + 1))
+        echo "not ok $n - $1"
+        echo "  ---"
+        echo "  expected a line matching: $2"
+        echo "  actual file:"
+        sed 's/^/    /' "$3"
+        echo "  ..."
+    fi
+}
+
 echo "TAP version 13"
 echo "# suite: cli"
 check "--version prints name and version" 0 '^plumbline [0-9]' -- --version
@@ -122,6 +138,18 @@ cx=tests/fixtures/calls
 check "calls are checked across files"    1 'billing.cob:9:17: warning: argument 1 (CUST-ID, 6 bytes) is smaller than parameter LK-CUST-ID of CUSTLOOK (8 bytes) \[PLB-C014\]' \
     -- check $cx/billing.cob $cx/custlook.cob
 check "calls to programs not in the run are not checked" 0 '^$' -- check $cx/billing.cob
+check "comments suppress call findings in earlier files" 0 '^$' \
+    -- check $cx/archive.cob $cx/custlook.cob
+check "html shows lines of files checked earlier" 1 '<mark>     9             CALL &quot;CUSTLOOK&quot;' \
+    -- check --report html $cx/billing.cob $cx/custlook.cob
+tmp_baseline=$(mktemp)
+check "baselines key findings of earlier files by their line" 0 'wrote 1 findings' \
+    -- check --write-baseline "$tmp_baseline" $cx/billing.cob $cx/custlook.cob
+check_file "baseline line holds the source line" \
+    '| CALL "CUSTLOOK" USING CUST-ID CUST-NAME$' "$tmp_baseline"
+check "a baseline of several files hides their findings" 0 '^$' \
+    -- check --baseline "$tmp_baseline" $cx/billing.cob $cx/custlook.cob
+rm -f "$tmp_baseline"
 check "dynamic-call is off by default"    0 '^$' -- check --disable call-argument-count --disable call-argument-mismatch --disable recursive-call $rx/c013-c015-calls.cob
 check "dump calls lists parameters"       0 '^  parameter LK-CUST-ID reference 8$' -- dump calls $cx/custlook.cob
 check "help lists dump calls"             0 'dump calls' -- --help
