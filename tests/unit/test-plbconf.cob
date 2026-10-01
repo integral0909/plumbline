@@ -1,0 +1,61 @@
+*> Unit tests for src/lib/plbconf.cob.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. TEST-PLBCONF.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbconf.cpy".
+01  WS-STATUS               PIC 9(4) COMP-5.
+01  WS-EXPECT-NUM           PIC S9(18) COMP-5.
+01  WS-ACTUAL-NUM           PIC S9(18) COMP-5.
+
+PROCEDURE DIVISION.
+    CALL "PLBT-BEGIN" USING "plbconf"
+    PERFORM TEST-SETTINGS
+    PERFORM TEST-MISSING-FILE
+    CALL "PLBT-END"
+    STOP RUN.
+
+TEST-SETTINGS.
+    CALL "PLBT-CASE" USING "PLB-CONF-READ settings"
+    CALL "PLB-CONF-READ" USING "tests/fixtures/config/parse.conf"
+        PLB-CONFIG WS-STATUS
+    MOVE 0 TO WS-EXPECT-NUM
+    MOVE WS-STATUS TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "file is read" WS-EXPECT-NUM
+        WS-ACTUAL-NUM
+    MOVE 4 TO WS-EXPECT-NUM
+    MOVE CF-COUNT TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "comments and blank lines are left out"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+
+    CALL "PLBT-ASSERT-STR" USING "key" "include" CF-KEY(1)
+    CALL "PLBT-ASSERT-STR" USING "value" "copy" CF-VALUE(1)
+    MOVE 4 TO WS-EXPECT-NUM
+    MOVE CF-LINE-NO(1) TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "line number counts every line"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+
+    CALL "PLBT-ASSERT-STR" USING "tabs separate like spaces"
+        "format" CF-KEY(2)
+    CALL "PLBT-ASSERT-STR" USING "value after a tab" "free" CF-VALUE(2)
+
+    CALL "PLBT-ASSERT-STR" USING "value keeps inner spaces"
+        "go-to   error" CF-VALUE(3)
+
+    CALL "PLBT-ASSERT-STR" USING "key without a value" "debug" CF-KEY(4)
+    CALL "PLBT-ASSERT-STR" USING "missing value is blank" SPACES
+        CF-VALUE(4)
+    CALL "PLBT-ASSERT-FLAG" USING "no overflow" "N" CF-OVERFLOW.
+
+TEST-MISSING-FILE.
+    CALL "PLBT-CASE" USING "PLB-CONF-READ missing file"
+    CALL "PLB-CONF-READ" USING "tests/fixtures/config/none.conf"
+        PLB-CONFIG WS-STATUS
+    MOVE 1 TO WS-EXPECT-NUM
+    MOVE WS-STATUS TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "status 1" WS-EXPECT-NUM WS-ACTUAL-NUM
+    MOVE 0 TO WS-EXPECT-NUM
+    MOVE CF-COUNT TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "no settings" WS-EXPECT-NUM
+        WS-ACTUAL-NUM.
+END PROGRAM TEST-PLBCONF.
