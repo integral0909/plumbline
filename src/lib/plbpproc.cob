@@ -288,9 +288,13 @@ SENTENCE-TOKEN.
 *> the statement being collected, or text that cannot be here.
 OPERAND-TOKEN.
     IF WS-CX-DEPTH > 0
+        *> SORT ... INPUT PROCEDURE p, XML PARSE ... PROCESSING
+        *> PROCEDURE p: the procedures run as a PERFORM's do.
         IF CX-TYPE(WS-CX-DEPTH) = "S"
            AND (CX-VERB(WS-CX-DEPTH) = "SORT"
-                OR CX-VERB(WS-CX-DEPTH) = "MERGE")
+                OR CX-VERB(WS-CX-DEPTH) = "MERGE"
+                OR CX-VERB(WS-CX-DEPTH) = "XML"
+                OR CX-VERB(WS-CX-DEPTH) = "JSON")
             PERFORM SORT-OPERAND
             EXIT PARAGRAPH
         END-IF
