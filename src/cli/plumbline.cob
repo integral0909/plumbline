@@ -24,6 +24,9 @@
 *>   baseline FILE        like --baseline FILE
 *>   plumbline metrics [-I DIR]... [--format ...] [--debug]
 *>                     [--report text|json|csv] FILE...
+*>   plumbline graph [--kind performs|calls|copybooks]
+*>                   [--report dot|json] [-I DIR]... FILE...
+*>   plumbline impact NAME [-I DIR]... FILE...
 *>   plumbline dump lines  [--format fixed|free|auto] FILE...
 *>   plumbline dump tokens [--format fixed|free|auto] [--debug] FILE...
 *>   plumbline dump expanded [-I DIR]... [--format ...] [--debug] FILE...
@@ -62,6 +65,8 @@ COPY "plbcall.cpy".
 COPY "plbconf.cpy".
 COPY "plbmetrc.cpy".
 COPY "plbmetr.cpy".
+COPY "plbigrc.cpy".
+COPY "plbigr.cpy".
 78  MAX-INPUTS                  VALUE 256.
 01  WS-ARG-COUNT            PIC 9(4).
 01  WS-ARG-INDEX            PIC 9(4).
@@ -125,6 +130,9 @@ COPY "plbmetr.cpy".
 01  WS-BASELINE-COUNT       PIC 9(9) COMP-5.
 01  WS-COMMAND              PIC X(8).
 01  WS-FIRST                PIC X.
+01  WS-GRAPH-KIND           PIC X(10) VALUE "performs".
+01  WS-IMPACT-NAME          PIC X(512).
+01  WS-FOUND                PIC X.
 
 PROCEDURE DIVISION.
 MAIN-LOGIC.
@@ -150,6 +158,13 @@ MAIN-LOGIC.
             WHEN "metrics"
                 MOVE "metrics" TO WS-COMMAND
                 PERFORM METRICS-COMMAND
+            WHEN "graph"
+                MOVE "graph" TO WS-COMMAND
+                MOVE "dot" TO WS-REPORT
+                PERFORM GRAPH-COMMAND
+            WHEN "impact"
+                MOVE "impact" TO WS-COMMAND
+                PERFORM IMPACT-COMMAND
             WHEN OTHER
                 IF WS-ARG(1:1) = "-"
                     PERFORM UNKNOWN-OPTION
@@ -187,6 +202,8 @@ SHOW-USAGE.
     DISPLAY "Usage: plumbline [OPTION]..."
     DISPLAY "       plumbline check [OPTION]... FILE..."
     DISPLAY "       plumbline metrics [OPTION]... FILE..."
+    DISPLAY "       plumbline graph [--kind KIND] [OPTION]... FILE..."
+    DISPLAY "       plumbline impact NAME [OPTION]... FILE..."
     DISPLAY "       plumbline dump lines [--format FORMAT] FILE..."
     DISPLAY "       plumbline dump tokens [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump expanded [-I DIR]... [--format FORMAT] [--debug] FILE..."
@@ -205,6 +222,12 @@ SHOW-USAGE.
     DISPLAY "  check            analyze programs and report findings"
     DISPLAY "  metrics          report size and complexity of programs"
     DISPLAY "                   and their paragraphs"
+    DISPLAY "  graph            draw the PERFORM graph of each program"
+    DISPLAY "                   (--kind performs), the CALL graph"
+    DISPLAY "                   (calls), or the copybook graph"
+    DISPLAY "                   (copybooks), as DOT or JSON"
+    DISPLAY "  impact NAME      list what includes copybook NAME or"
+    DISPLAY "                   calls program NAME, directly or not"
     DISPLAY "  dump lines       show how each source line was read"
     DISPLAY "  dump tokens      show the tokens of each source file"
     DISPLAY "  dump expanded    show the tokens after COPY and REPLACE"
@@ -229,7 +252,8 @@ SHOW-USAGE.
     DISPLAY "  --fail-on LEVEL  exit 1 on findings at or above LEVEL:"
     DISPLAY "                   error, warning (default), note, never"
     DISPLAY "  --report FORMAT  text (default), json, or sarif; for"
-    DISPLAY "                   metrics: text, json, or csv"
+    DISPLAY "                   metrics: text, json, or csv; for"
+    DISPLAY "                   graph: dot (default) or json"
     DISPLAY "  --baseline FILE  do not report the findings listed in FILE"
     DISPLAY "  --write-baseline FILE"
     DISPLAY "                   write the findings to FILE instead of"
@@ -345,6 +369,81 @@ METRICS-COMMAND.
         DISPLAY "}"
     END-IF
     PERFORM REPORT-DIAGNOSTICS
+    IF DG-ERRORS > 0
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+*> graph and impact -------------------------------------------------
+
+*> Analyze every file, collecting what the graph or impact needs: the
+*> include graph and the call graph of the run.
+ANALYZE-RUN.
+    CALL "PLB-CALL-INIT" USING PLB-CALL-GRAPH
+    MOVE 0 TO GI-COUNT
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES GI-MAIN-FILES
+    MOVE WS-MODE TO PO-FORMAT
+    MOVE WS-DEBUG TO PO-DEBUG
+    MOVE "Y" TO WS-FIRST
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        PERFORM ANALYZE-FILE
+        CALL "PLB-GRAPH-INCLUDES-ADD" USING PLB-INCLUSIONS
+            PLB-INCLUDE-GRAPH
+        CALL "PLB-CALL-COLLECT" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
+            PLB-SYMBOLS PLB-REFS PLB-CALL-GRAPH
+        IF WS-COMMAND = "graph" AND WS-GRAPH-KIND = "performs"
+            CALL "PLB-GRAPH-PERFORMS" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-AST PLB-FLOW WS-REPORT WS-FIRST
+        END-IF
+    END-PERFORM
+    CALL "PLB-CALL-RESOLVE" USING PLB-CALL-GRAPH.
+
+GRAPH-COMMAND.
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM LOAD-INPUTS
+    CALL "PLB-GRAPH-START" USING WS-REPORT WS-GRAPH-KIND
+    PERFORM ANALYZE-RUN
+    EVALUATE WS-GRAPH-KIND
+        WHEN "calls"
+            CALL "PLB-GRAPH-CALLS" USING PLB-SOURCE-SET PLB-CALL-GRAPH
+                WS-REPORT
+        WHEN "copybooks"
+            CALL "PLB-GRAPH-INCLUDES" USING PLB-SOURCE-SET
+                PLB-INCLUDE-GRAPH WS-REPORT
+    END-EVALUATE
+    CALL "PLB-GRAPH-END" USING WS-REPORT
+    PERFORM REPORT-DIAGNOSTICS
+    IF DG-ERRORS > 0
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+IMPACT-COMMAND.
+    PERFORM NEXT-ARG
+    IF WS-ARG-LEN = 0 OR WS-ARG(1:1) = "-"
+        DISPLAY PLB-NAME ": impact needs a copybook or program name"
+            UPON SYSERR
+        PERFORM SUGGEST-HELP
+        EXIT PARAGRAPH
+    END-IF
+    MOVE WS-ARG TO WS-IMPACT-NAME
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM LOAD-INPUTS
+    PERFORM ANALYZE-RUN
+    CALL "PLB-IMPACT" USING PLB-SOURCE-SET PLB-CALL-GRAPH
+        PLB-INCLUDE-GRAPH WS-IMPACT-NAME WS-FOUND
+    PERFORM REPORT-DIAGNOSTICS
+    IF WS-FOUND = "N"
+        CALL "PLB-STR-LENGTH" USING WS-IMPACT-NAME WS-PATH-LEN
+        DISPLAY PLB-NAME ": no copybook or program named "
+            WS-IMPACT-NAME(1:WS-PATH-LEN) " in the input" UPON SYSERR
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF
     IF DG-ERRORS > 0
         MOVE 1 TO WS-EXIT-CODE
     END-IF.
@@ -1104,6 +1203,18 @@ PARSE-INPUT-ARGS.
             WHEN WS-ARG = "--report"
                 PERFORM NEXT-ARG
                 PERFORM SET-REPORT
+            WHEN WS-ARG = "--kind" AND WS-COMMAND = "graph"
+                PERFORM NEXT-ARG
+                EVALUATE WS-ARG
+                    WHEN "performs" WHEN "calls" WHEN "copybooks"
+                        MOVE WS-ARG TO WS-GRAPH-KIND
+                    WHEN OTHER
+                        DISPLAY PLB-NAME ": invalid --kind '"
+                            WS-ARG(1:WS-ARG-LEN)
+                            "' (expected performs, calls, or copybooks)"
+                            UPON SYSERR
+                        MOVE 2 TO WS-EXIT-CODE
+                END-EVALUATE
             WHEN WS-ARG = "-I"
                 IF WS-ARG-INDEX > WS-ARG-COUNT
                     DISPLAY PLB-NAME ": -I needs a directory" UPON SYSERR
@@ -1315,12 +1426,21 @@ SET-FAIL-ON.
 
 SET-REPORT.
     EVALUATE TRUE
-        WHEN WS-ARG = "text" OR WS-ARG = "json"
+        WHEN WS-ARG = "json"
+            MOVE WS-ARG TO WS-REPORT
+        WHEN WS-ARG = "text" AND WS-COMMAND NOT = "graph"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "sarif" AND WS-COMMAND NOT = "metrics"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "csv" AND WS-COMMAND = "metrics"
             MOVE WS-ARG TO WS-REPORT
+        WHEN WS-ARG = "dot" AND WS-COMMAND = "graph"
+            MOVE WS-ARG TO WS-REPORT
+        WHEN WS-COMMAND = "graph"
+            DISPLAY PLB-NAME ": invalid --report format '"
+                WS-ARG(1:WS-ARG-LEN)
+                "' (expected dot or json)" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
         WHEN WS-COMMAND = "metrics"
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)

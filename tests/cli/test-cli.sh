@@ -185,6 +185,32 @@ else
     echo "not ok $n - metrics json is valid for several files"
 fi
 
+ix=tests/fixtures/impact
+check "impact of a copybook"              0 "included by $ix/custlook.cob through $ix/custio.cpy" \
+    -- impact custrec -I $ix $ix/custlook.cob $ix/billing.cob $ix/menu.cob
+check "impact of a program"               0 "called by MENU at $ix/menu.cob:5 through BILLING" \
+    -- impact CUSTLOOK -I $ix $ix/custlook.cob $ix/billing.cob $ix/menu.cob
+check "impact of an unknown name"         1 'no copybook or program named NOPE in the input' \
+    -- impact NOPE -I $ix $ix/menu.cob
+check "impact needs a name"               2 'impact needs a copybook or program name' -- impact -I $ix
+check "graph of calls"                    0 '^  "MENU" -> "BILLING";$' \
+    -- graph --kind calls -I $ix $ix/custlook.cob $ix/billing.cob $ix/menu.cob
+check "graph of copybooks"                0 "\"$ix/custio.cpy\" -> \"$ix/custrec.cpy\";" \
+    -- graph --kind copybooks -I $ix $ix/custlook.cob $ix/billing.cob
+check "graph refuses an unknown kind"     2 "invalid --kind 'data'" -- graph --kind data $ix/menu.cob
+check "graph refuses csv"                 2 "invalid --report format 'csv' (expected dot or json)" \
+    -- graph --report csv $ix/menu.cob
+for kind in performs calls copybooks; do
+    n=$((n + 1))
+    if "$bin" graph --kind $kind --report json -I $ix $ix/custlook.cob $ix/billing.cob $ix/menu.cob \
+            | python3 -m json.tool >/dev/null 2>&1; then
+        echo "ok $n - graph json is valid ($kind)"
+    else
+        failed=$((failed + 1))
+        echo "not ok $n - graph json is valid ($kind)"
+    fi
+done
+
 # check_report LABEL FORMAT EXPECTED-COUNT -- ARGS...
 # Run plumbline and validate its report with tests/tools/check_report.py.
 check_report() {
