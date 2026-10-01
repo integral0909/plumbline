@@ -4,6 +4,7 @@
 *>   PLB-C018  sql-not-checked
 *>   PLB-C019  cics-response-not-checked
 *>   PLB-S001  dynamic-sql
+*>   PLB-M014  sql-select-star
 *>
 *> "Checked" means that a statement after the command, in the same
 *> paragraph and before the next command of the same kind, names the
@@ -18,6 +19,8 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE-SQL             PIC 9(4) COMP-5.
 01  LS-RULE-CICS            PIC 9(4) COMP-5.
 01  LS-RULE-DYNAMIC         PIC 9(4) COMP-5.
+01  LS-RULE-STAR            PIC 9(4) COMP-5.
+01  LS-IN-SQL               PIC X.
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-DEPTH                PIC S9(9) COMP-5.
@@ -54,6 +57,10 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C018" LS-RULE-SQL
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C019" LS-RULE-CICS
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-S001" LS-RULE-DYNAMIC
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M014" LS-RULE-STAR
+    IF RL-ENABLED(LS-RULE-STAR) = "Y"
+        PERFORM CHECK-SELECT-STAR
+    END-IF
     IF AS-COUNT = 0
         GOBACK
     END-IF
@@ -85,6 +92,45 @@ EXEC-STATEMENT.
         WHEN "CICS"
             PERFORM CICS-STATEMENT
     END-EVALUATE.
+
+*> PLB-M014: SELECT * in embedded SQL, anywhere: in a statement, in
+*> a DECLARE CURSOR in working-storage, in INSERT ... SELECT. The
+*> program then depends on every column of the table and on their
+*> order, and breaks when a column is added. COUNT(*) is fine.
+CHECK-SELECT-STAR.
+    MOVE "N" TO LS-IN-SQL
+    PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T >= TK-COUNT
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            EVALUATE TRUE
+                WHEN LS-TEXT = "EXEC" OR LS-TEXT = "EXECUTE"
+                    COMPUTE LS-K = LS-T + 1
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT
+                        LS-LEN
+                    IF LS-TEXT = "SQL"
+                        MOVE "Y" TO LS-IN-SQL
+                    END-IF
+                WHEN LS-TEXT = "END-EXEC"
+                    MOVE "N" TO LS-IN-SQL
+                WHEN LS-TEXT = "SELECT" AND LS-IN-SQL = "Y"
+                    PERFORM CHECK-STAR-AFTER-SELECT
+            END-EVALUATE
+        END-IF
+    END-PERFORM.
+
+CHECK-STAR-AFTER-SELECT.
+    COMPUTE LS-K = LS-T + 1
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+    IF TK-IS-WORD(LS-K) AND (LS-TEXT = "DISTINCT" OR LS-TEXT = "ALL")
+        ADD 1 TO LS-K
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+    END-IF
+    IF TK-IS-OPERATOR(LS-K) AND LS-TEXT = "*"
+        MOVE "SELECT * depends on every column of the table and their"
+            & " order; name the columns" TO LS-MESSAGE
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE-STAR LS-T LS-MESSAGE
+    END-IF.
 
 *> SQL -------------------------------------------------------------
 

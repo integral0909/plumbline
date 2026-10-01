@@ -106,6 +106,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-M011 evaluate-without-other (off by default).
 - Rule PLB-M012 deep-nesting (off by default, limit 5).
 - Rule PLB-M013 unused-copybook.
+- Rule PLB-M014 sql-select-star.
 - `plumbline rules [--report text|json]` lists the rules as configured.
 - Conditional compilation: `>>IF`/`>>ELIF`/`>>ELSE`/`>>END-IF` and
   `$IF`/`$ELSE`/`$END` with `DEFINED` and `SET` conditions, and

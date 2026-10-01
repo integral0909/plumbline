@@ -54,6 +54,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M011](#plb-m011-evaluate-without-other) | evaluate-without-other | note, off | EVALUATE has no WHEN OTHER |
 | [PLB-M012](#plb-m012-deep-nesting) | deep-nesting | note, off | Statements are nested deeper than the limit |
 | [PLB-M013](#plb-m013-unused-copybook) | unused-copybook | note | Copybook declares data the program never uses |
+| [PLB-M014](#plb-m014-sql-select-star) | sql-select-star | note | Embedded SQL selects every column with SELECT * |
 | [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, off | CALL of a compiler library routine |
 | [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
@@ -1048,6 +1049,22 @@ ADDRESS-LINES`, `PIC X(NAME-LEN)`).
 A copybook that only copies other copybooks is judged by them. One
 that holds anything else is not reported: file or linkage entries,
 `GLOBAL` or `EXTERNAL` items, or code.
+
+## PLB-M014 sql-select-star
+
+`SELECT *` in embedded SQL, in a statement, in a `DECLARE CURSOR` (also
+one in working-storage), or in `INSERT ... SELECT`:
+
+```cobol
+    EXEC SQL DECLARE ALL-EMP CURSOR FOR
+        SELECT * FROM EMPLOYEE              *> noted
+    END-EXEC.
+```
+
+The host variables of `INTO` or `FETCH` must match the table's columns
+one for one, in order. With `SELECT *` they do so only until a column
+is added, and nothing in the program says which columns it reads.
+Name the columns. `COUNT(*)` is not reported.
 
 ## PLB-P001 vendor-routine
 

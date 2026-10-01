@@ -1,0 +1,3 @@
+tests/golden/rules/m014-sql-select-star.cob:10:9: note: SELECT * depends on every column of the table and their order; name the columns [PLB-M014]
+tests/golden/rules/m014-sql-select-star.cob:15:14: note: SELECT * depends on every column of the table and their order; name the columns [PLB-M014]
+tests/golden/rules/m014-sql-select-star.cob:21:38: note: SELECT * depends on every column of the table and their order; name the columns [PLB-M014]
