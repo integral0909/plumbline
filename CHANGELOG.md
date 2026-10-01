@@ -107,6 +107,9 @@ uses [Semantic Versioning](https://semver.org/).
   PLB-J004 dd-cannot-be-read.
 - The JCL reader records the program that IMS (`DFSRRC00`) and DB2
   (`IKJEFT01`, `RUN PROGRAM`) steps run, and the J rules check it.
+- `plumbline inventory [--report text|json]` describes an application:
+  its programs with what starts them and what they use, its jobs,
+  transactions, and maps.
 - Rule PLB-A001 unused-program, for runs with JCL or CICS definitions.
 - `plumbline graph --kind jobs` draws which jobs and procedures run
   which programs, and `impact` lists the job steps that run a program

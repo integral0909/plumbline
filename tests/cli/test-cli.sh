@@ -302,6 +302,28 @@ check_absent "no JCL or definitions, no unused programs" 'PLB-A001' \
     -- check --no-config --fail-on never $jx/payupd.cob $jx/payold.cob
 check "dump jcl shows what IMS and TSO steps run" 0 'step DB2STEP pgm IKJEFT01 runs PAYDB2$' \
     -- dump jcl tests/golden/jcl/starters.jcl
+check "inventory lists programs and how they start" 0 '^program PAYUPD batch tests/fixtures/jcl/payupd.cob:3$' \
+    -- inventory $ax
+check "inventory lists what starts a program" 0 '^  run by step UPD of procedure PAYPROC$' \
+    -- inventory $ax
+check "inventory lists a program's files"  0 '^  file MASTER dd PAYMAST i-o$' \
+    -- inventory $ax
+check "inventory counts menu names"         0 '^program PAYRPT online .*$' \
+    -- inventory $ax
+check "inventory lists jobs"                0 '^  step NIGHTLY runs procedure PAYPROC$' \
+    -- inventory $ax
+check "inventory lists transactions"        0 '^transaction PAYM runs PAYMENU$' \
+    -- inventory $ax
+check "inventory refuses sarif"             2 "invalid --report format 'sarif' (expected text or json)" \
+    -- inventory --report sarif $jx/payupd.cob
+n=$((n + 1))
+if "$bin" inventory --report json $ax tests/fixtures/bms/screens.bms tests/fixtures/bms/screens.cob \
+        | python3 -m json.tool >/dev/null 2>&1; then
+    echo "ok $n - inventory json is valid"
+else
+    failed=$((failed + 1))
+    echo "not ok $n - inventory json is valid"
+fi
 check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
 check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
     -- rules --no-config --enable evaluate-without-other

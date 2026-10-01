@@ -36,6 +36,8 @@
         *> "Y" for IS COMMON and IS RECURSIVE programs.
         10  CP-COMMON           PIC X.
         10  CP-RECURSIVE        PIC X.
+        *> "Y" when the program has EXEC CICS commands.
+        10  CP-CICS             PIC X.
         10  CP-PARAM-FIRST      PIC 9(9) COMP-5.
         10  CP-PARAM-COUNT      PIC 9(4) COMP-5.
         *> Where the program's first STOP RUN is (CP-STOP-LINE 0:
