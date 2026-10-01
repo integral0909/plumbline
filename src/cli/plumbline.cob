@@ -853,6 +853,8 @@ DOC-COMMAND.
     END-IF
     PERFORM ADD-INPUTS
     PERFORM ANALYZE-RUN
+    CALL "PLB-DATASETS-COLLECT" USING PLB-CALL-GRAPH PLB-JCL
+        PLB-DATASETS
     MOVE "md" TO WS-REPORT
     MOVE "Y" TO WS-FIRST
     PERFORM VARYING WS-FILE-ID FROM 1 BY 1
@@ -878,7 +880,8 @@ DOC-COMMAND.
 
 *> The page of program WS-M of the metrics: its place in the run (the
 *> program of the call graph defined at the same name in this file),
-*> its paragraphs, and its records.
+*> the data sets its job steps give it, its paragraphs, and its
+*> records.
 DOC-PROGRAM.
     IF WS-FIRST = "N"
         DISPLAY "---"
@@ -898,6 +901,8 @@ DOC-PROGRAM.
     IF WS-P > 0
         CALL "PLB-INVENTORY" USING PLB-SOURCE-SET PLB-CALL-GRAPH PLB-JCL
             PLB-CSD PLB-BMS WS-REPORT WS-P
+        CALL "PLB-DOC-DATASETS" USING PLB-CALL-GRAPH PLB-JCL
+            PLB-DATASETS WS-P
     END-IF
     CALL "PLB-DOC-PARAGRAPHS" USING PLB-FLOW PLB-METRICS WS-M
     DISPLAY "## Records"

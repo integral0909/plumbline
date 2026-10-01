@@ -125,7 +125,8 @@ uses [Semantic Versioning](https://semver.org/).
 - `plumbline impact DSN` lists the job steps that read and write a data
   set.
 - `plumbline doc` writes a Markdown page for each program: what starts
-  it, what it uses, its paragraphs, and its records.
+  it, what it uses, the data sets its job steps give it, its
+  paragraphs, and its records.
 - The SQL tables each program uses, in `dump calls` and `inventory`,
   and rule PLB-Q001 sql-table-undeclared.
 - Rule PLB-A001 unused-program, for runs with JCL or CICS definitions.

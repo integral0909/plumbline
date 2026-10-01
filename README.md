@@ -207,7 +207,8 @@ program CBTRN02C batch app/cbl/CBTRN02C.cbl:23
 ## Program documentation
 
 `plumbline doc` writes a Markdown page for each program: what starts
-it and what it uses (as in the inventory), its paragraphs and sections
+it and what it uses (as in the inventory), the data sets the job steps
+running it give it, its paragraphs and sections
 with their size, complexity, what they perform and go to, and whether
 they can run at all, and its records with the layout of each item.
 Give it the same inputs as the inventory.

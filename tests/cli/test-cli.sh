@@ -405,6 +405,10 @@ check "doc writes a line of one statement" 0 '^9 lines, 1 statement, complexity 
     -- doc $dx/calls/scopes.cob
 check "doc writes the size of a one-byte record" 0 '^### COUNTER (1 byte)$' \
     -- doc $dx/metrics/complexity.cob
+check "doc lists the data sets of a batch program" 0 '^| PAYROLL.NIGHTLY | UPD.PAYLOG | `PAY.LOG` | written |$' \
+    -- doc tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/paylog.cob tests/fixtures/jcl/payroll.jcl tests/fixtures/jcl/payproc.prc
+check_absent "doc has no data sets without JCL" '^## Data sets$' \
+    -- doc tests/fixtures/jcl/payupd.cob
 check "doc refuses --report"              2 'doc writes Markdown only' \
     -- doc --report json $dx/metrics/complexity.cob
 n=$((n + 1))
