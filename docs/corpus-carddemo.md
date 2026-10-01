@@ -157,6 +157,10 @@ Some findings that were read and are true:
   `0000-MAIN-EXIT` on lines 408 and 411. Nothing performs either, so
   the program compiles; a `PERFORM 0000-MAIN-EXIT` added later would
   not. The NIST and GnuCOBOL suites have no repeats.
+- **PLB-C036 arithmetic-overflow.** The authorization programs
+  `COPAUA0C` and `CBPAUP0C` add and subtract `S9(10)V99` amounts into
+  the `S9(09)V99` totals of the pending-authorization summary
+  (`CIPAUSMY`), so a large enough amount wraps a total (5 findings).
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)
