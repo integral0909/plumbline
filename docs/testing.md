@@ -49,6 +49,7 @@ suites and their commands are listed in `GOLDEN_SUITES` in the Makefile:
 | `tests/golden/rules` | `plumbline check --fail-on never` |
 | `tests/golden/refs` | `plumbline dump refs` |
 | `tests/golden/calls` | `plumbline dump calls` |
+| `tests/golden/metrics` | `plumbline metrics` |
 
 Copybooks for the `pp` suite live in `tests/golden/pp/copy/`, with a
 `.cpy` extension, so the runner does not mistake them for test inputs.

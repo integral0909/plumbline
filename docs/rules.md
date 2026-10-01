@@ -36,9 +36,13 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M006](#plb-m006-dynamic-call) | dynamic-call | note, off | CALL of a program named by a data item |
 | [PLB-M007](#plb-m007-detail-never-generated) | detail-never-generated | note | Report detail group is never generated |
 | [PLB-M008](#plb-m008-file-not-closed) | file-not-closed | note | File is opened but never closed |
+| [PLB-M009](#plb-m009-complex-paragraph) | complex-paragraph | note, off | Paragraph or section is more complex than the limit |
+| [PLB-M010](#plb-m010-long-paragraph) | long-paragraph | note, off | Paragraph or section has more statements than the limit |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 
-Rules marked *off* run only when enabled with `--enable`.
+Rules marked *off* run only when enabled with `--enable` (or `enable`
+in `plumbline.conf`). Rules that measure something have a limit, which
+`limit RULE N` in `plumbline.conf` changes.
 
 Categories: **C** correctness, **M** maintainability, **P** portability,
 **S** security.
@@ -625,6 +629,33 @@ A file that the program opens but never closes:
 Most runtimes close files when the run ends, but the last records of an
 unclosed output file can be lost when a program is called rather than
 run, and the file stays locked for others.
+
+## PLB-M009 complex-paragraph
+
+A paragraph or section whose complexity, as `plumbline metrics` reports
+it, is above the limit (15 by default):
+
+```
+paragraph CHECK-CLAIM has complexity 23 (limit 15)
+```
+
+Complexity counts the paths through the code. The more there are, the
+harder the paragraph is to test and change. Splitting it into
+paragraphs that each make one decision usually helps. The rule is off
+by default. A paragraph that dispatches through one long `EVALUATE` is
+complex by this count but easy to read, so where the limit lies is a
+choice each team makes.
+
+## PLB-M010 long-paragraph
+
+A paragraph or section with more statements than the limit (50 by
+default):
+
+```
+paragraph PRINT-SUMMARY has 87 statements (limit 50)
+```
+
+Off by default, like PLB-M009.
 
 ## PLB-S001 dynamic-sql
 
