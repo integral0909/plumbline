@@ -53,11 +53,20 @@ PROCEDURE DIVISION USING PLB-TOKENS LK-I LK-WORD LK-RESULT.
     IF NOT TK-IS-WORD(LK-I)
         GOBACK
     END-IF
-    CALL "PLB-STR-LENGTH" USING LK-WORD LS-LEN
-    IF LS-LEN = TK-TEXT-LEN(LK-I)
-        IF TK-TEXT(TK-TEXT-OFF(LK-I):LS-LEN) = LK-WORD(1:LS-LEN)
-            MOVE "Y" TO LK-RESULT
+    *> WORD matches when it holds the token's text followed only by
+    *> spaces: compare the lengths before any text.
+    MOVE TK-TEXT-LEN(LK-I) TO LS-LEN
+    IF LS-LEN = 0 OR LS-LEN > FUNCTION LENGTH(LK-WORD)
+        GOBACK
+    END-IF
+    IF TK-TEXT(TK-TEXT-OFF(LK-I):LS-LEN) NOT = LK-WORD(1:LS-LEN)
+        GOBACK
+    END-IF
+    IF LS-LEN < FUNCTION LENGTH(LK-WORD)
+        IF LK-WORD(LS-LEN + 1:) NOT = SPACES
+            GOBACK
         END-IF
     END-IF
+    MOVE "Y" TO LK-RESULT
     GOBACK.
 END PROGRAM PLB-TOK-IS-WORD.
