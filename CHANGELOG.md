@@ -96,7 +96,8 @@ uses [Semantic Versioning](https://semver.org/).
   dd-unused, PLB-J003 program-not-in-run (off by default), and
   PLB-J004 dd-cannot-be-read.
 - `plumbline graph --kind jobs` draws which jobs and procedures run
-  which programs.
+  which programs, and `impact` lists the job steps that run a program
+  or its callers.
 - Rule PLB-C027 divide-by-zero.
 - Rule PLB-C028 comparison-never-true.
 - Rule PLB-C029 go-to-leaves-perform.

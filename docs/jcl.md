@@ -72,3 +72,15 @@ inputs, such as utilities, are drawn dashed.
 ```console
 $ plumbline graph --kind jobs app/cbl/*.cbl app/jcl/*.jcl | dot -Tsvg -o jobs.svg
 ```
+
+## Impact
+
+`plumbline impact PROGRAM` lists the job steps that run the program,
+or run a program that calls it, when the JCL is among the inputs:
+
+```console
+$ plumbline impact PAYLOG src/*.cbl jcl/*.jcl
+program PAYLOG src/paylog.cbl:3
+  called by PAYUPD at src/payupd.cbl:35 directly
+  run by step UPDATE of job PAYROLL at jcl/payroll.jcl:4 through PAYUPD
+```

@@ -375,6 +375,10 @@ check "graph of jobs"                     0 '"PAYROLL (job)" -> "PAYPROC (proc)"
     -- graph --kind jobs tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/payroll.jcl tests/fixtures/jcl/payproc.prc
 check "graph of jobs marks programs not in the run" 0 '"IEFBR14" \[style=dashed\];' \
     -- graph --kind jobs tests/fixtures/jcl/payroll.jcl
+check "impact lists the steps that run a program" 0 'run by step UPDATE of job PAYROLL at tests/fixtures/jcl/payroll.jcl:4$' \
+    -- impact PAYUPD tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/paylog.cob tests/fixtures/jcl/payroll.jcl
+check "impact follows callers to their steps" 0 'run by step RERUN of job PAYROLL at tests/fixtures/jcl/payroll.jcl:11 through PAYUPD' \
+    -- impact PAYLOG tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/paylog.cob tests/fixtures/jcl/payroll.jcl
 check "graph refuses csv"                 2 "invalid --report format 'csv' (expected dot or json)" \
     -- graph --report csv $ix/menu.cob
 for kind in performs calls copybooks jobs; do

@@ -746,13 +746,15 @@ END PROGRAM PLB-GRAPH-INCLUDES.
 *> or a program or ENTRY name; case does not matter. For a copybook,
 *> every file that includes it, directly or through other copybooks;
 *> for a program, every program that calls it, directly or through
-*> other programs. FOUND is "N" when NAME is neither.
+*> other programs, and the JCL steps that run any of them. FOUND is
+*> "N" when NAME is neither.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-IMPACT.
 DATA DIVISION.
 WORKING-STORAGE SECTION.
 COPY "plbigrc.cpy".
 COPY "plbcallc.cpy".
+COPY "plbjclc.cpy".
 COPY "plbsrcc.cpy".
 *> One entry per file of the source set.
 01  WS-FILE-VIA             PIC 9(4) COMP-5 OCCURS SS-MAX-FILES TIMES.
@@ -787,10 +789,11 @@ LINKAGE SECTION.
 COPY "plbsrc.cpy".
 COPY "plbcall.cpy".
 COPY "plbigr.cpy".
+COPY "plbjcl.cpy".
 01  LK-NAME                 PIC X ANY LENGTH.
 01  LK-FOUND                PIC X.
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-CALL-GRAPH
-        PLB-INCLUDE-GRAPH LK-NAME LK-FOUND.
+        PLB-INCLUDE-GRAPH PLB-JCL LK-NAME LK-FOUND.
     MOVE "N" TO LK-FOUND
     MOVE FUNCTION UPPER-CASE(LK-NAME) TO LS-NAME
     PERFORM VARYING LS-F FROM 1 BY 1 UNTIL LS-F > SS-FILE-COUNT
@@ -948,7 +951,53 @@ PROGRAM-IMPACT.
     END-PERFORM
     IF LS-TAIL = 1
         DISPLAY "  called by no program of the run"
-    END-IF.
+    END-IF
+    *> The steps that run the program, or a program that calls it.
+    PERFORM VARYING LS-HEAD FROM 1 BY 1 UNTIL LS-HEAD > LS-TAIL
+        MOVE WS-PROG-QUEUE(LS-HEAD) TO LS-Q
+        PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > JS-COUNT
+            IF JS-KIND(LS-E) = "P"
+               AND JS-TARGET(LS-E) = CP-NAME(CP-OWNER(LS-Q))
+                PERFORM PRINT-STEP
+            END-IF
+        END-PERFORM
+    END-PERFORM.
+
+*>   run by step STEP of job JOB (of proc PROC) at PATH:LINE
+*>   [through NAME]
+PRINT-STEP.
+    PERFORM START-OUT
+    STRING "  run by step " DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR
+    IF JS-NAME(LS-E) = SPACES
+        STRING "-" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING JS-NAME(LS-E) DELIMITED BY SPACE
+            INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    EVALUATE TRUE
+        WHEN JS-PROC(LS-E) > 0
+            STRING " of proc " DELIMITED BY SIZE
+                   JP-NAME(JS-PROC(LS-E)) DELIMITED BY SPACE
+                INTO LS-OUT WITH POINTER LS-PTR
+        WHEN JS-JOB(LS-E) > 0
+            STRING " of job " DELIMITED BY SIZE
+                   JJ-NAME(JS-JOB(LS-E)) DELIMITED BY SPACE
+                INTO LS-OUT WITH POINTER LS-PTR
+    END-EVALUATE
+    STRING " at " DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET JS-FILE-ID(LS-E)
+        LS-PATH
+    PERFORM APPEND-PATH
+    STRING ":" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    MOVE JS-LINE(LS-E) TO LS-NUM
+    PERFORM APPEND-NUM
+    IF LS-HEAD > 1
+        STRING " through " DELIMITED BY SIZE
+               CP-NAME(CP-OWNER(LS-Q)) DELIMITED BY SPACE
+            INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    PERFORM PRINT-OUT.
 
 *>   called by NAME at PATH:LINE directly | through VIA
 PRINT-CALLER.
