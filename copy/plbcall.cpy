@@ -10,7 +10,8 @@
 *> (PF) say which DD name the job step must provide, and the maps of
 *> each program (PM) which BMS maps it sends and receives, the CICS
 *> resources (PU) its commands name, the short literals (PL) that
-*> may name programs, and the SQL tables (PQ) it uses or declares.
+*> may name programs, the SQL tables (PQ) it uses or declares, and its
+*> IMS DL/I calls (PD).
 *>
 *> Names are compared without regard to case: CP-NAME and CC-TARGET
 *> are upper-cased.
@@ -156,3 +157,16 @@
         10  PQ-LINE             PIC 9(9) COMP-5.
         10  PQ-COLUMN           PIC 9(4) COMP-5.
         10  PQ-SRC-LINE         PIC 9(9) COMP-5.
+    05  PD-COUNT                PIC 9(9) COMP-5.
+    05  PD-ENTRY                OCCURS PD-MAX TIMES.
+        10  PD-PROGRAM          PIC 9(9) COMP-5.
+        *> EXEC DLI function: GU, GN, GNP, ISRT, REPL, DLET, SCHD, ...
+        10  PD-FUNCTION         PIC X(8).
+        *>   S a segment the call names (SEGMENT)
+        *>   P a PSB it schedules (SCHD PSB)
+        10  PD-KIND             PIC X.
+        10  PD-NAME             PIC X(8).
+        10  PD-FILE-ID          PIC 9(4) COMP-5.
+        10  PD-LINE             PIC 9(9) COMP-5.
+        10  PD-COLUMN           PIC 9(4) COMP-5.
+        10  PD-SRC-LINE         PIC 9(9) COMP-5.

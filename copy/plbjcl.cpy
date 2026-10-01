@@ -41,6 +41,8 @@
         *> TSO batch program IKJEFT01 runs DB2 programs named in RUN
         *> PROGRAM(name) in its SYSTSIN input.
         10  JS-INNER            PIC X(8).
+        *> For DFSRRC00, the PSB it schedules (PARM='BMP,name,PSB').
+        10  JS-PSB              PIC X(8).
         10  JS-FILE-ID          PIC 9(4) COMP-5.
         10  JS-LINE             PIC 9(9) COMP-5.
         *> The step's DD statements: JS-DD-COUNT entries from

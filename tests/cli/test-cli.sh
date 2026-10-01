@@ -328,6 +328,21 @@ check "dump ims lists segments and PCBs"   0 'orders.psb:8:   pcb type DB dbd OR
     -- dump ims tests/golden/ims/orders.psb
 check "dump ims of a missing file"         2 'cannot read tests/golden/ims/missing.dbd' \
     -- dump ims tests/golden/ims/missing.dbd
+ix="tests/fixtures/ims/ordupd.cob tests/golden/ims/orderdb.dbd tests/golden/ims/orders.psb tests/fixtures/ims/bad.psb"
+check "a PCB for an unknown database"     1 'bad.psb:3:1: error: PCB names database NOSUCHDB, which no DBD of the run defines \[PLB-I001\]' \
+    -- check --no-config $ix
+check "a sensitive segment the database lacks" 1 'bad.psb:7:1: error: sensitive segment ORDITEM is not a segment of database ORDERDB \[PLB-I002\]' \
+    -- check --no-config $ix
+check "a sensitive segment under another parent" 1 'bad.psb:8:1: error: sensitive segment ORDNOTE has parent ORDLINE, but its parent in database ORDERDB is ORDER' \
+    -- check --no-config $ix
+check "a DL/I call on a segment the PSB lacks" 1 'ordupd.cob:16:39: error: EXEC DLI GNP names segment ORDNOTE, which PSB ORDREAD is not sensitive to \[PLB-I003\]' \
+    -- check --no-config $ix
+check "a DL/I call PROCOPT does not allow" 1 'ordupd.cob:15:40: error: EXEC DLI REPL on segment ORDER, but no PCB of PSB ORDREAD for it has PROCOPT R or A \[PLB-I004\]' \
+    -- check --no-config $ix
+check_absent "DL/I calls the PSB allows"  'ordupd.cob:1[34]:[0-9]*: error' \
+    -- check --no-config $ix
+check "dump calls lists DL/I calls"       0 '^dli SCHD psb ORDREAD tests/fixtures/ims/ordupd.cob:12:24 by ORDUPD$' \
+    -- dump calls tests/fixtures/ims/ordupd.cob
 check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
 check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
     -- rules --no-config --enable evaluate-without-other

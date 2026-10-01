@@ -13,7 +13,8 @@ lines of IBM Enterprise COBOL, with their copybooks.
 against a known SHA-256, and checks all programs in one run, with every
 directory of copybooks and DB2 declarations on the copy path, together
 with the application's 48 JCL members and procedures, its 21 BMS map
-sources, and its 4 files of CICS resource definitions. None of
+sources, its 4 files of CICS resource definitions, and the 8 DBDs and
+PSBs of its IMS extension. None of
 CardDemo is added to this repository.
 
 ## Results
@@ -26,6 +27,7 @@ The run on 2026-10-01 takes about a second:
 | JCL members and procedures | 48 |
 | BMS map sources | 21 |
 | CICS resource definition files | 4 |
+| IMS DBDs and PSBs | 8 |
 | Programs with input errors | 24, all for copybooks of CICS and MQ |
 
 The copybooks it cannot find are those that come with the products, not
@@ -151,3 +153,7 @@ Some findings that were read and are true:
 - **PLB-C033 self-move.** `COACCT01` and `CODATE01` move
   `WS-CICS-RESP2-CD` to itself, and then build an error message from
   `WS-CICS-RESP2-CD-D`, which the MOVE was meant to fill.
+- **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
+  databases, and every DL/I call of its programs names a segment their
+  PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)
+  is sensitive to, with `PROCOPT=AP`.
