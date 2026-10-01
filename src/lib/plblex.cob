@@ -22,7 +22,8 @@
 *>     is a picture string: everything up to the next space or ==,
 *>     less a trailing period, comma, or semicolon.
 *>   - "==" delimits pseudo-text; ( ) : . are tokens of their own.
-*>   - Operators: + - * / ** = < > <= >= <> &
+*>   - Operators: + - * / ** = < > <= >= <> &, and a period
+*>     directly followed by a letter (:RECORD.FIELD in embedded SQL)
 *>   - In the identification division, AUTHOR, INSTALLATION,
 *>     DATE-WRITTEN, DATE-COMPILED, SECURITY, and REMARKS take a
 *>     comment entry: free text, which may hold anything, up to the
@@ -604,7 +605,15 @@ SCAN-SPECIAL.
         WHEN ":"
             MOVE ":" TO LS-KIND
         WHEN "."
-            MOVE "." TO LS-KIND
+            *> A separator period is followed by a space; a period
+            *> right before a letter qualifies a name, as in the host
+            *> variable :RECORD.FIELD of embedded SQL.
+            IF LS-POS <= ST-LEN
+               AND WS-CLASS(FUNCTION ORD(ST-TEXT(LS-POS:1))) = "W"
+                MOVE "O" TO LS-KIND
+            ELSE
+                MOVE "." TO LS-KIND
+            END-IF
         WHEN "*"
             PERFORM TAKE-IF-NEXT-IS-STAR
         WHEN "="

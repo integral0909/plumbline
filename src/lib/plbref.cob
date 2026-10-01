@@ -38,6 +38,68 @@ WORKING-STORAGE SECTION.
                             ASCENDING KEY IS ON-TEXT
                             INDEXED BY ON-IX.
         10  ON-TEXT         PIC X(31).
+*> Names that embedded SQL and CICS declare for the program.
+01  WS-SQLCA-ADDED          PIC X.
+01  WS-EIB-ADDED            PIC X.
+01  WS-SQLCA-NAMES.
+    05  FILLER PIC X(31) VALUE "SQLCA".
+    05  FILLER PIC X(31) VALUE "SQLCAID".
+    05  FILLER PIC X(31) VALUE "SQLCABC".
+    05  FILLER PIC X(31) VALUE "SQLCODE".
+    05  FILLER PIC X(31) VALUE "SQLERRM".
+    05  FILLER PIC X(31) VALUE "SQLERRML".
+    05  FILLER PIC X(31) VALUE "SQLERRMC".
+    05  FILLER PIC X(31) VALUE "SQLERRP".
+    05  FILLER PIC X(31) VALUE "SQLERRD".
+    05  FILLER PIC X(31) VALUE "SQLWARN".
+    05  FILLER PIC X(31) VALUE "SQLWARN0".
+    05  FILLER PIC X(31) VALUE "SQLWARN1".
+    05  FILLER PIC X(31) VALUE "SQLWARN2".
+    05  FILLER PIC X(31) VALUE "SQLWARN3".
+    05  FILLER PIC X(31) VALUE "SQLWARN4".
+    05  FILLER PIC X(31) VALUE "SQLWARN5".
+    05  FILLER PIC X(31) VALUE "SQLWARN6".
+    05  FILLER PIC X(31) VALUE "SQLWARN7".
+    05  FILLER PIC X(31) VALUE "SQLSTATE".
+    05  FILLER PIC X(31) VALUE "SQLEXT".
+01  FILLER REDEFINES WS-SQLCA-NAMES.
+    05  WS-SQLCA-NAME       PIC X(31) OCCURS 20 TIMES.
+01  WS-EIB-NAMES.
+    05  FILLER PIC X(31) VALUE "DFHEIBLK".
+    05  FILLER PIC X(31) VALUE "EIBTIME".
+    05  FILLER PIC X(31) VALUE "EIBDATE".
+    05  FILLER PIC X(31) VALUE "EIBTRNID".
+    05  FILLER PIC X(31) VALUE "EIBTASKN".
+    05  FILLER PIC X(31) VALUE "EIBTRMID".
+    05  FILLER PIC X(31) VALUE "EIBCPOSN".
+    05  FILLER PIC X(31) VALUE "EIBCALEN".
+    05  FILLER PIC X(31) VALUE "EIBAID".
+    05  FILLER PIC X(31) VALUE "EIBFN".
+    05  FILLER PIC X(31) VALUE "EIBRCODE".
+    05  FILLER PIC X(31) VALUE "EIBDS".
+    05  FILLER PIC X(31) VALUE "EIBREQID".
+    05  FILLER PIC X(31) VALUE "EIBRSRCE".
+    05  FILLER PIC X(31) VALUE "EIBSYNC".
+    05  FILLER PIC X(31) VALUE "EIBFREE".
+    05  FILLER PIC X(31) VALUE "EIBRECV".
+    05  FILLER PIC X(31) VALUE "EIBATT".
+    05  FILLER PIC X(31) VALUE "EIBEOC".
+    05  FILLER PIC X(31) VALUE "EIBFMH".
+    05  FILLER PIC X(31) VALUE "EIBCOMPL".
+    05  FILLER PIC X(31) VALUE "EIBSIG".
+    05  FILLER PIC X(31) VALUE "EIBCONF".
+    05  FILLER PIC X(31) VALUE "EIBERR".
+    05  FILLER PIC X(31) VALUE "EIBERRCD".
+    05  FILLER PIC X(31) VALUE "EIBSYNRB".
+    05  FILLER PIC X(31) VALUE "EIBNODAT".
+    05  FILLER PIC X(31) VALUE "EIBRESP".
+    05  FILLER PIC X(31) VALUE "EIBRESP2".
+    05  FILLER PIC X(31) VALUE "EIBRLDBK".
+    05  FILLER PIC X(31) VALUE "DFHCOMMAREA".
+    05  FILLER PIC X(31) VALUE "DFHEIPTR".
+    05  FILLER PIC X(31) VALUE "DFHEIBP".
+01  FILLER REDEFINES WS-EIB-NAMES.
+    05  WS-EIB-NAME         PIC X(31) OCCURS 33 TIMES.
 *> Token ranges to scan for identifiers, with their programs: each
 *> procedure division, and the clauses of report descriptions that
 *> name data (SOURCE, SUM, TYPE CONTROL ..., CONTROL, PRESENT WHEN).
@@ -67,6 +129,7 @@ LOCAL-STORAGE SECTION.
 01  LS-KW                   PIC X.
 01  LS-IN-INDEXED           PIC X.
 01  LS-LEVEL                PIC 9(4) COMP-5.
+01  LS-EXEC-LANGUAGE        PIC X(31).
 01  LS-COLON                PIC X.
 01  LS-CLOSE                PIC 9(9) COMP-5.
 01  LS-MATCHES              PIC 9(9) COMP-5.
@@ -94,6 +157,7 @@ COPY "plbref.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
         PLB-AST PLB-SYMBOLS PLB-FLOW PLB-REFS.
     MOVE 0 TO RF-COUNT WS-OTHER-COUNT WS-DIV-COUNT
+    MOVE "N" TO WS-SQLCA-ADDED WS-EIB-ADDED
     IF AS-COUNT = 0 OR TK-COUNT = 0
         GOBACK
     END-IF
@@ -169,10 +233,18 @@ MARK-NODE.
             PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
                     UNTIL LS-T > ND-TOK-LAST(LS-NODE)
                 MOVE LS-NODE TO WS-TOKEN-STMT(LS-T)
-                IF ND-DETAIL(LS-NODE) = "EXEC"
-                    MOVE "Y" TO WS-TOKEN-SKIP(LS-T)
-                END-IF
             END-PERFORM
+            IF ND-DETAIL(LS-NODE) = "EXEC"
+                PERFORM MARK-EXEC-TOKENS
+            END-IF
+        WHEN "OTHR"
+            *> EXEC SQL ... END-EXEC in the data division.
+            IF ND-DETAIL(LS-NODE) = "EXEC"
+                PERFORM EXEC-LANGUAGE
+                IF LS-EXEC-LANGUAGE = "SQL"
+                    PERFORM ADD-SQLCA-NAMES
+                END-IF
+            END-IF
         WHEN "PROC"
             PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
                     UNTIL LS-T > ND-TOK-LAST(LS-NODE)
@@ -184,6 +256,78 @@ MARK-NODE.
                 MOVE "Y" TO WS-TOKEN-SKIP(ND-NAME(LS-NODE))
             END-IF
     END-EVALUATE.
+
+*> EXEC SQL and EXEC CICS name COBOL data among their own words: the
+*> host variables of SQL (:NAME, :RECORD.FIELD) and the arguments of
+*> CICS options (INTO(NAME), RESP(NAME)). Every other token of an
+*> EXEC statement is skipped, and so is all of any other EXEC.
+MARK-EXEC-TOKENS.
+    PERFORM EXEC-LANGUAGE
+    MOVE 0 TO LS-LEVEL
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
+            UNTIL LS-T > ND-TOK-LAST(LS-NODE)
+        MOVE "Y" TO WS-TOKEN-SKIP(LS-T)
+        EVALUATE TRUE
+            WHEN LS-EXEC-LANGUAGE = "SQL" AND LS-T > ND-TOK-FIRST(LS-NODE)
+                IF TK-IS-COLON(LS-T - 1) AND TK-IS-WORD(LS-T)
+                    MOVE "N" TO WS-TOKEN-SKIP(LS-T)
+                END-IF
+            WHEN LS-EXEC-LANGUAGE = "CICS"
+                IF TK-IS-LPAREN(LS-T)
+                    ADD 1 TO LS-LEVEL
+                END-IF
+                IF TK-IS-RPAREN(LS-T) AND LS-LEVEL > 0
+                    SUBTRACT 1 FROM LS-LEVEL
+                END-IF
+                IF LS-LEVEL > 0 AND TK-IS-WORD(LS-T)
+                    MOVE "N" TO WS-TOKEN-SKIP(LS-T)
+                END-IF
+        END-EVALUATE
+    END-PERFORM
+    EVALUATE LS-EXEC-LANGUAGE
+        WHEN "SQL"
+            PERFORM ADD-SQLCA-NAMES
+        WHEN "CICS"
+            PERFORM ADD-EIB-NAMES
+    END-EVALUATE.
+
+*> LS-EXEC-LANGUAGE = the word after EXEC in node LS-NODE.
+EXEC-LANGUAGE.
+    MOVE SPACES TO LS-EXEC-LANGUAGE
+    COMPUTE LS-K = ND-TOK-FIRST(LS-NODE) + 1
+    IF LS-K <= ND-TOK-LAST(LS-NODE) AND TK-IS-WORD(LS-K)
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-EXEC-LANGUAGE LS-LEN
+    END-IF.
+
+*> The fields of the SQL communication area, which the precompiler
+*> declares (EXEC SQL INCLUDE SQLCA): the database sets them.
+ADD-SQLCA-NAMES.
+    IF WS-SQLCA-ADDED = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "Y" TO WS-SQLCA-ADDED
+    PERFORM VARYING LS-Q FROM 1 BY 1 UNTIL LS-Q > 20
+        MOVE WS-SQLCA-NAME(LS-Q) TO LS-TEXT
+        PERFORM ADD-OTHER-NAME
+    END-PERFORM.
+
+*> The fields of the CICS EXEC interface block (EIBRESP, EIBCALEN,
+*> ...), which the translator declares.
+ADD-EIB-NAMES.
+    IF WS-EIB-ADDED = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "Y" TO WS-EIB-ADDED
+    PERFORM VARYING LS-Q FROM 1 BY 1 UNTIL LS-Q > 33
+        MOVE WS-EIB-NAME(LS-Q) TO LS-TEXT
+        PERFORM ADD-OTHER-NAME
+    END-PERFORM.
+
+ADD-OTHER-NAME.
+    IF WS-OTHER-COUNT < ON-MAX
+        ADD 1 TO WS-OTHER-COUNT
+        MOVE LS-TEXT TO ON-TEXT(WS-OTHER-COUNT)
+    END-IF.
 
 *> A report clause that names data items: scan its operands, with the
 *> clause as their statement.
@@ -234,6 +378,20 @@ CONSIDER-TOKEN.
         EXIT PARAGRAPH
     END-IF
     CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-NAME LS-LEN
+    *> DFHRESP(NORMAL) and DFHVALUE(...) are CICS translator functions:
+    *> neither they nor their argument are data names.
+    IF (LS-NAME = "DFHRESP" OR LS-NAME = "DFHVALUE")
+       AND LS-T < TK-COUNT
+        IF TK-IS-LPAREN(LS-T + 1)
+            PERFORM VARYING LS-K FROM LS-T BY 1 UNTIL LS-K > TK-COUNT
+                MOVE "Y" TO WS-TOKEN-SKIP(LS-K)
+                IF TK-IS-RPAREN(LS-K)
+                    EXIT PERFORM
+                END-IF
+            END-PERFORM
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
     CALL "PLB-KW-LOOKUP" USING LS-NAME LS-KW
     IF LS-KW NOT = SPACE
         EXIT PARAGRAPH
@@ -253,10 +411,33 @@ CONSIDER-TOKEN.
     MOVE LS-T TO RF-TOKEN(RF-COUNT)
     MOVE WS-TOKEN-STMT(LS-T) TO RF-STMT(RF-COUNT)
     MOVE "N" TO RF-SUBSCRIPTED(RF-COUNT) RF-REFMOD(RF-COUNT)
+    MOVE 0 TO LS-QUAL-COUNT
+    MOVE LS-T TO LS-J
+    *> SQL qualification, outermost first: :RECORD.GROUP.FIELD is
+    *> FIELD OF GROUP OF RECORD, named at the token of FIELD.
+    PERFORM UNTIL LS-J + 2 > TK-COUNT
+        IF NOT TK-IS-OPERATOR(LS-J + 1) OR NOT TK-IS-WORD(LS-J + 2)
+           OR TK-TEXT-LEN(LS-J + 2) > 31
+            EXIT PERFORM
+        END-IF
+        IF TK-TEXT(TK-TEXT-OFF(LS-J + 1):1) NOT = "."
+            EXIT PERFORM
+        END-IF
+        IF LS-QUAL-COUNT < LS-QUAL-MAX
+            PERFORM VARYING LS-Q FROM LS-QUAL-COUNT BY -1 UNTIL LS-Q = 0
+                MOVE LS-QUAL(LS-Q) TO LS-QUAL(LS-Q + 1)
+            END-PERFORM
+            ADD 1 TO LS-QUAL-COUNT
+            MOVE LS-NAME TO LS-QUAL(1)
+        END-IF
+        ADD 2 TO LS-J
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-J LS-NAME LS-LEN
+        MOVE "Y" TO WS-TOKEN-SKIP(LS-J)
+        MOVE LS-J TO RF-TOKEN(RF-COUNT)
+    END-PERFORM
 
     *> Qualifiers.
-    MOVE 0 TO LS-QUAL-COUNT
-    COMPUTE LS-J = LS-T + 1
+    ADD 1 TO LS-J
     PERFORM UNTIL LS-J >= TK-COUNT
         CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-J LS-TEXT LS-LEN
         IF (LS-TEXT NOT = "IN" AND LS-TEXT NOT = "OF")
