@@ -30,6 +30,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C022](#plb-c022-open-mode-mismatch) | open-mode-mismatch | error | I/O statement needs an open mode the file is never opened in |
 | [PLB-C023](#plb-c023-subscript-out-of-range) | subscript-out-of-range | error | Literal subscript is outside the table |
 | [PLB-C024](#plb-c024-refmod-out-of-range) | refmod-out-of-range | error | Literal reference modification is outside the item |
+| [PLB-C025](#plb-c025-stop-run-in-called-program) | stop-run-in-called-program | warning | STOP RUN in a program that is called |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -573,6 +574,29 @@ item:
 Positions count characters, from 1. Items whose characters are not
 bytes (national, boolean), numeric items that are not `DISPLAY`, and
 tables whose size depends on `OCCURS ... DEPENDING ON` are not checked.
+
+## PLB-C025 stop-run-in-called-program
+
+`STOP RUN` in a program that another program of the run calls, or in a
+nested program:
+
+```cobol
+PROGRAM-ID. PAYSTEP.                    *> MAIN-RUN calls PAYSTEP
+PROCEDURE DIVISION.
+    ...
+    STOP RUN.                           *> reported
+```
+
+`STOP RUN` ends the run unit: the program, its callers, and everything
+else that is running. A called program usually means to return to its
+caller, which `GOBACK` (or `EXIT PROGRAM`) does. A nested program only
+runs when it is called, so it is always checked.
+
+Whether a program is called is taken from the call graph, so the rule
+needs the callers in the same run. That keeps it quiet on a main
+program that has `PROCEDURE DIVISION USING` to receive a JCL `PARM`:
+nothing calls it. Calls through a data item (`CALL WS-NAME`) do not
+count.
 
 ## PLB-M001 go-to
 
