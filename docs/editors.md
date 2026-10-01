@@ -8,6 +8,7 @@ shows what it reports as you work.
 |---------|--------------|
 | Diagnostics | Findings and input problems, underlined where they are, updated on every change |
 | Outline | Programs, sections, paragraphs, and data items of the file |
+| Workspace symbols | The same names in every open file, found by part of the name |
 | Go to definition | From a data name to its declaration (also in a copybook), from a paragraph or section name to the paragraph or section |
 | Hover | A data item's level, picture, usage, size, offset, and record |
 | Find references | Every reference to a data item (also in copybooks), or every `PERFORM`, `GO TO`, `ALTER`, and `SORT` procedure naming a paragraph or section of the same program |

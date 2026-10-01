@@ -175,6 +175,8 @@ COPY "plbinput.cpy".
 01  WS-LSP-HIGHLIGHT        PIC X.
 01  WS-LSP-DECLARATION      PIC X.
 01  WS-LSP-QUALIFIER        PIC X(31).
+*> workspace/symbol: the query, in upper case (spaces: every name).
+01  WS-LSP-QUERY            PIC X(31).
 *> textDocument/rename: the new name, and the tokens to change, by
 *> file.
 01  WS-LSP-NEW-NAME         PIC X(31).
@@ -760,6 +762,8 @@ LSP-MESSAGE.
         WHEN "textDocument/documentHighlight"
             MOVE "Y" TO WS-LSP-HIGHLIGHT
             PERFORM LSP-REFERENCES
+        WHEN "workspace/symbol"
+            PERFORM LSP-WORKSPACE-SYMBOLS
         WHEN "textDocument/codeAction"
             PERFORM LSP-CODE-ACTIONS
         WHEN "textDocument/foldingRange"
@@ -791,6 +795,7 @@ LSP-INITIALIZE.
            DELIMITED BY SIZE
            '"save":true},' DELIMITED BY SIZE
            '"documentSymbolProvider":true,' DELIMITED BY SIZE
+           '"workspaceSymbolProvider":true,' DELIMITED BY SIZE
            '"definitionProvider":true,' DELIMITED BY SIZE
            '"hoverProvider":true,' DELIMITED BY SIZE
            '"referencesProvider":true,' DELIMITED BY SIZE
@@ -1747,70 +1752,112 @@ LSP-DOCUMENT-SYMBOLS.
     PERFORM LSP-FIND-DOCUMENT
     PERFORM LSP-START-RESPONSE
     STRING '"result":[' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE SPACES TO WS-LSP-QUERY
+    MOVE "Y" TO WS-LSP-FIRST
     IF WS-LSP-DOC-INDEX > 0
         PERFORM LSP-ANALYZE
-        MOVE "Y" TO WS-LSP-FIRST
-        MOVE 1 TO WS-ROOT WS-NODE
-        MOVE 0 TO WS-DEPTH
-        PERFORM UNTIL WS-NODE = 0
-            IF ND-KIND(WS-NODE) = "PROG" AND ND-NAME(WS-NODE) > 0
-                MOVE ND-NAME(WS-NODE) TO WS-LSP-TOKEN
-                MOVE 2 TO WS-LSP-KIND-NUM
-                MOVE SPACES TO WS-LSP-NAME
-                PERFORM LSP-APPEND-SYMBOL
-            END-IF
-            CALL "PLB-AST-NEXT" USING PLB-AST WS-ROOT WS-NODE WS-DEPTH
-        END-PERFORM
-        PERFORM VARYING WS-U FROM 1 BY 1 UNTIL WS-U > FU-COUNT
-            IF FU-KIND(WS-U) NOT = "D" AND ND-NAME(FU-NODE(WS-U)) > 0
-                MOVE ND-NAME(FU-NODE(WS-U)) TO WS-LSP-TOKEN
-                IF FU-KIND(WS-U) = "S"
-                    MOVE 3 TO WS-LSP-KIND-NUM
-                ELSE
-                    MOVE 6 TO WS-LSP-KIND-NUM
-                END-IF
-                CALL "PLB-TOK-TEXT" USING PLB-TOKENS
-                    ND-NAME(FU-PROGRAM(WS-U)) WS-LSP-NAME WS-TOKEN-LEN
-                IF FU-SECTION(WS-U) > 0
-                    MOVE FU-NAME(FU-SECTION(WS-U)) TO WS-LSP-NAME
-                END-IF
-                PERFORM LSP-APPEND-SYMBOL
-            END-IF
-        END-PERFORM
-        PERFORM VARYING WS-S FROM 1 BY 1 UNTIL WS-S > SY-COUNT
-            IF SY-NAME-TOKEN(WS-S) > 0
-                MOVE SY-NAME-TOKEN(WS-S) TO WS-LSP-TOKEN
-                EVALUATE TRUE
-                    WHEN SY-LEVEL(WS-S) = 88
-                        MOVE 22 TO WS-LSP-KIND-NUM
-                    WHEN SY-LEVEL(WS-S) = 78
-                        MOVE 14 TO WS-LSP-KIND-NUM
-                    WHEN SY-CATEGORY(WS-S) = "G"
-                        MOVE 23 TO WS-LSP-KIND-NUM
-                    WHEN SY-PARENT(WS-S) > 0
-                        MOVE 8 TO WS-LSP-KIND-NUM
-                    WHEN OTHER
-                        MOVE 13 TO WS-LSP-KIND-NUM
-                END-EVALUATE
-                IF SY-PARENT(WS-S) > 0
-                    MOVE SY-NAME(SY-PARENT(WS-S)) TO WS-LSP-NAME
-                ELSE
-                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS
-                        ND-NAME(SY-PROGRAM(WS-S)) WS-LSP-NAME WS-TOKEN-LEN
-                END-IF
-                PERFORM LSP-APPEND-SYMBOL
-            END-IF
-        END-PERFORM
+        PERFORM LSP-COLLECT-SYMBOLS
     END-IF
     STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
     PERFORM LSP-SEND-OUT.
 
+*> workspace/symbol: the symbols of every open document whose names
+*> contain the query, ignoring case.
+LSP-WORKSPACE-SYMBOLS.
+    MOVE "query" TO WS-LSP-NAME
+    PERFORM LSP-GET
+    MOVE SPACES TO WS-LSP-QUERY
+    IF WS-LSP-KIND = "S" AND WS-LSP-VALUE-LEN > 0
+       AND WS-LSP-VALUE-LEN <= 31
+        MOVE FUNCTION UPPER-CASE(WS-LSP-VALUE(1:WS-LSP-VALUE-LEN))
+            TO WS-LSP-QUERY
+    END-IF
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":[' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE "Y" TO WS-LSP-FIRST
+    PERFORM VARYING WS-LSP-SLOT FROM 1 BY 1 UNTIL WS-LSP-SLOT > LSP-DOC-MAX
+        IF DOC-URI(WS-LSP-SLOT) NOT = SPACES
+            MOVE WS-LSP-SLOT TO WS-LSP-DOC-INDEX
+            PERFORM LSP-ANALYZE
+            PERFORM LSP-COLLECT-SYMBOLS
+        END-IF
+    END-PERFORM
+    STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> LSP-APPEND-SYMBOL for the programs, sections, paragraphs, and named
+*> data items of the analyzed document.
+LSP-COLLECT-SYMBOLS.
+    MOVE 1 TO WS-ROOT WS-NODE
+    MOVE 0 TO WS-DEPTH
+    PERFORM UNTIL WS-NODE = 0
+        IF ND-KIND(WS-NODE) = "PROG" AND ND-NAME(WS-NODE) > 0
+            MOVE ND-NAME(WS-NODE) TO WS-LSP-TOKEN
+            MOVE 2 TO WS-LSP-KIND-NUM
+            MOVE SPACES TO WS-LSP-NAME
+            PERFORM LSP-APPEND-SYMBOL
+        END-IF
+        CALL "PLB-AST-NEXT" USING PLB-AST WS-ROOT WS-NODE WS-DEPTH
+    END-PERFORM
+    PERFORM VARYING WS-U FROM 1 BY 1 UNTIL WS-U > FU-COUNT
+        IF FU-KIND(WS-U) NOT = "D" AND ND-NAME(FU-NODE(WS-U)) > 0
+            MOVE ND-NAME(FU-NODE(WS-U)) TO WS-LSP-TOKEN
+            IF FU-KIND(WS-U) = "S"
+                MOVE 3 TO WS-LSP-KIND-NUM
+            ELSE
+                MOVE 6 TO WS-LSP-KIND-NUM
+            END-IF
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS
+                ND-NAME(FU-PROGRAM(WS-U)) WS-LSP-NAME WS-TOKEN-LEN
+            IF FU-SECTION(WS-U) > 0
+                MOVE FU-NAME(FU-SECTION(WS-U)) TO WS-LSP-NAME
+            END-IF
+            PERFORM LSP-APPEND-SYMBOL
+        END-IF
+    END-PERFORM
+    PERFORM VARYING WS-S FROM 1 BY 1 UNTIL WS-S > SY-COUNT
+        IF SY-NAME-TOKEN(WS-S) > 0
+            MOVE SY-NAME-TOKEN(WS-S) TO WS-LSP-TOKEN
+            EVALUATE TRUE
+                WHEN SY-LEVEL(WS-S) = 88
+                    MOVE 22 TO WS-LSP-KIND-NUM
+                WHEN SY-LEVEL(WS-S) = 78
+                    MOVE 14 TO WS-LSP-KIND-NUM
+                WHEN SY-CATEGORY(WS-S) = "G"
+                    MOVE 23 TO WS-LSP-KIND-NUM
+                WHEN SY-PARENT(WS-S) > 0
+                    MOVE 8 TO WS-LSP-KIND-NUM
+                WHEN OTHER
+                    MOVE 13 TO WS-LSP-KIND-NUM
+            END-EVALUATE
+            IF SY-PARENT(WS-S) > 0
+                MOVE SY-NAME(SY-PARENT(WS-S)) TO WS-LSP-NAME
+            ELSE
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS
+                    ND-NAME(SY-PROGRAM(WS-S)) WS-LSP-NAME WS-TOKEN-LEN
+            END-IF
+            PERFORM LSP-APPEND-SYMBOL
+        END-IF
+    END-PERFORM.
+
 *> A SymbolInformation for the name at WS-LSP-TOKEN, of kind
 *> WS-LSP-KIND-NUM, in container WS-LSP-NAME; only for names in the
-*> document itself.
+*> document itself, and that contain WS-LSP-QUERY when it is set.
 LSP-APPEND-SYMBOL.
     IF TK-FILE-ID(WS-LSP-TOKEN) NOT = 1
+       OR WS-LSP-PTR > LSP-SIZE - 4096
         EXIT PARAGRAPH
+    END-IF
+    *> workspace/symbol: only names that contain the query.
+    IF WS-LSP-QUERY NOT = SPACES
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-LSP-TOKEN WS-TOKEN-TEXT
+            WS-TOKEN-LEN
+        MOVE 0 TO WS-K
+        INSPECT FUNCTION UPPER-CASE(WS-TOKEN-TEXT(1:WS-TOKEN-LEN))
+            TALLYING WS-K FOR ALL FUNCTION TRIM(WS-LSP-QUERY)
+        IF WS-K = 0
+            EXIT PARAGRAPH
+        END-IF
     END-IF
     IF WS-LSP-FIRST = "N"
         STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR

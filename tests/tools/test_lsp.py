@@ -99,6 +99,7 @@ class LanguageServerTest(unittest.TestCase):
             self.capabilities["codeActionProvider"]["codeActionKinds"],
             ["quickfix"])
         self.assertTrue(self.capabilities["documentSymbolProvider"])
+        self.assertTrue(self.capabilities["workspaceSymbolProvider"])
 
     def test_diagnostics_on_open(self):
         self.assertEqual(self.diagnostics["method"],
@@ -132,6 +133,26 @@ class LanguageServerTest(unittest.TestCase):
         symbols = {(s["name"], s["kind"]) for s in reply["result"]}
         self.assertIn(("STEP-1", 6), symbols)
         self.assertIn(("ERRORS", 13), symbols)
+
+    def test_workspace_symbols(self):
+        with tempfile.TemporaryDirectory() as directory:
+            other = os.path.join(directory, "other.cob")
+            uri = "file://" + os.path.realpath(other)
+            self.server.notify("textDocument/didOpen", {"textDocument": {
+                "uri": uri, "languageId": "cobol", "version": 1,
+                "text": "IDENTIFICATION DIVISION.\nPROGRAM-ID. OTHER.\n"
+                        "PROCEDURE DIVISION.\nSTEP-ONE.\n    GOBACK.\n"}})
+            self.server.receive()
+            reply = self.server.request("workspace/symbol",
+                                        {"query": "step"})
+            found = {(s["name"], s["location"]["uri"])
+                     for s in reply["result"]}
+            self.assertIn(("STEP-1", URI), found)
+            self.assertIn(("STEP-ONE", uri), found)
+            self.assertTrue(all("STEP" in name for name, _ in found))
+            everything = self.server.request("workspace/symbol",
+                                             {"query": ""})["result"]
+            self.assertIn("ERRORS", {s["name"] for s in everything})
 
     def test_definition_of_a_paragraph(self):
         reply = self.server.request("textDocument/definition", {
@@ -336,7 +357,9 @@ class LanguageServerTest(unittest.TestCase):
         self.assertIsNone(reply["result"])
 
     def test_unknown_request(self):
-        reply = self.server.request("workspace/symbol", {"query": "X"})
+        reply = self.server.request("textDocument/signatureHelp", {
+            "textDocument": {"uri": URI},
+            "position": {"line": 0, "character": 0}})
         self.assertEqual(reply["error"]["code"], -32601)
 
     def test_close_clears_diagnostics(self):
