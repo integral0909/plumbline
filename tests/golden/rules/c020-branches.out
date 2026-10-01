@@ -1,0 +1,1 @@
+tests/golden/rules/c020-branches.cob:31:11: warning: the FILE STATUS of OUT-FILE (OUT-STATUS) is not tested after this WRITE [PLB-C020]

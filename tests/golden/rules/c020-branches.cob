@@ -1,0 +1,37 @@
+*> Two WRITEs in the branches of one IF, with one status test after
+*> the IF: only one WRITE runs, and the test covers both. A WRITE that
+*> really is followed by another one before any test is reported.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. BRANCHES.
+ENVIRONMENT DIVISION.
+INPUT-OUTPUT SECTION.
+FILE-CONTROL.
+    SELECT OUT-FILE ASSIGN TO "OUT"
+        FILE STATUS IS OUT-STATUS.
+DATA DIVISION.
+FILE SECTION.
+FD  OUT-FILE.
+01  OUT-REC             PIC X(80).
+WORKING-STORAGE SECTION.
+01  OUT-STATUS          PIC XX.
+01  LINE-TEXT           PIC X(80) VALUE SPACES.
+PROCEDURE DIVISION.
+    OPEN OUTPUT OUT-FILE
+    IF OUT-STATUS NOT = "00"
+        STOP RUN
+    END-IF
+    IF LINE-TEXT = SPACES
+        WRITE OUT-REC FROM "(EMPTY)"
+    ELSE
+        WRITE OUT-REC FROM LINE-TEXT
+    END-IF
+    IF OUT-STATUS NOT = "00"
+        DISPLAY "WRITE FAILED"
+    END-IF
+    WRITE OUT-REC FROM "FIRST"
+    WRITE OUT-REC FROM "SECOND"
+    IF OUT-STATUS NOT = "00"
+        DISPLAY "WRITE FAILED"
+    END-IF
+    CLOSE OUT-FILE
+    STOP RUN.

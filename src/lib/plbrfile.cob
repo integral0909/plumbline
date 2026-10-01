@@ -81,6 +81,7 @@ COPY "plbnlist.cpy".
 01  LS-FOUND                PIC X.
 01  LS-OK                   PIC X.
 01  LS-AFTER-ON             PIC X.
+01  LS-ALTERNATIVE          PIC X.
 01  LS-MODE                 PIC X(10).
 01  LS-VERB                 PIC X(20).
 01  LS-TEXT                 PIC X(31).
@@ -482,13 +483,17 @@ CHECK-STATUS-TESTED.
         MOVE ND-NEXT(LS-K) TO LS-K
     END-PERFORM
     PERFORM STATUS-NAMES
-    *> The next statement on the same file, after this one.
+    *> The next statement on the same file that can run after this
+    *> one: not one in another branch of the same IF or EVALUATE.
     MOVE 0 TO LS-STOP
     PERFORM VARYING LS-J FROM LS-I BY 1 UNTIL LS-J > WS-OP-COUNT
         IF OP-FILE(LS-J) = LS-F
            AND ND-TOK-FIRST(OP-STMT(LS-J)) > ND-TOK-LAST(OP-STMT(LS-I))
-            MOVE ND-TOK-FIRST(OP-STMT(LS-J)) TO LS-STOP
-            EXIT PERFORM
+            PERFORM CHECK-ALTERNATIVE
+            IF LS-ALTERNATIVE = "N"
+                MOVE ND-TOK-FIRST(OP-STMT(LS-J)) TO LS-STOP
+                EXIT PERFORM
+            END-IF
         END-IF
     END-PERFORM
     CALL "PLB-NAMED-AFTER" USING PLB-TOKENS PLB-AST PLB-FLOW
@@ -506,6 +511,34 @@ CHECK-STATUS-TESTED.
             PLB-RULES PLB-FINDINGS LS-RULE-STATUS OP-TOKEN(LS-I)
             LS-MESSAGE
     END-IF.
+
+*> LS-ALTERNATIVE = "Y" when the statements of operations LS-I and LS-J
+*> are in different branches (THEN and ELSE, two WHENs) of one
+*> statement, so that only one of them runs.
+CHECK-ALTERNATIVE.
+    MOVE "N" TO LS-ALTERNATIVE
+    MOVE ND-PARENT(OP-STMT(LS-I)) TO LS-UP
+    PERFORM UNTIL LS-UP = 0 OR LS-ALTERNATIVE = "Y"
+        IF ND-KIND(LS-UP) = "SENT" OR ND-KIND(LS-UP) = "PARA"
+            EXIT PERFORM
+        END-IF
+        IF ND-KIND(LS-UP) = "BLCK"
+            MOVE ND-PARENT(OP-STMT(LS-J)) TO LS-K
+            PERFORM UNTIL LS-K = 0
+                IF ND-KIND(LS-K) = "SENT" OR ND-KIND(LS-K) = "PARA"
+                    EXIT PERFORM
+                END-IF
+                IF ND-KIND(LS-K) = "BLCK"
+                   AND ND-PARENT(LS-K) = ND-PARENT(LS-UP)
+                   AND LS-K NOT = LS-UP
+                    MOVE "Y" TO LS-ALTERNATIVE
+                    EXIT PERFORM
+                END-IF
+                MOVE ND-PARENT(LS-K) TO LS-K
+            END-PERFORM
+        END-IF
+        MOVE ND-PARENT(LS-UP) TO LS-UP
+    END-PERFORM.
 
 *> The status item of file LS-F and its condition names (88 levels).
 STATUS-NAMES.
