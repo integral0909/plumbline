@@ -416,6 +416,9 @@ PROCEDURE DIVISION USING PLB-PIC-INFO LK-USAGE LK-BYTES.
                 WHEN OTHER
                     MOVE 16 TO LK-BYTES
             END-EVALUATE
+        *> Unsigned packed decimal: two digits a byte, no sign nibble.
+        WHEN "COMP-6" WHEN "COMPUTATIONAL-6"
+            COMPUTE LK-BYTES = (PI-DIGITS + 1) / 2
         WHEN "COMP-X" WHEN "COMPUTATIONAL-X"
             *> PIC X(n) COMP-X (Micro Focus) is n bytes; with a numeric
             *> picture, the fewest bytes whose range covers the digits.

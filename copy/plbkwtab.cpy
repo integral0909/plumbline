@@ -9,7 +9,7 @@
 *> The list covers the reserved words of the 2014 standard that matter
 *> to analysis, plus common GnuCOBOL and IBM extensions. It must stay
 *> sorted: tests/unit/test-plbkw.cob checks the order.
-78  KW-COUNT                    VALUE 467.
+78  KW-COUNT                    VALUE 469.
 01  WS-KEYWORD-VALUES.
     05  FILLER PIC X(32) VALUE "ACCEPT                         V".
     05  FILLER PIC X(32) VALUE "ACCESS                         R".
@@ -89,6 +89,7 @@
     05  FILLER PIC X(32) VALUE "COMP-3                         R".
     05  FILLER PIC X(32) VALUE "COMP-4                         R".
     05  FILLER PIC X(32) VALUE "COMP-5                         R".
+    05  FILLER PIC X(32) VALUE "COMP-6                         R".
     05  FILLER PIC X(32) VALUE "COMP-X                         R".
     05  FILLER PIC X(32) VALUE "COMPUTATIONAL                  R".
     05  FILLER PIC X(32) VALUE "COMPUTATIONAL-1                R".
@@ -96,6 +97,7 @@
     05  FILLER PIC X(32) VALUE "COMPUTATIONAL-3                R".
     05  FILLER PIC X(32) VALUE "COMPUTATIONAL-4                R".
     05  FILLER PIC X(32) VALUE "COMPUTATIONAL-5                R".
+    05  FILLER PIC X(32) VALUE "COMPUTATIONAL-6                R".
     05  FILLER PIC X(32) VALUE "COMPUTATIONAL-X                R".
     05  FILLER PIC X(32) VALUE "COMPUTE                        V".
     05  FILLER PIC X(32) VALUE "CONDITION                      R".
