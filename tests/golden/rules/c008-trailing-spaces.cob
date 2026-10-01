@@ -1,0 +1,14 @@
+*> Trailing spaces of a literal are not lost characters, except in a
+*> JUSTIFIED RIGHT receiver, which drops characters on the left.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. TRAIL.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  SHORT-TEXT      PIC X(5) VALUE SPACES.
+01  RIGHT-TEXT      PIC X(5) JUSTIFIED RIGHT VALUE SPACES.
+PROCEDURE DIVISION.
+    MOVE "ABC       " TO SHORT-TEXT
+    MOVE "ABCDEF    " TO SHORT-TEXT
+    MOVE "ABC       " TO RIGHT-TEXT
+    DISPLAY SHORT-TEXT RIGHT-TEXT
+    STOP RUN.
