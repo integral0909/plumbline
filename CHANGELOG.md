@@ -74,6 +74,9 @@ uses [Semantic Versioning](https://semver.org/).
 
 - `make corpus` runs Plumbline over the NIST COBOL-85 test suite
   (`tools/corpus/`); see `docs/corpus.md`.
+- `plumbline graph` (PERFORM, CALL, and copybook graphs as DOT or
+  JSON) and `plumbline impact` (what includes a copybook or calls a
+  program, directly or not).
 - `plumbline metrics`: size and complexity of programs, paragraphs, and
   sections, as text, JSON, or CSV.
 - Measuring rules have limits (`limit RULE N`); PLB-M009
