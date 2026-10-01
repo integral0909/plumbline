@@ -69,6 +69,10 @@ run by name, and the programs it calls are followed through the call
 graph, so a file opened by a called subprogram also needs its DD in
 the step.
 
+One check needs no programs: a step that reads a temporary data set
+(`&&NAME`) that no earlier step of the job creates
+([PLB-J005](rules.md#plb-j005-temp-not-created)).
+
 ## Drawing the jobs
 
 `plumbline graph --kind jobs` draws which jobs and procedures run which

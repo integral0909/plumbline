@@ -56,6 +56,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J002](#plb-j002-dd-unused) | dd-unused | note | DD is not a file of the step's programs |
 | [PLB-J003](#plb-j003-program-not-in-run) | program-not-in-run | note, off | Step runs a program that is not among those checked |
 | [PLB-J004](#plb-j004-dd-cannot-be-read) | dd-cannot-be-read | error | A file the program only reads has a DD that gives it no data |
+| [PLB-J005](#plb-j005-temp-not-created) | temp-not-created | error | Temporary data set read before any step creates it |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
@@ -1169,6 +1170,28 @@ for the spool and cannot be read at all. `DD DUMMY`, which reads as an
 empty file, is left alone: it is how a job leaves out an input on
 purpose. Files that a program also opens for output, `I-O`, or `EXTEND`
 are not checked.
+
+## PLB-J005 temp-not-created
+
+A step that reads a temporary data set that no earlier step of its job
+creates:
+
+```jcl
+//COPY     EXEC PGM=IEBGENER
+//SYSUT1   DD DSN=&&SORTED,DISP=(OLD,DELETE)
+//         DD DSN=&&LOST,DISP=(OLD,DELETE)       <- reported
+```
+
+A temporary data set (`DSN=&&NAME`) exists from the step that creates
+it to the end of the job. A `DD` that reads it (`DISP=OLD` or `SHR`)
+before then ends the job with a JCL error. A step creates it with
+`DISP=NEW`, `DISP=MOD`, or no `DISP`. In a procedure, the earlier steps
+are those of the procedure.
+
+A job that runs a procedure before the step is not checked, since the
+procedure's steps may create the data set, nor is a `DD` that a job adds
+to a step of a procedure (`PSTEP.DDNAME`). Every data set of a
+concatenation is checked.
 
 ## PLB-K001 cics-resource-undefined
 

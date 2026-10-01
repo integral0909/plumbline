@@ -143,6 +143,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C035 duplicate-paragraph.
 - Rule PLB-C036 arithmetic-overflow.
 - Rule PLB-C037 search-index-not-set.
+- Rule PLB-J005 temp-not-created.
 - Rule PLB-M011 evaluate-without-other (off by default).
 - Rule PLB-M012 deep-nesting (off by default, limit 5).
 - Rule PLB-M013 unused-copybook.
