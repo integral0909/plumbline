@@ -1,0 +1,3 @@
+77 EUROS E size=5 offset=0 digits=4 scale=2 section=W @14:1
+77 CENTS E size=6 offset=0 digits=4 section=W @15:1
+77 DOLLARS E size=6 offset=0 digits=4 scale=2 section=W @16:1

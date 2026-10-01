@@ -441,6 +441,17 @@ CHECK-PICTURE-CONTEXT.
             AND (LS-PREV2-TEXT = "PIC" OR LS-PREV2-TEXT = "PICTURE")
         MOVE "Y" TO LS-PICTURE
     END-IF
+    *> CURRENCY SIGN ... WITH PICTURE SYMBOL "c": no picture follows.
+    IF LS-PICTURE = "Y" AND (LS-CH = "S" OR LS-CH = "s")
+            AND LS-POS + 6 <= ST-LEN
+        IF FUNCTION UPPER-CASE(ST-TEXT(LS-POS:6)) = "SYMBOL"
+            COMPUTE LS-CLASS-POS = LS-POS + 6
+            PERFORM CLASS-AT
+            IF LS-CLASS-OF = "S"
+                MOVE "N" TO LS-PICTURE
+            END-IF
+        END-IF
+    END-IF
     *> "PIC IS X": the IS is a keyword, not the picture.
     IF LS-PICTURE = "Y" AND (LS-CH = "I" OR LS-CH = "i")
             AND LS-POS + 2 <= ST-LEN

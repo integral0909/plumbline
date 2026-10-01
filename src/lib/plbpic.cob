@@ -30,6 +30,7 @@ LOCAL-STORAGE SECTION.
 01  LS-LEN                  PIC 9(9) COMP-5.
 01  LS-POS                  PIC 9(9) COMP-5.
 01  LS-SYM                  PIC XX.
+01  LS-CURRENCY-HITS        PIC 9(4) COMP-5.
 01  LS-COUNT                PIC 9(9) COMP-5.
 01  LS-CLOSE                PIC 9(9) COMP-5.
 *> The position before the first significant digit of a count.
@@ -164,9 +165,14 @@ PROCESS-SYMBOL.
                 MOVE ". " TO LS-SYM
         END-EVALUATE
     END-IF
-    IF PI-CURRENCY NOT = SPACE AND PI-CURRENCY NOT = LOW-VALUE
-       AND LS-SYM(1:1) = PI-CURRENCY AND LS-SYM(2:1) = SPACE
-        MOVE "$ " TO LS-SYM
+    IF LS-SYM(2:1) = SPACE AND LS-SYM(1:1) NOT = SPACE
+       AND PI-CURRENCY NOT = SPACES AND PI-CURRENCY NOT = LOW-VALUES
+        MOVE 0 TO LS-CURRENCY-HITS
+        INSPECT PI-CURRENCY TALLYING LS-CURRENCY-HITS
+            FOR ALL LS-SYM(1:1)
+        IF LS-CURRENCY-HITS > 0
+            MOVE "$ " TO LS-SYM
+        END-IF
     END-IF
     EVALUATE LS-SYM
         WHEN "A "

@@ -65,7 +65,9 @@ COPY "plbpic.cpy".
 01  LS-SUBSTITUTED          PIC X.
 *> From the SPECIAL-NAMES of the current program.
 01  LS-DECIMAL-COMMA        PIC X VALUE "N".
-01  LS-CURRENCY             PIC X VALUE SPACE.
+01  LS-CURRENCY             PIC X(8) VALUE SPACES.
+01  LS-SYMBOL               PIC X.
+01  LS-CI                   PIC 9(4) COMP-5.
 COPY "plbpic.cpy" REPLACING ==PLB-PIC-INFO== BY ==LS-SAVED-PIC==.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
@@ -285,10 +287,24 @@ READ-SPECIAL-NAMES.
                         IF TK-IS-ALNUM(LS-R)
                             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-R
                                 LS-TEXT LS-LEN
-                            MOVE LS-TEXT(1:1) TO LS-CURRENCY
+                            MOVE LS-TEXT(1:1) TO LS-SYMBOL
+                            PERFORM ADD-CURRENCY
                         END-IF
                     END-IF
             END-EVALUATE
+        END-IF
+    END-PERFORM.
+
+*> Add LS-SYMBOL to the currency symbols of the program's pictures.
+ADD-CURRENCY.
+    MOVE FUNCTION UPPER-CASE(LS-SYMBOL) TO LS-SYMBOL
+    PERFORM VARYING LS-CI FROM 1 BY 1 UNTIL LS-CI > 8
+        IF LS-CURRENCY(LS-CI:1) = LS-SYMBOL
+            EXIT PERFORM
+        END-IF
+        IF LS-CURRENCY(LS-CI:1) = SPACE
+            MOVE LS-SYMBOL TO LS-CURRENCY(LS-CI:1)
+            EXIT PERFORM
         END-IF
     END-PERFORM.
 
@@ -299,7 +315,8 @@ READ-CURRENCY.
         IF TK-IS-ALNUM(LS-R)
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-R LS-TEXT LS-LEN
             IF LS-LEN = 1
-                MOVE LS-TEXT(1:1) TO LS-CURRENCY
+                MOVE LS-TEXT(1:1) TO LS-SYMBOL
+                PERFORM ADD-CURRENCY
             END-IF
             EXIT PERFORM
         END-IF
