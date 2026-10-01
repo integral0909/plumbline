@@ -6,6 +6,8 @@ name (`unreachable-code`), and either can be given to `--enable` and
 
 | Id | Name | Default | Summary |
 |----|------|---------|---------|
+| [PLB-B001](#plb-b001-map-fields-overlap) | map-fields-overlap | error | Two fields of a BMS map share screen positions |
+| [PLB-B002](#plb-b002-field-outside-map) | field-outside-map | error | A BMS field ends past the end of its map |
 | [PLB-C001](#plb-c001-unreachable-code) | unreachable-code | warning | Paragraph or section can never be executed |
 | [PLB-C002](#plb-c002-perform-and-fall-through) | perform-and-fall-through | warning | Paragraph is both performed and fallen into |
 | [PLB-C003](#plb-c003-fall-off-end) | fall-off-end | warning | Control can run off the end of the procedure division |
@@ -94,6 +96,41 @@ after `--`, and it is good practice to give one:
 Case does not matter.
 A suppression names the rules it silences, so the reason for it stays
 reviewable.
+
+## PLB-B001 map-fields-overlap
+
+The B rules check CICS BMS maps, given to `check` as `*.bms` files (see
+[BMS](bms.md)).
+
+Two fields of a map that share screen positions:
+
+```
+ERRMSG  DFHMDF POS=(23,1),LENGTH=80
+FKEYS   DFHMDF POS=(24,1),LENGTH=75
+```
+
+A field takes its attribute byte, at `POS`, and `LENGTH` bytes after
+it, so `ERRMSG` takes 81 positions and its last byte is the attribute
+byte of `FKEYS`. On the screen one field overwrites the other: text is
+cut short, or an attribute (protection, color) changes in the middle of
+a field. Two fields at the same `POS`, often a stopper field
+(`LENGTH=0`) and a label, overlap too. A field with `OCCURS=n` takes its
+positions `n` times. Each field is reported once, with the first field
+before it in the source that it overlaps.
+
+## PLB-B002 field-outside-map
+
+A field that ends past the last position of its map, or starts in a
+column the map does not have:
+
+```
+SMALL   DFHMDI SIZE=(5,40)
+WIDE    DFHMDF POS=(5,10),LENGTH=40
+```
+
+A field may run on from one line into the next, but not past the end
+of the map. Maps without `SIZE` take the terminal's size, which the
+source does not give, and are not checked.
 
 ## PLB-C001 unreachable-code
 

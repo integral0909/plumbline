@@ -12,7 +12,8 @@ lines of IBM Enterprise COBOL, with their copybooks.
 (`59cc6c2fd7ebd7ef7925cad552a01a4b8b6e4d5e`) from GitHub, checks it
 against a known SHA-256, and checks all programs in one run, with every
 directory of copybooks and DB2 declarations on the copy path, together
-with the application's 48 JCL members and procedures. None of
+with the application's 48 JCL members and procedures and its 21 BMS
+map sources. None of
 CardDemo is added to this repository.
 
 ## Results
@@ -23,6 +24,7 @@ The run on 2026-10-01 takes about a second:
 |---|---|
 | Programs | 44 (30,175 lines, without copybooks) |
 | JCL members and procedures | 48 |
+| BMS map sources | 21 |
 | Programs with input errors | 24, all for copybooks of CICS and MQ |
 
 The copybooks it cannot find are those that come with the products, not
@@ -40,6 +42,7 @@ with the application: `DFHAID` and `DFHBMSCA` (CICS), and `CMQV`,
 | PLB-M005 set-never-read | 72 |
 | PLB-C019 cics-response-not-checked | 42 |
 | PLB-C001 unreachable-code | 33 |
+| PLB-B001 map-fields-overlap | 16 |
 | PLB-M013 unused-copybook | 30 |
 | PLB-C002 perform-and-fall-through | 23 |
 | PLB-C020 file-status-not-checked | 10 |
@@ -110,3 +113,13 @@ Some findings that were read and are true:
   `CBIMPORT` opens it. Every other batch step has a DD for each file its
   program opens, and no DD that its program does not use, once the
   paths of alternate indexes (`XREFFIL1` for `XREFFILE`) are counted.
+- **PLB-B001 map-fields-overlap.** Sixteen fields overlap another field
+  of their map. Some are one byte too long: `ERRMSG` with `LENGTH=80` at
+  column 1 runs into the attribute byte of the function key line below
+  it (`COCRDSL`, `COCRDUP`), and the label before `USRTYPE` runs into
+  `USRTYPE` (`COUSR01` to `COUSR03`); in the authorization screen
+  `COPAU01`, an 18-character label runs over the field `TRNID`. Others put two fields at one
+  position: a stopper field and a label in the sign-on screen, and
+  after each card's selection field in the card list. In `COACTUP` and
+  `COACTVW`, the last field of the map is placed at row 1, column 1,
+  on top of the first.

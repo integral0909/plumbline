@@ -244,6 +244,17 @@ check "dump bms lists maps and fields"     0 'orders.bms:8:     field ORDNUM at 
     -- dump bms tests/golden/bms/orders.bms
 check "dump bms of a missing file"         2 'cannot read tests/golden/bms/missing.bms' \
     -- dump bms tests/golden/bms/missing.bms
+bx=tests/fixtures/bms/screens.bms
+check "BMS fields at the same position"   1 'screens.bms:8:1: error: field STOPPER overlaps field at 3,1 of map SCRMAP \[PLB-B001\]' \
+    -- check --no-config $bx
+check "a BMS field one byte too long"      1 'screens.bms:12:1: error: field FKEYS overlaps field ERRMSG of map SCRMAP' \
+    -- check --no-config $bx
+check "a BMS field with OCCURS"            1 'screens.bms:10:1: error: field NEXTTO overlaps field LINES of map SCRMAP' \
+    -- check --no-config $bx
+check_absent "adjacent BMS fields are fine" 'screens.bms:[456]:' \
+    -- check --no-config $bx
+check "a BMS field past the end of its map" 1 'screens.bms:14:1: error: field WIDE ends past the end of map SMALL (5 lines of 40) \[PLB-B002\]' \
+    -- check --no-config $bx
 check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
 check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
     -- rules --no-config --enable evaluate-without-other
