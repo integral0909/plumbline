@@ -40,3 +40,9 @@
         *> Entry this item redefines (0 if none).
         10  SY-REDEFINES        PIC 9(9) COMP-5.
         10  SY-HAS-VALUE        PIC X.
+        *> "Y" for OCCURS ... TO UNBOUNDED: no largest count.
+        10  SY-UNBOUNDED        PIC X.
+        *> "Y" when the item's size changes at run time: it, or an item
+        *> in it, has OCCURS DEPENDING ON. SY-SIZE is then the size
+        *> with the counts as written.
+        10  SY-VARIABLE         PIC X.

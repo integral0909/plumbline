@@ -100,6 +100,13 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
     END-PERFORM
     PERFORM COMPUTE-SIZES
     PERFORM COMPUTE-OFFSETS
+    *> A group with a variable item in it is variable: members come
+    *> after their groups, so go backward.
+    PERFORM VARYING LS-S FROM SY-COUNT BY -1 UNTIL LS-S = 0
+        IF SY-VARIABLE(LS-S) = "Y" AND SY-PARENT(LS-S) > 0
+            MOVE "Y" TO SY-VARIABLE(SY-PARENT(LS-S))
+        END-IF
+    END-PERFORM
     GOBACK.
 
 NOTE-SECTION.
@@ -140,6 +147,7 @@ DESCRIBE-ITEM.
     MOVE 0 TO SY-PARENT(LS-S) SY-DIGITS(LS-S) SY-SCALE(LS-S)
         SY-SIZE(LS-S) SY-OFFSET(LS-S) SY-OCCURS(LS-S)
         SY-ODO-TOKEN(LS-S) SY-REDEFINES(LS-S)
+    MOVE "N" TO SY-UNBOUNDED(LS-S) SY-VARIABLE(LS-S)
     MOVE "N" TO SY-SIGNED(LS-S) SY-HAS-VALUE(LS-S)
     IF ND-KIND(ND-PARENT(LS-NODE)) = "DATA"
         MOVE WS-NODE-SYMBOL(ND-PARENT(LS-NODE)) TO SY-PARENT(LS-S)
@@ -490,6 +498,8 @@ DESCRIBE-OCCURS.
                     TO SY-OCCURS(LS-S)
             WHEN LS-TEXT = "TO"
                 CONTINUE
+            WHEN LS-TEXT = "UNBOUNDED"
+                MOVE "Y" TO SY-UNBOUNDED(LS-S)
             WHEN OTHER
                 MOVE LS-TEXT TO LS-CONST-NAME
                 PERFORM FIND-CONSTANT
@@ -502,6 +512,7 @@ DESCRIBE-OCCURS.
     END-PERFORM
     IF ND-FIRST(LS-CHILD) > 0
         MOVE ND-NAME(ND-FIRST(LS-CHILD)) TO SY-ODO-TOKEN(LS-S)
+        MOVE "Y" TO SY-VARIABLE(LS-S)
     END-IF.
 
 *> The redefined item is the nearest earlier item of the same program
