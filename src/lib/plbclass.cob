@@ -158,6 +158,10 @@ PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
                     MOVE "B" TO CL-KIND
                 WHEN LK-LINE(CL-CONTENT-COL:2) = ">>"
                     MOVE ">" TO CL-KIND
+                *> Micro Focus directives ($SET, $DISPLAY, $IF) may be
+                *> indented; no COBOL text starts with $.
+                WHEN LK-LINE(CL-CONTENT-COL:1) = "$"
+                    MOVE ">" TO CL-KIND
                 WHEN OTHER
                     MOVE "C" TO CL-KIND
             END-EVALUATE

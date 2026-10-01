@@ -147,6 +147,11 @@ TEST-FIXED-INDICATORS.
     CALL "PLBT-ASSERT-STR" USING "the directive is not flagged" " "
         CL-PROBLEM
 
+    MOVE "           $SET CONSTANT DOGGY ""Barky""" TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "an indented $SET is a directive" ">"
+        CL-KIND
+
     MOVE "      >X   MOVE 1 TO X." TO WS-LINE
     PERFORM RUN-FIXED
     CALL "PLBT-ASSERT-STR" USING "a lone > is an invalid indicator" "I"

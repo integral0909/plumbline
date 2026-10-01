@@ -122,6 +122,12 @@ LOCAL-STORAGE SECTION.
 01  LS-A                    PIC 9(9) COMP-5.
 01  LS-ANCESTOR             PIC 9(9) COMP-5.
 01  LS-Q                    PIC 9(4) COMP-5.
+*> Directives that define constants: a line and its first words.
+01  LS-LINE-IX              PIC 9(9) COMP-5.
+01  LS-DIRECTIVE            PIC X(1024).
+01  LS-DIRECTIVE-REST       PIC X(1024).
+01  LS-DIRECTIVE-WORDS.
+    05  LS-DIRECTIVE-WORD   PIC X(40) OCCURS 3 TIMES.
 01  LS-U                    PIC 9(9) COMP-5.
 01  LS-TEXT                 PIC X(31).
 01  LS-NAME                 PIC X(31).
@@ -172,6 +178,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
         PERFORM MARK-NODE
         CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
     END-PERFORM
+    PERFORM DIRECTIVE-CONSTANTS
     IF WS-OTHER-COUNT > 1
         SORT WS-OTHER ON ASCENDING KEY ON-TEXT
     END-IF
@@ -322,6 +329,42 @@ ADD-EIB-NAMES.
     PERFORM VARYING LS-Q FROM 1 BY 1 UNTIL LS-Q > 33
         MOVE WS-EIB-NAME(LS-Q) TO LS-TEXT
         PERFORM ADD-OTHER-NAME
+    END-PERFORM.
+
+*> Compile-time constants that directives define, which the program
+*> may use like literals: $SET CONSTANT NAME "value" (Micro Focus),
+*> >>DEFINE [CONSTANT] NAME AS value (COBOL 2014).
+DIRECTIVE-CONSTANTS.
+    PERFORM VARYING LS-LINE-IX FROM 1 BY 1
+            UNTIL LS-LINE-IX > SS-LINE-COUNT
+        IF SL-IS-DIRECTIVE(LS-LINE-IX)
+            CALL "PLB-SRC-LINE-CONTENT" USING PLB-SOURCE-SET LS-LINE-IX
+                LS-DIRECTIVE LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-DIRECTIVE) TO LS-DIRECTIVE
+            *> ">> DEFINE" with a space reads as ">>DEFINE".
+            IF LS-DIRECTIVE(1:3) = ">> "
+                MOVE LS-DIRECTIVE(4:) TO LS-DIRECTIVE-REST
+                MOVE LS-DIRECTIVE-REST TO LS-DIRECTIVE(3:)
+            END-IF
+            MOVE SPACES TO LS-DIRECTIVE-WORD(1) LS-DIRECTIVE-WORD(2)
+                LS-DIRECTIVE-WORD(3)
+            UNSTRING LS-DIRECTIVE DELIMITED BY ALL SPACE
+                INTO LS-DIRECTIVE-WORD(1) LS-DIRECTIVE-WORD(2)
+                    LS-DIRECTIVE-WORD(3)
+            MOVE SPACES TO LS-TEXT
+            EVALUATE TRUE
+                WHEN LS-DIRECTIVE-WORD(1) = "$SET"
+                     AND LS-DIRECTIVE-WORD(2) = "CONSTANT"
+                WHEN LS-DIRECTIVE-WORD(1) = ">>DEFINE"
+                     AND LS-DIRECTIVE-WORD(2) = "CONSTANT"
+                    MOVE LS-DIRECTIVE-WORD(3) TO LS-TEXT
+                WHEN LS-DIRECTIVE-WORD(1) = ">>DEFINE"
+                    MOVE LS-DIRECTIVE-WORD(2) TO LS-TEXT
+            END-EVALUATE
+            IF LS-TEXT NOT = SPACES
+                PERFORM ADD-OTHER-NAME
+            END-IF
+        END-IF
     END-PERFORM.
 
 ADD-OTHER-NAME.
