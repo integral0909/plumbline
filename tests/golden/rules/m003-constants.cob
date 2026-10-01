@@ -1,6 +1,6 @@
-*> Constants used only in the data division are used: in a picture's
-*> repeat count, an OCCURS count, a VALUE, or another constant. The
-*> constant nothing uses is reported.
+*> Constants are not reported as unused, whether a picture, an OCCURS
+*> count, a VALUE, or another constant uses them or nothing does: a
+*> program often declares a whole set of codes and uses some.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. CONSTUSE.
 DATA DIVISION.

@@ -67,9 +67,8 @@ END PROGRAM PLB-RULE-C007.
 *> of the program's own source that nothing refers to.
 *>
 *> An item counts as used when its name, or the name of one of its
-*> condition names (88), appears in the program's procedure division,
-*> as the object of an OCCURS DEPENDING ON, or, for a constant, in a
-*> VALUE, CONSTANT, OCCURS, or PICTURE clause. A group is used when
+*> condition names (88), appears in the program's procedure division
+*> or as the object of an OCCURS DEPENDING ON. A group is used when
 *> any member is, and members of a group that is used by name are
 *> used through it. An item is also used when an item that redefines
 *> it is used: that is the common idiom of a VALUE-filled table read
@@ -77,7 +76,7 @@ END PROGRAM PLB-RULE-C007.
 *>
 *> Items from copybooks are not reported (a program commonly uses
 *> part of a shared layout), nor are GLOBAL or EXTERNAL items, which
-*> other programs may use.
+*> other programs may use, nor constants (level 78 or CONSTANT).
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-M003.
 DATA DIVISION.
@@ -115,9 +114,6 @@ LOCAL-STORAGE SECTION.
 01  LS-SKIP                 PIC X.
 01  LS-TOKEN                PIC 9(9) COMP-5.
 01  LS-MESSAGE              PIC X(200).
-01  LS-PICTURE              PIC X(256).
-01  LS-OPEN                 PIC 9(9) COMP-5.
-01  LS-I                    PIC 9(9) COMP-5.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -242,9 +238,6 @@ COLLECT-NAMES.
         END-IF
         IF ND-KIND(LS-CLAUSE) = "CLAU"
             EVALUATE ND-DETAIL(LS-CLAUSE)
-                *> Constants used in data descriptions: VALUE 2 * MAX,
-                *> CONSTANT AS SIZE + 1, OCCURS MAX-ITEMS TIMES.
-                WHEN "VALUE" WHEN "CONSTANT" WHEN "OCCURS"
                 WHEN "SOURCE" WHEN "SUM" WHEN "TYPE" WHEN "CONTROL"
                 WHEN "PRESENT"
                     PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-CLAUSE)
@@ -255,8 +248,6 @@ COLLECT-NAMES.
                             PERFORM ADD-NAME
                         END-IF
                     END-PERFORM
-                WHEN "PICTURE"
-                    PERFORM PICTURE-CONSTANTS
             END-EVALUATE
         END-IF
     END-PERFORM
@@ -270,32 +261,6 @@ COLLECT-NAMES.
     IF WS-NAME-COUNT > 1
         SORT WS-NAME ON ASCENDING KEY NM-TEXT
     END-IF.
-
-*> PIC X(NAME-SIZE): a constant used as a repeat count.
-PICTURE-CONSTANTS.
-    IF ND-NAME(LS-CLAUSE) = 0
-        EXIT PARAGRAPH
-    END-IF
-    CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(LS-CLAUSE) LS-PICTURE
-        LS-LEN
-    MOVE 0 TO LS-OPEN
-    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > LS-LEN
-        EVALUATE LS-PICTURE(LS-I:1)
-            WHEN "("
-                MOVE LS-I TO LS-OPEN
-            WHEN ")"
-                IF LS-OPEN > 0 AND LS-I - LS-OPEN - 1 > 0
-                   AND LS-I - LS-OPEN - 1 <= 31
-                    MOVE SPACES TO LS-TEXT
-                    MOVE LS-PICTURE(LS-OPEN + 1:LS-I - LS-OPEN - 1)
-                        TO LS-TEXT
-                    IF LS-TEXT(1:1) IS NOT NUMERIC
-                        PERFORM ADD-NAME
-                    END-IF
-                END-IF
-                MOVE 0 TO LS-OPEN
-        END-EVALUATE
-    END-PERFORM.
 
 ADD-NAME.
     IF WS-NAME-COUNT < NM-MAX
@@ -324,8 +289,10 @@ CONSIDER-ITEM.
     IF SY-SECTION(LS-S) NOT = "W" AND SY-SECTION(LS-S) NOT = "L"
         EXIT PARAGRAPH
     END-IF
+    *> Constants are left out: a program commonly declares a whole
+    *> set of codes (OP-OPEN-INPUT, OP-OPEN-OUTPUT, ...) and uses some.
     IF SY-LEVEL(LS-S) = 88 OR SY-LEVEL(LS-S) = 66
-       OR SY-LEVEL(LS-S) = 78
+       OR SY-CATEGORY(LS-S) = "K"
         EXIT PARAGRAPH
     END-IF
     MOVE SY-PARENT(LS-S) TO LS-P
