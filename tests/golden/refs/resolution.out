@@ -16,5 +16,4 @@
 31:26 I (MOVE) -> 1 I @22 role=D
 32:10 IN-FILE (SORT) -> other name
 32:35 CUST-ID OF IN-REC (SORT) -> 5 CUST-ID @13 role=X
-33:28 MAIN-LINE (SORT) -> procedure
 33:45 IN-FILE (SORT) -> other name

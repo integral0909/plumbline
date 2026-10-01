@@ -58,6 +58,7 @@ COPY "plbptok.cpy".
 01  LS-PARAGRAPH            PIC 9(9) COMP-5.
 01  LS-SENTENCE             PIC 9(9) COMP-5.
 01  LS-PARENT               PIC 9(9) COMP-5.
+01  LS-SORT-PROC            PIC X.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-STMT                 PIC 9(9) COMP-5.
 01  LS-BLOCK                PIC 9(9) COMP-5.
@@ -269,6 +270,12 @@ SENTENCE-TOKEN.
 *> the statement being collected, or text that cannot be here.
 OPERAND-TOKEN.
     IF WS-CX-DEPTH > 0
+        IF CX-TYPE(WS-CX-DEPTH) = "S"
+           AND (CX-VERB(WS-CX-DEPTH) = "SORT"
+                OR CX-VERB(WS-CX-DEPTH) = "MERGE")
+            PERFORM SORT-OPERAND
+            EXIT PARAGRAPH
+        END-IF
         IF CX-TYPE(WS-CX-DEPTH) = "S" OR CX-TYPE(WS-CX-DEPTH) = "V"
             ADD 1 TO PS-POS
             EXIT PARAGRAPH
@@ -426,6 +433,45 @@ PROCEDURE-NAME.
         ADD 2 TO PS-POS
     END-IF
     COMPUTE ND-TOK-LAST(LS-NODE) = PS-POS - 1.
+
+*> An operand of SORT or MERGE. INPUT PROCEDURE [IS] proc [THRU proc]
+*> and OUTPUT PROCEDURE ... run their procedures as PERFORM does, so
+*> they get PROC nodes like a PERFORM's.
+SORT-OPERAND.
+    MOVE "N" TO LS-SORT-PROC
+    CALL "PLB-PX-TOKEN" USING PLB-TOKENS PS-POS PLB-PX-VIEW
+    IF PS-POS > 2 AND PX-KIND = "W" AND PX-KW = SPACE
+        COMPUTE LS-NEXT = PS-POS - 1
+        PERFORM PREVIOUS-WORD
+        IF LS-NEXT-TEXT = "IS"
+            COMPUTE LS-NEXT = PS-POS - 2
+            PERFORM PREVIOUS-WORD
+        END-IF
+        IF LS-NEXT-TEXT = "PROCEDURE"
+            MOVE "Y" TO LS-SORT-PROC
+        END-IF
+    END-IF
+    IF LS-SORT-PROC = "N"
+        ADD 1 TO PS-POS
+        EXIT PARAGRAPH
+    END-IF
+    MOVE CX-STMT(WS-CX-DEPTH) TO LS-STMT
+    MOVE "PERFORM" TO LS-DETAIL
+    PERFORM PROCEDURE-NAME
+    CALL "PLB-PX-TOKEN" USING PLB-TOKENS PS-POS PLB-PX-VIEW
+    IF PX-TEXT = "THRU" OR PX-TEXT = "THROUGH"
+        ADD 1 TO PS-POS
+        MOVE "THRU" TO LS-DETAIL
+        PERFORM PROCEDURE-NAME
+    END-IF.
+
+*> LS-NEXT-TEXT = the word at token LS-NEXT, or spaces.
+PREVIOUS-WORD.
+    MOVE SPACES TO LS-NEXT-TEXT
+    IF TK-IS-WORD(LS-NEXT) AND TK-TEXT-LEN(LS-NEXT) <= 31
+        MOVE TK-TEXT(TK-TEXT-OFF(LS-NEXT):TK-TEXT-LEN(LS-NEXT))
+            TO LS-NEXT-TEXT
+    END-IF.
 
 *> GO [TO] proc... [DEPENDING [ON] identifier]
 GO-STATEMENT.
