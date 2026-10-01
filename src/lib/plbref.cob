@@ -38,10 +38,13 @@ WORKING-STORAGE SECTION.
                             ASCENDING KEY IS ON-TEXT
                             INDEXED BY ON-IX.
         10  ON-TEXT         PIC X(31).
-*> Procedure divisions to scan, with their programs.
+*> Token ranges to scan for identifiers, with their programs: each
+*> procedure division, and the clauses of report descriptions that
+*> name data (SOURCE, SUM, TYPE CONTROL ..., CONTROL, PRESENT WHEN).
+78  DV-MAX                  VALUE 30000.
 01  WS-DIVISIONS.
     05  WS-DIV-COUNT        PIC 9(4) COMP-5.
-    05  WS-DIV              OCCURS 256 TIMES.
+    05  WS-DIV              OCCURS DV-MAX TIMES.
         10  DV-NODE         PIC 9(9) COMP-5.
         10  DV-PROGRAM      PIC 9(9) COMP-5.
 LOCAL-STORAGE SECTION.
@@ -126,7 +129,7 @@ MARK-NODE.
         WHEN "DIVN"
             EVALUATE ND-DETAIL(LS-NODE)
                 WHEN "PROCEDURE"
-                    IF WS-DIV-COUNT < 256
+                    IF WS-DIV-COUNT < DV-MAX
                         ADD 1 TO WS-DIV-COUNT
                         MOVE LS-NODE TO DV-NODE(WS-DIV-COUNT)
                         MOVE LS-PROGRAM TO DV-PROGRAM(WS-DIV-COUNT)
@@ -155,9 +158,13 @@ MARK-NODE.
                 END-PERFORM
             END-IF
         WHEN "CLAU"
-            IF ND-DETAIL(LS-NODE) = "OCCURS"
-                PERFORM INDEX-NAMES
-            END-IF
+            EVALUATE ND-DETAIL(LS-NODE)
+                WHEN "OCCURS"
+                    PERFORM INDEX-NAMES
+                WHEN "SOURCE" WHEN "SUM" WHEN "TYPE" WHEN "CONTROL"
+                WHEN "PRESENT"
+                    PERFORM ADD-REPORT-CLAUSE
+            END-EVALUATE
         WHEN "STMT"
             PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
                     UNTIL LS-T > ND-TOK-LAST(LS-NODE)
@@ -177,6 +184,20 @@ MARK-NODE.
                 MOVE "Y" TO WS-TOKEN-SKIP(ND-NAME(LS-NODE))
             END-IF
     END-EVALUATE.
+
+*> A report clause that names data items: scan its operands, with the
+*> clause as their statement.
+ADD-REPORT-CLAUSE.
+    IF WS-DIV-COUNT >= DV-MAX
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO WS-DIV-COUNT
+    MOVE LS-NODE TO DV-NODE(WS-DIV-COUNT)
+    MOVE LS-PROGRAM TO DV-PROGRAM(WS-DIV-COUNT)
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
+            UNTIL LS-T > ND-TOK-LAST(LS-NODE)
+        MOVE LS-NODE TO WS-TOKEN-STMT(LS-T)
+    END-PERFORM.
 
 *> Words after INDEXED [BY] in an OCCURS clause name indexes.
 INDEX-NAMES.

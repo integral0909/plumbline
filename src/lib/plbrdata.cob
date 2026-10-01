@@ -101,6 +101,7 @@ LOCAL-STORAGE SECTION.
 01  LS-DEPTH                PIC S9(9) COMP-5.
 01  LS-PROGRAM              PIC 9(9) COMP-5.
 01  LS-CHILD                PIC 9(9) COMP-5.
+01  LS-CLAUSE               PIC 9(9) COMP-5.
 01  LS-DIVISION             PIC 9(9) COMP-5.
 01  LS-T                    PIC 9(9) COMP-5.
 01  LS-S                    PIC 9(9) COMP-5.
@@ -189,7 +190,8 @@ CHECK-PROGRAM.
     END-PERFORM.
 
 *> The sorted, searchable list of words in the program's procedure
-*> division, plus the objects of OCCURS DEPENDING ON.
+*> division, its report clauses, and the objects of OCCURS DEPENDING
+*> ON.
 COLLECT-NAMES.
     MOVE 0 TO WS-NAME-COUNT LS-DIVISION
     MOVE ND-FIRST(LS-PROGRAM) TO LS-CHILD
@@ -212,6 +214,28 @@ COLLECT-NAMES.
             END-IF
         END-PERFORM
     END-IF
+    *> Report clauses that name data: SOURCE, SUM, TYPE CONTROL ...,
+    *> CONTROL, PRESENT WHEN.
+    PERFORM VARYING LS-CLAUSE FROM LS-PROGRAM BY 1
+            UNTIL LS-CLAUSE > AS-COUNT
+        IF ND-TOK-FIRST(LS-CLAUSE) > ND-TOK-LAST(LS-PROGRAM)
+            EXIT PERFORM
+        END-IF
+        IF ND-KIND(LS-CLAUSE) = "CLAU"
+            EVALUATE ND-DETAIL(LS-CLAUSE)
+                WHEN "SOURCE" WHEN "SUM" WHEN "TYPE" WHEN "CONTROL"
+                WHEN "PRESENT"
+                    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-CLAUSE)
+                            BY 1 UNTIL LS-T > ND-TOK-LAST(LS-CLAUSE)
+                        IF TK-IS-WORD(LS-T) AND TK-TEXT-LEN(LS-T) <= 31
+                            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T
+                                LS-TEXT LS-LEN
+                            PERFORM ADD-NAME
+                        END-IF
+                    END-PERFORM
+            END-EVALUATE
+        END-IF
+    END-PERFORM
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
         IF SY-PROGRAM(LS-S) = LS-PROGRAM AND SY-ODO-TOKEN(LS-S) > 0
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS SY-ODO-TOKEN(LS-S)
