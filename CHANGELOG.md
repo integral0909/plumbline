@@ -95,6 +95,8 @@ uses [Semantic Versioning](https://semver.org/).
   `$IF`/`$ELSE`/`$END` with `DEFINED` and `SET` conditions, and
   `--define NAME` (`-D`).
 - `--tab-width N` (`tab-width` in `plumbline.conf`), as `cobc -ftab-width`.
+- `plumbline lsp` finds references and highlights them, telling reads
+  from writes.
 - Object-oriented COBOL definitions (`CLASS-ID`, `FACTORY`, `OBJECT`,
   `METHOD-ID`, `INTERFACE-ID`) are read as nested units, with instance
   data visible to methods.

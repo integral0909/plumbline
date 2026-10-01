@@ -170,6 +170,11 @@ COPY "plbinput.cpy".
 01  WS-LSP-TOKEN            PIC 9(9) COMP-5.
 01  WS-LSP-SYMBOL           PIC 9(9) COMP-5.
 01  WS-LSP-UNIT             PIC 9(9) COMP-5.
+*> textDocument/documentHighlight rather than references, and whether
+*> the declaration is listed.
+01  WS-LSP-HIGHLIGHT        PIC X.
+01  WS-LSP-DECLARATION      PIC X.
+01  WS-LSP-QUALIFIER        PIC X(31).
 01  WS-LSP-FIRST            PIC X.
 01  WS-LSP-SEVERITY         PIC X.
 01  WS-LSP-TEXT-PATH        PIC X(512).
@@ -733,6 +738,12 @@ LSP-MESSAGE.
             PERFORM LSP-DEFINITION
         WHEN "textDocument/hover"
             PERFORM LSP-HOVER
+        WHEN "textDocument/references"
+            MOVE "N" TO WS-LSP-HIGHLIGHT
+            PERFORM LSP-REFERENCES
+        WHEN "textDocument/documentHighlight"
+            MOVE "Y" TO WS-LSP-HIGHLIGHT
+            PERFORM LSP-REFERENCES
         WHEN OTHER
             *> A request (with an id) must be answered.
             IF WS-LSP-ID-KIND NOT = "-"
@@ -757,7 +768,9 @@ LSP-INITIALIZE.
            '"save":true},' DELIMITED BY SIZE
            '"documentSymbolProvider":true,' DELIMITED BY SIZE
            '"definitionProvider":true,' DELIMITED BY SIZE
-           '"hoverProvider":true},' DELIMITED BY SIZE
+           '"hoverProvider":true,' DELIMITED BY SIZE
+           '"referencesProvider":true,' DELIMITED BY SIZE
+           '"documentHighlightProvider":true},' DELIMITED BY SIZE
            '"serverInfo":{"name":"' DELIMITED BY SIZE
            PLB-NAME DELIMITED BY SPACE
            '","version":"' DELIMITED BY SIZE
@@ -1097,6 +1110,15 @@ LSP-TARGET.
             EXIT PERFORM
         END-IF
     END-PERFORM
+    *> The name in a data description entry.
+    IF WS-LSP-SYMBOL = 0
+        PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > SY-COUNT
+            IF SY-NAME-TOKEN(WS-I) = WS-LSP-TOKEN
+                MOVE WS-I TO WS-LSP-SYMBOL
+                EXIT PERFORM
+            END-IF
+        END-PERFORM
+    END-IF
     IF WS-LSP-SYMBOL > 0
         EXIT PARAGRAPH
     END-IF
@@ -1129,6 +1151,141 @@ LSP-DEFINITION.
     END-EVALUATE
     STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
     PERFORM LSP-SEND-OUT.
+
+*> textDocument/references and textDocument/documentHighlight: the
+*> declaration of the data item or procedure at the position, and every
+*> reference to it. References list locations in copybooks too, and
+*> leave out the declaration unless the request includes it;
+*> highlights stay in the document, and tell reads from writes.
+LSP-REFERENCES.
+    PERFORM LSP-POSITION
+    PERFORM LSP-TARGET
+    MOVE "Y" TO WS-LSP-DECLARATION
+    IF WS-LSP-HIGHLIGHT = "N"
+        MOVE "includeDeclaration" TO WS-LSP-NAME
+        PERFORM LSP-GET
+        IF WS-LSP-VALUE(1:5) = "false"
+            MOVE "N" TO WS-LSP-DECLARATION
+        END-IF
+    END-IF
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-SYMBOL = 0 AND WS-LSP-UNIT = 0
+        STRING "null}" DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        PERFORM LSP-SEND-OUT
+        EXIT PARAGRAPH
+    END-IF
+    STRING "[" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE "Y" TO WS-LSP-FIRST
+    IF WS-LSP-SYMBOL > 0
+        IF WS-LSP-DECLARATION = "Y"
+            MOVE SY-NAME-TOKEN(WS-LSP-SYMBOL) TO WS-LSP-TOKEN
+            MOVE "3" TO WS-LSP-KIND
+            PERFORM LSP-APPEND-REFERENCE
+        END-IF
+        PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > RF-COUNT
+            IF RF-KIND(WS-I) = "D" AND RF-SYMBOL(WS-I) = WS-LSP-SYMBOL
+                MOVE RF-TOKEN(WS-I) TO WS-LSP-TOKEN
+                EVALUATE RF-ROLE(WS-I)
+                    WHEN "U"
+                        MOVE "2" TO WS-LSP-KIND
+                    WHEN "D"
+                    WHEN "B"
+                        MOVE "3" TO WS-LSP-KIND
+                    WHEN OTHER
+                        MOVE "1" TO WS-LSP-KIND
+                END-EVALUATE
+                PERFORM LSP-APPEND-REFERENCE
+            END-IF
+        END-PERFORM
+    ELSE
+        IF WS-LSP-DECLARATION = "Y"
+            MOVE ND-NAME(FU-NODE(WS-LSP-UNIT)) TO WS-LSP-TOKEN
+            MOVE "1" TO WS-LSP-KIND
+            PERFORM LSP-APPEND-REFERENCE
+        END-IF
+        *> The procedure names in the same program that name the unit:
+        *> by name, and by section when qualified.
+        MOVE FU-PROGRAM(WS-LSP-UNIT) TO WS-ROOT
+        PERFORM VARYING WS-NODE FROM 1 BY 1 UNTIL WS-NODE > AS-COUNT
+            IF ND-KIND(WS-NODE) = "PROC" AND ND-NAME(WS-NODE) > 0
+               AND ND-NAME(WS-NODE) >= ND-TOK-FIRST(WS-ROOT)
+               AND ND-NAME(WS-NODE) <= ND-TOK-LAST(WS-ROOT)
+                PERFORM LSP-PROC-NAMES-UNIT
+            END-IF
+        END-PERFORM
+    END-IF
+    STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> PROC node WS-NODE names unit WS-LSP-UNIT: list it.
+LSP-PROC-NAMES-UNIT.
+    MOVE ND-NAME(WS-NODE) TO WS-LSP-TOKEN
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-LSP-TOKEN WS-LSP-NAME
+        WS-TOKEN-LEN
+    IF WS-LSP-NAME NOT = FU-NAME(WS-LSP-UNIT)
+        EXIT PARAGRAPH
+    END-IF
+    *> Not in a program nested in the unit's program.
+    MOVE ND-PARENT(WS-NODE) TO WS-P
+    PERFORM UNTIL WS-P = 0
+        IF ND-KIND(WS-P) = "PROG"
+            EXIT PERFORM
+        END-IF
+        MOVE ND-PARENT(WS-P) TO WS-P
+    END-PERFORM
+    IF WS-P NOT = WS-ROOT
+        EXIT PARAGRAPH
+    END-IF
+    IF ND-TOK-LAST(WS-NODE) >= WS-LSP-TOKEN + 2
+        COMPUTE WS-TOK = WS-LSP-TOKEN + 2
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-TOK WS-LSP-QUALIFIER
+            WS-TOKEN-LEN
+        IF FU-SECTION(WS-LSP-UNIT) = 0
+            EXIT PARAGRAPH
+        END-IF
+        IF WS-LSP-QUALIFIER NOT = FU-NAME(FU-SECTION(WS-LSP-UNIT))
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    MOVE "1" TO WS-LSP-KIND
+    PERFORM LSP-APPEND-REFERENCE.
+
+*> One location (references) or highlight of WS-LSP-KIND (1 text,
+*> 2 read, 3 write) for token WS-LSP-TOKEN, unless it is outside the
+*> document for a highlight, or has no source line.
+LSP-APPEND-REFERENCE.
+    IF WS-LSP-TOKEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF TK-SRC-LINE(WS-LSP-TOKEN) = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-HIGHLIGHT = "Y" AND TK-FILE-ID(WS-LSP-TOKEN) NOT = 1
+        EXIT PARAGRAPH
+    END-IF
+    *> Leave room for the closing brackets.
+    IF WS-LSP-PTR > LSP-SIZE - 2048
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST
+    IF WS-LSP-HIGHLIGHT = "Y"
+        STRING '{"range":' DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        MOVE SL-LINE-NO(TK-SRC-LINE(WS-LSP-TOKEN)) TO WS-LSP-LINE
+        MOVE TK-COLUMN(WS-LSP-TOKEN) TO WS-LSP-CHAR
+        PERFORM LSP-APPEND-RANGE
+        STRING ',"kind":' DELIMITED BY SIZE
+               WS-LSP-KIND DELIMITED BY SIZE
+               "}" DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    ELSE
+        PERFORM LSP-APPEND-LOCATION
+    END-IF.
 
 *> Hover over a data item: its level, name, picture, usage, size, and
 *> place in its record.

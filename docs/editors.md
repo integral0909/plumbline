@@ -10,6 +10,8 @@ shows what it reports as you work.
 | Outline | Programs, sections, paragraphs, and data items of the file |
 | Go to definition | From a data name to its declaration (also in a copybook), from a paragraph or section name to the paragraph or section |
 | Hover | A data item's level, picture, usage, size, offset, and record |
+| Find references | Every reference to a data item (also in copybooks), or every `PERFORM`, `GO TO`, `ALTER`, and `SORT` procedure naming a paragraph or section of the same program |
+| Highlight | The same references in the open file, with reads and writes of a data item told apart |
 
 The server reads `plumbline.conf` in the directory the editor starts it
 in, usually the project's root, so `include`, `enable`, `disable`,

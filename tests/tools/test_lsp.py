@@ -89,6 +89,8 @@ class LanguageServerTest(unittest.TestCase):
         self.assertEqual(self.capabilities["textDocumentSync"]["change"], 1)
         self.assertTrue(self.capabilities["definitionProvider"])
         self.assertTrue(self.capabilities["hoverProvider"])
+        self.assertTrue(self.capabilities["referencesProvider"])
+        self.assertTrue(self.capabilities["documentHighlightProvider"])
         self.assertTrue(self.capabilities["documentSymbolProvider"])
 
     def test_diagnostics_on_open(self):
@@ -139,6 +141,55 @@ class LanguageServerTest(unittest.TestCase):
             "position": self.position("IF ERRORS", len("IF "))})
         self.assertEqual(reply["result"]["range"]["start"]["line"],
                          self.position("01  ERRORS")["line"])
+
+    def lines(self, locations):
+        return sorted(l["range"]["start"]["line"] for l in locations)
+
+    def test_references_to_a_data_item(self):
+        reply = self.server.request("textDocument/references", {
+            "textDocument": {"uri": URI},
+            "position": self.position("IF ERRORS", len("IF ")),
+            "context": {"includeDeclaration": True}})
+        self.assertEqual(self.lines(reply["result"]), [
+            self.position("01  ERRORS")["line"],
+            self.position("IF ERRORS")["line"],
+            self.position("MOVE 0 TO ERRORS")["line"]])
+        self.assertTrue(all(l["uri"] == URI for l in reply["result"]))
+
+    def test_references_without_the_declaration(self):
+        reply = self.server.request("textDocument/references", {
+            "textDocument": {"uri": URI},
+            "position": self.position("01  ERRORS", len("01  ")),
+            "context": {"includeDeclaration": False}})
+        self.assertEqual(self.lines(reply["result"]), [
+            self.position("IF ERRORS")["line"],
+            self.position("MOVE 0 TO ERRORS")["line"]])
+
+    def test_references_to_a_paragraph(self):
+        reply = self.server.request("textDocument/references", {
+            "textDocument": {"uri": URI},
+            "position": self.position("ABEND.", 0),
+            "context": {"includeDeclaration": True}})
+        self.assertEqual(self.lines(reply["result"]), [
+            self.position("GO TO ABEND")["line"],
+            self.position("ABEND.")["line"]])
+
+    def test_references_to_nothing(self):
+        reply = self.server.request("textDocument/references", {
+            "textDocument": {"uri": URI},
+            "position": {"line": 0, "character": 0},
+            "context": {"includeDeclaration": True}})
+        self.assertIsNone(reply["result"])
+
+    def test_highlights_tell_reads_from_writes(self):
+        reply = self.server.request("textDocument/documentHighlight", {
+            "textDocument": {"uri": URI},
+            "position": self.position("IF ERRORS", len("IF "))})
+        kinds = {h["range"]["start"]["line"]: h["kind"]
+                 for h in reply["result"]}
+        self.assertEqual(kinds[self.position("IF ERRORS")["line"]], 2)
+        self.assertEqual(kinds[self.position("MOVE 0 TO ERRORS")["line"]], 3)
+        self.assertIn(self.position("01  ERRORS")["line"], kinds)
 
     def test_hover_on_a_data_item(self):
         reply = self.server.request("textDocument/hover", {
