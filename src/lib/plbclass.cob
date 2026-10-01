@@ -131,6 +131,17 @@ PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
             MOVE ">" TO CL-KIND
             MOVE 7 TO LS-FROM
             PERFORM SCAN-CONTENT
+        *> A directive may start in the indicator column: ">> IF".
+        WHEN ">"
+            IF LK-LENGTH >= 8 AND LK-LINE(8:1) = ">"
+                MOVE ">" TO CL-KIND
+                MOVE 7 TO LS-FROM
+                PERFORM SCAN-CONTENT
+            ELSE
+                MOVE "I" TO CL-PROBLEM
+                MOVE "C" TO CL-KIND
+                PERFORM SCAN-CONTENT
+            END-IF
         WHEN "D"
         WHEN "d"
             MOVE "D" TO CL-KIND

@@ -140,6 +140,18 @@ TEST-FIXED-INDICATORS.
     CALL "PLBT-ASSERT-STR" USING ">> in area A is a directive" ">"
         CL-KIND
 
+    MOVE "      >> IF P64 DEFINED" TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING ">> from column 7 is a directive" ">"
+        CL-KIND
+    CALL "PLBT-ASSERT-STR" USING "the directive is not flagged" " "
+        CL-PROBLEM
+
+    MOVE "      >X   MOVE 1 TO X." TO WS-LINE
+    PERFORM RUN-FIXED
+    CALL "PLBT-ASSERT-STR" USING "a lone > is an invalid indicator" "I"
+        CL-PROBLEM
+
     MOVE "000500X    MOVE 1 TO X." TO WS-LINE
     PERFORM RUN-FIXED
     CALL "PLBT-ASSERT-STR" USING "invalid indicator is flagged" "I"
