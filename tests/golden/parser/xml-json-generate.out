@@ -1,0 +1,26 @@
+UNIT @6:1
+  PROG PROGRAM GENERATES @6:1
+    DIVN IDENTIFICATION @6:1
+      IDPA PROGRAM-ID GENERATES @7:1
+    DIVN DATA @8:1
+      SECT WORKING-STORAGE @9:1
+        DATA 1 OUT-TEXT @10:1
+          CLAU PICTURE X(200) @10:25
+        DATA 1 REC @11:1
+          DATA 5 A @12:5
+            CLAU PICTURE X(4) @12:25
+          DATA 5 B @13:5
+            CLAU PICTURE 9(3) @13:25
+    DIVN PROCEDURE @14:1
+      SENT @15:5
+        STMT XML @15:5
+          BLCK EXCEPTION @20:9
+            STMT DISPLAY @21:13
+          BLCK NOT-EXCEPTION @22:9
+            STMT DISPLAY @23:13
+        STMT JSON @25:5
+          BLCK EXCEPTION @26:9
+            STMT DISPLAY @27:13
+          BLCK NOT-EXCEPTION @28:9
+            STMT DISPLAY @29:13
+        STMT STOP @31:5

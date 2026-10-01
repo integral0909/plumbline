@@ -249,6 +249,12 @@ SENTENCE-TOKEN.
             MOVE "Y" TO LS-SENTENCE-DONE
         WHEN PX-KIND = "W" AND LS-TEXT = "ELSE"
             PERFORM HANDLE-ELSE
+        *> XML GENERATE ... SUPPRESS ... WHEN SPACES: an operand.
+        WHEN PX-KIND = "W" AND LS-TEXT = "WHEN" AND WS-CX-DEPTH > 0
+             AND CX-TYPE(WS-CX-DEPTH) = "S"
+             AND (CX-VERB(WS-CX-DEPTH) = "XML"
+                  OR CX-VERB(WS-CX-DEPTH) = "JSON")
+            ADD 1 TO PS-POS
         WHEN PX-KIND = "W" AND LS-TEXT = "WHEN"
             PERFORM HANDLE-WHEN
         WHEN PX-KW = "T"
@@ -262,6 +268,14 @@ SENTENCE-TOKEN.
             PERFORM BEGIN-STATEMENT
             ADD 2 TO PS-POS
             MOVE LS-NEXT TO ND-TOK-LAST(LS-STMT)
+        *> XML GENERATE ... SUPPRESS: Report Writer's verbs are words
+        *> of the XML and JSON statements.
+        WHEN PX-KW = "V" AND WS-CX-DEPTH > 0
+             AND CX-TYPE(WS-CX-DEPTH) = "S"
+             AND (CX-VERB(WS-CX-DEPTH) = "XML"
+                  OR CX-VERB(WS-CX-DEPTH) = "JSON")
+             AND (LS-TEXT = "GENERATE" OR LS-TEXT = "SUPPRESS")
+            ADD 1 TO PS-POS
         WHEN PX-KW = "V" OR (LS-TEXT = "USE" AND WS-CX-DEPTH = 0)
             MOVE LS-TEXT TO LS-VERB
             PERFORM HANDLE-VERB
