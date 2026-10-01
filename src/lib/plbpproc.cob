@@ -71,6 +71,7 @@ COPY "plbptok.cpy".
 01  LS-DETAIL               PIC X(16).
 01  LS-TEXT                 PIC X(31).
 01  LS-NEXT-TEXT            PIC X(31).
+01  LS-PAREN-DEPTH          PIC S9(9) COMP-5.
 01  LS-NEXT-KIND            PIC X.
 01  LS-SENTENCE-DONE        PIC X.
 01  LS-DONE                 PIC X.
@@ -389,15 +390,11 @@ SEARCH-STATEMENT.
 *> Inline:       PERFORM [n TIMES | UNTIL ... | VARYING ...]
 *>                   statements END-PERFORM
 *> It is out of line when a user word follows that is not the count
-*> of a TIMES loop.
+*> of a TIMES loop. The count can be qualified and subscripted, as in
+*> PERFORM CNT OF TOTALS (I) TIMES.
 PERFORM-STATEMENT.
     CALL "PLB-PX-TOKEN" USING PLB-TOKENS PS-POS PLB-PX-VIEW
-    COMPUTE LS-NEXT = PS-POS + 1
-    MOVE SPACES TO LS-NEXT-TEXT
-    IF TK-IS-WORD(LS-NEXT) AND TK-TEXT-LEN(LS-NEXT) <= 31
-        MOVE TK-TEXT(TK-TEXT-OFF(LS-NEXT):TK-TEXT-LEN(LS-NEXT))
-            TO LS-NEXT-TEXT
-    END-IF
+    PERFORM TIMES-AFTER-COUNT
     IF (PX-KIND = "W" AND PX-KW = SPACE OR PX-KIND = "N")
        AND LS-NEXT-TEXT NOT = "TIMES"
         MOVE "PERFORM" TO LS-DETAIL
@@ -419,6 +416,48 @@ PERFORM-STATEMENT.
         MOVE "R" TO LS-CX-TYPE
         MOVE LS-BLOCK TO LS-NODE
         PERFORM PUSH-CONTEXT
+    END-IF.
+
+*> LS-NEXT-TEXT = the word after the operand at PS-POS, past its
+*> qualifiers (IN or OF a name) and one parenthesized subscript list.
+TIMES-AFTER-COUNT.
+    COMPUTE LS-NEXT = PS-POS + 1
+    PERFORM NEXT-WORD-TEXT
+    PERFORM UNTIL LS-NEXT-TEXT NOT = "IN" AND LS-NEXT-TEXT NOT = "OF"
+        ADD 2 TO LS-NEXT
+        PERFORM NEXT-WORD-TEXT
+    END-PERFORM
+    IF LS-NEXT <= TK-COUNT
+        IF TK-IS-LPAREN(LS-NEXT)
+            MOVE 0 TO LS-PAREN-DEPTH
+            PERFORM UNTIL LS-NEXT > TK-COUNT
+                IF TK-IS-LPAREN(LS-NEXT)
+                    ADD 1 TO LS-PAREN-DEPTH
+                END-IF
+                IF TK-IS-RPAREN(LS-NEXT)
+                    SUBTRACT 1 FROM LS-PAREN-DEPTH
+                    IF LS-PAREN-DEPTH = 0
+                        EXIT PERFORM
+                    END-IF
+                END-IF
+                IF TK-IS-PERIOD(LS-NEXT)
+                    EXIT PERFORM
+                END-IF
+                ADD 1 TO LS-NEXT
+            END-PERFORM
+            ADD 1 TO LS-NEXT
+            PERFORM NEXT-WORD-TEXT
+        END-IF
+    END-IF.
+
+*> LS-NEXT-TEXT = the word at LS-NEXT, or spaces.
+NEXT-WORD-TEXT.
+    MOVE SPACES TO LS-NEXT-TEXT
+    IF LS-NEXT <= TK-COUNT
+        IF TK-IS-WORD(LS-NEXT) AND TK-TEXT-LEN(LS-NEXT) <= 31
+            MOVE TK-TEXT(TK-TEXT-OFF(LS-NEXT):TK-TEXT-LEN(LS-NEXT))
+                TO LS-NEXT-TEXT
+        END-IF
     END-IF.
 
 *> A PROC node (detail LS-DETAIL) for the procedure name at PS-POS,
