@@ -92,6 +92,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C027 divide-by-zero.
 - Rule PLB-C028 comparison-never-true.
 - Rule PLB-C029 go-to-leaves-perform.
+- Rule PLB-C030 value-never-used.
 - Rule PLB-M011 evaluate-without-other (off by default).
 - Rule PLB-M012 deep-nesting (off by default, limit 5).
 - `plumbline rules [--report text|json]` lists the rules as configured.

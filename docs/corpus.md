@@ -62,6 +62,7 @@ The 2 programs that still have input errors are:
 | PLB-C009 undefined-name | 80 |
 | PLB-C029 go-to-leaves-perform | 80 |
 | PLB-M008 file-not-closed | 14 |
+| PLB-C030 value-never-used | 12 |
 | PLB-C003 fall-off-end | 11 |
 | PLB-C022 open-mode-mismatch | 6 |
 | PLB-C011 read-never-set | 5 |
@@ -155,6 +156,13 @@ The findings were checked by rule:
   the failure and jumps to the end of the sort's output procedure. The
   others are in the segmentation tests (SG102A), which leave performed
   sections on purpose.
+- **PLB-C030 value-never-used.** Every finding was read. All 12 are
+  true: a status copied twice in a row, a feature name replaced by the
+  next test's before it is printed, a value moved and then computed
+  over. Two false findings were fixed on the way: `MOVE CORRESPONDING`
+  counted as replacing a whole group, and a store to an `OCCURS
+  DEPENDING ON` count, which a later `MOVE` to the table's group
+  reads.
 - **PLB-C008 move-truncation.** A sample was read. Literal truncations
   are true once trailing spaces are not counted (`"WRITE NOT INVALID
   END-"` into a 20-character FEATURE loses `D-`). Numeric findings

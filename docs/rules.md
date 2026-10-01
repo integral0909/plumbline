@@ -35,6 +35,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C027](#plb-c027-divide-by-zero) | divide-by-zero | error | Divisor is a literal zero |
 | [PLB-C028](#plb-c028-comparison-never-true) | comparison-never-true | warning | Data item is compared with a value it cannot hold |
 | [PLB-C029](#plb-c029-go-to-leaves-perform) | go-to-leaves-perform | warning | GO TO leaves the range of a PERFORM, which then does not return |
+| [PLB-C030](#plb-c030-value-never-used) | value-never-used | warning | Value is replaced before it is used |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -720,6 +721,42 @@ of the program: that is how many programs leave on an error. A target
 that itself ends with a `GO TO` is reported, even when that `GO TO`
 leads to the end of the run. Each `GO TO` is reported once, for the
 first `PERFORM` whose range it leaves.
+
+## PLB-C030 value-never-used
+
+A value given to a data item that a later statement of the same
+paragraph replaces before anything reads it:
+
+```cobol
+    MOVE FUNCTION CURRENT-DATE TO WS-CURDATE-DATA     *> reported
+    MOVE CCDA-TITLE01 TO TITLE01O
+    MOVE FUNCTION CURRENT-DATE TO WS-CURDATE-DATA
+```
+
+The first value is never used. Often the statements were copied and
+one of them should name another item; sometimes one is simply left
+over.
+
+The rule starts at a `MOVE` or `COMPUTE` and follows the statements
+after it, across sentences, to the end of the paragraph. It stops,
+keeping the value, at:
+
+- a statement that reads the item, or any storage it shares: the
+  groups it is in, its members, and items that redefine them;
+- a statement that could read it out of sight or change where control
+  goes: `PERFORM`, `CALL`, `GO TO`, I/O, `IF`, `EVALUATE`, and any
+  statement with a phrase such as `ON SIZE ERROR`.
+
+The value is reported when a `MOVE` or `COMPUTE` gives the whole item a
+new value. `STRING`, `MOVE CORRESPONDING`, and stores to part of the
+item do not replace it. Not followed at all:
+
+- clearing an item before filling it: `MOVE SPACES`, `MOVE ZERO`,
+  `MOVE LOW-VALUES`, `COMPUTE X = 0`, `INITIALIZE`;
+- table elements, condition names, and items named by `DEPENDING ON`,
+  which the table or item that depends on them reads;
+- programs with `USE FOR DEBUGGING`, whose declaratives run on
+  references that the statements do not show.
 
 ## PLB-M001 go-to
 

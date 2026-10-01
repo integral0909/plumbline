@@ -168,9 +168,9 @@ check "unknown rule is a usage error"     2 "unknown rule 'PLB-X999'" -- check -
 check "invalid --fail-on level"           2 "invalid --fail-on level 'sometimes'" -- check --fail-on sometimes $rx/c001-unreachable.cob
 check "dump refs resolves qualified names" 0 '^25:10 CUST-ID OF CUSTOMER (MOVE) -> 5 CUST-ID @16 role=U$' \
     -- dump refs tests/golden/refs/resolution.cob
-check "alnum-narrowing is off by default"  0 '^$' -- check --disable move-truncation --disable read-never-set --disable set-never-read $rx/c008-move-truncation.cob
+check "alnum-narrowing is off by default"  0 '^$' -- check --disable move-truncation --disable read-never-set --disable set-never-read --disable value-never-used $rx/c008-move-truncation.cob
 check "alnum-narrowing can be enabled"     0 'c008-move-truncation.cob:16:23: note: MOVE truncates LONG-TEXT (20 characters) to fit SHORT-TEXT (5 characters) \[PLB-M004\]' \
-    -- check --enable alnum-narrowing --disable move-truncation --disable read-never-set --disable set-never-read $rx/c008-move-truncation.cob
+    -- check --enable alnum-narrowing --disable move-truncation --disable read-never-set --disable set-never-read --disable value-never-used $rx/c008-move-truncation.cob
 check "overlong file names are refused"    2 'file name longer than 512 characters' \
     -- check "$(printf 'x%.0s' $(seq 1 600)).cob"
 check "--debug includes debugging lines"  0 'continuation.cbl:5:20: alnum    "DEBUG ONLY"' \

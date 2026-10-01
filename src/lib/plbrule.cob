@@ -170,6 +170,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C029"
         "go-to-leaves-perform" "W"
         "GO TO leaves the range of a PERFORM, which then does not return"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C030"
+        "value-never-used" "W"
+        "Value is replaced before it is used"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

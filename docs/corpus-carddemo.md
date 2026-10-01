@@ -40,6 +40,7 @@ with the application: `DFHAID` and `DFHBMSCA` (CICS), and `CMQV`,
 | PLB-C001 unreachable-code | 33 |
 | PLB-C002 perform-and-fall-through | 23 |
 | PLB-C020 file-status-not-checked | 10 |
+| PLB-C030 value-never-used | 7 |
 | PLB-M002 alter | 4 |
 | PLB-M008 file-not-closed | 3 |
 | PLB-C007 redefines-larger | 3 |
@@ -80,3 +81,11 @@ Some findings that were read and are true:
   paragraph fell into the next paragraph, and perform-and-fall-through
   reported 147 paragraphs. A GO TO in a paragraph reached only by
   `PERFORM` now stays within that PERFORM; 23 findings are left.
+
+## Findings worth a look
+
+- **PLB-C030 value-never-used.** Seven online programs move
+  `FUNCTION CURRENT-DATE` to `WS-CURDATE-DATA` twice in the routine that
+  fills the screen header, a few lines apart, with no use in between.
+  The first move is left over; the routine was copied from program to
+  program with it.
