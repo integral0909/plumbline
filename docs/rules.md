@@ -40,6 +40,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J001](#plb-j001-dd-missing) | dd-missing | error | A file the step's programs open has no DD in the step |
 | [PLB-J002](#plb-j002-dd-unused) | dd-unused | note | DD is not a file of the step's programs |
 | [PLB-J003](#plb-j003-program-not-in-run) | program-not-in-run | note, off | Step runs a program that is not among those checked |
+| [PLB-J004](#plb-j004-dd-cannot-be-read) | dd-cannot-be-read | error | A file the program only reads has a DD that gives it no data |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -844,6 +845,23 @@ is for runs meant to hold every program of the jobs, to find a step
 whose program is missing or misspelled. Steps running programs that
 start others (`IKJEFT01` for DB2, `DFSRRC00` for IMS) are not
 followed, since the program they run is named in their input.
+
+## PLB-J004 dd-cannot-be-read
+
+A file that the step's programs only open for input, whose DD gives it
+nothing to read:
+
+```
+//NEWRATE  EXEC PGM=PAYUPD
+//RATES    DD DSN=PAY.RATES,DISP=(NEW,CATLG)
+```
+
+`DISP=NEW` creates the data set in the step, so it is empty when the
+program reads it: the first `READ` is at end. A `SYSOUT` DD is output
+for the spool and cannot be read at all. `DD DUMMY`, which reads as an
+empty file, is left alone: it is how a job leaves out an input on
+purpose. Files that a program also opens for output, `I-O`, or `EXTEND`
+are not checked.
 
 ## PLB-M001 go-to
 

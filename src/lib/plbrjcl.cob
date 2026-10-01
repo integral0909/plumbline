@@ -7,6 +7,8 @@
 *>                                  programs assigns
 *>   PLB-J003  program-not-in-run   a step runs a program that is not
 *>                                  among the programs of the run
+*>   PLB-J004  dd-cannot-be-read    a file the program only reads has
+*>                                  a DD that gives it no data
 *>
 *> A step that runs a program of the run (EXEC PGM=name) gives that
 *> program, and the programs it calls by literal name, their files:
@@ -42,6 +44,7 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE-MISSING         PIC 9(4) COMP-5.
 01  LS-RULE-UNUSED          PIC 9(4) COMP-5.
 01  LS-RULE-UNKNOWN         PIC 9(4) COMP-5.
+01  LS-RULE-UNREADABLE      PIC 9(4) COMP-5.
 01  LS-S                    PIC 9(9) COMP-5.
 01  LS-J                    PIC 9(9) COMP-5.
 01  LS-D                    PIC 9(9) COMP-5.
@@ -69,6 +72,7 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH PLB-JCL.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J001" LS-RULE-MISSING
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J002" LS-RULE-UNUSED
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J003" LS-RULE-UNKNOWN
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J004" LS-RULE-UNREADABLE
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
         IF JS-KIND(LS-S) = "P"
             PERFORM CHECK-STEP
@@ -237,6 +241,7 @@ CHECK-FILE.
     PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > WS-SD-COUNT
         IF WS-SD-NAME(LS-I) = PF-DDNAME(LS-F)
             MOVE "Y" TO WS-SD-USED(LS-I) LS-FOUND
+            PERFORM CHECK-READABLE
         END-IF
     END-PERFORM
     IF LS-FOUND = "Y" OR PF-OPTIONAL(LS-F) = "Y" OR PF-SORT(LS-F) = "Y"
@@ -259,6 +264,39 @@ CHECK-FILE.
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE-MISSING
         JS-FILE-ID(LS-S) JS-LINE(LS-S) LS-COLUMN LS-ZERO LS-MESSAGE.
+
+*> PLB-J004: a file opened only for input, whose DD (WS-SD-ENTRY of
+*> LS-I) is a new data set, which is empty, or SYSOUT, which cannot be
+*> read. DUMMY is left alone: it reads as an empty file on purpose.
+CHECK-READABLE.
+    IF PF-INPUT(LS-F) = "N" OR PF-OUTPUT(LS-F) = "Y"
+       OR PF-I-O(LS-F) = "Y" OR PF-EXTEND(LS-F) = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE WS-SD-ENTRY(LS-I) TO LS-D
+    MOVE SPACES TO LS-MESSAGE
+    EVALUATE TRUE
+        WHEN JD-KIND(LS-D) = "S"
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " is SYSOUT, but " DELIMITED BY SIZE
+                   CP-NAME(PF-PROGRAM(LS-F)) DELIMITED BY SPACE
+                   " reads it as " DELIMITED BY SIZE
+                   PF-NAME(LS-F) DELIMITED BY SPACE
+                INTO LS-MESSAGE
+        WHEN JD-DISP(LS-D) = "NEW"
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " creates a new, empty data set, but " DELIMITED BY SIZE
+                   CP-NAME(PF-PROGRAM(LS-F)) DELIMITED BY SPACE
+                   " only reads it as " DELIMITED BY SIZE
+                   PF-NAME(LS-F) DELIMITED BY SPACE
+                INTO LS-MESSAGE
+        WHEN OTHER
+            EXIT PARAGRAPH
+    END-EVALUATE
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE-UNREADABLE
+        JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
 
 REPORT-UNUSED.
     MOVE WS-SD-ENTRY(LS-I) TO LS-D

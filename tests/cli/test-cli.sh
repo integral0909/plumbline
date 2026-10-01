@@ -222,6 +222,12 @@ check_absent "programs not in the run are not reported by default" 'PLB-J003' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
 check "programs not in the run on request" 1 'payroll.jcl:19:3: note: step CLEANUP runs IEFBR14, which is not among the programs checked \[PLB-J003\]' \
     -- check --no-config --fail-on error --enable program-not-in-run $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
+check "a read-only file on a new data set" 1 'payroll.jcl:23:3: error: DD RATES creates a new, empty data set, but PAYUPD only reads it as RATES \[PLB-J004\]' \
+    -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
+check "a read-only file on SYSOUT"        1 'payroll.jcl:28:3: error: DD RATES is SYSOUT, but PAYUPD reads it as RATES \[PLB-J004\]' \
+    -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
+check_absent "a file opened I-O on a new data set" 'payroll.jcl:27:' \
+    -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
 check "a procedure step alone needs its DDs" 1 'payproc.prc:2:3: error: step UPD has no DD PAYLOG' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payproc.prc
 check "a JCL file that cannot be read"    1 'JL001' \

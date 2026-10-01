@@ -93,7 +93,8 @@ uses [Semantic Versioning](https://semver.org/).
   statements (see docs/jcl.md).
 - `check` reads `*.jcl` and `*.prc` inputs as JCL and checks each step
   against the programs it runs: rules PLB-J001 dd-missing, PLB-J002
-  dd-unused, and PLB-J003 program-not-in-run (off by default).
+  dd-unused, PLB-J003 program-not-in-run (off by default), and
+  PLB-J004 dd-cannot-be-read.
 - Rule PLB-C027 divide-by-zero.
 - Rule PLB-C028 comparison-never-true.
 - Rule PLB-C029 go-to-leaves-perform.

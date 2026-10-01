@@ -191,6 +191,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     *> Most jobs also run utilities (IDCAMS, SORT, IEBGENER): on
     *> request, for runs meant to hold every program of the jobs.
     MOVE "N" TO RL-ENABLED(RL-COUNT)
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J004"
+        "dd-cannot-be-read" "E"
+        "A file the program only reads has a DD that gives it no data"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
