@@ -61,12 +61,16 @@ with_errors=$(grep -l ': error: ' *.err 2>/dev/null | wc -l | tr -d ' ')
 echo "programs:            $programs ($lines lines with copybooks)"
 echo "seconds:             $((end - start)) (one run per program)"
 echo "seconds, one run:    $((one_end - one_start))"
-cat *.out | sort > per-program.sorted
-if sort all-in-one.txt | cmp -s - per-program.sorted; then
+# Rules about calls between programs only see the callers in the same
+# run, so they can find more in one run; everything else must agree.
+calls='\[PLB-C01[345]\]$|\[PLB-C025\]$'
+cat *.out | grep -v -E "$calls" | sort > per-program.sorted
+if grep -v -E "$calls" all-in-one.txt | sort | cmp -s - per-program.sorted; then
     echo "one run agrees:      yes"
 else
     echo "one run agrees:      NO (compare all-in-one.txt with the .out files)"
 fi
+echo "calls between files: $(grep -c -E "$calls" all-in-one.txt) findings in one run, $(cat *.out | grep -c -E "$calls") in runs per program"
 rm -f per-program.sorted
 echo "with input errors:   $with_errors"
 echo
