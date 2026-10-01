@@ -10,7 +10,9 @@
 *> the declaratives that handle their errors (USE ... ERROR or
 *> EXCEPTION PROCEDURE), and its I/O statements. The open modes of a
 *> file are those of every OPEN that names it, anywhere in the
-*> program: the rules do not follow the flow of control.
+*> program: the rules do not follow the flow of control. An EXTERNAL
+*> file is shared with other programs, which may open and close it, so
+*> only its FILE STATUS checks apply.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-FILES.
@@ -34,6 +36,8 @@ WORKING-STORAGE SECTION.
         10  FL-EXTEND       PIC X.
         10  FL-CLOSED       PIC X.
         10  FL-COVERED      PIC X.
+        *> "Y" for an EXTERNAL file: other programs open and close it.
+        10  FL-EXTERNAL     PIC X.
 01  WS-RECORDS.
     05  WS-RECORD-COUNT     PIC 9(4) COMP-5.
     05  WS-RECORD           OCCURS RC-MAX TIMES.
@@ -187,6 +191,7 @@ ADD-FILE.
     MOVE SPACES TO FL-STATUS(LS-F)
     MOVE "N" TO FL-INPUT(LS-F) FL-OUTPUT(LS-F) FL-I-O(LS-F)
         FL-EXTEND(LS-F) FL-CLOSED(LS-F) FL-COVERED(LS-F)
+        FL-EXTERNAL(LS-F)
     PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-CHILD) BY 1
             UNTIL LS-T >= ND-TOK-LAST(LS-CHILD)
         IF TK-IS-WORD(LS-T)
@@ -216,6 +221,18 @@ ADD-RECORDS.
     IF LS-F = 0
         EXIT PARAGRAPH
     END-IF
+    PERFORM VARYING LS-K FROM ND-TOK-FIRST(LS-CHILD) BY 1
+            UNTIL LS-K > ND-TOK-LAST(LS-CHILD)
+        IF TK-IS-PERIOD(LS-K)
+            EXIT PERFORM
+        END-IF
+        IF TK-IS-WORD(LS-K)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+            IF LS-TEXT = "EXTERNAL"
+                MOVE "Y" TO FL-EXTERNAL(LS-F)
+            END-IF
+        END-IF
+    END-PERFORM
     MOVE ND-FIRST(LS-CHILD) TO LS-K
     PERFORM UNTIL LS-K = 0
         IF ND-KIND(LS-K) = "DATA" AND ND-NAME(LS-K) > 0
@@ -362,7 +379,7 @@ NOTE-COVERED-MODES.
 REPORT-FINDINGS.
     PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > WS-OP-COUNT
         MOVE OP-FILE(LS-I) TO LS-F
-        IF OP-VERB(LS-I) NOT = "OPEN"
+        IF OP-VERB(LS-I) NOT = "OPEN" AND FL-EXTERNAL(LS-F) = "N"
             PERFORM CHECK-OPENED
         END-IF
         IF OP-VERB(LS-I) NOT = "CLOSE"
@@ -506,7 +523,7 @@ STATUS-NAMES.
 
 *> PLB-M008.
 CHECK-CLOSED.
-    IF FL-CLOSED(LS-F) = "Y"
+    IF FL-CLOSED(LS-F) = "Y" OR FL-EXTERNAL(LS-F) = "Y"
         EXIT PARAGRAPH
     END-IF
     PERFORM DESCRIBE-MODES
