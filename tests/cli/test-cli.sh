@@ -31,6 +31,27 @@ check() {
     fi
 }
 
+# check_stdin LABEL EXPECTED-RC PATTERN INPUT -- ARGS...: like check,
+# with INPUT (printf format) on standard input.
+check_stdin() {
+    label=$1 want_rc=$2 pattern=$3 input=$4
+    shift 5
+    n=$((n + 1))
+    out=$(printf "$input" | "$bin_abs" "$@" 2>&1)
+    rc=$?
+    if [ "$rc" -eq "$want_rc" ] && printf '%s\n' "$out" | grep -q -- "$pattern"; then
+        echo "ok $n - $label"
+    else
+        failed=$((failed + 1))
+        echo "not ok $n - $label"
+        echo "  ---"
+        echo "  expected rc $want_rc, output matching: $pattern"
+        echo "  actual rc $rc, output:"
+        printf '%s\n' "$out" | sed 's/^/    /'
+        echo "  ..."
+    fi
+}
+
 # check_file LABEL PATTERN FILE: a line of FILE matches PATTERN.
 check_file() {
     n=$((n + 1))
@@ -138,6 +159,31 @@ cx=tests/fixtures/calls
 check "calls are checked across files"    1 'billing.cob:9:17: warning: argument 1 (CUST-ID, 6 bytes) is smaller than parameter LK-CUST-ID of CUSTLOOK (8 bytes) \[PLB-C014\]' \
     -- check $cx/billing.cob $cx/custlook.cob
 check "calls to programs not in the run are not checked" 0 '^$' -- check $cx/billing.cob
+lx=tests/fixtures/lists
+check "--files-from adds the files a list names" 1 'billing.cob:9:17: .*\[PLB-C014\]' \
+    -- check --no-config --files-from $lx/calls.list
+check "--files-from and file arguments add up" 1 'billing.cob:9:17: .*\[PLB-C014\]' \
+    -- check --no-config --files-from $lx/calls.list $cx/archive.cob
+check_stdin "--files-from - reads standard input" 1 'billing.cob:9:17: .*\[PLB-C014\]' \
+    "$cx/billing.cob\n$cx/custlook.cob\n" -- check --no-config --files-from -
+check_stdin "a last line without a newline counts" 1 'billing.cob:9:17: .*\[PLB-C014\]' \
+    "$cx/billing.cob\n$cx/custlook.cob" -- check --no-config --files-from -
+n=$((n + 1))
+if printf '%s\n' "$cx/billing.cob" | "$bin_abs" check --no-config --files-from - 2>&1 \
+        | grep -q libcob; then
+    failed=$((failed + 1))
+    echo "not ok $n - reading standard input draws no runtime warning"
+else
+    echo "ok $n - reading standard input draws no runtime warning"
+fi
+check "--files-from needs a file"         2 '--files-from needs a file' -- check --files-from
+check "a missing list is an error"        2 'cannot read file list nope.list' \
+    -- check --files-from nope.list
+tmp_list=$(mktemp)
+printf '%s.cob\n' "$(printf 'x%.0s' $(seq 1 600))" > "$tmp_list"
+check "overlong names in a list are refused" 2 'file name longer than 512 characters in .* line 1' \
+    -- check --files-from "$tmp_list"
+rm -f "$tmp_list"
 check "comments suppress call findings in earlier files" 0 '^$' \
     -- check $cx/archive.cob $cx/custlook.cob
 check "html shows lines of files checked earlier" 1 '<mark>     9             CALL &quot;CUSTLOOK&quot;' \

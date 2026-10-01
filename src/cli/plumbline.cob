@@ -71,9 +71,6 @@ COPY "plbmetrc.cpy".
 COPY "plbmetr.cpy".
 COPY "plbigrc.cpy".
 COPY "plbigr.cpy".
-*> Inputs and the copybooks they include share the source set's
-*> SS-MAX-FILES ids.
-78  MAX-INPUTS                  VALUE 10000.
 01  WS-ARG-COUNT            PIC 9(4).
 01  WS-ARG-INDEX            PIC 9(4).
 01  WS-ARG                  PIC X(1024).
@@ -82,9 +79,9 @@ COPY "plbigr.cpy".
 01  WS-MODE                 PIC X VALUE "A".
 01  WS-DEBUG                PIC X VALUE "N".
 01  WS-DUMP-TARGET          PIC X(8).
-01  WS-INPUT-COUNT          PIC 9(4) COMP-5 VALUE 0.
-01  WS-INPUTS.
-    05  WS-INPUT            PIC X(512) OCCURS MAX-INPUTS TIMES.
+COPY "plbinput.cpy".
+01  WS-LIST-STATUS          PIC 9(4) COMP-5.
+01  WS-LIST-LINE            PIC 9(9) COMP-5.
 01  WS-I                    PIC 9(9) COMP-5.
 01  WS-FILE-ID              PIC 9(4) COMP-5.
 01  WS-STATUS               PIC 9(4) COMP-5.
@@ -312,6 +309,9 @@ SHOW-USAGE.
     DISPLAY "                   (default auto)"
     DISPLAY "  --debug          treat debugging lines as code"
     DISPLAY "  -I DIR           search DIR for copybooks (repeatable)"
+    DISPLAY "  --files-from LIST"
+    DISPLAY "                   also analyze the files listed in LIST,"
+    DISPLAY "                   one per line (- for standard input)"
     DISPLAY "  --config FILE    read settings from FILE (default:"
     DISPLAY "                   plumbline.conf, when there is one)"
     DISPLAY "  --no-config      do not read a configuration file"
@@ -590,7 +590,7 @@ FORMAT-COMMAND.
         PERFORM SUGGEST-HELP
         EXIT PARAGRAPH
     END-IF
-    IF WS-FORMAT-CHECK = "N" AND WS-INPUT-COUNT > 1
+    IF WS-FORMAT-CHECK = "N" AND IP-COUNT > 1
         DISPLAY PLB-NAME ": format writes one file to standard output;"
             " give one file, or use --check" UPON SYSERR
         MOVE 2 TO WS-EXIT-CODE
@@ -1978,6 +1978,7 @@ DUMP-ONE-INCLUSION.
 
 *> Collect options and file operands up to the end of the arguments.
 PARSE-INPUT-ARGS.
+    MOVE 0 TO IP-COUNT
     CALL "PLB-PP-INIT-OPTIONS" USING PLB-PP-OPTIONS
     CALL "PLB-RULES-INIT" USING PLB-RULES
     PERFORM FIND-CONFIG-OPTIONS
@@ -2008,6 +2009,15 @@ PARSE-INPUT-ARGS.
                     PERFORM SUGGEST-HELP
                 ELSE
                     MOVE WS-ARG TO WS-WRITE-BASELINE
+                END-IF
+            WHEN WS-ARG = "--files-from"
+                PERFORM NEXT-ARG
+                IF WS-ARG-LEN = 0
+                    DISPLAY PLB-NAME ": --files-from needs a file"
+                        UPON SYSERR
+                    PERFORM SUGGEST-HELP
+                ELSE
+                    PERFORM READ-FILE-LIST
                 END-IF
             WHEN WS-ARG = "--format"
                 PERFORM NEXT-ARG
@@ -2067,23 +2077,45 @@ PARSE-INPUT-ARGS.
                 PERFORM SET-MODE
             WHEN WS-ARG(1:1) = "-" AND WS-ARG-LEN > 1
                 PERFORM UNKNOWN-OPTION
-            WHEN WS-INPUT-COUNT >= MAX-INPUTS
+            WHEN IP-COUNT >= IP-MAX
                 DISPLAY PLB-NAME ": too many input files (limit "
-                    MAX-INPUTS ")" UPON SYSERR
+                    IP-MAX ")" UPON SYSERR
                 MOVE 2 TO WS-EXIT-CODE
-            WHEN WS-ARG-LEN > LENGTH OF WS-INPUT(1)
+            WHEN WS-ARG-LEN > LENGTH OF IP-PATH(1)
                 DISPLAY PLB-NAME ": file name longer than 512 characters: "
                     WS-ARG(1:60) "..." UPON SYSERR
                 MOVE 2 TO WS-EXIT-CODE
             WHEN OTHER
-                ADD 1 TO WS-INPUT-COUNT
-                MOVE WS-ARG TO WS-INPUT(WS-INPUT-COUNT)
+                ADD 1 TO IP-COUNT
+                MOVE WS-ARG TO IP-PATH(IP-COUNT)
         END-EVALUATE
     END-PERFORM
-    IF WS-EXIT-CODE = 0 AND WS-INPUT-COUNT = 0 AND WS-COMMAND NOT = "lsp"
+    IF WS-EXIT-CODE = 0 AND IP-COUNT = 0 AND WS-COMMAND NOT = "lsp"
         DISPLAY PLB-NAME ": no input files" UPON SYSERR
         PERFORM SUGGEST-HELP
     END-IF.
+
+*> --files-from WS-ARG: add the files it lists ("-": standard input).
+READ-FILE-LIST.
+    CALL "PLB-INPUTS-READ-LIST" USING WS-ARG(1:WS-ARG-LEN) PLB-INPUTS
+        WS-LIST-STATUS WS-LIST-LINE
+    EVALUATE WS-LIST-STATUS
+        WHEN 1
+            DISPLAY PLB-NAME ": cannot read file list "
+                WS-ARG(1:WS-ARG-LEN) UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        WHEN 2
+            DISPLAY PLB-NAME ": too many input files (limit "
+                IP-MAX ")" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        WHEN 3
+            MOVE WS-LIST-LINE TO WS-NUM
+            CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+            DISPLAY PLB-NAME ": file name longer than 512 characters"
+                " in " WS-ARG(1:WS-ARG-LEN) " line "
+                WS-NUM-TEXT(1:WS-NUM-LEN) UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+    END-EVALUATE.
 
 *> Look ahead in the arguments for --config FILE and --no-config, which
 *> decide what is read before the other options.
@@ -2314,17 +2346,17 @@ SET-MODE.
 ADD-INPUTS.
     CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET
     CALL "PLB-DIAG-INIT" USING PLB-DIAGNOSTICS
-    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > WS-INPUT-COUNT
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > IP-COUNT
         CALL "PLB-SRC-ADD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
-            WS-INPUT(WS-I) WS-MODE WS-FILE-ID
+            IP-PATH(WS-I) WS-MODE WS-FILE-ID
     END-PERFORM.
 
 LOAD-INPUTS.
     CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET
     CALL "PLB-DIAG-INIT" USING PLB-DIAGNOSTICS
-    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > WS-INPUT-COUNT
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > IP-COUNT
         CALL "PLB-SRC-LOAD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
-            WS-INPUT(WS-I) WS-MODE WS-FILE-ID WS-STATUS
+            IP-PATH(WS-I) WS-MODE WS-FILE-ID WS-STATUS
     END-PERFORM.
 
 *> One output line per source line:
