@@ -35,6 +35,9 @@
         *> Alphanumeric literal prefix: spaces, or X, Z, N, NX, G, B,
         *> BX, U (as in X"FF", N"text").
         10  TK-PREFIX           PIC XX.
+        *> For a word, its reserved-word kind (see plbkwtab.cpy) or
+        *> space; looked up once, when the token is made.
+        10  TK-KEYWORD          PIC X.
         10  TK-FILE-ID          PIC 9(4) COMP-5.
         *> Inclusion the token came through (see plbincl.cpy); 0 for
         *> tokens of the main file and for unexpanded token streams.
