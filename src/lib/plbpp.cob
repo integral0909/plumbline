@@ -104,7 +104,8 @@ END PROGRAM PLB-PP-SAFE-NAME.
 *> case first, then upper case: files are usually named in lower case,
 *> and trying that first gives the same path on case-insensitive file
 *> systems as on case-sensitive ones. Each spelling is tried bare if it has
-*> an extension, then with .cpy .CPY .cbl .CBL .cob .COB, then bare.
+*> an extension, then with .cpy .CPY .cbl .CBL .cob .COB .dcl .DCL
+*> (DB2 declarations, DCLGEN members), then bare.
 *> STATUS: 0 found (PATH set), 1 not found, 2 unsafe name.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-PP-RESOLVE.
@@ -117,8 +118,10 @@ WORKING-STORAGE SECTION.
     05  FILLER              PIC X(4) VALUE ".CBL".
     05  FILLER              PIC X(4) VALUE ".cob".
     05  FILLER              PIC X(4) VALUE ".COB".
+    05  FILLER              PIC X(4) VALUE ".dcl".
+    05  FILLER              PIC X(4) VALUE ".DCL".
 01  WS-EXTENSION-TABLE REDEFINES WS-EXTENSIONS.
-    05  WS-EXT              PIC X(4) OCCURS 6 TIMES.
+    05  WS-EXT              PIC X(4) OCCURS 8 TIMES.
 LOCAL-STORAGE SECTION.
 01  LS-SAFE                 PIC X.
 01  LS-DIR-COUNT            PIC 9(4) COMP-5.
@@ -252,7 +255,7 @@ TRY-SPELLING.
         PERFORM CHECK-CANDIDATE
     END-IF
     PERFORM VARYING LS-EXT-INDEX FROM 1 BY 1
-            UNTIL LS-EXT-INDEX > 6 OR LS-FOUND = "Y"
+            UNTIL LS-EXT-INDEX > 8 OR LS-FOUND = "Y"
         MOVE SPACES TO LS-CANDIDATE
         STRING LS-BASE(1:LS-BASE-LEN) WS-EXT(LS-EXT-INDEX)
             DELIMITED BY SIZE INTO LS-CANDIDATE

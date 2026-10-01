@@ -41,6 +41,7 @@ WORKING-STORAGE SECTION.
 *> Names that embedded SQL and CICS declare for the program.
 01  WS-SQLCA-ADDED          PIC X.
 01  WS-EIB-ADDED            PIC X.
+01  WS-DIB-ADDED            PIC X.
 01  WS-SQLCA-NAMES.
     05  FILLER PIC X(31) VALUE "SQLCA".
     05  FILLER PIC X(31) VALUE "SQLCAID".
@@ -116,6 +117,9 @@ LOCAL-STORAGE SECTION.
 01  LS-PROGRAM              PIC 9(9) COMP-5.
 01  LS-INTRINSIC            PIC X.
 01  LS-FD-T                 PIC 9(9) COMP-5.
+01  LS-OPTION-T             PIC 9(9) COMP-5.
+01  LS-OPTION               PIC X(31).
+01  LS-IN-SEGMENT           PIC X.
 01  LS-IN-FUNCTION-LIST     PIC X.
 01  LS-LISTED               PIC X.
 01  LS-T                    PIC 9(9) COMP-5.
@@ -168,7 +172,7 @@ COPY "plbref.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
         PLB-AST PLB-SYMBOLS PLB-FLOW PLB-REFS.
     MOVE 0 TO RF-COUNT WS-OTHER-COUNT WS-DIV-COUNT
-    MOVE "N" TO WS-SQLCA-ADDED WS-EIB-ADDED
+    MOVE "N" TO WS-SQLCA-ADDED WS-EIB-ADDED WS-DIB-ADDED
     IF AS-COUNT = 0 OR TK-COUNT = 0
         GOBACK
     END-IF
@@ -269,13 +273,15 @@ MARK-NODE.
             END-IF
     END-EVALUATE.
 
-*> EXEC SQL and EXEC CICS name COBOL data among their own words: the
-*> host variables of SQL (:NAME, :RECORD.FIELD) and the arguments of
-*> CICS options (INTO(NAME), RESP(NAME)). Every other token of an
-*> EXEC statement is skipped, and so is all of any other EXEC.
+*> EXEC SQL, EXEC CICS, and EXEC DLI name COBOL data among their own
+*> words: the host variables of SQL (:NAME, :RECORD.FIELD) and the
+*> arguments of CICS and DL/I options (INTO(NAME), RESP(NAME)), except
+*> the segment names of SEGMENT(...). Every other token of an EXEC
+*> statement is skipped, and so is all of any other EXEC.
 MARK-EXEC-TOKENS.
     PERFORM EXEC-LANGUAGE
     MOVE 0 TO LS-LEVEL
+    MOVE "N" TO LS-IN-SEGMENT
     PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
             UNTIL LS-T > ND-TOK-LAST(LS-NODE)
         MOVE "Y" TO WS-TOKEN-SKIP(LS-T)
@@ -284,14 +290,27 @@ MARK-EXEC-TOKENS.
                 IF TK-IS-COLON(LS-T - 1) AND TK-IS-WORD(LS-T)
                     MOVE "N" TO WS-TOKEN-SKIP(LS-T)
                 END-IF
-            WHEN LS-EXEC-LANGUAGE = "CICS"
+            WHEN LS-EXEC-LANGUAGE = "CICS" OR LS-EXEC-LANGUAGE = "DLI"
                 IF TK-IS-LPAREN(LS-T)
                     ADD 1 TO LS-LEVEL
+                    *> EXEC DLI ... SEGMENT(name): a segment, not data.
+                    IF LS-LEVEL = 1 AND LS-EXEC-LANGUAGE = "DLI"
+                        COMPUTE LS-OPTION-T = LS-T - 1
+                        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-OPTION-T
+                            LS-OPTION LS-LEN
+                        IF LS-OPTION = "SEGMENT"
+                            MOVE "Y" TO LS-IN-SEGMENT
+                        END-IF
+                    END-IF
                 END-IF
                 IF TK-IS-RPAREN(LS-T) AND LS-LEVEL > 0
                     SUBTRACT 1 FROM LS-LEVEL
+                    IF LS-LEVEL = 0
+                        MOVE "N" TO LS-IN-SEGMENT
+                    END-IF
                 END-IF
                 IF LS-LEVEL > 0 AND TK-IS-WORD(LS-T)
+                   AND LS-IN-SEGMENT = "N"
                     MOVE "N" TO WS-TOKEN-SKIP(LS-T)
                 END-IF
         END-EVALUATE
@@ -301,6 +320,8 @@ MARK-EXEC-TOKENS.
             PERFORM ADD-SQLCA-NAMES
         WHEN "CICS"
             PERFORM ADD-EIB-NAMES
+        WHEN "DLI"
+            PERFORM ADD-DIB-NAMES
     END-EVALUATE.
 
 *> LS-EXEC-LANGUAGE = the word after EXEC in node LS-NODE.
@@ -371,6 +392,28 @@ DIRECTIVE-CONSTANTS.
             END-IF
         END-IF
     END-PERFORM.
+
+*> The fields of the DL/I interface block, which the IMS translator
+*> declares for EXEC DLI (DIBSTAT, the status code, above all).
+ADD-DIB-NAMES.
+    IF WS-DIB-ADDED = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "Y" TO WS-DIB-ADDED
+    MOVE "DIBVER" TO LS-TEXT
+    PERFORM ADD-OTHER-NAME
+    MOVE "DIBSTAT" TO LS-TEXT
+    PERFORM ADD-OTHER-NAME
+    MOVE "DIBSEGM" TO LS-TEXT
+    PERFORM ADD-OTHER-NAME
+    MOVE "DIBSEGLV" TO LS-TEXT
+    PERFORM ADD-OTHER-NAME
+    MOVE "DIBKFBL" TO LS-TEXT
+    PERFORM ADD-OTHER-NAME
+    MOVE "DIBDBDNM" TO LS-TEXT
+    PERFORM ADD-OTHER-NAME
+    MOVE "DIBDBORG" TO LS-TEXT
+    PERFORM ADD-OTHER-NAME.
 
 ADD-OTHER-NAME.
     IF WS-OTHER-COUNT < ON-MAX
@@ -723,6 +766,13 @@ RESOLVE-OTHER.
     END-PERFORM
     PERFORM CONTEXT-WORD
     IF RF-KIND(RF-COUNT) = "O"
+        EXIT PARAGRAPH
+    END-IF
+    *> IBM reserves names starting with DFH for CICS: in a program with
+    *> EXEC CICS, an undeclared one comes from a CICS copybook such as
+    *> DFHAID (DFHENTER, DFHPF3) or DFHBMSCA (DFHRED, DFHBMPRO).
+    IF LS-NAME(1:3) = "DFH" AND WS-EIB-ADDED = "Y"
+        MOVE "O" TO RF-KIND(RF-COUNT)
         EXIT PARAGRAPH
     END-IF
     PERFORM INTRINSIC-WITHOUT-FUNCTION
