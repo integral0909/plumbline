@@ -432,6 +432,8 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
             WHEN "DATE-COMPILED"
             WHEN "SECURITY"
             WHEN "REMARKS"
+            *> COBOL 2014: DEFAULT ROUNDED MODE, ENTRY-CONVENTION, ...
+            WHEN "OPTIONS"
                 PERFORM COMMENT-PARAGRAPH
             WHEN OTHER
                 CALL "PLB-AST-ADD" USING PLB-AST PS-DIVISION "ERR " " "
@@ -468,7 +470,8 @@ PROGRAM-ID-PARAGRAPH.
     PERFORM CLOSE-NODE.
 
 *> A comment entry is free text: it runs to the next identification
-*> paragraph or division header, whatever periods it contains.
+*> paragraph or division header, whatever periods it contains. The
+*> clauses of OPTIONS are kept the same way: no rule reads them yet.
 COMMENT-PARAGRAPH.
     MOVE PX-TEXT TO LS-DETAIL
     CALL "PLB-AST-ADD" USING PLB-AST PS-DIVISION "IDPA" LS-DETAIL
@@ -486,7 +489,7 @@ COMMENT-PARAGRAPH.
         CALL "PLB-PX-TOKEN" USING PLB-TOKENS PS-POS PLB-PX-VIEW
         IF PX-TEXT = "PROGRAM-ID" OR "FUNCTION-ID" OR "AUTHOR"
                 OR "INSTALLATION" OR "DATE-WRITTEN" OR "DATE-COMPILED"
-                OR "SECURITY" OR "REMARKS"
+                OR "SECURITY" OR "REMARKS" OR "OPTIONS"
             EXIT PERFORM
         END-IF
         ADD 1 TO PS-POS
