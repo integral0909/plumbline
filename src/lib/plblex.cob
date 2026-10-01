@@ -114,6 +114,8 @@ LOCAL-STORAGE SECTION.
 01  LS-J                    PIC 9(9) COMP-5.
 01  LS-TAG-LEN              PIC 9(9) COMP-5.
 01  LS-IN-IDENTIFICATION    PIC X VALUE "N".
+*> "Y" after DECIMAL-POINT IS COMMA: 1,5 is a number.
+01  LS-DECIMAL-COMMA        PIC X VALUE "N".
 01  LS-WORD                 PIC X(31).
 01  LS-WORD-LEN             PIC 9(9) COMP-5.
 01  LS-AT                   PIC 9(9) COMP-5.
@@ -189,6 +191,7 @@ CHECK-COMMENT-ENTRY.
     END-IF
     MOVE TK-TEXT(TK-TEXT-OFF(TK-COUNT - 1):TK-TEXT-LEN(TK-COUNT - 1))
         TO LS-WORD
+    PERFORM CHECK-DECIMAL-COMMA
     IF TK-IS-WORD(TK-COUNT)
         IF TK-TEXT(TK-TEXT-OFF(TK-COUNT):TK-TEXT-LEN(TK-COUNT))
            = "DIVISION"
@@ -206,6 +209,26 @@ CHECK-COMMENT-ENTRY.
             WHEN "DATE-COMPILED" WHEN "SECURITY" WHEN "REMARKS"
                 PERFORM SKIP-COMMENT-ENTRY
         END-EVALUATE
+    END-IF.
+
+*> DECIMAL-POINT [IS] COMMA: from here on, a comma between digits is
+*> a decimal point. LS-WORD holds the word before the last token.
+CHECK-DECIMAL-COMMA.
+    IF NOT TK-IS-WORD(TK-COUNT)
+        EXIT PARAGRAPH
+    END-IF
+    IF TK-TEXT(TK-TEXT-OFF(TK-COUNT):TK-TEXT-LEN(TK-COUNT)) NOT = "COMMA"
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-WORD = "DECIMAL-POINT"
+        MOVE "Y" TO LS-DECIMAL-COMMA
+    END-IF
+    IF LS-WORD = "IS" AND TK-COUNT > 2
+        IF TK-IS-WORD(TK-COUNT - 2)
+           AND TK-TEXT(TK-TEXT-OFF(TK-COUNT - 2):TK-TEXT-LEN(TK-COUNT - 2))
+               = "DECIMAL-POINT"
+            MOVE "Y" TO LS-DECIMAL-COMMA
+        END-IF
     END-IF.
 
 *> Move LS-POS to the start of the next line that begins with a word
@@ -469,7 +492,8 @@ SCAN-NUMBER-DIGITS.
 
 *> Optional fraction and exponent after the integer digits.
 SCAN-NUMBER-TAIL.
-    IF LS-POS < ST-LEN AND ST-TEXT(LS-POS:1) = "."
+    IF LS-POS < ST-LEN AND (ST-TEXT(LS-POS:1) = "."
+       OR ST-TEXT(LS-POS:1) = "," AND LS-DECIMAL-COMMA = "Y")
         IF WS-CLASS(FUNCTION ORD(ST-TEXT(LS-POS + 1:1))) = "D"
             ADD 1 TO LS-POS
             PERFORM SKIP-DIGITS
