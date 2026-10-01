@@ -1,0 +1,36 @@
+tests/golden/pp/replacing-picture.cob:3:1: word     IDENTIFICATION
+tests/golden/pp/replacing-picture.cob:3:16: word     DIVISION
+tests/golden/pp/replacing-picture.cob:3:24: period   .
+tests/golden/pp/replacing-picture.cob:4:1: word     PROGRAM-ID
+tests/golden/pp/replacing-picture.cob:4:11: period   .
+tests/golden/pp/replacing-picture.cob:4:13: word     REPLPIC
+tests/golden/pp/replacing-picture.cob:4:20: period   .
+tests/golden/pp/replacing-picture.cob:5:1: word     DATA
+tests/golden/pp/replacing-picture.cob:5:6: word     DIVISION
+tests/golden/pp/replacing-picture.cob:5:14: period   .
+tests/golden/pp/replacing-picture.cob:6:1: word     WORKING-STORAGE
+tests/golden/pp/replacing-picture.cob:6:17: word     SECTION
+tests/golden/pp/replacing-picture.cob:6:24: period   .
+tests/golden/pp/replacing-picture.cob:7:1: number   01
+tests/golden/pp/replacing-picture.cob:7:5: word     CUSTOMER
+tests/golden/pp/replacing-picture.cob:7:13: period   .
+tests/golden/pp/copy/twofields.cpy:1:5: number   05
+tests/golden/pp/copy/twofields.cpy:1:9: word     CODE-FIELD
+tests/golden/pp/replacing-picture.cob:8:49: word     PIC
+tests/golden/pp/replacing-picture.cob:8:53: picture  9(8)
+tests/golden/pp/replacing-picture.cob:8:57: period   .
+tests/golden/pp/copy/twofields.cpy:2:5: number   05
+tests/golden/pp/replacing-picture.cob:9:65: word     NAME-FIELD
+tests/golden/pp/replacing-picture.cob:9:76: word     PIC
+tests/golden/pp/replacing-picture.cob:9:80: picture  X(40)
+tests/golden/pp/copy/twofields.cpy:2:34: period   .
+tests/golden/pp/replacing-picture.cob:10:1: word     PROCEDURE
+tests/golden/pp/replacing-picture.cob:10:11: word     DIVISION
+tests/golden/pp/replacing-picture.cob:10:19: period   .
+tests/golden/pp/replacing-picture.cob:11:5: word     DISPLAY
+tests/golden/pp/replacing-picture.cob:11:13: word     CUSTOMER
+tests/golden/pp/replacing-picture.cob:12:5: word     STOP
+tests/golden/pp/replacing-picture.cob:12:10: word     RUN
+tests/golden/pp/replacing-picture.cob:12:13: period   .
+tests/golden/pp/replacing-picture.cob:12:13: eof
+inclusion 1: tests/golden/pp/copy/twofields.cpy from tests/golden/pp/replacing-picture.cob:8:5

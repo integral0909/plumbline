@@ -19,8 +19,8 @@
 *>   - Alphanumeric literals are quoted with " or ', may contain
 *>     doubled quotes, and may carry a prefix: X Z N NX G B BX U.
 *>   - After PIC or PICTURE (optionally followed by IS) the next token
-*>     is a picture string: everything up to the next space, less a
-*>     trailing period, comma, or semicolon.
+*>     is a picture string: everything up to the next space or ==,
+*>     less a trailing period, comma, or semicolon.
 *>   - "==" delimits pseudo-text; ( ) : . are tokens of their own.
 *>   - Operators: + - * / ** = < > <= >= <> &
 *>   - In the identification division, AUTHOR, INSTALLATION,
@@ -372,6 +372,11 @@ CHECK-PICTURE-CONTEXT.
 SCAN-PICTURE.
     PERFORM UNTIL LS-POS > ST-LEN
         IF ST-TEXT(LS-POS:1) = SPACE OR ST-TEXT(LS-POS:1) = X"0A"
+            EXIT PERFORM
+        END-IF
+        *> The end of pseudo-text, as in ==PIC X(5)==, is not part of
+        *> the picture.
+        IF LS-POS < ST-LEN AND ST-TEXT(LS-POS:2) = "=="
             EXIT PERFORM
         END-IF
         ADD 1 TO LS-POS
