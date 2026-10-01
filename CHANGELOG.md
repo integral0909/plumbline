@@ -90,6 +90,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C025 stop-run-in-called-program.
 - Rule PLB-C026 varying-limit-unreachable.
 - Rule PLB-C027 divide-by-zero.
+- Rule PLB-C028 comparison-never-true.
 - Rule PLB-M011 evaluate-without-other (off by default).
 - `plumbline rules [--report text|json]` lists the rules as configured.
 - Conditional compilation: `>>IF`/`>>ELIF`/`>>ELSE`/`>>END-IF` and

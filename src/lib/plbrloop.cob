@@ -1,7 +1,8 @@
 *> ---------------------------------------------------------------
-*> plbrloop: loops that cannot end.
+*> plbrloop: comparisons that a data item cannot satisfy.
 *>
 *>   PLB-C026  varying-limit-unreachable
+*>   PLB-C028  comparison-never-true
 *>
 *> PERFORM VARYING I ... UNTIL I > 99, with I PIC 99: I goes from 99
 *> to 00 when it is increased, so it is never greater than 99, and the
@@ -16,12 +17,20 @@
 *> (DISPLAY or PACKED-DECIMAL) are checked: a binary counter can hold
 *> more than its PICTURE when the compiler does not truncate binary
 *> data (IBM's TRUNC(BIN)), and GnuCOBOL's options differ too.
+*>
+*> PLB-C028 applies the same test to every condition of the form
+*> item op literal in an IF, an UNTIL, or a WHEN, except on the
+*> counters that C026 checks.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-LOOPS.
 DATA DIVISION.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-RULE-COMPARE         PIC 9(4) COMP-5.
+01  LS-COND                 PIC 9(9) COMP-5.
+01  LS-BLOCK                PIC 9(9) COMP-5.
+01  LS-SUBJECT              PIC 9(9) COMP-5.
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-DEPTH                PIC S9(9) COMP-5.
@@ -63,18 +72,135 @@ COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         PLB-REFS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C026" LS-RULE
-    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C028" LS-RULE-COMPARE
+    IF AS-COUNT = 0
         GOBACK
     END-IF
-    MOVE 1 TO LS-NODE
-    MOVE 0 TO LS-DEPTH
-    PERFORM UNTIL LS-NODE = 0
-        IF ND-KIND(LS-NODE) = "STMT" AND ND-DETAIL(LS-NODE) = "PERFORM"
-            PERFORM CHECK-PERFORM
-        END-IF
-        CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
-    END-PERFORM
+    IF RL-ENABLED(LS-RULE) = "Y"
+        MOVE 1 TO LS-NODE
+        MOVE 0 TO LS-DEPTH
+        PERFORM UNTIL LS-NODE = 0
+            IF ND-KIND(LS-NODE) = "STMT"
+               AND ND-DETAIL(LS-NODE) = "PERFORM"
+                PERFORM CHECK-PERFORM
+            END-IF
+            CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
+        END-PERFORM
+    END-IF
+    IF RL-ENABLED(LS-RULE-COMPARE) = "Y"
+        PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+            *> A table element holds what its entry does, so
+            *> subscripts are fine; reference modification is not.
+            IF RF-KIND(LS-R) = "D" AND RF-REFMOD(LS-R) = "N"
+               AND RF-STMT(LS-R) > 0
+                PERFORM CHECK-COMPARISON
+            END-IF
+        END-PERFORM
+    END-IF
     GOBACK.
+
+*> PLB-C028: reference LS-R, when it is the subject of a relation
+*> with an integer literal in a condition.
+CHECK-COMPARISON.
+    MOVE RF-TOKEN(LS-R) TO LS-SUBJECT
+    *> Not an operand of arithmetic: A + B > 99 compares the sum.
+    IF LS-SUBJECT > 1
+        COMPUTE LS-T = LS-SUBJECT - 1
+        IF TK-IS-OPERATOR(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            IF LS-WORD = "+" OR "-" OR "*" OR "/" OR "**"
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+    END-IF
+    PERFORM FIND-CONDITION
+    IF LS-COND = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE ND-TOK-LAST(LS-COND) TO LS-LIMIT
+    COMPUTE LS-T = RF-LAST(LS-R) + 1
+    PERFORM READ-OPERATOR
+    IF LS-OP = SPACE
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM READ-LITERAL
+    IF LS-VALUE-TOKEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-T = LS-VALUE-TOKEN + 1
+    IF LS-T <= LS-LIMIT AND TK-IS-OPERATOR(LS-T)
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+        IF LS-WORD = "+" OR "-" OR "*" OR "/" OR "**"
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    IF ND-DETAIL(LS-COND) = "LOOP"
+        PERFORM SKIP-IF-COUNTER
+        IF LS-SUBJECT = 0
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    MOVE RF-SYMBOL(LS-R) TO LS-S
+    PERFORM COUNTER-RANGE
+    IF LS-LARGEST < 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM DECIDE
+    IF LS-NEVER = "Y"
+        MOVE SY-NAME(LS-S) TO LS-COUNTER
+        PERFORM REPORT-COMPARISON
+    END-IF.
+
+*> LS-COND = the condition of statement RF-STMT(LS-R), or of one of
+*> its WHEN phrases, that contains the reference; 0 when the reference
+*> is not in one.
+FIND-CONDITION.
+    MOVE 0 TO LS-COND
+    MOVE ND-FIRST(RF-STMT(LS-R)) TO LS-CHILD
+    PERFORM UNTIL LS-CHILD = 0 OR LS-COND > 0
+        EVALUATE ND-KIND(LS-CHILD)
+            WHEN "COND"
+                MOVE LS-CHILD TO LS-NODE
+                PERFORM TEST-CONDITION
+            WHEN "BLCK"
+                MOVE ND-FIRST(LS-CHILD) TO LS-BLOCK
+                PERFORM UNTIL LS-BLOCK = 0 OR LS-COND > 0
+                    IF ND-KIND(LS-BLOCK) = "COND"
+                        MOVE LS-BLOCK TO LS-NODE
+                        PERFORM TEST-CONDITION
+                    END-IF
+                    MOVE ND-NEXT(LS-BLOCK) TO LS-BLOCK
+                END-PERFORM
+        END-EVALUATE
+        MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+    END-PERFORM.
+
+TEST-CONDITION.
+    IF ND-DETAIL(LS-NODE) NOT = "SUBJECT"
+       AND ND-TOK-FIRST(LS-NODE) <= LS-SUBJECT
+       AND ND-TOK-LAST(LS-NODE) > RF-LAST(LS-R)
+        MOVE LS-NODE TO LS-COND
+    END-IF.
+
+*> LS-SUBJECT = 0 when the subject is a counter that VARYING or AFTER
+*> names in the loop condition LS-COND: PLB-C026 checks those.
+SKIP-IF-COUNTER.
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-SUBJECT LS-COUNTER LS-LEN
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-COND) BY 1
+            UNTIL LS-T >= ND-TOK-LAST(LS-COND)
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            IF LS-WORD = "VARYING" OR LS-WORD = "AFTER"
+                COMPUTE LS-NEXT = LS-T + 1
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-NEXT LS-WORD
+                    LS-LEN
+                IF LS-WORD = LS-COUNTER
+                    MOVE 0 TO LS-SUBJECT
+                    EXIT PERFORM
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
 
 *> The tokens of the PERFORM before its body, if it has one.
 CHECK-PERFORM.
@@ -353,4 +479,27 @@ REPORT-LOOP.
         INTO LS-MESSAGE WITH POINTER LS-PTR
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-VALUE-TOKEN LS-MESSAGE.
+
+REPORT-COMPARISON.
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    STRING LS-COUNTER DELIMITED BY SPACE
+           " holds " DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    IF LS-OP = "L" OR LS-OP = "M"
+       OR (LS-OP = "E" AND LS-VALUE < LS-SMALLEST)
+        STRING "nothing below " DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+        MOVE LS-SMALLEST TO LS-NUM
+    ELSE
+        STRING "nothing above " DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+        MOVE LS-LARGEST TO LS-NUM
+    END-IF
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           ", so this comparison is never true" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-COMPARE LS-VALUE-TOKEN LS-MESSAGE.
 END PROGRAM PLB-RULE-LOOPS.

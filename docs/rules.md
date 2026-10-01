@@ -33,6 +33,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C025](#plb-c025-stop-run-in-called-program) | stop-run-in-called-program | warning | STOP RUN in a program that is called |
 | [PLB-C026](#plb-c026-varying-limit-unreachable) | varying-limit-unreachable | warning | PERFORM VARYING waits for a value its counter cannot hold |
 | [PLB-C027](#plb-c027-divide-by-zero) | divide-by-zero | error | Divisor is a literal zero |
+| [PLB-C028](#plb-c028-comparison-never-true) | comparison-never-true | warning | Data item is compared with a value it cannot hold |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -652,6 +653,41 @@ digits. A statement with `ON SIZE ERROR` handles the failure and is not
 reported; test programs divide by zero this way on purpose. Divisors
 that are data items, or constants declared with level 78 or
 `CONSTANT`, are not checked.
+
+## PLB-C028 comparison-never-true
+
+A condition that compares a data item with a literal the item cannot
+hold, so the comparison is never true:
+
+```cobol
+01  AGE      PIC 99.
+01  BALANCE  PIC 9(5).
+    ...
+    IF AGE > 99                             *> reported
+    IF BALANCE < 0                          *> reported: BALANCE has no sign
+```
+
+The code under such a condition never runs. Often the item was made
+smaller, or lost its sign, after the condition was written, and the
+check it was meant to make no longer happens.
+
+The rule checks `item op literal` in the conditions of `IF`, `PERFORM
+... UNTIL`, and `WHEN` in `EVALUATE` and `SEARCH`, with op one of `>`,
+`>=`, `=`, `<`, `<=` or their words. Like
+[PLB-C026](#plb-c026-varying-limit-unreachable), it checks integer items
+stored as decimal digits (`DISPLAY` or `PACKED-DECIMAL`), and integer
+literals. Table elements are checked through their subscripts. It does
+not report:
+
+- comparisons with `NOT`, and comparisons that are always true
+  (`IF BALANCE >= 0`), which are usually harmless checks;
+- an item that is an operand of arithmetic (`IF AGE + 1 > 99`);
+- the counter of `PERFORM VARYING`, which PLB-C026 checks;
+- a literal on the left (`IF 99 < AGE`), or an abbreviated condition
+  without a subject (`IF AGE > 10 AND < 100` checks the first part).
+
+A numeric item that holds invalid data (spaces, after a `MOVE` to its
+group) still never compares greater than its picture allows.
 
 ## PLB-M001 go-to
 

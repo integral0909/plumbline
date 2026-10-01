@@ -159,6 +159,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C027"
         "divide-by-zero" "E"
         "Divisor is a literal zero"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C028"
+        "comparison-never-true" "W"
+        "Data item is compared with a value it cannot hold"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
