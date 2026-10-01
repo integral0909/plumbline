@@ -1,0 +1,6 @@
+tests/golden/rules/c020-c022-m008-files.cob:14:12: note: LOG-FILE is opened but never closed [PLB-M008]
+tests/golden/rules/c020-c022-m008-files.cob:42:17: warning: the FILE STATUS of REPORT-FILE (REPORT-STATUS) is not tested after this OPEN [PLB-C020]
+tests/golden/rules/c020-c022-m008-files.cob:49:13: error: REWRITE of CUST-FILE, which the program opens only INPUT [PLB-C022]
+tests/golden/rules/c020-c022-m008-files.cob:54:11: warning: WRITE of AUDIT-FILE, which no OPEN in the program opens [PLB-C021]
+tests/golden/rules/c020-c022-m008-files.cob:56:17: warning: the FILE STATUS of LOG-FILE (LOG-STATUS) is not tested after this OPEN [PLB-C020]
+tests/golden/rules/c020-c022-m008-files.cob:57:11: warning: the FILE STATUS of LOG-FILE (LOG-STATUS) is not tested after this WRITE [PLB-C020]
