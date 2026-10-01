@@ -1,0 +1,12 @@
+20:13 X1 (COMPUTE) -> 1 X1 @16 role=D
+20:19 X1 (COMPUTE) -> 1 X1 @16 role=U
+20:22 B-SHIFT-L (COMPUTE) -> other name
+21:8 X1 (IF) -> 1 X1 @16 role=U
+21:11 EQUALS (IF) -> other name
+22:17 NAMED (EXHIBIT) -> other name
+22:23 X1 (EXHIBIT) -> 1 X1 @16 role=X
+25:43 SYSTEM-OFFSET (MOVE) -> other name
+25:61 STAMP (MOVE) -> 1 STAMP @17 role=D
+26:9 FCD-POINTER (SET) -> 1 FCD-POINTER @18 role=D
+26:35 FH--FCD OF DATA-FILE (SET) -> other name
+27:19 NORMAL (STOP) -> other name
