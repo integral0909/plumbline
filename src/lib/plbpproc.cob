@@ -59,6 +59,7 @@ COPY "plbptok.cpy".
 01  LS-SENTENCE             PIC 9(9) COMP-5.
 01  LS-PARENT               PIC 9(9) COMP-5.
 01  LS-SORT-PROC            PIC X.
+01  LS-WHENEVER-END         PIC 9(9) COMP-5.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-STMT                 PIC 9(9) COMP-5.
 01  LS-BLOCK                PIC 9(9) COMP-5.
@@ -562,7 +563,51 @@ EXEC-STATEMENT.
         ADD 1 TO PS-POS
     ELSE
         COMPUTE ND-TOK-LAST(LS-STMT) = PS-POS - 1
-    END-IF.
+    END-IF
+    PERFORM WHENEVER-TARGET.
+
+*> EXEC SQL WHENEVER condition {GO TO | GOTO | PERFORM} proc: the
+*> precompiler makes later SQL statements jump to, or perform, proc,
+*> so it gets a PROC node like a GO TO or PERFORM target.
+WHENEVER-TARGET.
+    MOVE ND-TOK-FIRST(LS-STMT) TO LS-NEXT
+    ADD 1 TO LS-NEXT
+    PERFORM PREVIOUS-WORD
+    IF LS-NEXT-TEXT NOT = "SQL"
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-NEXT
+    PERFORM PREVIOUS-WORD
+    IF LS-NEXT-TEXT NOT = "WHENEVER"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE PS-POS TO LS-WHENEVER-END
+    PERFORM VARYING LS-NEXT FROM LS-NEXT BY 1
+            UNTIL LS-NEXT >= ND-TOK-LAST(LS-STMT)
+        PERFORM PREVIOUS-WORD
+        EVALUATE LS-NEXT-TEXT
+            WHEN "GO" WHEN "GOTO" WHEN "PERFORM"
+                IF LS-NEXT-TEXT = "PERFORM"
+                    MOVE "PERFORM" TO LS-DETAIL
+                ELSE
+                    MOVE "GO" TO LS-DETAIL
+                END-IF
+                ADD 1 TO LS-NEXT
+                IF LS-NEXT-TEXT = "GO"
+                    PERFORM PREVIOUS-WORD
+                    IF LS-NEXT-TEXT = "TO"
+                        ADD 1 TO LS-NEXT
+                    END-IF
+                END-IF
+                IF LS-NEXT < ND-TOK-LAST(LS-STMT)
+                   AND TK-IS-WORD(LS-NEXT)
+                    MOVE LS-NEXT TO PS-POS
+                    PERFORM PROCEDURE-NAME
+                END-IF
+                EXIT PERFORM
+        END-EVALUATE
+    END-PERFORM
+    MOVE LS-WHENEVER-END TO PS-POS.
 
 *> A COND node (detail LS-DETAIL) under LS-STMT for the tokens from
 *> PS-POS up to a verb, WHEN, THEN, NEXT SENTENCE, a terminator, a
