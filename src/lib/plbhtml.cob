@@ -239,10 +239,15 @@ WRITE-FINDING.
     DISPLAY "</article>".
 
 *> The reported line and two lines on either side, numbered; the
-*> reported line marked.
+*> reported line marked. The file is read again if its lines were
+*> released after it was checked.
 WRITE-EXCERPT.
-    MOVE FN-SRC-LINE(LS-I) TO LS-SRC
-    IF LS-SRC = 0 OR LS-FILE = 0
+    IF FN-LINE(LS-I) = 0 OR LS-FILE = 0
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-SRC-LINE-INDEX" USING PLB-SOURCE-SET LS-FILE
+        FN-LINE(LS-I) LS-SRC
+    IF LS-SRC = 0
         EXIT PARAGRAPH
     END-IF
     COMPUTE LS-FROM = LS-SRC - 2

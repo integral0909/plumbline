@@ -457,7 +457,7 @@ TEST-FILE-LIMIT.
         WS-EXPECT-NUM WS-ACTUAL-NUM
     CALL "PLBT-ASSERT-STR" USING "limit reported" "RD005" DG-CODE(1)
     CALL "PLBT-ASSERT-STR" USING "limit message"
-        "too many source files (limit 256)" DG-MESSAGE(1)
+        "too many source files (limit 20000)" DG-MESSAGE(1)
     MOVE SS-MAX-FILES TO WS-EXPECT-NUM
     MOVE SS-FILE-COUNT TO WS-ACTUAL-NUM
     CALL "PLBT-ASSERT-NUM" USING "file count stays at the limit"

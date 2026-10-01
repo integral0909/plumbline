@@ -16,7 +16,8 @@
 *>
 *> The limits below are hard: exceeding one is reported as an error
 *> diagnostic and the rest of the input is not loaded.
-78  SS-MAX-FILES                VALUE 256.
+78  SS-MAX-FILES                VALUE 20000.
+78  SS-PATH-BUCKETS             VALUE 8191.
 78  SS-MAX-LINES                VALUE 200000.
 78  SS-HEAP-SIZE                VALUE 16000000.
 78  SS-MAX-WIDTH                VALUE 1024.
@@ -25,8 +26,13 @@
     05  SS-FILE-COUNT           PIC 9(4) COMP-5.
     05  SS-LINE-COUNT           PIC 9(9) COMP-5.
     05  SS-HEAP-USED            PIC 9(9) COMP-5.
+    *> Files by path: SS-PATH-HEAD holds the last file added whose
+    *> path hashes to the bucket, and SF-PATH-NEXT the one before it.
+    05  SS-PATH-HEAD            PIC 9(4) COMP-5
+                                OCCURS SS-PATH-BUCKETS TIMES.
     05  SS-FILE                 OCCURS SS-MAX-FILES TIMES.
         10  SF-PATH             PIC X(SS-PATH-SIZE).
+        10  SF-PATH-NEXT        PIC 9(4) COMP-5.
         *> Format in effect at the top of the file.
         10  SF-FORMAT           PIC X.
             88  SF-IS-FIXED           VALUE "X".
