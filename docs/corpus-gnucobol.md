@@ -84,3 +84,20 @@ What is left:
 - **`INVOICE-AMOUNT`**: one program uses a name that no entry declares.
   GnuCOBOL 3.2 compiles and runs it; the report is correct as far as
   the program's text goes.
+
+## Rules on the tests
+
+The tests are written to exercise the compiler and its runtime checks,
+so a rule that finds a run-time error usually finds the tests of the
+check for it. They are listed here as a check of the rules:
+
+- **PLB-C034 linkage-not-addressed** reports the three tests that use
+  a `LINKAGE` or `BASED` item without an address on purpose, to see the
+  runtime stop them (`access to BASED item without allocation`, `runtime
+  check: write to internal storage`).
+- **PLB-C028 comparison-never-true** reports the unsigned item compared
+  with `< 0` in `compare numeric DISPLAY SPACE with ZERO`.
+- **PLB-C030 value-never-used** reports five values that tests set and
+  set again before reading.
+- **PLB-C033 self-move** reports the `MOVE X TO X` of the test of that
+  statement.

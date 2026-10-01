@@ -10,7 +10,9 @@
 *> uses without either has no address, and the program reads or writes
 *> wherever that happens to point, or ends abnormally. In a program
 *> with EXEC CICS, DFHEIBLK and DFHCOMMAREA are passed by CICS.
-*> Constants (level 78) take no storage and need no address.
+*> Constants (level 78) take no storage and need no address. A BASED
+*> record is in the same case: it has no storage until ALLOCATE or SET
+*> ADDRESS OF gives it some.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-LINKAGE.
@@ -31,6 +33,7 @@ LOCAL-STORAGE SECTION.
 01  LS-K                    PIC 9(9) COMP-5.
 01  LS-RECORD               PIC 9(9) COMP-5.
 01  LS-CICS                 PIC X VALUE "N".
+01  LS-BASED                PIC X.
 01  LS-AFTER-USING          PIC X.
 01  LS-WORD                 PIC X(31).
 01  LS-LEN                  PIC 9(9) COMP-5.
@@ -66,11 +69,10 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
                 EVALUATE ND-DETAIL(LS-NODE)
                     WHEN "ENTRY"
                         PERFORM MARK-ENTRY-PARAMETERS
-                    WHEN "SET" WHEN "EXEC"
-                        PERFORM MARK-ADDRESS-OF
                     WHEN "ALLOCATE"
                         PERFORM MARK-ALLOCATED
                 END-EVALUATE
+                PERFORM MARK-ADDRESS-OF
                 IF ND-DETAIL(LS-NODE) = "EXEC"
                     COMPUTE LS-T = ND-TOK-FIRST(LS-NODE) + 1
                     CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD
@@ -95,7 +97,8 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         IF RF-KIND(LS-R) = "D" AND RF-STMT(LS-R) > 0
             MOVE RF-SYMBOL(LS-R) TO LS-S
             PERFORM RECORD-OF-S
-            IF SY-SECTION(LS-RECORD) = "K"
+            PERFORM TEST-BASED
+            IF (SY-SECTION(LS-RECORD) = "K" OR LS-BASED = "Y")
                AND WS-ADDRESSED(LS-RECORD) = "N"
                AND WS-REPORTED(LS-RECORD) = "N"
                AND SY-LEVEL(LS-RECORD) NOT = 66
@@ -117,6 +120,18 @@ RECORD-OF-S.
     END-PERFORM
     PERFORM UNTIL SY-REDEFINES(LS-RECORD) = 0
         MOVE SY-REDEFINES(LS-RECORD) TO LS-RECORD
+    END-PERFORM.
+
+*> LS-BASED = "Y" when record LS-RECORD has a BASED clause.
+TEST-BASED.
+    MOVE "N" TO LS-BASED
+    MOVE ND-FIRST(SY-NODE(LS-RECORD)) TO LS-T
+    PERFORM UNTIL LS-T = 0
+        IF ND-KIND(LS-T) = "CLAU" AND ND-DETAIL(LS-T) = "BASED"
+            MOVE "Y" TO LS-BASED
+            EXIT PERFORM
+        END-IF
+        MOVE ND-NEXT(LS-T) TO LS-T
     END-PERFORM.
 
 MARK-RECORD.
@@ -157,7 +172,10 @@ MARK-ENTRY-PARAMETERS.
         END-IF
     END-PERFORM.
 
-*> ADDRESS OF item, in SET and EXEC statements.
+*> ADDRESS OF item, in any statement: SET ADDRESS OF and EXEC ...
+*> SET(ADDRESS OF) give the address; a CALL passing ADDRESS OF lets
+*> another program give it, and a test of ADDRESS OF against NULL
+*> shows the program knows it may have none.
 MARK-ADDRESS-OF.
     PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
             UNTIL LS-T + 2 > ND-TOK-LAST(LS-NODE)
@@ -195,12 +213,21 @@ REFERENCE-AT-T.
 
 REPORT-RECORD.
     MOVE SPACES TO LS-MESSAGE
-    STRING "LINKAGE record " DELIMITED BY SIZE
-           SY-NAME(LS-RECORD) DELIMITED BY SPACE
-           " has no address here: it is not a USING parameter, and"
-           DELIMITED BY SIZE
-           " nothing sets ADDRESS OF it" DELIMITED BY SIZE
-        INTO LS-MESSAGE
+    IF LS-BASED = "Y"
+        STRING "BASED record " DELIMITED BY SIZE
+               SY-NAME(LS-RECORD) DELIMITED BY SPACE
+               " has no storage here: nothing ALLOCATEs it or sets"
+               DELIMITED BY SIZE
+               " ADDRESS OF it" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    ELSE
+        STRING "LINKAGE record " DELIMITED BY SIZE
+               SY-NAME(LS-RECORD) DELIMITED BY SPACE
+               " has no address here: it is not a USING parameter, and"
+               DELIMITED BY SIZE
+               " nothing sets ADDRESS OF it" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    END-IF
     MOVE RF-TOKEN(LS-R) TO LS-T
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-T LS-MESSAGE.

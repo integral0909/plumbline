@@ -950,7 +950,11 @@ A linkage record has no storage of its own. The caller passes it
 (`PROCEDURE DIVISION USING`, `ENTRY ... USING`), or the program sets its
 address (`SET ADDRESS OF item TO pointer`, `EXEC CICS ... SET(ADDRESS OF
 item)`, `ALLOCATE`). Without either, the program reads and writes
-wherever the address happens to point, or ends abnormally. Items that
+wherever the address happens to point, or ends abnormally. A `BASED`
+record is in the same case until `ALLOCATE` or `SET ADDRESS OF` gives it
+storage. Any other use of `ADDRESS OF item` (passing it to a program
+that sets it, testing it against `NULL`) counts as the program handling
+the address. Items that
 redefine an addressed record share its address. In a program with `EXEC
 CICS`, `DFHEIBLK` and `DFHCOMMAREA` count as passed, since CICS passes
 them. Constants (level 78) need no address. Each record is reported

@@ -1,2 +1,3 @@
-tests/golden/rules/c034-linkage.cob:22:32: warning: BUFFER-PTR is read but never given a value [PLB-C011]
-tests/golden/rules/c034-linkage.cob:25:13: error: LINKAGE record LOST-E has no address here: it is not a USING parameter, and nothing sets ADDRESS OF it [PLB-C034]
+tests/golden/rules/c034-linkage.cob:25:32: warning: BUFFER-PTR is read but never given a value [PLB-C011]
+tests/golden/rules/c034-linkage.cob:28:27: error: BASED record SCRATCH-AREA has no storage here: nothing ALLOCATEs it or sets ADDRESS OF it [PLB-C034]
+tests/golden/rules/c034-linkage.cob:30:13: error: LINKAGE record LOST-E has no address here: it is not a USING parameter, and nothing sets ADDRESS OF it [PLB-C034]

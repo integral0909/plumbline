@@ -1,11 +1,14 @@
 *> LINKAGE records used without an address. USING parameters, ENTRY
 *> parameters, SET ADDRESS OF, ALLOCATE, members and redefinitions of
-*> addressed records, and constants are fine.
+*> addressed records, and constants are fine. BASED records need
+*> ALLOCATE or SET ADDRESS OF as well.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. LINKS.
 DATA DIVISION.
 WORKING-STORAGE SECTION.
 01  BUFFER-PTR         USAGE POINTER.
+01  WORK-AREA          PIC X(20) BASED.
+01  SCRATCH-AREA       PIC X(20) BASED.
 LINKAGE SECTION.
 78  MAX-LEN            VALUE 10.
 01  PARM-A.
@@ -21,6 +24,8 @@ PROCEDURE DIVISION USING PARM-A.
 MAIN-LINE.
     SET ADDRESS OF BUFFER-C TO BUFFER-PTR
     ALLOCATE ALLOC-D
+    ALLOCATE WORK-AREA
+    MOVE "X" TO WORK-AREA SCRATCH-AREA
     DISPLAY PARM-A-KEY PARM-A-ALT BUFFER-C ALLOC-D
     DISPLAY LOST-E-KEY
     MOVE SPACES TO LOST-E
