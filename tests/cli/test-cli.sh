@@ -5,6 +5,9 @@
 set -u
 
 bin=${1:?usage: test-cli.sh path/to/plumbline}
+# Absolute, so that checks can run in another directory (run_dir).
+bin_abs=$(cd "$(dirname "$bin")" && pwd)/$(basename "$bin")
+run_dir=.
 n=0
 failed=0
 
@@ -13,7 +16,7 @@ check() {
     label=$1 want_rc=$2 pattern=$3
     shift 4
     n=$((n + 1))
-    out=$("$bin" "$@" 2>&1)
+    out=$(cd "$run_dir" && "$bin_abs" "$@" 2>&1)
     rc=$?
     if [ "$rc" -eq "$want_rc" ] && printf '%s\n' "$out" | grep -q -- "$pattern"; then
         echo "ok $n - $label"
@@ -145,6 +148,19 @@ rm -f "$tmp_baseline"
 check "--write-baseline to a bad path"    1 'cannot write baseline' \
     -- check --write-baseline no/such/dir/b.txt $rx/c001-unreachable.cob
 
+cfx=tests/fixtures/config
+check "--config applies settings"         1 'c001-unreachable.cob:11:9: error: GO TO makes' \
+    -- check --config $cfx/strict.conf $rx/c001-unreachable.cob
+check "options override the config"       1 'never executed' \
+    -- check --config $cfx/strict.conf --enable unreachable-code $rx/c001-unreachable.cob
+check "config can name a baseline"        0 '^$' -- check --config $cfx/baseline.conf $rx/c001-unreachable.cob
+check "unknown settings are errors"       2 "in $cfx/unknown.conf line 1" -- check --config $cfx/unknown.conf $rx/c001-unreachable.cob
+check "invalid severity"                  2 "invalid severity 'fatal'" -- check --config $cfx/bad-severity.conf $rx/c001-unreachable.cob
+check "--config with a missing file"      2 'cannot read configuration file nope.conf' -- check --config nope.conf $rx/c001-unreachable.cob
+run_dir=$cfx/project
+check "plumbline.conf in the current directory is read" 0 '^$' -- check ../../../golden/rules/c001-unreachable.cob
+check "--no-config skips plumbline.conf"  1 'GO TO makes' -- check --no-config ../../../golden/rules/c001-unreachable.cob
+run_dir=.
 
 # check_report LABEL FORMAT EXPECTED-COUNT -- ARGS...
 # Run plumbline and validate its report with tests/tools/check_report.py.

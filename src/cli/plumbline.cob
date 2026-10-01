@@ -7,6 +7,20 @@
 *>                   [--fail-on error|warning|note|never]
 *>                   [--report text|json|sarif]
 *>                   [--baseline FILE | --write-baseline FILE] FILE...
+*>
+*> Every command first reads the settings in plumbline.conf in the
+*> current directory, if there is one, or in the file given with
+*> --config FILE; --no-config skips it. Settings are applied before
+*> the command-line options, which can override them:
+*>
+*>   include DIR          like -I DIR
+*>   format FORMAT        like --format FORMAT
+*>   enable RULE          like --enable RULE
+*>   disable RULE         like --disable RULE
+*>   severity RULE LEVEL  report RULE as error, warning, or note
+*>   fail-on LEVEL        like --fail-on LEVEL
+*>   report FORMAT        like --report FORMAT
+*>   baseline FILE        like --baseline FILE
 *>   plumbline dump lines  [--format fixed|free|auto] FILE...
 *>   plumbline dump tokens [--format fixed|free|auto] [--debug] FILE...
 *>   plumbline dump expanded [-I DIR]... [--format ...] [--debug] FILE...
@@ -42,6 +56,7 @@ COPY "plbfind.cpy".
 COPY "plbref.cpy".
 COPY "plbcallc.cpy".
 COPY "plbcall.cpy".
+COPY "plbconf.cpy".
 78  MAX-INPUTS                  VALUE 256.
 01  WS-ARG-COUNT            PIC 9(4).
 01  WS-ARG-INDEX            PIC 9(4).
@@ -92,6 +107,14 @@ COPY "plbcall.cpy".
 01  WS-POS-FILE             PIC 9(4) COMP-5.
 01  WS-POS-LINE             PIC 9(9) COMP-5.
 01  WS-POS-COLUMN           PIC 9(4) COMP-5.
+01  WS-USE-CONFIG           PIC X VALUE "Y".
+01  WS-CONFIG-GIVEN         PIC X VALUE "N".
+01  WS-CONFIG-PATH          PIC X(512) VALUE "plumbline.conf".
+01  WS-CONFIG-PATH-LEN      PIC 9(9) COMP-5.
+01  WS-SAVED-INDEX          PIC 9(4).
+01  WS-SETTING              PIC 9(4) COMP-5.
+01  WS-SEVERITY-RULE        PIC X(31).
+01  WS-SEVERITY-LEVEL       PIC X(31).
 01  WS-BASELINE             PIC X(512) VALUE SPACES.
 01  WS-WRITE-BASELINE       PIC X(512) VALUE SPACES.
 01  WS-BASELINE-COUNT       PIC 9(9) COMP-5.
@@ -182,6 +205,9 @@ SHOW-USAGE.
     DISPLAY "                   (default auto)"
     DISPLAY "  --debug          treat debugging lines as code"
     DISPLAY "  -I DIR           search DIR for copybooks (repeatable)"
+    DISPLAY "  --config FILE    read settings from FILE (default:"
+    DISPLAY "                   plumbline.conf, when there is one)"
+    DISPLAY "  --no-config      do not read a configuration file"
     DISPLAY " "
     DISPLAY "Check options:"
     DISPLAY "  --enable RULE    enable a rule (id or name; repeatable)"
@@ -960,9 +986,18 @@ DUMP-ONE-INCLUSION.
 PARSE-INPUT-ARGS.
     CALL "PLB-PP-INIT-OPTIONS" USING PLB-PP-OPTIONS
     CALL "PLB-RULES-INIT" USING PLB-RULES
+    PERFORM FIND-CONFIG-OPTIONS
+    IF WS-EXIT-CODE = 0
+        PERFORM LOAD-CONFIG
+    END-IF
     PERFORM UNTIL WS-ARG-INDEX > WS-ARG-COUNT OR WS-EXIT-CODE NOT = 0
         PERFORM NEXT-ARG
         EVALUATE TRUE
+            WHEN WS-ARG = "--config"
+                *> Read by FIND-CONFIG-OPTIONS.
+                PERFORM NEXT-ARG
+            WHEN WS-ARG = "--no-config"
+                CONTINUE
             WHEN WS-ARG = "--baseline"
                 PERFORM NEXT-ARG
                 IF WS-ARG-LEN = 0
@@ -1031,6 +1066,118 @@ PARSE-INPUT-ARGS.
         DISPLAY PLB-NAME ": no input files" UPON SYSERR
         PERFORM SUGGEST-HELP
     END-IF.
+
+*> Look ahead in the arguments for --config FILE and --no-config, which
+*> decide what is read before the other options.
+FIND-CONFIG-OPTIONS.
+    MOVE WS-ARG-INDEX TO WS-SAVED-INDEX
+    PERFORM UNTIL WS-ARG-INDEX > WS-ARG-COUNT
+        PERFORM NEXT-ARG
+        EVALUATE WS-ARG
+            WHEN "--no-config"
+                MOVE "N" TO WS-USE-CONFIG
+            WHEN "--config"
+                PERFORM NEXT-ARG
+                IF WS-ARG-LEN = 0
+                    DISPLAY PLB-NAME ": --config needs a file" UPON SYSERR
+                    PERFORM SUGGEST-HELP
+                    EXIT PERFORM
+                END-IF
+                MOVE WS-ARG TO WS-CONFIG-PATH
+                MOVE "Y" TO WS-CONFIG-GIVEN
+        END-EVALUATE
+    END-PERFORM
+    MOVE WS-SAVED-INDEX TO WS-ARG-INDEX.
+
+*> Apply the settings of the configuration file. A missing default
+*> file is fine; a missing file given with --config is an error.
+LOAD-CONFIG.
+    IF WS-USE-CONFIG = "N"
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-CONF-READ" USING WS-CONFIG-PATH PLB-CONFIG WS-STATUS
+    CALL "PLB-STR-LENGTH" USING WS-CONFIG-PATH WS-CONFIG-PATH-LEN
+    IF WS-STATUS NOT = 0
+        IF WS-CONFIG-GIVEN = "Y"
+            DISPLAY PLB-NAME ": cannot read configuration file "
+                WS-CONFIG-PATH(1:WS-CONFIG-PATH-LEN) UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        END-IF
+        EXIT PARAGRAPH
+    END-IF
+    IF CF-OVERFLOW = "Y"
+        DISPLAY PLB-NAME ": " WS-CONFIG-PATH(1:WS-CONFIG-PATH-LEN)
+            ": too many settings (limit " CF-MAX ")" UPON SYSERR
+        MOVE 2 TO WS-EXIT-CODE
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING WS-SETTING FROM 1 BY 1
+            UNTIL WS-SETTING > CF-COUNT OR WS-EXIT-CODE NOT = 0
+        PERFORM APPLY-SETTING
+        IF WS-EXIT-CODE NOT = 0
+            MOVE CF-LINE-NO(WS-SETTING) TO WS-NUM
+            CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+            DISPLAY PLB-NAME ": in " WS-CONFIG-PATH(1:WS-CONFIG-PATH-LEN)
+                " line " WS-NUM-TEXT(1:WS-NUM-LEN) UPON SYSERR
+        END-IF
+    END-PERFORM.
+
+APPLY-SETTING.
+    MOVE CF-VALUE(WS-SETTING) TO WS-ARG
+    CALL "PLB-STR-LENGTH" USING WS-ARG WS-ARG-LEN
+    IF WS-ARG-LEN = 0
+        DISPLAY PLB-NAME ": setting '" FUNCTION TRIM(CF-KEY(WS-SETTING))
+            "' needs a value" UPON SYSERR
+        MOVE 2 TO WS-EXIT-CODE
+        EXIT PARAGRAPH
+    END-IF
+    EVALUATE CF-KEY(WS-SETTING)
+        WHEN "include"
+            PERFORM ADD-COPY-PATH
+        WHEN "format"
+            PERFORM SET-MODE
+        WHEN "enable"
+            MOVE "--enable" TO WS-CONTENT
+            PERFORM SET-RULE-ENABLED
+        WHEN "disable"
+            MOVE "--disable" TO WS-CONTENT
+            PERFORM SET-RULE-ENABLED
+        WHEN "severity"
+            PERFORM SET-SEVERITY
+        WHEN "fail-on"
+            PERFORM SET-FAIL-ON
+        WHEN "report"
+            PERFORM SET-REPORT
+        WHEN "baseline"
+            MOVE WS-ARG TO WS-BASELINE
+        WHEN OTHER
+            DISPLAY PLB-NAME ": unknown setting '"
+                FUNCTION TRIM(CF-KEY(WS-SETTING)) "'" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+    END-EVALUATE.
+
+*> WS-ARG holds "RULE LEVEL".
+SET-SEVERITY.
+    MOVE SPACES TO WS-SEVERITY-RULE WS-SEVERITY-LEVEL
+    UNSTRING WS-ARG DELIMITED BY ALL SPACE
+        INTO WS-SEVERITY-RULE WS-SEVERITY-LEVEL
+    CALL "PLB-RULE-FIND" USING PLB-RULES WS-SEVERITY-RULE WS-RULE
+    IF WS-RULE = 0
+        DISPLAY PLB-NAME ": unknown rule '"
+            FUNCTION TRIM(WS-SEVERITY-RULE) "'" UPON SYSERR
+        MOVE 2 TO WS-EXIT-CODE
+        EXIT PARAGRAPH
+    END-IF
+    EVALUATE WS-SEVERITY-LEVEL
+        WHEN "error"    MOVE "E" TO RL-SEVERITY(WS-RULE)
+        WHEN "warning"  MOVE "W" TO RL-SEVERITY(WS-RULE)
+        WHEN "note"     MOVE "N" TO RL-SEVERITY(WS-RULE)
+        WHEN OTHER
+            DISPLAY PLB-NAME ": invalid severity '"
+                FUNCTION TRIM(WS-SEVERITY-LEVEL)
+                "' (expected error, warning, or note)" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+    END-EVALUATE.
 
 *> WS-CONTENT holds the option (--enable or --disable), WS-ARG the
 *> rule id or name.
