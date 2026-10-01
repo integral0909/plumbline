@@ -94,6 +94,7 @@ class LanguageServerTest(unittest.TestCase):
         self.assertTrue(self.capabilities["documentHighlightProvider"])
         self.assertTrue(
             self.capabilities["renameProvider"]["prepareProvider"])
+        self.assertTrue(self.capabilities["foldingRangeProvider"])
         self.assertTrue(self.capabilities["documentSymbolProvider"])
 
     def test_diagnostics_on_open(self):
@@ -259,6 +260,21 @@ class LanguageServerTest(unittest.TestCase):
                              if key.endswith("/totals.cpy")]
             self.assertEqual(declaration[0]["range"]["start"],
                              {"line": 0, "character": 4})
+
+    def test_folding_ranges(self):
+        reply = self.server.request("textDocument/foldingRange",
+                                    {"textDocument": {"uri": URI}})
+        ranges = {(r["startLine"], r["endLine"]) for r in reply["result"]}
+        procedure = self.position("PROCEDURE DIVISION")["line"]
+        last = len(self.text.rstrip("\n").splitlines()) - 1
+        self.assertIn((procedure, last), ranges)
+        # MAIN-LINE runs to STOP RUN; its IF to END-IF.
+        self.assertIn((self.position("MAIN-LINE.")["line"],
+                       self.position("STOP RUN.")["line"]), ranges)
+        self.assertIn((self.position("IF ERRORS")["line"],
+                       self.position("END-IF")["line"]), ranges)
+        # One-line paragraphs do not fold.
+        self.assertTrue(all(end > start for start, end in ranges))
 
     def test_prepare_rename(self):
         reply = self.server.request("textDocument/prepareRename", {

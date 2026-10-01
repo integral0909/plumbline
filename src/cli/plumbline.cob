@@ -756,6 +756,8 @@ LSP-MESSAGE.
         WHEN "textDocument/documentHighlight"
             MOVE "Y" TO WS-LSP-HIGHLIGHT
             PERFORM LSP-REFERENCES
+        WHEN "textDocument/foldingRange"
+            PERFORM LSP-FOLDING-RANGES
         WHEN "textDocument/prepareRename"
             PERFORM LSP-PREPARE-RENAME
         WHEN "textDocument/rename"
@@ -787,6 +789,7 @@ LSP-INITIALIZE.
            '"hoverProvider":true,' DELIMITED BY SIZE
            '"referencesProvider":true,' DELIMITED BY SIZE
            '"documentHighlightProvider":true,' DELIMITED BY SIZE
+           '"foldingRangeProvider":true,' DELIMITED BY SIZE
            '"renameProvider":{"prepareProvider":true}},'
            DELIMITED BY SIZE
            '"serverInfo":{"name":"' DELIMITED BY SIZE
@@ -1313,6 +1316,80 @@ LSP-APPEND-REFERENCE.
     ELSE
         PERFORM LSP-APPEND-LOCATION
     END-IF.
+
+*> Folding --------------------------------------------------------
+
+*> textDocument/foldingRange: divisions, sections, paragraphs, and
+*> statements with a body (IF, EVALUATE, inline PERFORM, ...) that span
+*> more than one line of the document. A range ends at the last line
+*> of the document it covers: the lines a COPY brings in are not in it.
+LSP-FOLDING-RANGES.
+    PERFORM LSP-FIND-DOCUMENT
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":[' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-DOC-INDEX > 0
+        PERFORM LSP-ANALYZE
+        MOVE "Y" TO WS-LSP-FIRST
+        PERFORM VARYING WS-NODE FROM 1 BY 1 UNTIL WS-NODE > AS-COUNT
+            EVALUATE ND-KIND(WS-NODE)
+                WHEN "PROG"
+                WHEN "DIVN"
+                WHEN "SECT"
+                WHEN "PARA"
+                    PERFORM LSP-APPEND-FOLD
+                WHEN "STMT"
+                    *> Only statements with a body.
+                    MOVE ND-FIRST(WS-NODE) TO WS-U
+                    PERFORM UNTIL WS-U = 0
+                        IF ND-KIND(WS-U) = "BLCK"
+                            PERFORM LSP-APPEND-FOLD
+                            EXIT PERFORM
+                        END-IF
+                        MOVE ND-NEXT(WS-U) TO WS-U
+                    END-PERFORM
+            END-EVALUATE
+        END-PERFORM
+    END-IF
+    STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> {"startLine":N,"endLine":M} for node WS-NODE, when it starts in the
+*> document and ends on a later line of it.
+LSP-APPEND-FOLD.
+    MOVE ND-TOK-FIRST(WS-NODE) TO WS-TOK
+    IF WS-TOK = 0 OR TK-FILE-ID(WS-TOK) NOT = 1
+       OR TK-SRC-LINE(WS-TOK) = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SL-LINE-NO(TK-SRC-LINE(WS-TOK)) TO WS-LSP-LINE
+    MOVE ND-TOK-LAST(WS-NODE) TO WS-TOK
+    PERFORM UNTIL WS-TOK <= ND-TOK-FIRST(WS-NODE)
+        IF TK-FILE-ID(WS-TOK) = 1 AND TK-SRC-LINE(WS-TOK) > 0
+           AND NOT TK-IS-EOF(WS-TOK)
+            EXIT PERFORM
+        END-IF
+        SUBTRACT 1 FROM WS-TOK
+    END-PERFORM
+    IF TK-SRC-LINE(WS-TOK) = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF SL-LINE-NO(TK-SRC-LINE(WS-TOK)) <= WS-LSP-LINE
+       OR WS-LSP-PTR > LSP-SIZE - 1024
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST
+    STRING '{"startLine":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-NUM = WS-LSP-LINE - 1
+    PERFORM LSP-APPEND-NUM
+    STRING ',"endLine":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-NUM = SL-LINE-NO(TK-SRC-LINE(WS-TOK)) - 1
+    PERFORM LSP-APPEND-NUM
+    STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
 
 *> Renaming ---------------------------------------------------------
 
