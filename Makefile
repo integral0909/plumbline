@@ -5,6 +5,9 @@
 #   make test       build and run the unit test suites
 #   make coverage   run the tests with statement tracing and report
 #                   COBOL line coverage (LCOV in build/coverage/)
+#   make check-bounds  build with subscript checking and run the tests
+#                   on that build: an index past the end of a table
+#                   stops the program instead of overwriting memory
 #   make golden-update  rewrite golden test expectations from current
 #                   output (review the diff before committing)
 #   make clean      remove build output
@@ -29,7 +32,7 @@ HARNESS_OBJ := $(patsubst tests/harness/%.cob,$(BUILD)/obj/harness/%.o,$(HARNESS
 TEST_SRC    := $(wildcard tests/unit/test-*.cob)
 TEST_BIN    := $(patsubst tests/unit/%.cob,$(BUILD)/tests/%,$(TEST_SRC))
 
-.PHONY: all clean test tests coverage golden-update corpus
+.PHONY: all clean test tests coverage golden-update corpus check-bounds
 .SECONDARY: $(HARNESS_OBJ) $(LIB_OBJ)
 
 all: $(BIN)
@@ -103,6 +106,14 @@ coverage:
 
 $(BUILD)/obj $(BUILD)/bin $(BUILD)/obj/harness $(BUILD)/tests:
 	mkdir -p $@
+
+# Subscript checking only: GnuCOBOL 3.2 with -fec=EC-BOUND-REF-MOD
+# miscompiles a comparison of two subscripted reference modifications,
+# so reference modifiers are not checked (see docs/testing.md).
+BOUNDS_BUILD := $(BUILD)/bounds
+
+check-bounds:
+	$(MAKE) BUILD=$(BOUNDS_BUILD) EXTRA_COBFLAGS="-fec=EC-BOUND-SUBSCRIPT" test
 
 clean:
 	rm -rf $(BUILD)

@@ -55,6 +55,7 @@ jobs:
       - run: cobc --version | head -n 1
       - run: make
       - run: make test
+      - run: make check-bounds
       - run: make coverage COV_MIN=90
 
       - name: Upload coverage report
