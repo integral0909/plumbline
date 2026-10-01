@@ -185,16 +185,25 @@ SCAN-TOKEN.
             ELSE
                 PERFORM SCAN-SPECIAL
             END-IF
+        *> A sign starts a number when digits, or a decimal point and
+        *> digits, follow it: +1, -.5.
         WHEN (LS-CH = "+" OR LS-CH = "-")
-             AND LS-NEXT-CLS = "D"
+             AND (LS-NEXT-CLS = "D"
+                  OR LS-POS + 2 <= ST-LEN
+                     AND ST-TEXT(LS-POS + 1:1) = "."
+                     AND WS-CLASS(FUNCTION ORD(ST-TEXT(LS-POS + 2:1)))
+                         = "D")
              AND (LS-POS = 1 OR ST-TEXT(LS-POS - 1:1) = SPACE
                   OR ST-TEXT(LS-POS - 1:1) = X"0A"
                   OR ST-TEXT(LS-POS - 1:1) = "(")
             ADD 1 TO LS-POS
             PERFORM SCAN-NUMBER-DIGITS
+        *> A decimal point followed by digits is a number (.5) unless it
+        *> ends something: a period separator is followed by a space.
         WHEN LS-CH = "." AND LS-NEXT-CLS = "D"
              AND (LS-POS = 1 OR ST-TEXT(LS-POS - 1:1) = SPACE
-                  OR ST-TEXT(LS-POS - 1:1) = X"0A")
+                  OR ST-TEXT(LS-POS - 1:1) = X"0A"
+                  OR ST-TEXT(LS-POS - 1:1) = "(")
             PERFORM SCAN-NUMBER-DIGITS
         WHEN OTHER
             PERFORM SCAN-SPECIAL
