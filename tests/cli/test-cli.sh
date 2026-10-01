@@ -383,6 +383,29 @@ check "layout as Markdown"                 0 '^| 05 | ORDER-AMOUNT | `S9(9)V99` 
     -- layout --report md $lx/order.cpy
 check "layout refuses sarif"              2 "invalid --report format 'sarif' (expected text, json, csv, or md)" \
     -- layout --report sarif $lx/order.cpy
+dx=tests/golden
+check "doc heads each program"            0 '^# CUSTMNT$' \
+    -- doc -I tests/fixtures/bms tests/fixtures/bms/custmnt.cob tests/fixtures/bms/screens.bms
+check "doc lists what a program uses"     0 '^- uses mapset SCRSET (RECEIVE)$' \
+    -- doc -I tests/fixtures/bms tests/fixtures/bms/custmnt.cob tests/fixtures/bms/screens.bms
+check "doc lists paragraphs"              0 '^| DECIDE | 17 | 13 | 13 | FINISH | DECIDE, FINISH | yes |$' \
+    -- doc $dx/metrics/complexity.cob
+check "doc marks paragraphs that never run" 0 '^| FIRST-PARA | 2 | 1 | 1 |  |  | \*\*never\*\* |$' \
+    -- doc $dx/rules/c001-sections.cob
+check "doc lists records"                 0 '^### ORDER-RECORD (59 bytes)$' \
+    -- doc $lx/orders.cob
+check "doc says when there are no records" 0 '^The program has no records.$' \
+    -- doc $dx/parser/nested.cob
+check "doc places nested programs"        0 '^Nested in \*\*OUTER\*\* (common). Source: `tests/golden/calls/scopes.cob:23`.$' \
+    -- doc $dx/calls/scopes.cob
+check "doc lists callers of nested programs" 0 '^- called by OUTER$' \
+    -- doc $dx/calls/scopes.cob
+check "doc writes a line of one statement" 0 '^9 lines, 1 statement, complexity 1.$' \
+    -- doc $dx/calls/scopes.cob
+check "doc writes the size of a one-byte record" 0 '^### COUNTER (1 byte)$' \
+    -- doc $dx/metrics/complexity.cob
+check "doc refuses --report"              2 'doc writes Markdown only' \
+    -- doc --report json $dx/metrics/complexity.cob
 n=$((n + 1))
 if "$bin" layout --report json $lx/order.cpy $lx/orders.cob | python3 -c '
 import json, sys

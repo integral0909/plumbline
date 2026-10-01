@@ -76,7 +76,11 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-CALL-GRAPH PLB-JCL PLB-CSD
                 MOVE "- " TO LS-INDENT
                 MOVE "Y" TO LS-MD
             END-IF
-            PERFORM TEXT-PROGRAM
+            IF CP-PARENT(LS-P) > 0
+                PERFORM NESTED-PROGRAM
+            ELSE
+                PERFORM TEXT-PROGRAM
+            END-IF
         WHEN LK-FORMAT = "json"
             PERFORM JSON-INVENTORY
         WHEN OTHER
@@ -293,6 +297,85 @@ TEXT-PROGRAM.
     IF LS-MD = "Y"
         DISPLAY " "
     END-IF.
+
+*> A nested program, which the run sees as part of its outermost
+*> program: what contains it, and its own calls in and out.
+NESTED-PROGRAM.
+    PERFORM START-OUT
+    STRING "Nested in **" DELIMITED BY SIZE
+           CP-NAME(CP-PARENT(LS-P)) DELIMITED BY SPACE
+           "**" DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR
+    IF CP-COMMON(LS-P) = "Y"
+        STRING " (common)" DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    STRING ". Source: `" DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR
+    PERFORM APPEND-PROGRAM-PLACE
+    STRING "`." DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    PERFORM PRINT-OUT
+    DISPLAY " "
+    DISPLAY "## How it starts"
+    DISPLAY " "
+    MOVE 0 TO LS-LINES
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > CC-COUNT
+        IF CC-TO(LS-I) > 0 AND CP-OWNER(CC-TO(LS-I)) = LS-P
+            MOVE CP-OWNER(CC-FROM(LS-I)) TO LS-K
+            MOVE "called" TO LS-USES
+            PERFORM NESTED-CALL-LINE
+        END-IF
+    END-PERFORM
+    IF LS-LINES = 0
+        DISPLAY "Nothing in the run calls it."
+    END-IF
+    DISPLAY " "
+    DISPLAY "## What it uses"
+    DISPLAY " "
+    MOVE 0 TO LS-LINES
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > CC-COUNT
+        IF CP-OWNER(CC-FROM(LS-I)) = LS-P
+            MOVE "calls" TO LS-USES
+            PERFORM NESTED-CALL-LINE
+        END-IF
+    END-PERFORM
+    IF LS-LINES = 0
+        DISPLAY "It calls no programs."
+    END-IF
+    DISPLAY " ".
+
+*> One line for call LS-I: "called by" program LS-K, or "calls" its
+*> target, once for each.
+NESTED-CALL-LINE.
+    PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J >= LS-I
+        IF LS-USES = "called"
+            IF CC-TO(LS-J) > 0 AND CP-OWNER(CC-TO(LS-J)) = LS-P
+               AND CP-OWNER(CC-FROM(LS-J)) = LS-K
+                EXIT PARAGRAPH
+            END-IF
+        ELSE
+            IF CP-OWNER(CC-FROM(LS-J)) = LS-P
+               AND CC-TARGET(LS-J) = CC-TARGET(LS-I)
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+    END-PERFORM
+    PERFORM START-OUT
+    STRING LS-INDENT DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    IF LS-USES = "called"
+        STRING "called by " DELIMITED BY SIZE
+               CP-NAME(LS-K) DELIMITED BY SPACE
+            INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING "calls " DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        IF CC-DYNAMIC(LS-I) = "Y"
+            STRING "the program named in " DELIMITED BY SIZE
+                INTO LS-OUT WITH POINTER LS-PTR
+        END-IF
+        STRING CC-TARGET(LS-I) DELIMITED BY SPACE
+            INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    PERFORM PRINT-OUT.
 
 TEXT-JOB.
     PERFORM START-OUT

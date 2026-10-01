@@ -41,6 +41,7 @@
 *>   plumbline dump calls [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline inventory [--report text|json] [OPTION]... FILE...
 *>   plumbline layout [--report text|json|csv|md] [OPTION]... FILE...
+*>   plumbline doc [OPTION]... FILE...
 *>   plumbline dump jcl FILE...
 *>   plumbline dump bms FILE...
 *>   plumbline dump csd FILE...
@@ -135,6 +136,9 @@ COPY "plbinput.cpy".
 01  WS-TOK                  PIC 9(9) COMP-5.
 01  WS-S                    PIC 9(9) COMP-5.
 01  WS-P                    PIC 9(9) COMP-5.
+*> The program of the metrics plumbline doc is writing.
+01  WS-M                    PIC 9(9) COMP-5.
+01  WS-DOC-FIRST            PIC X.
 01  WS-U                    PIC 9(9) COMP-5.
 01  WS-E                    PIC 9(9) COMP-5.
 01  WS-RULE                 PIC 9(4) COMP-5.
@@ -298,6 +302,9 @@ MAIN-LOGIC.
             WHEN "layout"
                 MOVE "layout" TO WS-COMMAND
                 PERFORM LAYOUT-COMMAND
+            WHEN "doc"
+                MOVE "doc" TO WS-COMMAND
+                PERFORM DOC-COMMAND
             WHEN OTHER
                 IF WS-ARG(1:1) = "-"
                     PERFORM UNKNOWN-OPTION
@@ -339,6 +346,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline impact NAME [OPTION]... FILE..."
     DISPLAY "       plumbline inventory [--report text|json] [OPTION]... FILE..."
     DISPLAY "       plumbline layout [--report text|json|csv|md] [OPTION]... FILE..."
+    DISPLAY "       plumbline doc [OPTION]... FILE..."
     DISPLAY "       plumbline format --to fixed|free [--check] FILE..."
     DISPLAY "       plumbline lsp [OPTION]..."
     DISPLAY "       plumbline rules [--report text|json] [OPTION]..."
@@ -373,6 +381,9 @@ SHOW-USAGE.
     DISPLAY "                   maps of the input, and how they fit together"
     DISPLAY "  layout           list the records of programs and copybooks"
     DISPLAY "                   with the start and length of each item"
+    DISPLAY "  doc              write a Markdown page for each program: what"
+    DISPLAY "                   starts it, what it uses, its paragraphs,"
+    DISPLAY "                   and its records"
     DISPLAY "  impact NAME      list what includes copybook NAME or"
     DISPLAY "                   calls program NAME, directly or not"
     DISPLAY "  format           rewrite a file in fixed or free format"
@@ -819,6 +830,83 @@ LAYOUT-COMMAND.
     PERFORM REPORT-DIAGNOSTICS
     IF DG-ERRORS > 0
         MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+*> doc: a Markdown page for each program of the run. The first pass
+*> gathers the call graph and the jobs, transactions, and maps; the
+*> second reads each program again for its paragraphs and records.
+DOC-COMMAND.
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM ADD-INPUTS
+    PERFORM ANALYZE-RUN
+    MOVE "md" TO WS-REPORT
+    MOVE "Y" TO WS-FIRST
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        PERFORM TEST-JCL-INPUT
+        IF WS-IS-JCL = "N"
+            PERFORM START-INPUT
+        END-IF
+        IF WS-IS-JCL = "N" AND SF-LOADED(WS-FILE-ID) = "Y"
+            PERFORM ANALYZE-FILE
+            CALL "PLB-METRICS-COMPUTE" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-AST PLB-SYMBOLS PLB-FLOW PLB-METRICS
+            PERFORM VARYING WS-M FROM 1 BY 1 UNTIL WS-M > MP-COUNT
+                PERFORM DOC-PROGRAM
+            END-PERFORM
+            PERFORM END-INPUT
+        END-IF
+    END-PERFORM
+    PERFORM REPORT-DIAGNOSTICS
+    IF DG-ERRORS > 0
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+*> The page of program WS-M of the metrics: its place in the run (the
+*> program of the call graph defined at the same name in this file),
+*> its paragraphs, and its records.
+DOC-PROGRAM.
+    IF WS-FIRST = "N"
+        DISPLAY "---"
+        DISPLAY " "
+    END-IF
+    MOVE "N" TO WS-FIRST
+    DISPLAY "# " FUNCTION TRIM(MP-NAME(WS-M))
+    DISPLAY " "
+    MOVE 0 TO WS-P
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > CP-COUNT
+        IF CP-KIND(WS-I) = "P" AND CP-FILE-ID(WS-I) = WS-FILE-ID
+           AND CP-NAME(WS-I) = FUNCTION UPPER-CASE(MP-NAME(WS-M))
+            MOVE WS-I TO WS-P
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF WS-P > 0
+        CALL "PLB-INVENTORY" USING PLB-SOURCE-SET PLB-CALL-GRAPH PLB-JCL
+            PLB-CSD PLB-BMS WS-REPORT WS-P
+    END-IF
+    CALL "PLB-DOC-PARAGRAPHS" USING PLB-FLOW PLB-METRICS WS-M
+    DISPLAY "## Records"
+    DISPLAY " "
+    MOVE 0 TO WS-J
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > SY-COUNT
+        IF SY-PARENT(WS-I) = 0 AND SY-NAME-TOKEN(WS-I) > 0
+           AND (SY-LEVEL(WS-I) = 1 OR SY-LEVEL(WS-I) = 77)
+           AND SY-CATEGORY(WS-I) NOT = "K"
+           AND SY-PROGRAM(WS-I) = MP-NODE(WS-M)
+            ADD 1 TO WS-J
+        END-IF
+    END-PERFORM
+    IF WS-J = 0
+        DISPLAY "The program has no records."
+        DISPLAY " "
+    ELSE
+        MOVE "Y" TO WS-DOC-FIRST
+        CALL "PLB-LAYOUT-RECORDS" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-AST PLB-SYMBOLS WS-REPORT WS-DOC-FIRST MP-NODE(WS-M)
     END-IF.
 
 *> The inputs named *.cpy (in either case) become COPY statements of a
@@ -4215,6 +4303,10 @@ SET-FAIL-ON.
 
 SET-REPORT.
     EVALUATE TRUE
+        WHEN WS-COMMAND = "doc"
+            DISPLAY PLB-NAME ": doc writes Markdown only"
+                " (--report is not supported)" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
         WHEN WS-ARG = "json"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "text" AND WS-COMMAND NOT = "graph"

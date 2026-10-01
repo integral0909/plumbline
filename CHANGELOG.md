@@ -119,6 +119,8 @@ uses [Semantic Versioning](https://semver.org/).
 - `plumbline inventory [--report text|json]` describes an application:
   its programs with what starts them and what they use, its jobs,
   transactions, and maps.
+- `plumbline doc` writes a Markdown page for each program: what starts
+  it, what it uses, its paragraphs, and its records.
 - The SQL tables each program uses, in `dump calls` and `inventory`,
   and rule PLB-Q001 sql-table-undeclared.
 - Rule PLB-A001 unused-program, for runs with JCL or CICS definitions.

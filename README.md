@@ -193,6 +193,42 @@ program CBTRN02C batch app/cbl/CBTRN02C.cbl:23
 ...
 ```
 
+## Program documentation
+
+`plumbline doc` writes a Markdown page for each program: what starts
+it and what it uses (as in the inventory), its paragraphs and sections
+with their size, complexity, what they perform and go to, and whether
+they can run at all, and its records with the layout of each item.
+Give it the same inputs as the inventory.
+
+```console
+$ plumbline doc -I app/cpy app/cbl/CBACT01C.cbl app/jcl/*.jcl
+# CBACT01C
+
+Kind: **batch**. Source: `app/cbl/CBACT01C.cbl:23`.
+
+## How it starts
+
+- run by step STEP05 of job READACCT
+
+## What it uses
+
+- calls COBDATFT
+- file ACCTFILE-FILE dd ACCTFILE input
+...
+## Paragraphs
+
+405 lines, 190 statements, complexity 29.
+
+| Paragraph | Lines | Statements | Complexity | Performs | Goes to | Runs |
+|---|---:|---:|---:|---|---|---|
+| 1350-WRITE-ACCT-RECORD | 10 | 7 | 3 | 9910-DISPLAY-IO-STATUS, 9999-ABEND-PROGRAM |  | yes |
+...
+```
+
+A nested program gets a page of its own, which names the program
+containing it and the calls into and out of it.
+
 ## Editors
 
 `plumbline lsp` is a language server, so editors that speak the Language

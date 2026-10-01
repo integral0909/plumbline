@@ -410,6 +410,20 @@ copies against the BMS map it was generated from.
 description of the application: each program with what starts it and
 what it uses, then the jobs, transactions, and maps, as text or JSON.
 
+### Program documentation
+
+`src/lib/plbdoc.cob`.
+
+`plumbline doc` reads the run twice. The first pass is the one the
+inventory makes, for the call graph and the models; the second reads
+each program again, because its tokens, symbols, and procedure graph
+are released after each file. For each program of the metrics it
+writes the inventory's description of that one program, the paragraph
+table (from the metrics and the PERFORM and GO TO edges of the
+procedure graph), and the program's records from the layout. A nested
+program is described from the call graph directly, because the
+inventory counts its calls as its outermost program's.
+
 ### Metrics
 
 `src/lib/plbmetr.cob`, with its table in `copy/plbmetr.cpy`.
