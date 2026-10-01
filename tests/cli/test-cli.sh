@@ -510,6 +510,8 @@ check "metrics csv has a header"          0 '^file,program,kind,name,line,lines,
     -- metrics --report csv $mx/complexity.cob
 check "metrics csv quotes paths"          0 '^"tests/golden/metrics/complexity.cob",METRICS,paragraph,DECIDE,15,' \
     -- metrics --report csv $mx/complexity.cob
+check "metrics start ends at the first paragraph" 0 '^"tests/fixtures/metrics/start.cob",START,start,,5,3,2,1,1$' \
+    -- metrics --report csv tests/fixtures/metrics/start.cob
 check "metrics refuses sarif"             2 "invalid --report format 'sarif' (expected text, json, or csv)" \
     -- metrics --report sarif $mx/complexity.cob
 check "check refuses csv"                 2 "invalid --report format 'csv' (expected text, json, sarif, or html)" \

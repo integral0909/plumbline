@@ -142,6 +142,13 @@ ADD-UNITS.
             MOVE ND-TOK-FIRST(FU-NODE(LS-U)) TO LS-T
             MOVE TK-SRC-LINE(LS-T) TO LS-FIRST
             MOVE ND-TOK-LAST(FU-NODE(LS-U)) TO LS-T
+            *> The statements before the first section or paragraph end
+            *> where it starts, not with the division.
+            IF FU-KIND(LS-U) = "D" AND LS-U < FU-COUNT
+                IF FU-PROGRAM(LS-U + 1) = FU-PROGRAM(LS-U)
+                    COMPUTE LS-T = ND-TOK-FIRST(FU-NODE(LS-U + 1)) - 1
+                END-IF
+            END-IF
             MOVE TK-SRC-LINE(LS-T) TO LS-LAST
             IF LS-FIRST > 0 AND LS-LAST > 0
                 MOVE SL-LINE-NO(LS-FIRST) TO MU-LINE(LS-M)
