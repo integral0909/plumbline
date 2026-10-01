@@ -42,6 +42,12 @@ The reader follows the rules of z/OS JCL:
   and is shown as part of it. `DD` statements before a job's first step
   (`JOBLIB`, `JOBCAT`) belong to no step.
 
+A step whose program starts another one records the program it runs:
+IMS's `DFSRRC00` names it in `PARM='BMP,name,...'`, and the TSO batch
+program `IKJEFT01` runs a DB2 program named in `RUN PROGRAM(name)` in
+its `SYSTSIN` input. `dump jcl` shows it as `runs name`, and the steps
+are checked against that program.
+
 Symbolic parameters (`&HLQ`) are not substituted, and `INCLUDE`,
 `JCLLIB`, `SET`, `IF`, and `OUTPUT` statements are read and passed over.
 

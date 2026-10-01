@@ -57,6 +57,7 @@ with the application: `DFHAID` and `DFHBMSCA` (CICS), and `CMQV`,
 | PLB-C004 next-sentence-in-scope | 1 |
 | PLB-C003 fall-off-end | 1 |
 | PLB-J001 dd-missing | 1 |
+| PLB-A001 unused-program | 1 |
 
 Some findings that were read and are true:
 
@@ -132,3 +133,10 @@ Some findings that were read and are true:
   with the application's. Without them, the 13 commands of the
   extensions' programs that name their own transactions and mapsets
   are reported.
+- **PLB-A001 unused-program.** `CBTRN01C` is the only program that no
+  job runs, no program calls or names, and no transaction starts.
+  `CBTRN02C`, which the job `POSTTRAN` runs, posts the daily
+  transactions; `CBTRN01C` also reads the daily transaction file, but
+  no job runs it. The
+  IMS programs are started by `DFSRRC00` and the DB2 program by
+  `IKJEFT01`, which the JCL reader follows into `PARM` and `SYSTSIN`.

@@ -36,6 +36,11 @@
         10  JS-KIND             PIC X.
         *> The program or procedure, as named.
         10  JS-TARGET           PIC X(8).
+        *> For a step whose program starts another one: the program it
+        *> runs. IMS's DFSRRC00 names it in PARM='BMP,name,...'; the
+        *> TSO batch program IKJEFT01 runs DB2 programs named in RUN
+        *> PROGRAM(name) in its SYSTSIN input.
+        10  JS-INNER            PIC X(8).
         10  JS-FILE-ID          PIC 9(4) COMP-5.
         10  JS-LINE             PIC 9(9) COMP-5.
         *> The step's DD statements: JS-DD-COUNT entries from

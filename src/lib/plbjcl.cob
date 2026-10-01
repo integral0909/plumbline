@@ -86,6 +86,12 @@ LOCAL-STORAGE SECTION.
 01  OP-EQ                   PIC 9(4) COMP-5.
 01  OP-ITEM-LEN             PIC 9(4) COMP-5.
 01  LS-DOT                  PIC 9(4) COMP-5.
+01  LS-PARM                 PIC X(100) VALUE SPACES.
+01  LS-FIELD-1              PIC X(100).
+01  LS-FIELD-2              PIC X(100).
+*> The DD whose in-stream data is being read.
+01  LS-DATA-DD              PIC X(17) VALUE SPACES.
+01  LS-RUN-AT               PIC 9(4) COMP-5.
 01  LS-D                    PIC 9(9) COMP-5.
 LINKAGE SECTION.
 COPY "plbjclc.cpy".
@@ -129,6 +135,8 @@ READ-LINE.
         IF LS-DLM NOT = SPACES
             IF LS-TEXT(1:2) = LS-DLM
                 MOVE "N" TO LS-IN-DATA
+            ELSE
+                PERFORM READ-DATA-LINE
             END-IF
             EXIT PARAGRAPH
         END-IF
@@ -137,6 +145,7 @@ READ-LINE.
             EXIT PARAGRAPH
         END-IF
         IF LS-TEXT(1:2) NOT = "//"
+            PERFORM READ-DATA-LINE
             EXIT PARAGRAPH
         END-IF
         MOVE "N" TO LS-IN-DATA
@@ -189,6 +198,25 @@ READ-LINE.
     END-IF
     IF ST-CONTINUES = "N"
         PERFORM FINISH-STATEMENT
+    END-IF.
+
+*> A line of in-stream data. In the SYSTSIN input of the TSO batch
+*> program, RUN PROGRAM(name) names the DB2 program the step runs.
+READ-DATA-LINE.
+    IF LS-STEP = 0 OR LS-DATA-DD NOT = "SYSTSIN"
+        EXIT PARAGRAPH
+    END-IF
+    IF JS-TARGET(LS-STEP)(1:6) NOT = "IKJEFT"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+    MOVE 0 TO LS-RUN-AT
+    INSPECT LS-TEXT TALLYING LS-RUN-AT FOR CHARACTERS BEFORE "PROGRAM("
+    IF LS-RUN-AT < 70
+        MOVE SPACES TO LS-FIELD-1
+        UNSTRING LS-TEXT(LS-RUN-AT + 9:) DELIMITED BY ")"
+            INTO LS-FIELD-1
+        MOVE FUNCTION TRIM(LS-FIELD-1) TO JS-INNER(LS-STEP)
     END-IF.
 
 SKIP-BLANKS.
@@ -302,7 +330,7 @@ ADD-STEP.
     MOVE LS-PROC TO JS-PROC(LS-STEP)
     MOVE ST-NAME TO JS-NAME(LS-STEP)
     MOVE SPACE TO JS-KIND(LS-STEP)
-    MOVE SPACES TO JS-TARGET(LS-STEP)
+    MOVE SPACES TO JS-TARGET(LS-STEP) JS-INNER(LS-STEP)
     MOVE LK-FILE-ID TO JS-FILE-ID(LS-STEP)
     MOVE ST-LINE TO JS-LINE(LS-STEP)
     MOVE 0 TO JS-DD-FIRST(LS-STEP) JS-DD-COUNT(LS-STEP)
@@ -320,9 +348,21 @@ ADD-STEP.
             WHEN OP-KEY = SPACES AND OP-POSITION = 1
                 MOVE "R" TO JS-KIND(LS-STEP)
                 MOVE OP-VALUE TO JS-TARGET(LS-STEP)
+            WHEN OP-KEY = "PARM"
+                MOVE OP-VALUE TO LS-PARM
         END-EVALUATE
         PERFORM NEXT-OPERAND
-    END-PERFORM.
+    END-PERFORM
+    *> DFSRRC00 PARM='BMP,PROGRAM,PSB' (or DLI, BMH, ...).
+    IF JS-TARGET(LS-STEP) = "DFSRRC00" AND LS-PARM NOT = SPACES
+        INSPECT LS-PARM REPLACING ALL "'" BY SPACE ALL "(" BY SPACE
+            ALL ")" BY SPACE
+        MOVE SPACES TO LS-FIELD-1 LS-FIELD-2
+        UNSTRING FUNCTION TRIM(LS-PARM) DELIMITED BY ","
+            INTO LS-FIELD-1 LS-FIELD-2
+        MOVE FUNCTION TRIM(LS-FIELD-2) TO JS-INNER(LS-STEP)
+    END-IF
+    MOVE SPACES TO LS-PARM.
 
 *> A DD of the current step. A DD without a name continues the one
 *> before it (a concatenation), and DDs before the first step
@@ -383,6 +423,7 @@ SCAN-DD-DATA.
     PERFORM UNTIL OP-ITEM-LEN = 0
         IF OP-KEY = SPACES AND (OP-VALUE = "*" OR OP-VALUE = "DATA")
             MOVE "Y" TO LS-IN-DATA
+            MOVE ST-NAME TO LS-DATA-DD
         END-IF
         IF OP-KEY = "DLM"
             MOVE OP-VALUE(1:2) TO LS-DLM

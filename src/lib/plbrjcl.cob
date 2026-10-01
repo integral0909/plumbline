@@ -16,9 +16,9 @@
 *> A step in a procedure also has the DDs that the job steps running
 *> the procedure add as STEP.DDNAME.
 *>
-*> Steps of programs that start other programs (IKJEFT01 running DB2
-*> programs, DFSRRC00 for IMS) are not followed: the program they run
-*> is named in their input, not in the EXEC.
+*> A step whose program starts another one (DFSRRC00 for IMS,
+*> IKJEFT01 running a DB2 program) is checked for the program it runs,
+*> as the JCL reader finds it in PARM or in the SYSTSIN input.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-JCL.
@@ -60,6 +60,7 @@ LOCAL-STORAGE SECTION.
 01  LS-DYNAMIC              PIC X.
 01  LS-STEP-NAME            PIC X(8).
 01  LS-PROC-NAME            PIC X(8).
+01  LS-PROGRAM-NAME         PIC X(8).
 01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
 01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
 01  LS-MESSAGE              PIC X(200).
@@ -99,8 +100,9 @@ CHECK-STEP.
         END-IF
     END-PERFORM
     *> DDs no program of the step assigns; not when some file's DD
-    *> name is only known at run time.
-    IF LS-DYNAMIC = "N"
+    *> name is only known at run time, nor in a step whose program
+    *> starts the COBOL program (IMS and DB2 read DDs of their own).
+    IF LS-DYNAMIC = "N" AND JS-INNER(LS-S) = SPACES
         PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > WS-SD-COUNT
             IF WS-SD-USED(LS-I) = "N"
                 PERFORM REPORT-UNUSED
@@ -108,12 +110,16 @@ CHECK-STEP.
         END-PERFORM
     END-IF.
 
-*> LS-P = the outermost program of the run named JS-TARGET(LS-S).
+*> LS-P = the outermost program of the run that step LS-S runs.
 FIND-PROGRAM.
     MOVE 0 TO LS-P
+    MOVE JS-TARGET(LS-S) TO LS-PROGRAM-NAME
+    IF JS-INNER(LS-S) NOT = SPACES
+        MOVE JS-INNER(LS-S) TO LS-PROGRAM-NAME
+    END-IF
     PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > CP-COUNT
         IF CP-KIND(LS-I) = "P" AND CP-PARENT(LS-I) = 0
-           AND CP-NAME(LS-I) = JS-TARGET(LS-S)
+           AND CP-NAME(LS-I) = LS-PROGRAM-NAME
             MOVE LS-I TO LS-P
             EXIT PERFORM
         END-IF
@@ -315,7 +321,7 @@ REPORT-UNKNOWN.
     STRING "step " DELIMITED BY SIZE
            JS-NAME(LS-S) DELIMITED BY SPACE
            " runs " DELIMITED BY SIZE
-           JS-TARGET(LS-S) DELIMITED BY SPACE
+           LS-PROGRAM-NAME DELIMITED BY SPACE
            ", which is not among the programs checked" DELIMITED BY SIZE
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE-UNKNOWN

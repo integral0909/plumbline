@@ -293,6 +293,15 @@ check_absent "no definitions, no CICS resource checks" 'PLB-K001' \
     -- check --no-config tests/fixtures/cics/ordmenu.cob
 check "dump calls lists CICS resources"    0 '^resource file ORDFILE tests/fixtures/cics/ordmenu.cob:12:25 READ by ORDMENU$' \
     -- dump calls tests/fixtures/cics/ordmenu.cob
+ax="$jx/payupd.cob $jx/paylog.cob $jx/payold.cob $jx/paymenu.cob $jx/payrpt.cob $jx/payroll.jcl $jx/payproc.prc $jx/paymenu.csd"
+check "a program nothing reaches"         0 'payold.cob:3:13: note: program PAYOLD is not called, run by a job step, or started by a transaction of the run \[PLB-A001\]' \
+    -- check --no-config --fail-on never $ax
+check_absent "programs run, called, started, or named" 'PLB-A001.*\(PAYUPD\|PAYLOG\|PAYMENU\|PAYRPT\)\|program \(PAYUPD\|PAYLOG\|PAYMENU\|PAYRPT\) is not' \
+    -- check --no-config --fail-on never $ax
+check_absent "no JCL or definitions, no unused programs" 'PLB-A001' \
+    -- check --no-config --fail-on never $jx/payupd.cob $jx/payold.cob
+check "dump jcl shows what IMS and TSO steps run" 0 'step DB2STEP pgm IKJEFT01 runs PAYDB2$' \
+    -- dump jcl tests/golden/jcl/starters.jcl
 check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
 check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
     -- rules --no-config --enable evaluate-without-other

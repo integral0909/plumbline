@@ -1,0 +1,6 @@
+*> A program that nothing calls, runs, or names.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PAYOLD.
+PROCEDURE DIVISION.
+    DISPLAY "OLD PAYROLL RUN"
+    GOBACK.
