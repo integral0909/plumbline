@@ -4,6 +4,7 @@
 *>   PLB-C004  next-sentence-in-scope
 *>   PLB-M001  go-to
 *>   PLB-M002  alter
+*>   PLB-M011  evaluate-without-other
 *>
 *> One walk of the syntax tree dispatches each statement to the rules
 *> that care about its verb.
@@ -15,6 +16,8 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE-NEXT-SENTENCE   PIC 9(4) COMP-5.
 01  LS-RULE-GO-TO           PIC 9(4) COMP-5.
 01  LS-RULE-ALTER           PIC 9(4) COMP-5.
+01  LS-RULE-NO-OTHER        PIC 9(4) COMP-5.
+01  LS-CHILD                PIC 9(9) COMP-5.
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-DEPTH                PIC S9(9) COMP-5.
@@ -38,6 +41,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-RULES
         LS-RULE-NEXT-SENTENCE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M001" LS-RULE-GO-TO
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M002" LS-RULE-ALTER
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M011" LS-RULE-NO-OTHER
     IF AS-COUNT = 0
         GOBACK
     END-IF
@@ -52,6 +56,8 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-RULES
                     PERFORM REPORT-GO-TO
                 WHEN "ALTER"
                     PERFORM REPORT-ALTER
+                WHEN "EVALUATE"
+                    PERFORM CHECK-WHEN-OTHER
             END-EVALUATE
         END-IF
         CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
@@ -106,4 +112,23 @@ REPORT-ALTER.
     MOVE ND-TOK-FIRST(LS-NODE) TO LS-TOKEN
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE-ALTER LS-TOKEN LS-MESSAGE.
+*> PLB-M011: an EVALUATE without WHEN OTHER does nothing for a value
+*> that no WHEN matches, and says nothing about it either. Shops that
+*> want every EVALUATE to say what happens then turn this rule on.
+CHECK-WHEN-OTHER.
+    IF RL-ENABLED(LS-RULE-NO-OTHER) NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE ND-FIRST(LS-NODE) TO LS-CHILD
+    PERFORM UNTIL LS-CHILD = 0
+        IF ND-KIND(LS-CHILD) = "BLCK" AND ND-DETAIL(LS-CHILD) = "WHEN-OTHER"
+            EXIT PARAGRAPH
+        END-IF
+        MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+    END-PERFORM
+    MOVE "EVALUATE has no WHEN OTHER for values no WHEN matches"
+        TO LS-MESSAGE
+    MOVE ND-TOK-FIRST(LS-NODE) TO LS-TOKEN
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-NO-OTHER LS-TOKEN LS-MESSAGE.
 END PROGRAM PLB-RULE-STATEMENTS.

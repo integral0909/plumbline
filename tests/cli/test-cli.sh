@@ -52,6 +52,26 @@ check_stdin() {
     fi
 }
 
+# check_absent LABEL PATTERN -- ARGS...: no line of the output matches
+# PATTERN (the exit code is not checked).
+check_absent() {
+    label=$1 pattern=$2
+    shift 3
+    n=$((n + 1))
+    out=$(cd "$run_dir" && "$bin_abs" "$@" 2>&1)
+    if printf '%s\n' "$out" | grep -q -- "$pattern"; then
+        failed=$((failed + 1))
+        echo "not ok $n - $label"
+        echo "  ---"
+        echo "  expected no line matching: $pattern"
+        echo "  actual output:"
+        printf '%s\n' "$out" | sed 's/^/    /'
+        echo "  ..."
+    else
+        echo "ok $n - $label"
+    fi
+}
+
 # check_file LABEL PATTERN FILE: a line of FILE matches PATTERN.
 check_file() {
     n=$((n + 1))
@@ -175,6 +195,12 @@ check "impact over more than 256 files"   0 'included by .*z-last.cob directly' 
     -- impact SHARED --no-config -I "$many" $(ls "$many"/*.cob)
 check "check over more than 256 files"    0 '^$' -- check --no-config -I "$many" $(ls "$many"/*.cob)
 rm -rf "$many"
+check "evaluate-without-other is off by default" 0 '^$' \
+    -- check --no-config tests/fixtures/rules/evaluate.cob
+check "evaluate-without-other finds the EVALUATE" 0 'evaluate.cob:12:12: note: EVALUATE has no WHEN OTHER' \
+    -- check --no-config --enable evaluate-without-other --fail-on error tests/fixtures/rules/evaluate.cob
+check_absent "an EVALUATE with WHEN OTHER is fine" 'evaluate.cob:8:' \
+    -- check --no-config --enable PLB-M011 tests/fixtures/rules/evaluate.cob
 lx=tests/fixtures/lists
 check "--files-from adds the files a list names" 1 'billing.cob:9:17: .*\[PLB-C014\]' \
     -- check --no-config --files-from $lx/calls.list
