@@ -95,6 +95,9 @@ class LanguageServerTest(unittest.TestCase):
         self.assertTrue(
             self.capabilities["renameProvider"]["prepareProvider"])
         self.assertTrue(self.capabilities["foldingRangeProvider"])
+        self.assertEqual(
+            self.capabilities["codeActionProvider"]["codeActionKinds"],
+            ["quickfix"])
         self.assertTrue(self.capabilities["documentSymbolProvider"])
 
     def test_diagnostics_on_open(self):
@@ -260,6 +263,35 @@ class LanguageServerTest(unittest.TestCase):
                              if key.endswith("/totals.cpy")]
             self.assertEqual(declaration[0]["range"]["start"],
                              {"line": 0, "character": 4})
+
+    def code_actions(self, line):
+        return self.server.request("textDocument/codeAction", {
+            "textDocument": {"uri": URI},
+            "range": {"start": {"line": line, "character": 0},
+                      "end": {"line": line, "character": 0}},
+            "context": {"diagnostics": []}})["result"]
+
+    def test_quick_fix_suppresses_a_finding(self):
+        line = self.position("AFTER-RANGE.")["line"]
+        [action] = self.code_actions(line)
+        self.assertEqual(action["kind"], "quickfix")
+        self.assertIn("PLB-C001", action["title"])
+        [edit] = action["edit"]["changes"][URI]
+        self.assertEqual(edit["range"]["start"], {"line": line, "character": 0})
+        self.assertTrue(edit["newText"].rstrip().endswith(
+            "*> plumbline: ignore unreachable-code"))
+        # With the edit made, the finding is gone.
+        lines = self.text.splitlines(keepends=True)
+        lines.insert(line, edit["newText"])
+        self.server.notify("textDocument/didChange", {
+            "textDocument": {"uri": URI, "version": 2},
+            "contentChanges": [{"text": "".join(lines)}]})
+        codes = {(d["code"], d["range"]["start"]["line"]) for d in
+                 self.server.receive()["params"]["diagnostics"]}
+        self.assertNotIn(("PLB-C001", line + 1), codes)
+
+    def test_no_quick_fix_without_a_finding(self):
+        self.assertEqual(self.code_actions(0), [])
 
     def test_folding_ranges(self):
         reply = self.server.request("textDocument/foldingRange",

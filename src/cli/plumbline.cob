@@ -181,6 +181,10 @@ COPY "plbinput.cpy".
 01  WS-LSP-NEW-LEN          PIC 9(9) COMP-5.
 01  WS-LSP-OLD-NAME         PIC X(31).
 01  WS-LSP-UPPER-NAME       PIC X(31).
+*> textDocument/codeAction: the rules already offered for the line.
+01  WS-LSP-OFFERED          PIC X(400).
+01  WS-LSP-INDENT           PIC 9(4) COMP-5.
+01  WS-LSP-BLANKS           PIC X(64) VALUE SPACES.
 01  WS-LSP-WORD-KIND        PIC X.
 78  LSP-EDIT-MAX            VALUE 10000.
 01  WS-LSP-EDITS.
@@ -756,6 +760,8 @@ LSP-MESSAGE.
         WHEN "textDocument/documentHighlight"
             MOVE "Y" TO WS-LSP-HIGHLIGHT
             PERFORM LSP-REFERENCES
+        WHEN "textDocument/codeAction"
+            PERFORM LSP-CODE-ACTIONS
         WHEN "textDocument/foldingRange"
             PERFORM LSP-FOLDING-RANGES
         WHEN "textDocument/prepareRename"
@@ -790,6 +796,8 @@ LSP-INITIALIZE.
            '"referencesProvider":true,' DELIMITED BY SIZE
            '"documentHighlightProvider":true,' DELIMITED BY SIZE
            '"foldingRangeProvider":true,' DELIMITED BY SIZE
+           '"codeActionProvider":{"codeActionKinds":["quickfix"]},'
+           DELIMITED BY SIZE
            '"renameProvider":{"prepareProvider":true}},'
            DELIMITED BY SIZE
            '"serverInfo":{"name":"' DELIMITED BY SIZE
@@ -1316,6 +1324,87 @@ LSP-APPEND-REFERENCE.
     ELSE
         PERFORM LSP-APPEND-LOCATION
     END-IF.
+
+*> Quick fixes -----------------------------------------------------
+
+*> textDocument/codeAction: for each rule with a finding on the first
+*> line of the request's range, an edit that puts a suppression comment
+*> on the line before it, indented like the line (in fixed format, in
+*> the indicator column). The line is the first "line" in the request,
+*> which is the start of its range: clients send the range before the
+*> context.
+LSP-CODE-ACTIONS.
+    PERFORM LSP-FIND-DOCUMENT
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":[' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-DOC-INDEX > 0
+        PERFORM LSP-ANALYZE
+        MOVE "line" TO WS-LSP-NAME
+        PERFORM LSP-GET
+        COMPUTE WS-LSP-LINE = FUNCTION NUMVAL(WS-LSP-VALUE) + 1
+        MOVE "Y" TO WS-LSP-FIRST
+        MOVE SPACES TO WS-LSP-OFFERED
+        PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > FN-COUNT
+            IF FN-SUPPRESSED(WS-I) = "N" AND FN-FILE-ID(WS-I) = 1
+               AND FN-LINE(WS-I) = WS-LSP-LINE AND FN-SRC-LINE(WS-I) > 0
+                PERFORM LSP-APPEND-SUPPRESS-ACTION
+            END-IF
+        END-PERFORM
+    END-IF
+    STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> A quick fix suppressing finding WS-I's rule, once per rule.
+LSP-APPEND-SUPPRESS-ACTION.
+    MOVE 0 TO WS-K
+    INSPECT WS-LSP-OFFERED TALLYING WS-K
+        FOR ALL RL-ID(FN-RULE(WS-I))(1:8)
+    IF WS-K > 0 OR WS-LSP-PTR > LSP-SIZE - 4096
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 1 TO WS-PTR
+    INSPECT WS-LSP-OFFERED TALLYING WS-PTR FOR CHARACTERS BEFORE "  "
+    IF WS-PTR < 390
+        MOVE RL-ID(FN-RULE(WS-I))(1:8) TO WS-LSP-OFFERED(WS-PTR + 1:8)
+    END-IF
+    IF SL-FORMAT(FN-SRC-LINE(WS-I)) = "X"
+        MOVE 6 TO WS-LSP-INDENT
+    ELSE
+        COMPUTE WS-LSP-INDENT = SL-CONTENT-COL(FN-SRC-LINE(WS-I)) - 1
+        IF WS-LSP-INDENT > 60
+            MOVE 0 TO WS-LSP-INDENT
+        END-IF
+    END-IF
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST
+    STRING '{"title":"Suppress ' DELIMITED BY SIZE
+           RL-ID(FN-RULE(WS-I)) DELIMITED BY SPACE
+           " " DELIMITED BY SIZE
+           RL-NAME(FN-RULE(WS-I)) DELIMITED BY SPACE
+           ' on this line","kind":"quickfix",' DELIMITED BY SIZE
+           '"edit":{"changes":{' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    CALL "PLB-JSON-STRING" USING DOC-URI(WS-LSP-DOC-INDEX) WS-LSP-OUT
+        WS-LSP-PTR
+    COMPUTE WS-NUM = WS-LSP-LINE - 1
+    STRING ':[{"range":{"start":{"line":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-APPEND-NUM
+    STRING ',"character":0},"end":{"line":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-APPEND-NUM
+    STRING ',"character":0}},"newText":"' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-INDENT > 0
+        STRING WS-LSP-BLANKS(1:WS-LSP-INDENT) DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    STRING "*> plumbline: ignore " DELIMITED BY SIZE
+           RL-NAME(FN-RULE(WS-I)) DELIMITED BY SPACE
+           '\n"}]}}}' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
 
 *> Folding --------------------------------------------------------
 

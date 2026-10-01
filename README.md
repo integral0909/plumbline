@@ -146,7 +146,8 @@ line of their own.
 
 `plumbline lsp` is a language server, so editors that speak the Language
 Server Protocol can show findings as you type, with an outline, go to
-definition, hover, find references, highlights, folding, and rename. See [Using Plumbline in an editor](docs/editors.md).
+definition, hover, find references, highlights, folding, rename, and
+quick fixes that suppress a finding. See [Using Plumbline in an editor](docs/editors.md).
 
 ## Configuration
 
