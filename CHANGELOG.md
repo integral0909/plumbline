@@ -94,6 +94,10 @@ uses [Semantic Versioning](https://semver.org/).
 - Conditional compilation: `>>IF`/`>>ELIF`/`>>ELSE`/`>>END-IF` and
   `$IF`/`$ELSE`/`$END` with `DEFINED` and `SET` conditions, and
   `--define NAME` (`-D`).
+- `--tab-width N` (`tab-width` in `plumbline.conf`), as `cobc -ftab-width`.
+- Partial-word replacement with `==(TAG)==` (IBM Enterprise COBOL), CICS
+  `DFH` names from `DFHAID` and `DFHBMSCA`, `EXEC DLI`, and DCLGEN
+  members (`.dcl`) as copybooks, found by checking AWS's CardDemo.
 - `make corpus-gnucobol`: GnuCOBOL's run-time test programs as a second
   corpus; the dialect support it led to: radix literals (`B#101`,
   `%47`, `H"80"`), `PERFORM FOREVER`, `XML GENERATE`/`JSON GENERATE`

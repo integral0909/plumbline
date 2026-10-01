@@ -28,6 +28,8 @@
                                 OCCURS SS-PATH-BUCKETS TIMES.
     *> Names defined for conditional compilation (--define): a
     *> >>IF NAME DEFINED in any file of the run is true for them.
+    *> Columns between tab stops (--tab-width; 8 unless set).
+    05  SS-TAB-WIDTH            PIC 9(4) COMP-5.
     05  SS-DEFINE-COUNT         PIC 9(4) COMP-5.
     05  SS-DEFINE               PIC X(31) OCCURS SS-MAX-DEFINES TIMES.
     05  SS-FILE                 OCCURS SS-MAX-FILES TIMES.

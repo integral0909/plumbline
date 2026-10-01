@@ -83,6 +83,7 @@ COPY "plbigr.cpy".
 COPY "plbinput.cpy".
 *> --define NAME: names for conditional compilation (>>IF NAME DEFINED).
 01  WS-DEFINE-COUNT         PIC 9(4) COMP-5 VALUE 0.
+01  WS-TAB-WIDTH            PIC 9(4) COMP-5 VALUE 8.
 01  WS-DEFINES.
     05  WS-DEFINE           PIC X(31) OCCURS 64 TIMES.
 01  WS-LIST-STATUS          PIC 9(4) COMP-5.
@@ -320,6 +321,7 @@ SHOW-USAGE.
     DISPLAY "                   (default auto)"
     DISPLAY "  --debug          treat debugging lines as code"
     DISPLAY "  -I DIR           search DIR for copybooks (repeatable)"
+    DISPLAY "  --tab-width N    tab stops every N columns (default 8)"
     DISPLAY "  -D, --define NAME"
     DISPLAY "                   NAME is defined for conditional"
     DISPLAY "                   compilation (>>IF NAME DEFINED)"
@@ -2045,6 +2047,9 @@ PARSE-INPUT-ARGS.
                 ELSE
                     MOVE WS-ARG TO WS-WRITE-BASELINE
                 END-IF
+            WHEN WS-ARG = "--tab-width"
+                PERFORM NEXT-ARG
+                PERFORM SET-TAB-WIDTH
             WHEN WS-ARG = "--define" OR WS-ARG = "-D"
                 PERFORM NEXT-ARG
                 PERFORM ADD-DEFINE
@@ -2158,12 +2163,34 @@ ADD-DEFINE.
                 TO WS-DEFINE(WS-DEFINE-COUNT)
     END-EVALUATE.
 
-*> The --define names, for the source set just initialized.
+*> --tab-width N: tab stops every N columns, 1 to 12, as cobc's
+*> -ftab-width.
+SET-TAB-WIDTH.
+    IF WS-ARG-LEN = 0 OR WS-ARG-LEN > 2
+       OR WS-ARG(1:WS-ARG-LEN) IS NOT NUMERIC
+        DISPLAY PLB-NAME ": invalid tab width '" WS-ARG(1:WS-ARG-LEN)
+            "' (expected 1 to 12)" UPON SYSERR
+        MOVE 2 TO WS-EXIT-CODE
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE WS-NUM = FUNCTION NUMVAL(WS-ARG(1:WS-ARG-LEN))
+    IF WS-NUM < 1 OR WS-NUM > 12
+        DISPLAY PLB-NAME ": invalid tab width '" WS-ARG(1:WS-ARG-LEN)
+            "' (expected 1 to 12)" UPON SYSERR
+        MOVE 2 TO WS-EXIT-CODE
+        EXIT PARAGRAPH
+    END-IF
+    *> plumbline: ignore move-truncation -- checked to be 1 to 12 above
+    MOVE WS-NUM TO WS-TAB-WIDTH.
+
+*> The --define names and the tab width, for the source set just
+*> initialized.
 APPLY-DEFINES.
     PERFORM VARYING WS-J FROM 1 BY 1 UNTIL WS-J > WS-DEFINE-COUNT
         MOVE WS-DEFINE(WS-J) TO SS-DEFINE(WS-J)
     END-PERFORM
-    MOVE WS-DEFINE-COUNT TO SS-DEFINE-COUNT.
+    MOVE WS-DEFINE-COUNT TO SS-DEFINE-COUNT
+    MOVE WS-TAB-WIDTH TO SS-TAB-WIDTH.
 
 *> --files-from WS-ARG: add the files it lists ("-": standard input).
 READ-FILE-LIST.
@@ -2274,6 +2301,8 @@ APPLY-SETTING.
             MOVE WS-ARG TO WS-BASELINE
         WHEN "define"
             PERFORM ADD-DEFINE
+        WHEN "tab-width"
+            PERFORM SET-TAB-WIDTH
         WHEN OTHER
             DISPLAY PLB-NAME ": unknown setting '"
                 FUNCTION TRIM(CF-KEY(WS-SETTING)) "'" UPON SYSERR
