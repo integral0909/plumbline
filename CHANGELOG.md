@@ -135,6 +135,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rules PLB-C032 duplicate-when and PLB-C033 self-move.
 - Rule PLB-C034 linkage-not-addressed.
 - Rule PLB-C035 duplicate-paragraph.
+- Rule PLB-C036 arithmetic-overflow.
 - Rule PLB-M011 evaluate-without-other (off by default).
 - Rule PLB-M012 deep-nesting (off by default, limit 5).
 - Rule PLB-M013 unused-copybook.

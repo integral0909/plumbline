@@ -46,6 +46,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C033](#plb-c033-self-move) | self-move | warning | MOVE of an item to itself |
 | [PLB-C034](#plb-c034-linkage-not-addressed) | linkage-not-addressed | error | LINKAGE record is used but nothing gives it an address |
 | [PLB-C035](#plb-c035-duplicate-paragraph) | duplicate-paragraph | warning | Paragraph or section name defined twice in the same scope |
+| [PLB-C036](#plb-c036-arithmetic-overflow) | arithmetic-overflow | warning | ADD, SUBTRACT, or MULTIPLY into a receiver narrower than an operand |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -986,6 +987,33 @@ unqualified; a reference from elsewhere that does not say which
 section it means is a diagnostic of its own (FL002). Names are compared
 without regard to case. Each repeat is reported at its name, with the
 line of the first.
+
+## PLB-C036 arithmetic-overflow
+
+An `ADD`, `SUBTRACT`, or `MULTIPLY` without `ON SIZE ERROR` whose
+receiver has fewer integer digits than one of its operands:
+
+```cobol
+01  PA-APPROVED-AUTH-AMT  PIC S9(09)V99 COMP-3.
+01  WS-APPROVED-AMT       PIC S9(10)V99.
+    ADD WS-APPROVED-AMT TO PA-APPROVED-AUTH-AMT     *> reported
+```
+
+When the result does not fit, its high-order digits are dropped and
+the statement carries on, so a total silently wraps. `ON SIZE ERROR`
+leaves the receiver unchanged and lets the program act; a wider
+receiver avoids the question.
+
+The operands are the items and numeric literals before `TO`, `FROM`,
+or `BY`, and with `GIVING` the one after them too; subscripts do not
+count. `COMPUTE` and `DIVIDE` are not checked, because a quotient is
+commonly much smaller than its dividend, nor are the `CORRESPONDING`
+forms, reference-modified items, or items of unknown size.
+
+The rule reads declarations, not values: a `PIC 9(6)` loop counter
+added to a `PIC 9(3)` field is reported even when the loop never goes
+past 50. Declare the counter to fit, or suppress the finding and say
+why.
 
 ## PLB-I001 pcb-dbd-unknown
 

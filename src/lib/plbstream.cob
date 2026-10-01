@@ -91,6 +91,7 @@ ADD-CONTINUATION.
         IF LS-PAD > 0 AND ST-LEN + LS-PAD <= ST-SIZE
             MOVE SPACES TO ST-TEXT(ST-LEN + 1:LS-PAD)
             ADD LS-PAD TO ST-LEN
+            *> plumbline: ignore arithmetic-overflow -- LS-PAD is under 72
             ADD LS-PAD TO SG-LEN(LS-PREV-SEG)
         END-IF
         IF LS-LEN > 0 AND SS-HEAP(SL-TEXT-OFF(LS-INDEX)

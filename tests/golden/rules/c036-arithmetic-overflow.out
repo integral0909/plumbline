@@ -1,0 +1,8 @@
+tests/golden/rules/c036-arithmetic-overflow.cob:18:23: warning: ADD without ON SIZE ERROR can lose high-order digits: BIG-AMOUNT has 9 integer digits, SMALL-TOTAL has 5 [PLB-C036]
+tests/golden/rules/c036-arithmetic-overflow.cob:21:18: warning: ADD without ON SIZE ERROR can lose high-order digits: 12345 has 5 integer digits, COUNTER has 3 [PLB-C036]
+tests/golden/rules/c036-arithmetic-overflow.cob:22:30: warning: SUBTRACT without ON SIZE ERROR can lose high-order digits: BIG-AMOUNT has 9 integer digits, SMALL-TOTAL has 5 [PLB-C036]
+tests/golden/rules/c036-arithmetic-overflow.cob:23:40: warning: MULTIPLY without ON SIZE ERROR can lose high-order digits: BIG-AMOUNT has 9 integer digits, SMALL-TOTAL has 5 [PLB-C036]
+tests/golden/rules/c036-arithmetic-overflow.cob:25:39: note: EDITED-TOTAL is given a value but never read [PLB-M005]
+tests/golden/rules/c036-arithmetic-overflow.cob:25:39: warning: ADD without ON SIZE ERROR can lose high-order digits: BIG-AMOUNT has 9 integer digits, EDITED-TOTAL has 4 [PLB-C036]
+tests/golden/rules/c036-arithmetic-overflow.cob:29:14: warning: ROW-TOTAL is used before it is given a value [PLB-C012]
+tests/golden/rules/c036-arithmetic-overflow.cob:31:23: warning: ADD without ON SIZE ERROR can lose high-order digits: BIG-AMOUNT has 9 integer digits, ROW-TOTAL has 3 [PLB-C036]
