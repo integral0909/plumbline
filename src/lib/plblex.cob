@@ -80,7 +80,7 @@ PROGRAM-ID. PLB-LEX-SCAN.
 DATA DIVISION.
 WORKING-STORAGE SECTION.
 01  WS-CLASSES-READY        PIC X VALUE "N".
-*> Character classes, indexed by FUNCTION ORD (byte value + 1):
+*> Character classes, indexed by byte value + 1:
 *>   W letter or underscore   D digit   H hyphen
 *>   S separator              Q quote   X anything else
 01  WS-CLASS-TABLE.
@@ -120,6 +120,13 @@ LOCAL-STORAGE SECTION.
 01  LS-WORD                 PIC X(31).
 01  LS-WORD-LEN             PIC 9(9) COMP-5.
 01  LS-AT                   PIC 9(9) COMP-5.
+01  LS-AT-CLS               PIC X.
+*> A character and its byte value, for WS-CLASS. Loops that look at
+*> every character use this rather than FUNCTION ORD, which builds a
+*> temporary field on each call and made the lexer three times slower.
+01  LS-BYTE.
+    05  LS-BYTE-CHAR        PIC X.
+01  LS-BYTE-CODE REDEFINES LS-BYTE BINARY-CHAR UNSIGNED.
 LINKAGE SECTION.
 COPY "plbstrm.cpy".
 COPY "plbsrc.cpy".
@@ -134,8 +141,8 @@ PROCEDURE DIVISION USING PLB-STREAM PLB-SOURCE-SET PLB-DIAGNOSTICS
 
     MOVE 1 TO LS-POS
     PERFORM UNTIL LS-POS > ST-LEN OR LS-FULL = "Y"
-        MOVE ST-TEXT(LS-POS:1) TO LS-CH
-        MOVE WS-CLASS(FUNCTION ORD(LS-CH)) TO LS-CLS
+        MOVE ST-TEXT(LS-POS:1) TO LS-CH LS-BYTE-CHAR
+        MOVE WS-CLASS(LS-BYTE-CODE + 1) TO LS-CLS
         IF LS-CLS = "S"
             ADD 1 TO LS-POS
         ELSE
@@ -293,16 +300,17 @@ WORD-AT.
     MOVE SPACES TO LS-WORD
     MOVE 0 TO LS-WORD-LEN
     PERFORM UNTIL LS-AT > ST-LEN OR LS-WORD-LEN >= LENGTH OF LS-WORD
-        IF WS-CLASS(FUNCTION ORD(ST-TEXT(LS-AT:1))) NOT = "W"
-           AND WS-CLASS(FUNCTION ORD(ST-TEXT(LS-AT:1))) NOT = "D"
-           AND WS-CLASS(FUNCTION ORD(ST-TEXT(LS-AT:1))) NOT = "H"
+        MOVE ST-TEXT(LS-AT:1) TO LS-BYTE-CHAR
+        MOVE WS-CLASS(LS-BYTE-CODE + 1) TO LS-AT-CLS
+        IF LS-AT-CLS NOT = "W" AND LS-AT-CLS NOT = "D"
+           AND LS-AT-CLS NOT = "H"
             EXIT PERFORM
         END-IF
         ADD 1 TO LS-WORD-LEN
-        MOVE FUNCTION UPPER-CASE(ST-TEXT(LS-AT:1))
-            TO LS-WORD(LS-WORD-LEN:1)
+        MOVE LS-BYTE-CHAR TO LS-WORD(LS-WORD-LEN:1)
         ADD 1 TO LS-AT
-    END-PERFORM.
+    END-PERFORM
+    MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD.
 
 *> Scan one token starting at LS-POS (not a separator).
 SCAN-TOKEN.
@@ -419,7 +427,8 @@ SCAN-PICTURE.
 SCAN-WORD-OR-NUMBER.
     MOVE "Y" TO LS-ALL-DIGITS
     PERFORM UNTIL LS-POS > ST-LEN
-        MOVE WS-CLASS(FUNCTION ORD(ST-TEXT(LS-POS:1))) TO LS-CLS
+        MOVE ST-TEXT(LS-POS:1) TO LS-BYTE-CHAR
+        MOVE WS-CLASS(LS-BYTE-CODE + 1) TO LS-CLS
         EVALUATE LS-CLS
             WHEN "D"
                 ADD 1 TO LS-POS
@@ -471,7 +480,8 @@ MEASURE-TAG.
     MOVE LS-POS TO LS-J
     ADD 1 TO LS-J
     PERFORM UNTIL LS-J > ST-LEN
-        MOVE WS-CLASS(FUNCTION ORD(ST-TEXT(LS-J:1))) TO LS-NEXT-CLS
+        MOVE ST-TEXT(LS-J:1) TO LS-BYTE-CHAR
+        MOVE WS-CLASS(LS-BYTE-CODE + 1) TO LS-NEXT-CLS
         IF LS-NEXT-CLS NOT = "W" AND LS-NEXT-CLS NOT = "D"
                 AND LS-NEXT-CLS NOT = "H"
             EXIT PERFORM
@@ -523,7 +533,8 @@ SCAN-EXPONENT.
 
 SKIP-DIGITS.
     PERFORM UNTIL LS-POS > ST-LEN
-        IF WS-CLASS(FUNCTION ORD(ST-TEXT(LS-POS:1))) NOT = "D"
+        MOVE ST-TEXT(LS-POS:1) TO LS-BYTE-CHAR
+        IF WS-CLASS(LS-BYTE-CODE + 1) NOT = "D"
             EXIT PERFORM
         END-IF
         ADD 1 TO LS-POS
