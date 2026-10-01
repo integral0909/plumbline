@@ -75,7 +75,9 @@ COPY "plbref.cpy".
 COPY "plbcallc.cpy".
 COPY "plbcall.cpy".
 COPY "plbjclc.cpy".
+COPY "plbdsetc.cpy".
 COPY "plbjcl.cpy".
+COPY "plbdset.cpy".
 COPY "plbbmsc.cpy".
 COPY "plbbms.cpy".
 COPY "plbcsdc.cpy".
@@ -387,7 +389,9 @@ SHOW-USAGE.
     DISPLAY "                   starts it, what it uses, its paragraphs,"
     DISPLAY "                   and its records"
     DISPLAY "  impact NAME      list what includes copybook NAME or"
-    DISPLAY "                   calls program NAME, directly or not"
+    DISPLAY "                   calls program NAME, directly or not,"
+    DISPLAY "                   where data item NAME is used, or which"
+    DISPLAY "                   job steps read and write data set NAME"
     DISPLAY "  format           rewrite a file in fixed or free format"
     DISPLAY "                   (--to); --check only tells whether"
     DISPLAY "                   that would change it"
@@ -773,7 +777,9 @@ GRAPH-COMMAND.
         WHEN "jobs"
             CALL "PLB-GRAPH-JOBS" USING PLB-CALL-GRAPH PLB-JCL WS-REPORT
         WHEN "datasets"
-            CALL "PLB-GRAPH-DATASETS" USING PLB-CALL-GRAPH PLB-JCL
+            CALL "PLB-DATASETS-COLLECT" USING PLB-CALL-GRAPH PLB-JCL
+                PLB-DATASETS
+            CALL "PLB-GRAPH-DATASETS" USING PLB-JCL PLB-DATASETS
                 WS-REPORT
     END-EVALUATE
     CALL "PLB-GRAPH-END" USING WS-REPORT
@@ -1015,13 +1021,18 @@ IMPACT-COMMAND.
         PLB-INCLUDE-GRAPH PLB-JCL WS-IMPACT-NAME WS-FOUND
     CALL "PLB-DATA-IMPACT-PRINT" USING PLB-SOURCE-SET PLB-DATA-USES
         WS-IMPACT-NAME
+    CALL "PLB-DATASETS-COLLECT" USING PLB-CALL-GRAPH PLB-JCL
+        PLB-DATASETS
+    CALL "PLB-DATASET-IMPACT" USING PLB-SOURCE-SET PLB-JCL PLB-DATASETS
+        WS-IMPACT-NAME WS-FOUND
     IF DU-COUNT > 0
         MOVE "Y" TO WS-FOUND
     END-IF
     PERFORM REPORT-DIAGNOSTICS
     IF WS-FOUND = "N"
         CALL "PLB-STR-LENGTH" USING WS-IMPACT-NAME WS-PATH-LEN
-        DISPLAY PLB-NAME ": no copybook, program, or data item named "
+        DISPLAY PLB-NAME ": no copybook, program, data item, or data"
+            " set named "
             WS-IMPACT-NAME(1:WS-PATH-LEN) " in the input" UPON SYSERR
         MOVE 1 TO WS-EXIT-CODE
     END-IF

@@ -140,7 +140,16 @@ data item CUST-ID
 For a program, the job steps that run it are listed too when the JCL is
 among the inputs. For a data item, every declaration of that name and
 every statement that reads it, sets it, or passes it on, in each
-program of the run.
+program of the run. For a data set, the job steps that write, update, and
+read it, and what that is known from:
+
+```console
+$ plumbline impact AWS.M2.CARDDEMO.TRANSACT.VSAM.KSDS app/cbl/*.cbl app/jcl/*.jcl
+data set AWS.M2.CARDDEMO.TRANSACT.VSAM.KSDS
+  read by CBEXPORT.STEP02 through DD TRANSACT at app/jcl/CBEXPORT.jcl:55 (from OPEN; the step runs CBEXPORT)
+  written by POSTTRAN.STEP15 through DD TRANFILE at app/jcl/POSTTRAN.jcl:28 (from OPEN; the step runs CBTRN02C)
+  ...
+```
 
 ## Formatting
 

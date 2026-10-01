@@ -123,3 +123,15 @@ program PAYLOG src/paylog.cbl:3
   called by PAYUPD at src/payupd.cbl:35 directly
   run by step UPDATE of job PAYROLL at jcl/payroll.jcl:4 through PAYUPD
 ```
+
+`plumbline impact DSN` lists the job steps that write, update, read, or
+use a data set, in the order of the JCL, with the DD that names it and
+what the access is known from, as in the data set graph. A relative
+generation in DSN is ignored:
+
+```console
+$ plumbline impact 'PAY.HISTORY(0)' jcl/sortgdg.jcl
+data set PAY.HISTORY
+  read by SORTGDG.SORT through DD SORTIN at jcl/sortgdg.jcl:6 (from the DD name; the step runs SORT)
+  written by SORTGDG.COPY through DD SYSUT2 at jcl/sortgdg.jcl:13 (from the DD name; the step runs IEBGENER)
+```

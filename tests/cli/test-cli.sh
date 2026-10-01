@@ -561,7 +561,7 @@ check "impact of a data item lists who sets it" 0 '^  set at tests/fixtures/impa
     -- impact cust-id -I $ix $ix/custlook.cob $ix/billing.cob
 check "impact of a data item lists calls with it" 0 '^  used at tests/fixtures/impact/billing.cob:8:34 in BILLING, CALL$' \
     -- impact CUST-ID -I $ix $ix/custlook.cob $ix/billing.cob
-check "impact of an unknown name"         1 'no copybook, program, or data item named NOPE in the input' \
+check "impact of an unknown name"         1 'no copybook, program, data item, or data set named NOPE in the input' \
     -- impact NOPE -I $ix $ix/menu.cob
 check "impact needs a name"               2 'impact needs a copybook or program name' -- impact -I $ix
 check "graph of calls"                    0 '^  "MENU" -> "BILLING";$' \
@@ -588,6 +588,16 @@ check "graph of data sets names temporaries with their job" 0 '^  "&&SORTED (SOR
     -- graph --kind datasets tests/fixtures/jcl/sortgdg.jcl
 check_absent "graph of data sets leaves out load libraries" 'LINKLIB' \
     -- graph --kind datasets tests/fixtures/jcl/sortgdg.jcl
+check "impact of a data set lists its writers" 0 '^  updated by PAYROLL.UPDATE through DD PAYMAST at tests/fixtures/jcl/payroll.jcl:5 (from OPEN; the step runs PAYUPD)$' \
+    -- impact PAY.MASTER $jds
+check "impact of a data set names procedure overrides" 0 '^  written by PAYROLL.NIGHTLY through DD UPD.PAYLOG at tests/fixtures/jcl/payroll.jcl:17 (from OPEN; the step runs PAYUPD)$' \
+    -- impact pay.log $jds
+check "impact of a data set falls back on DISP" 0 '^  read by PAYROLL.RERUN through DD OLDFILE at tests/fixtures/jcl/payroll.jcl:14 (from DISP=SHR)$' \
+    -- impact PAY.OLD $jds
+check "impact of a data set ignores the generation" 0 '^data set PAY.HISTORY$' \
+    -- impact 'PAY.HISTORY(0)' tests/fixtures/jcl/sortgdg.jcl
+check "impact of a data set reads utility DD names" 0 '^  written by SORTGDG.COPY through DD SYSUT2 at tests/fixtures/jcl/sortgdg.jcl:13 (from the DD name; the step runs IEBGENER)$' \
+    -- impact PAY.HISTORY tests/fixtures/jcl/sortgdg.jcl
 check "impact lists the steps that run a program" 0 'run by step UPDATE of job PAYROLL at tests/fixtures/jcl/payroll.jcl:4$' \
     -- impact PAYUPD tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/paylog.cob tests/fixtures/jcl/payroll.jcl
 check "impact follows callers to their steps" 0 'run by step RERUN of job PAYROLL at tests/fixtures/jcl/payroll.jcl:11 through PAYUPD' \
