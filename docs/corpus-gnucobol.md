@@ -30,29 +30,57 @@ compiles with.
 
 ## Results
 
-The first run, on 2026-10-01:
+| | First run | Now |
+|---|---:|---:|
+| Programs (in formats Plumbline reads) | 1,025 | 1,025 |
+| Programs with input errors | 44 | 1 |
+| Programs with names reported as undefined or ambiguous | 136 | 3 |
 
-| | |
-|---|---|
-| Programs | 1,035, of which 10 are in reference formats Plumbline does not read (COBOLX, VARIABLE, X/Open free form, ACU terminal) |
-| Programs with input errors | 44 |
-| Programs with names reported as undefined or ambiguous | 136 |
+Ten more programs are in reference formats Plumbline does not read
+(COBOLX, VARIABLE, X/Open free form, ACU terminal) and are not counted.
 
-The causes, from the diagnostics and findings:
+What the first run found, each fixed with a test of its own:
 
 - level-78 constants inside a record, as in GnuCOBOL's own EXTFH
-  copybook `xfhfcd3.cpy`, ended the record;
-- `>> IF`, with a space after `>>`, in column 7 of fixed format;
-- literal forms of other dialects: HP COBOL octal (`%47`) and ACUCOBOL
-  `B#101`, `O#17`, `X#FF`, `H#FF`;
+  copybook `xfhfcd3.cpy`, ended the record: 700 errors from one
+  copybook;
+- `>> IF`, with a space after `>>`, starting in column 7 of fixed
+  format;
+- literal forms of other dialects: HP COBOL octal (`%47`), ACUCOBOL
+  `B#101`, `O#17`, `X#FF`, `H#FF`, and Micro Focus `H"80"`;
 - a second program in a file that starts at `PROGRAM-ID.`, without the
   `IDENTIFICATION DIVISION` header that COBOL 2002 made optional;
 - `PERFORM FOREVER`;
-- `XML GENERATE` and `JSON GENERATE` with their exception phrases;
-- ACUCOBOL's `PICTURE L`;
+- `XML GENERATE` and `JSON GENERATE`, whose `GENERATE` and `SUPPRESS`
+  are also Report Writer verbs;
+- `01 ... CONSTANT` entries, the `OPTIONS` paragraph, ACUCOBOL's
+  `PICTURE L`, and `END PROGRAM` naming a program whose `PROGRAM-ID` is
+  a literal;
+- `$SET`, `$DISPLAY`, and `>>SET` directives, the constants they
+  define, and `>>SET SOURCEFORMAT`;
+- conditional compilation: both branches of `>>IF P64 SET` declared
+  the same item, which led to [conditional compilation](../README.md#conditional-compilation)
+  support;
+- `CURRENCY SIGN ... WITH PICTURE SYMBOL "U"`: the lexer read `SYMBOL`
+  as a picture, and only one currency symbol was kept;
+- numbers in a screen entry (`BACKGROUND-COLOR 0`) taken for the level
+  number of the next entry;
+- the records of `FD ... GLOBAL` in nested programs;
 - GnuCOBOL's special registers (`COB-CRT-STATUS`, `XML-CODE`,
-  `JSON-CODE`, `NUMBER-OF-CALL-PARAMETERS`);
-- words that only have a meaning in one statement: `READ ... PREVIOUS`,
-  `PROCEDURE DIVISION CHAINING`, `CALL STATIC`, `ACCEPT ... FROM DATE
-  YYYYMMDD`, the `ROUNDED MODE` names, and screen attributes such as
-  `AUTO-SKIP` and `REQUIRED` in `ACCEPT` and `DISPLAY`.
+  `JSON-CODE`, `NUMBER-OF-CALL-PARAMETERS`), intrinsic functions named
+  without `FUNCTION` under `REPOSITORY. FUNCTION ALL INTRINSIC`, the
+  counter of a report group's `OCCURS ... VARYING`, and words that are
+  keywords only in their statements: `READ ... PREVIOUS`, `ROUNDED MODE
+  NEAREST-EVEN`, `ACCEPT ... FROM DATE YYYYMMDD`, screen attributes such
+  as `AUTO-SKIP`, `STOP RUN WITH NORMAL STATUS`, and the bit operators.
+
+What is left:
+
+- **COBOLX format**: one program switches to it with `>>SOURCE FORMAT
+  COBOLX`, which Plumbline does not read (RD004).
+- **`-fintrinsics=all`**: two programs name `PI` and `E` without
+  `FUNCTION`, which a compiler option allows; Plumbline sees only the
+  source.
+- **`INVOICE-AMOUNT`**: one program uses a name that no entry declares.
+  GnuCOBOL 3.2 compiles and runs it; the report is correct as far as
+  the program's text goes.
