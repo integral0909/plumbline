@@ -319,6 +319,23 @@ ROLE-FOR-VERB.
             EVALUATE LS-KEYWORD
                 WHEN SPACES     MOVE "U" TO LS-ROLE
             END-EVALUATE
+        *> XML GENERATE out FROM data [COUNT IN n], JSON GENERATE the
+        *> same; XML PARSE document reads it.
+        WHEN "XML"
+        WHEN "JSON"
+            EVALUATE LS-KEYWORD
+                WHEN SPACES
+                    COMPUTE LS-T = ND-TOK-FIRST(LS-STMT) + 1
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT
+                        LS-LEN
+                    IF LS-TEXT = "GENERATE"
+                        MOVE "D" TO LS-ROLE
+                    ELSE
+                        MOVE "U" TO LS-ROLE
+                    END-IF
+                WHEN "FROM"     MOVE "U" TO LS-ROLE
+                WHEN "COUNT"    MOVE "D" TO LS-ROLE
+            END-EVALUATE
         WHEN "READ"
         WHEN "RETURN"
             EVALUATE LS-KEYWORD
