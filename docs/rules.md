@@ -31,6 +31,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C023](#plb-c023-subscript-out-of-range) | subscript-out-of-range | error | Literal subscript is outside the table |
 | [PLB-C024](#plb-c024-refmod-out-of-range) | refmod-out-of-range | error | Literal reference modification is outside the item |
 | [PLB-C025](#plb-c025-stop-run-in-called-program) | stop-run-in-called-program | warning | STOP RUN in a program that is called |
+| [PLB-C026](#plb-c026-varying-limit-unreachable) | varying-limit-unreachable | warning | PERFORM VARYING waits for a value its counter cannot hold |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -598,6 +599,33 @@ needs the callers in the same run. That keeps it quiet on a main
 program that has `PROCEDURE DIVISION USING` to receive a JCL `PARM`:
 nothing calls it. Calls through a data item (`CALL WS-NAME`) do not
 count.
+
+## PLB-C026 varying-limit-unreachable
+
+A `PERFORM VARYING` whose `UNTIL` condition waits for a value the
+counter cannot hold:
+
+```cobol
+01  I  PIC 99.
+    ...
+    PERFORM VARYING I FROM 1 BY 1 UNTIL I > 99      *> reported
+        MOVE "A" TO CELL (I)
+    END-PERFORM
+```
+
+`I` goes from 99 to 00 when it is increased, so it is never greater
+than 99, and the loop goes on until something else ends it: a `GO TO`
+out of it, `EXIT PERFORM`, or an abend when `CELL (0)` is stored. Give
+the counter one more digit, or stop at the last value it holds
+(`UNTIL I = 99` with `TEST AFTER`).
+
+The rule checks `UNTIL counter op literal`, with op one of `>`, `>=`,
+`=`, `<`, `<=` or their words, on the counter that `VARYING` names:
+`UNTIL I < 0` is reported for an unsigned counter too. Only integer
+counters stored as decimal digits (`DISPLAY` or `PACKED-DECIMAL`) are
+checked. A binary counter can hold more than its picture says when the
+compiler does not truncate binary data (IBM `TRUNC(BIN)`, GnuCOBOL
+`-fnotrunc`). Conditions with `AND` or `OR` are not checked.
 
 ## PLB-M001 go-to
 

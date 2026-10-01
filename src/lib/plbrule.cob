@@ -153,6 +153,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C025"
         "stop-run-in-called-program" "W"
         "STOP RUN in a program that is called"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C026"
+        "varying-limit-unreachable" "W"
+        "PERFORM VARYING waits for a value its counter cannot hold"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

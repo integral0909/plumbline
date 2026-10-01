@@ -1,0 +1,5 @@
+tests/golden/rules/c026-varying-limit.cob:16:45: warning: I holds nothing above 99, so the UNTIL condition is never true; only leaving the loop another way ends it [PLB-C026]
+tests/golden/rules/c026-varying-limit.cob:17:21: note: CELL is given a value but never read [PLB-M005]
+tests/golden/rules/c026-varying-limit.cob:22:55: warning: J holds nothing above 999, so the UNTIL condition is never true; only leaving the loop another way ends it [PLB-C026]
+tests/golden/rules/c026-varying-limit.cob:23:81: warning: J holds nothing above 999, so the UNTIL condition is never true; only leaving the loop another way ends it [PLB-C026]
+tests/golden/rules/c026-varying-limit.cob:26:57: warning: I holds nothing below 0, so the UNTIL condition is never true; only leaving the loop another way ends it [PLB-C026]
