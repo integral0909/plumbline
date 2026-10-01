@@ -327,13 +327,18 @@ log lists every rule with its default level, one result per finding with
 a `ruleIndex` into that list, and diagnostics as tool execution
 notifications. Paths are percent-encoded as URIs.
 
+Before reporting, comments of the form `plumbline: ignore` mark the
+findings they suppress (`src/lib/plbsupp.cob`). Then a baseline, if one
+is given, marks the findings it lists (`src/lib/plbbase.cob`). Both are
+left out of every report and of the exit code.
+
+Settings in `plumbline.conf` are read by `src/lib/plbconf.cob` and
+applied by the command line program through the same code as its
+options.
+
 Rule ids are `PLB-<category><number>`, where the categories are
 correctness (C), maintainability (M), portability (P), and security (S).
 See the [rule reference](rules.md).
-
-### Planned
-
-- **Baselines**: record today's findings and report only new ones.
 
 ## Design principles
 

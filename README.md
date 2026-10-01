@@ -42,6 +42,9 @@ code is 1 when there are findings at or above the `--fail-on` level
 | `--enable RULE`, `--disable RULE` | turn a rule on or off, by id or name |
 | `--fail-on error\|warning\|note\|never` | the lowest severity that fails the run |
 | `--report text\|json\|sarif` | output format (default `text`) |
+| `--baseline FILE` | do not report the findings listed in `FILE` |
+| `--write-baseline FILE` | write the findings to `FILE` instead of reporting them |
+| `--config FILE`, `--no-config` | read settings from `FILE`, or from no file |
 
 `--report sarif` writes SARIF 2.1.0, which code-scanning services and
 many editors read directly; `--report json` writes a simpler document
@@ -58,6 +61,47 @@ and `dump calls`.
 Give `check` all the programs that call each other in one run. Calls
 between them are then checked against the programs they call: the
 number of arguments, how they are passed, and their sizes.
+
+## Configuration
+
+Settings that a project always uses go in `plumbline.conf` in the
+directory `plumbline` runs in, one per line:
+
+```
+# plumbline.conf
+include copybooks
+format fixed
+enable alnum-narrowing
+disable go-to
+severity move-truncation error
+fail-on error
+baseline plumbline.baseline
+```
+
+`include`, `format`, `enable`, `disable`, `fail-on`, `report`, and
+`baseline` work like the options of the same names. `severity RULE
+LEVEL` reports a rule as `error`, `warning`, or `note`. Options given on
+the command line are applied after the file, so they override it. Paths
+in the file are relative to the directory `plumbline` runs in.
+
+## Adopting Plumbline in existing code
+
+An established code base has findings that nobody will fix this week. A
+baseline records them, so that `check` fails only on new ones:
+
+```console
+$ plumbline check --write-baseline plumbline.baseline src/*.cbl
+plumbline: wrote 214 findings to plumbline.baseline
+$ plumbline check --baseline plumbline.baseline src/*.cbl
+```
+
+The baseline is a text file to commit along with the code. A finding
+matches a baseline line when the rule, file, message, and the text of the
+reported source line are the same. Line numbers are not part of it, so
+editing other parts of a file does not bring old findings back. Fixing
+a finding leaves a line that matches nothing. Write the baseline again
+from time to time so that it shrinks, and give the files to `check`
+with the same paths each time.
 
 ## Documentation
 
