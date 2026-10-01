@@ -139,6 +139,12 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-P002"
         "hard-coded-path" "W"
         "File is assigned to a path on one machine"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C023"
+        "subscript-out-of-range" "E"
+        "Literal subscript is outside the table"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C024"
+        "refmod-out-of-range" "E"
+        "Literal reference modification is outside the item"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
