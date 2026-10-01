@@ -44,6 +44,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C031](#plb-c031-string-overflow) | string-overflow | warning | STRING always sends more than its receiver holds |
 | [PLB-C032](#plb-c032-duplicate-when) | duplicate-when | warning | EVALUATE has a WHEN that repeats an earlier one |
 | [PLB-C033](#plb-c033-self-move) | self-move | warning | MOVE of an item to itself |
+| [PLB-C034](#plb-c034-linkage-not-addressed) | linkage-not-addressed | error | LINKAGE record is used but nothing gives it an address |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -931,6 +932,29 @@ The `MOVE` does nothing; usually another item was meant, here
 `WS-CICS-RESP2-CD-D`. The rule compares names that stand alone: a
 receiver with qualification, subscripts, or reference modification is
 not compared, nor are names inside a receiver's subscripts.
+
+## PLB-C034 linkage-not-addressed
+
+A statement that uses a `LINKAGE SECTION` record (or an item in it) that
+nothing gives an address:
+
+```cobol
+LINKAGE SECTION.
+01  LOST-E.
+    05  LOST-E-KEY     PIC X(4).
+PROCEDURE DIVISION USING PARM-A.
+    DISPLAY LOST-E-KEY                      *> reported
+```
+
+A linkage record has no storage of its own. The caller passes it
+(`PROCEDURE DIVISION USING`, `ENTRY ... USING`), or the program sets its
+address (`SET ADDRESS OF item TO pointer`, `EXEC CICS ... SET(ADDRESS OF
+item)`, `ALLOCATE`). Without either, the program reads and writes
+wherever the address happens to point, or ends abnormally. Items that
+redefine an addressed record share its address. In a program with `EXEC
+CICS`, `DFHEIBLK` and `DFHCOMMAREA` count as passed, since CICS passes
+them. Constants (level 78) need no address. Each record is reported
+once, at its first use.
 
 ## PLB-I001 pcb-dbd-unknown
 
