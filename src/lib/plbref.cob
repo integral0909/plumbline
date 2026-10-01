@@ -115,6 +115,7 @@ LOCAL-STORAGE SECTION.
 01  LS-DEPTH                PIC S9(9) COMP-5.
 01  LS-PROGRAM              PIC 9(9) COMP-5.
 01  LS-INTRINSIC            PIC X.
+01  LS-FD-T                 PIC 9(9) COMP-5.
 01  LS-IN-FUNCTION-LIST     PIC X.
 01  LS-LISTED               PIC X.
 01  LS-T                    PIC 9(9) COMP-5.
@@ -661,7 +662,33 @@ CHECK-GLOBAL.
             END-IF
             MOVE ND-NEXT(LS-U) TO LS-U
         END-PERFORM
+        *> The records of FD file GLOBAL are global too.
+        IF SY-PARENT(LS-A) = 0 AND LS-GLOBAL = "N"
+            MOVE ND-PARENT(SY-NODE(LS-A)) TO LS-U
+            IF LS-U > 0
+                IF ND-KIND(LS-U) = "FD"
+                    PERFORM FD-IS-GLOBAL
+                END-IF
+            END-IF
+        END-IF
         MOVE SY-PARENT(LS-A) TO LS-A
+    END-PERFORM.
+
+*> LS-GLOBAL = "Y" when the FD entry LS-U, up to its period, has the
+*> word GLOBAL.
+FD-IS-GLOBAL.
+    PERFORM VARYING LS-FD-T FROM ND-TOK-FIRST(LS-U) BY 1
+            UNTIL LS-FD-T > ND-TOK-LAST(LS-U)
+        IF TK-IS-PERIOD(LS-FD-T)
+            EXIT PERFORM
+        END-IF
+        IF TK-IS-WORD(LS-FD-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-FD-T LS-TEXT LS-LEN
+            IF LS-TEXT = "GLOBAL"
+                MOVE "Y" TO LS-GLOBAL
+                EXIT PERFORM
+            END-IF
+        END-IF
     END-PERFORM.
 
 *> Not a data item: a procedure of the program, another declared
