@@ -211,6 +211,7 @@ with the same paths each time.
 - [Using Plumbline in an editor](docs/editors.md)
 - [Running Plumbline on the NIST COBOL-85 suite](docs/corpus.md)
 - [Running Plumbline on GnuCOBOL's test suite](docs/corpus-gnucobol.md)
+- [Running Plumbline on AWS CardDemo](docs/corpus-carddemo.md)
 - [Architecture](docs/architecture.md)
 - [Testing](docs/testing.md)
 - [Contributing](CONTRIBUTING.md)

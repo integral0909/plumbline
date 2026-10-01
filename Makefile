@@ -32,7 +32,7 @@ HARNESS_OBJ := $(patsubst tests/harness/%.cob,$(BUILD)/obj/harness/%.o,$(HARNESS
 TEST_SRC    := $(wildcard tests/unit/test-*.cob)
 TEST_BIN    := $(patsubst tests/unit/%.cob,$(BUILD)/tests/%,$(TEST_SRC))
 
-.PHONY: all clean test tests coverage golden-update corpus corpus-gnucobol check-bounds
+.PHONY: all clean test tests coverage golden-update corpus corpus-gnucobol corpus-carddemo check-bounds
 .SECONDARY: $(HARNESS_OBJ) $(LIB_OBJ)
 
 all: $(BIN)
@@ -127,3 +127,7 @@ corpus: $(BIN)
 # compile: what Plumbline reports there it does not understand yet.
 corpus-gnucobol: $(BIN)
 	tools/corpus/run-gnucobol.sh $(BIN) $(BUILD)/corpus/gnucobol
+
+# AWS CardDemo, a CICS, VSAM, DB2, IMS, and MQ sample application.
+corpus-carddemo: $(BIN)
+	tools/corpus/run-carddemo.sh $(BIN) $(BUILD)/corpus/carddemo

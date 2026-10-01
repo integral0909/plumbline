@@ -52,16 +52,16 @@ The 2 programs that still have input errors are:
 | Rule | Findings |
 |------|---------:|
 | PLB-M001 go-to | 20,574 |
-| PLB-C001 unreachable-code | 5,555 |
+| PLB-C001 unreachable-code | 5,501 |
 | PLB-M003 unused-data-item | 3,238 |
-| PLB-C002 perform-and-fall-through | 747 |
 | PLB-C008 move-truncation | 476 |
 | PLB-M005 set-never-read | 313 |
+| PLB-C002 perform-and-fall-through | 257 |
 | PLB-C020 file-status-not-checked | 105 |
 | PLB-M002 alter | 97 |
 | PLB-C009 undefined-name | 80 |
-| PLB-C003 fall-off-end | 30 |
 | PLB-M008 file-not-closed | 14 |
+| PLB-C003 fall-off-end | 11 |
 | PLB-C022 open-mode-mismatch | 6 |
 | PLB-C011 read-never-set | 5 |
 | PLB-C005 perform-thru-backwards | 3 |
