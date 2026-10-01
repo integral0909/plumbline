@@ -1233,3 +1233,181 @@ PRINT-OUT.
         DISPLAY LS-OUT(1:LS-LEN)
     END-IF.
 END PROGRAM PLB-GRAPH-JOBS.
+
+*> PLB-DATA-IMPACT-COLLECT: add the declarations of data items named
+*> NAME in the file just analyzed, and every reference to them, to
+*> PLB-DATA-USES.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-DATA-IMPACT-COLLECT.
+DATA DIVISION.
+LOCAL-STORAGE SECTION.
+01  LS-NAME                 PIC X(31).
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-R                    PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-NODE                 PIC 9(9) COMP-5.
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-LEVEL-TEXT           PIC X(20).
+01  LS-NUM                  PIC S9(18) COMP-5.
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbsym.cpy".
+COPY "plbref.cpy".
+COPY "plbduse.cpy".
+01  LK-NAME                 PIC X ANY LENGTH.
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
+        PLB-REFS PLB-DATA-USES LK-NAME.
+    MOVE FUNCTION UPPER-CASE(LK-NAME) TO LS-NAME
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
+        IF SY-NAME(LS-S) = LS-NAME AND SY-NAME-TOKEN(LS-S) > 0
+            MOVE SY-NAME-TOKEN(LS-S) TO LS-T
+            MOVE SY-NODE(LS-S) TO LS-NODE
+            MOVE SY-LEVEL(LS-S) TO LS-NUM
+            CALL "PLB-STR-FROM-INT" USING LS-NUM LS-LEVEL-TEXT LS-LEN
+            MOVE SPACES TO LS-LEVEL-TEXT(LS-LEN + 1:)
+            PERFORM ADD-USE
+            IF DU-COUNT > 0 AND DU-COUNT <= DU-MAX
+                MOVE "T" TO DU-ROLE(DU-COUNT)
+                MOVE LS-LEVEL-TEXT TO DU-VERB(DU-COUNT)
+            END-IF
+        END-IF
+    END-PERFORM
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        IF RF-KIND(LS-R) = "D" OR RF-KIND(LS-R) = "A"
+            IF SY-NAME(RF-SYMBOL(LS-R)) = LS-NAME
+                MOVE RF-TOKEN(LS-R) TO LS-T
+                MOVE RF-STMT(LS-R) TO LS-NODE
+                PERFORM ADD-USE
+                IF DU-COUNT > 0 AND DU-COUNT <= DU-MAX
+                    MOVE RF-ROLE(LS-R) TO DU-ROLE(DU-COUNT)
+                    IF RF-STMT(LS-R) > 0
+                        MOVE ND-DETAIL(RF-STMT(LS-R))
+                            TO DU-VERB(DU-COUNT)
+                    ELSE
+                        MOVE SPACES TO DU-VERB(DU-COUNT)
+                    END-IF
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> An entry for token LS-T in the program that holds node LS-NODE.
+ADD-USE.
+    IF DU-COUNT >= DU-MAX
+        ADD 1 TO DU-DROPPED
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO DU-COUNT
+    MOVE SPACES TO DU-PROGRAM(DU-COUNT)
+    PERFORM UNTIL LS-NODE = 0
+        IF ND-KIND(LS-NODE) = "PROG"
+            IF ND-NAME(LS-NODE) > 0
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(LS-NODE)
+                    DU-PROGRAM(DU-COUNT) LS-LEN
+            END-IF
+            EXIT PERFORM
+        END-IF
+        MOVE ND-PARENT(LS-NODE) TO LS-NODE
+    END-PERFORM
+    MOVE TK-FILE-ID(LS-T) TO DU-FILE-ID(DU-COUNT)
+    MOVE TK-COLUMN(LS-T) TO DU-COLUMN(DU-COUNT)
+    MOVE 0 TO DU-LINE(DU-COUNT)
+    IF TK-SRC-LINE(LS-T) > 0
+        MOVE SL-LINE-NO(TK-SRC-LINE(LS-T)) TO DU-LINE(DU-COUNT)
+    END-IF.
+END PROGRAM PLB-DATA-IMPACT-COLLECT.
+
+*> PLB-DATA-IMPACT-PRINT: the declarations and uses that
+*> PLB-DATA-IMPACT-COLLECT gathered, under "data item NAME".
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-DATA-IMPACT-PRINT.
+DATA DIVISION.
+LOCAL-STORAGE SECTION.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-OUT                  PIC X(1200).
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-PATH                 PIC X(1024).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbduse.cpy".
+01  LK-NAME                 PIC X ANY LENGTH.
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DATA-USES LK-NAME.
+    IF DU-COUNT = 0
+        GOBACK
+    END-IF
+    MOVE SPACES TO LS-OUT
+    MOVE 1 TO LS-PTR
+    STRING "data item " DELIMITED BY SIZE
+           FUNCTION UPPER-CASE(LK-NAME) DELIMITED BY SPACE
+        INTO LS-OUT WITH POINTER LS-PTR
+    PERFORM PRINT-OUT
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > DU-COUNT
+        MOVE SPACES TO LS-OUT
+        MOVE 1 TO LS-PTR
+        EVALUATE DU-ROLE(LS-I)
+            WHEN "T" MOVE "  declared at " TO LS-OUT
+            WHEN "U" MOVE "  read at " TO LS-OUT
+            WHEN "D" MOVE "  set at " TO LS-OUT
+            WHEN "B" MOVE "  read and set at " TO LS-OUT
+            WHEN OTHER MOVE "  used at " TO LS-OUT
+        END-EVALUATE
+        CALL "PLB-STR-LENGTH" USING LS-OUT LS-PTR
+        ADD 2 TO LS-PTR
+        CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET DU-FILE-ID(LS-I)
+            LS-PATH
+        CALL "PLB-STR-LENGTH" USING LS-PATH LS-LEN
+        IF LS-LEN > 0
+            STRING LS-PATH(1:LS-LEN) DELIMITED BY SIZE
+                INTO LS-OUT WITH POINTER LS-PTR
+        END-IF
+        STRING ":" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        MOVE DU-LINE(LS-I) TO LS-NUM
+        PERFORM APPEND-NUM
+        STRING ":" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        MOVE DU-COLUMN(LS-I) TO LS-NUM
+        PERFORM APPEND-NUM
+        IF DU-PROGRAM(LS-I) NOT = SPACES
+            STRING " in " DELIMITED BY SIZE
+                   DU-PROGRAM(LS-I) DELIMITED BY SPACE
+                INTO LS-OUT WITH POINTER LS-PTR
+        END-IF
+        IF DU-VERB(LS-I) NOT = SPACES
+            IF DU-ROLE(LS-I) = "T"
+                STRING ", level " DELIMITED BY SIZE
+                    INTO LS-OUT WITH POINTER LS-PTR
+            ELSE
+                STRING ", " DELIMITED BY SIZE
+                    INTO LS-OUT WITH POINTER LS-PTR
+            END-IF
+            STRING DU-VERB(LS-I) DELIMITED BY SPACE
+                INTO LS-OUT WITH POINTER LS-PTR
+        END-IF
+        PERFORM PRINT-OUT
+    END-PERFORM
+    IF DU-DROPPED > 0
+        DISPLAY "  (more uses than " DU-MAX " were left out)"
+    END-IF
+    GOBACK.
+
+APPEND-NUM.
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR.
+
+PRINT-OUT.
+    CALL "PLB-STR-LENGTH" USING LS-OUT LS-LEN
+    IF LS-LEN > 0
+        DISPLAY LS-OUT(1:LS-LEN)
+    END-IF.
+END PROGRAM PLB-DATA-IMPACT-PRINT.

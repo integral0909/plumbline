@@ -497,7 +497,13 @@ check "impact of a copybook"              0 "included by $ix/custlook.cob throug
     -- impact custrec -I $ix $ix/custlook.cob $ix/billing.cob $ix/menu.cob
 check "impact of a program"               0 "called by MENU at $ix/menu.cob:5 through BILLING" \
     -- impact CUSTLOOK -I $ix $ix/custlook.cob $ix/billing.cob $ix/menu.cob
-check "impact of an unknown name"         1 'no copybook or program named NOPE in the input' \
+check "impact of a data item lists its declarations" 0 '^  declared at tests/fixtures/impact/custrec.cpy:3:16 in CUSTLOOK, level 5$' \
+    -- impact CUST-ID -I $ix $ix/custlook.cob $ix/billing.cob
+check "impact of a data item lists who sets it" 0 '^  set at tests/fixtures/impact/custlook.cob:10:26 in CUSTLOOK, MOVE$' \
+    -- impact cust-id -I $ix $ix/custlook.cob $ix/billing.cob
+check "impact of a data item lists calls with it" 0 '^  used at tests/fixtures/impact/billing.cob:8:34 in BILLING, CALL$' \
+    -- impact CUST-ID -I $ix $ix/custlook.cob $ix/billing.cob
+check "impact of an unknown name"         1 'no copybook, program, or data item named NOPE in the input' \
     -- impact NOPE -I $ix $ix/menu.cob
 check "impact needs a name"               2 'impact needs a copybook or program name' -- impact -I $ix
 check "graph of calls"                    0 '^  "MENU" -> "BILLING";$' \
