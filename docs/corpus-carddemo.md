@@ -140,3 +140,5 @@ Some findings that were read and are true:
   no job runs it. The
   IMS programs are started by `DFSRRC00` and the DB2 program by
   `IKJEFT01`, which the JCL reader follows into `PARM` and `SYSTSIN`.
+- **PLB-Q001 sql-table-undeclared.** None: the DB2 programs include the
+  DCLGEN member of every table they use.

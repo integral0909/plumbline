@@ -1,3 +1,5 @@
 tests/golden/rules/m014-sql-select-star.cob:10:9: note: SELECT * depends on every column of the table and their order; name the columns [PLB-M014]
+tests/golden/rules/m014-sql-select-star.cob:10:23: note: table EMPLOYEE is not declared in SELECTS (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]
 tests/golden/rules/m014-sql-select-star.cob:15:14: note: SELECT * depends on every column of the table and their order; name the columns [PLB-M014]
+tests/golden/rules/m014-sql-select-star.cob:21:26: note: table EMP-ARCHIVE is not declared in SELECTS (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]
 tests/golden/rules/m014-sql-select-star.cob:21:38: note: SELECT * depends on every column of the table and their order; name the columns [PLB-M014]

@@ -1,0 +1,6 @@
+tests/golden/rules/q001-sql-tables.cob:13:46: note: table PAY.DEPARTMENT is not declared in TABLES (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]
+tests/golden/rules/q001-sql-tables.cob:20:40: note: TODAY is given a value but never read [PLB-M005]
+tests/golden/rules/q001-sql-tables.cob:25:50: warning: EMP-NAME is read but never given a value [PLB-C011]
+tests/golden/rules/q001-sql-tables.cob:26:45: note: table PAY.LEAVERS is not declared in TABLES (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]
+tests/golden/rules/q001-sql-tables.cob:31:26: note: table PAY.HISTORY is not declared in TABLES (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]
+tests/golden/rules/q001-sql-tables.cob:32:9: note: SELECT * depends on every column of the table and their order; name the columns [PLB-M014]

@@ -296,3 +296,79 @@ FOLLOWING-CHECK.
     CALL "PLB-NAMED-AFTER" USING PLB-TOKENS PLB-AST PLB-FLOW LS-STMT
         LS-STOP PLB-NAME-LIST LS-FOUND.
 END PROGRAM PLB-RULE-EMBEDDED.
+
+*> PLB-Q001 sql-table-undeclared: a program that uses a table in
+*> embedded SQL without declaring it (EXEC SQL DECLARE name TABLE,
+*> usually through an INCLUDE of the table's DCLGEN member). With the
+*> declaration the DB2 precompiler checks each statement's columns
+*> against the table; without it, a misspelled column or a table
+*> changed since is found only at bind time or when the statement
+*> runs. Reported once per table and program, at its first use. The
+*> catalog tables of DB2 (SYSIBM.*) are left out.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-SQL-TABLES.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbcallc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-U                    PIC 9(9) COMP-5.
+01  LS-V                    PIC 9(9) COMP-5.
+01  LS-Q                    PIC 9(9) COMP-5.
+01  LS-OWNER                PIC 9(9) COMP-5.
+01  LS-PROGRAM              PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbcall.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q001" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > PQ-COUNT
+        IF PQ-KIND(LS-U) NOT = "T" AND PQ-TABLE(LS-U)(1:7) NOT = "SYSIBM."
+            PERFORM CHECK-USE
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> Use LS-U: the first of its table in its program, and no declaration
+*> of the table there.
+CHECK-USE.
+    MOVE PQ-PROGRAM(LS-U) TO LS-Q
+    PERFORM OUTERMOST
+    MOVE LS-OWNER TO LS-PROGRAM
+    PERFORM VARYING LS-V FROM 1 BY 1 UNTIL LS-V > PQ-COUNT
+        IF PQ-TABLE(LS-V) = PQ-TABLE(LS-U)
+            MOVE PQ-PROGRAM(LS-V) TO LS-Q
+            PERFORM OUTERMOST
+            IF LS-OWNER = LS-PROGRAM
+                IF PQ-KIND(LS-V) = "T"
+                    EXIT PARAGRAPH
+                END-IF
+                IF LS-V < LS-U
+                    EXIT PARAGRAPH
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM
+    MOVE SPACES TO LS-MESSAGE
+    STRING "table " DELIMITED BY SIZE
+           PQ-TABLE(LS-U) DELIMITED BY SPACE
+           " is not declared in " DELIMITED BY SIZE
+           CP-NAME(LS-PROGRAM) DELIMITED BY SPACE
+           " (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE)"
+           DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        PQ-FILE-ID(LS-U) PQ-LINE(LS-U) PQ-COLUMN(LS-U) PQ-SRC-LINE(LS-U)
+        LS-MESSAGE.
+
+OUTERMOST.
+    MOVE CP-OWNER(LS-Q) TO LS-OWNER
+    PERFORM UNTIL CP-PARENT(LS-OWNER) = 0
+        MOVE CP-PARENT(LS-OWNER) TO LS-OWNER
+    END-PERFORM.
+END PROGRAM PLB-RULE-SQL-TABLES.

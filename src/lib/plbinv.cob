@@ -5,7 +5,8 @@
 *> together: each program with what starts it (job steps, CICS
 *> transactions, the programs that call it) and what it uses (the
 *> programs it calls or transfers to, its files and their DD names,
-*> its maps, and the CICS resources its commands name); then the jobs
+*> its SQL tables, its maps, and the CICS resources its commands
+*> name); then the jobs
 *> with their steps, and the transactions with their programs.
 *>
 *> A program's kind says how it starts: batch when a job step runs it,
@@ -46,6 +47,8 @@ LOCAL-STORAGE SECTION.
 *> JSON: whether an item of the current list was written yet.
 01  LS-FIRST                PIC X.
 01  LS-FIRST-PROGRAM        PIC X.
+01  LS-USES                 PIC X(6).
+01  LS-FIRST-USE            PIC X.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -207,6 +210,18 @@ TEXT-PROGRAM.
             STRING "  file " DELIMITED BY SIZE
                 INTO LS-OUT WITH POINTER LS-PTR
             PERFORM APPEND-FILE
+            PERFORM PRINT-OUT
+        END-IF
+    END-PERFORM
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > PQ-COUNT
+        PERFORM TEST-TABLE
+        IF LS-SEEN = "Y"
+            PERFORM START-OUT
+            STRING "  table " DELIMITED BY SIZE
+                   PQ-TABLE(LS-I) DELIMITED BY SPACE
+                   " " DELIMITED BY SIZE
+                INTO LS-OUT WITH POINTER LS-PTR
+            PERFORM APPEND-TABLE-USES
             PERFORM PRINT-OUT
         END-IF
     END-PERFORM
@@ -457,6 +472,22 @@ JSON-PROGRAM.
                     LS-PTR
             END-IF
             STRING "}" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        END-IF
+    END-PERFORM
+    STRING '], "tables": [' DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR
+    MOVE "Y" TO LS-FIRST
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > PQ-COUNT
+        PERFORM TEST-TABLE
+        IF LS-SEEN = "Y"
+            PERFORM JSON-COMMA
+            STRING '{"name": ' DELIMITED BY SIZE
+                INTO LS-OUT WITH POINTER LS-PTR
+            CALL "PLB-JSON-STRING" USING PQ-TABLE(LS-I) LS-OUT LS-PTR
+            STRING ', "uses": "' DELIMITED BY SIZE
+                INTO LS-OUT WITH POINTER LS-PTR
+            PERFORM APPEND-TABLE-USES
+            STRING '"}' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
         END-IF
     END-PERFORM
     STRING '], "maps": [' DELIMITED BY SIZE
@@ -717,6 +748,63 @@ TEST-RESOURCE.
         END-IF
     END-PERFORM
     MOVE "Y" TO LS-SEEN.
+
+*> LS-SEEN = "Y" when table use LS-I is of LS-P, the first of its
+*> table there.
+TEST-TABLE.
+    MOVE "N" TO LS-SEEN
+    MOVE PQ-PROGRAM(LS-I) TO LS-Q
+    PERFORM OUTERMOST
+    IF LS-OWNER NOT = LS-P
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J >= LS-I
+        IF PQ-TABLE(LS-J) = PQ-TABLE(LS-I)
+            MOVE PQ-PROGRAM(LS-J) TO LS-Q
+            PERFORM OUTERMOST
+            IF LS-OWNER = LS-P
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+    END-PERFORM
+    MOVE "Y" TO LS-SEEN.
+
+*> The uses of table PQ-TABLE(LS-I) by LS-P, in a fixed order:
+*> declare select insert update delete merge.
+APPEND-TABLE-USES.
+    MOVE "Y" TO LS-FIRST-USE
+    MOVE "TSIUDM" TO LS-USES
+    PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K > 6
+        PERFORM VARYING LS-J FROM LS-I BY 1 UNTIL LS-J > PQ-COUNT
+            IF PQ-TABLE(LS-J) = PQ-TABLE(LS-I)
+               AND PQ-KIND(LS-J) = LS-USES(LS-K:1)
+                MOVE PQ-PROGRAM(LS-J) TO LS-Q
+                PERFORM OUTERMOST
+                IF LS-OWNER = LS-P
+                    IF LS-FIRST-USE = "N"
+                        STRING " " DELIMITED BY SIZE
+                            INTO LS-OUT WITH POINTER LS-PTR
+                    END-IF
+                    MOVE "N" TO LS-FIRST-USE
+                    EVALUATE LS-USES(LS-K:1)
+                        WHEN "T" STRING "declare" DELIMITED BY SIZE
+                                     INTO LS-OUT WITH POINTER LS-PTR
+                        WHEN "S" STRING "select" DELIMITED BY SIZE
+                                     INTO LS-OUT WITH POINTER LS-PTR
+                        WHEN "I" STRING "insert" DELIMITED BY SIZE
+                                     INTO LS-OUT WITH POINTER LS-PTR
+                        WHEN "U" STRING "update" DELIMITED BY SIZE
+                                     INTO LS-OUT WITH POINTER LS-PTR
+                        WHEN "D" STRING "delete" DELIMITED BY SIZE
+                                     INTO LS-OUT WITH POINTER LS-PTR
+                        WHEN "M" STRING "merge" DELIMITED BY SIZE
+                                     INTO LS-OUT WITH POINTER LS-PTR
+                    END-EVALUATE
+                    EXIT PERFORM
+                END-IF
+            END-IF
+        END-PERFORM
+    END-PERFORM.
 
 *> LS-SEEN = "Y" when file LS-I is a file of LS-P.
 TEST-FILE.
