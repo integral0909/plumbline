@@ -78,6 +78,8 @@ uses [Semantic Versioning](https://semver.org/).
   definition, and hover.
 - Security rules PLB-S002 hard-coded-credential, PLB-S003
   sensitive-data-displayed, and PLB-S004 shell-command.
+- Portability rules PLB-P001 vendor-routine (off by default) and
+  PLB-P002 hard-coded-path.
 - `plumbline format --to fixed|free [--check]`: rewrite a file in the
   other reference format without changing its tokens.
 - HTML report (`--report html`): one self-contained page with source

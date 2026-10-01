@@ -38,6 +38,8 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M008](#plb-m008-file-not-closed) | file-not-closed | note | File is opened but never closed |
 | [PLB-M009](#plb-m009-complex-paragraph) | complex-paragraph | note, off | Paragraph or section is more complex than the limit |
 | [PLB-M010](#plb-m010-long-paragraph) | long-paragraph | note, off | Paragraph or section has more statements than the limit |
+| [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, *off* | CALL of a compiler library routine |
+| [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -659,6 +661,43 @@ paragraph PRINT-SUMMARY has 87 statements (limit 50)
 ```
 
 Off by default, like PLB-M009.
+
+## PLB-P001 vendor-routine
+
+*Off by default.* A CALL of a library routine that comes with some
+compilers and not others:
+
+```cobol
+    CALL "CBL_DELETE_FILE" USING ITEM-PATH          *> noted
+    CALL "C$SLEEP" USING 1                          *> noted
+```
+
+Routines named `CBL_...` come from Micro Focus COBOL, `C$...` from
+ACUCOBOL; GnuCOBOL provides many of both, IBM Enterprise COBOL few.
+`SYSTEM` is noted too. Programs built with one compiler call its library
+on purpose, so the rule only runs on request, for code meant to move.
+Where such calls are needed, keep them in a few small programs that a
+port can replace.
+
+## PLB-P002 hard-coded-path
+
+A file assigned to a path, written into the SELECT or into the VALUE of
+the item it is assigned to:
+
+```cobol
+    SELECT IN-FILE ASSIGN TO "/var/data/in.dat".    *> reported
+    SELECT OUT-FILE ASSIGN TO "C:\DATA\OUT.DAT".      *> reported
+    SELECT WORK-FILE ASSIGN TO DYNAMIC WORK-PATH.   *> reported when
+01  WORK-PATH  PIC X(40) VALUE "../tmp/work.dat".   *> the VALUE is a path
+    SELECT DD-FILE ASSIGN TO "INFILE".              *> fine
+```
+
+A path names a place on one machine, in its operating system's syntax.
+A bare name is resolved when the program runs, by a DD statement on
+z/OS or an environment variable (`DD_INFILE`, `dd_INFILE`, `INFILE`)
+with GnuCOBOL, so the same program reads a different file in test and
+in production. Text with a `/` or `\`, or that starts with a drive letter
+(`C:`), is a path. A path the program builds at run time is not seen.
 
 ## PLB-S001 dynamic-sql
 
