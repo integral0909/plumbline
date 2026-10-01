@@ -1,0 +1,11 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. BILLING.
+      *> Calls CUSTLOOK, which is in custlook.cob.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  CUST-ID         PIC X(6) VALUE "C00042".
+       01  CUST-NAME       PIC X(30) VALUE SPACES.
+       PROCEDURE DIVISION.
+           CALL "CUSTLOOK" USING CUST-ID CUST-NAME
+           DISPLAY CUST-NAME
+           STOP RUN.

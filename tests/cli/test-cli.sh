@@ -115,6 +115,9 @@ check "overlong file names are refused"    2 'file name longer than 512 characte
     -- check "$(printf 'x%.0s' $(seq 1 600)).cob"
 check "--debug includes debugging lines"  0 'continuation.cbl:5:20: alnum    "DEBUG ONLY"' \
     -- dump tokens --debug $gx/continuation.cbl
+cx=tests/fixtures/calls
+check "dump calls lists parameters"       0 '^  parameter LK-CUST-ID reference 8$' -- dump calls $cx/custlook.cob
+check "help lists dump calls"             0 'dump calls' -- --help
 check "dump lines needs files"            2 'no input files' -- dump lines
 check "invalid --format value"            2 "invalid format 'variable'" \
     -- dump lines --format variable $fx/fixed-basic.cbl
