@@ -72,7 +72,20 @@ uses [Semantic Versioning](https://semver.org/).
 - Settings in `plumbline.conf` or `--config FILE`, including rule
   severities; `--no-config` skips the file.
 
+- `make corpus` runs Plumbline over the NIST COBOL-85 test suite
+  (`tools/corpus/`); see `docs/corpus.md`.
+- SORT and MERGE INPUT and OUTPUT PROCEDUREs, ALTER, CD entries, the
+  fields of DEBUG-ITEM, DECIMAL-POINT IS COMMA, and CURRENCY SIGN.
+
 ### Fixed
 
 - Copybooks shared by many files of one run are read once, rather than
   once per file, which ran into the 256-file limit.
+- Numeric literals starting with a decimal point after a sign or "(".
+- Comment entries in the identification division are skipped.
+- References qualified more than 8 levels deep.
+- Items set in declaratives are not reported as used before set.
+- The sign character of SIGN ... SEPARATE items counts in their size.
+- Trailing spaces of a literal are not counted as truncated characters.
+- Picture strings no longer take the == that ends pseudo-text.
+- Qualified and subscripted identifiers as COPY REPLACING operands.
