@@ -79,6 +79,39 @@ inputs, such as utilities, are drawn dashed.
 $ plumbline graph --kind jobs app/cbl/*.cbl app/jcl/*.jcl | dot -Tsvg -o jobs.svg
 ```
 
+## Drawing the data
+
+`plumbline graph --kind datasets` draws which job steps read and write
+which data sets: the data each job leaves for the next. A step is
+named `JOB.STEP`, or `PROC.STEP` for a step of a procedure; a DD a job
+adds to its procedure's step (`PSTEP.DDNAME`) belongs to the job step.
+Reads point from the data set to the step, writes from the step to the
+data set; an update is drawn both ways.
+
+```console
+$ plumbline graph --kind datasets app/cbl/*.cbl app/jcl/*.jcl app/proc/*.prc
+  ...
+  "AWS.M2.CARDDEMO.DALYTRAN.PS" -> "POSTTRAN.STEP15" [label="DALYTRAN"];
+  "POSTTRAN.STEP15" -> "AWS.M2.CARDDEMO.DALYREJS" [label="DALYREJS"];
+  "POSTTRAN.STEP15" -> "AWS.M2.CARDDEMO.TRANSACT.VSAM.KSDS" [label="TRANFILE"];
+```
+
+Whether a step reads or writes comes first from its programs: the
+`OPEN` statements of the files they assign to the DD (`INPUT` reads,
+`OUTPUT` and `EXTEND` write, `I-O` updates). `POSTTRAN` above has
+`DISP=SHR` on `TRANFILE`, but `CBTRN02C` opens it `OUTPUT`, so the step
+writes it. For a program outside the run, the DD names of system
+utilities decide (`SYSUT1`, `SORTIN` read; `SYSUT2`, `SORTOUT` write),
+and then `DISP` (`SHR` reads, `NEW` and `MOD` write). What none of
+these settles, such as an `IDCAMS` step with `DISP=OLD`, is drawn as a
+dashed line without a direction.
+
+A relative generation is dropped from the name, so that the
+generation one job writes (`DALYREJS(+1)`) and the one the next reads
+(`DALYREJS(0)`) are the same data set. A temporary data set (`&&NAME`)
+is named with its job, as it ends with the job. Load libraries
+(`STEPLIB`, `JOBLIB`) are left out.
+
 ## Impact
 
 `plumbline impact PROGRAM` lists the job steps that run the program,

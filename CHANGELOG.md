@@ -119,6 +119,9 @@ uses [Semantic Versioning](https://semver.org/).
 - `plumbline inventory [--report text|json]` describes an application:
   its programs with what starts them and what they use, its jobs,
   transactions, and maps.
+- `plumbline graph --kind datasets` draws which job steps read and
+  write which data sets, from the programs' `OPEN` statements, utility
+  DD names, and `DISP`.
 - `plumbline doc` writes a Markdown page for each program: what starts
   it, what it uses, its paragraphs, and its records.
 - The SQL tables each program uses, in `dump calls` and `inventory`,

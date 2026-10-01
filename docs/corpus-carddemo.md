@@ -175,3 +175,13 @@ never run are the 23 that PLB-C001 reports. Most are `-EXIT`
 paragraphs after an `EXEC CICS RETURN`, and copies of `SEND-LONG-TEXT`,
 a debugging aid the programs share. `COACTVWC` defines `0000-MAIN-EXIT`
 twice, and both copies show.
+
+## Data sets
+
+`plumbline graph --kind datasets` over the programs, JCL, and
+procedures draws 49 data sets and 103 reads and writes between them
+and the job steps. Three are updates, all from programs that open the
+file `I-O` (the account file in `INTCALC` and `POSTTRAN`, the category
+balances in `POSTTRAN`). Four are left without a direction: `IDCAMS`
+steps loading a VSAM file with `DISP=OLD`, whose `REPRO` is in the
+control statements rather than in a program.

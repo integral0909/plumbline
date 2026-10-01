@@ -1234,6 +1234,424 @@ PRINT-OUT.
     END-IF.
 END PROGRAM PLB-GRAPH-JOBS.
 
+*> PLB-GRAPH-DATASETS: which job steps read and write which data sets,
+*> across the jobs of the run: the data a job leaves for the next.
+*>
+*> A step is named "JOB.STEP", or "PROC.STEP" for a step of a
+*> procedure; a DD that a job step adds to its procedure's step
+*> (PSTEP.DDNAME) belongs to the job step. Data sets are named by DSN,
+*> without a relative generation, so that DALYREJS(+1) written by one
+*> job is DALYREJS read as DALYREJS(0) by the next; a temporary data
+*> set (&&NAME) is named with its job, since it ends with the job.
+*> Load libraries (STEPLIB, JOBLIB) are not data and are left out.
+*>
+*> Whether a step reads or writes a data set comes, in this order,
+*> from:
+*>   1. the OPEN statements of the files that the step's programs (the
+*>      program it runs and those it calls) assign to the DD: INPUT
+*>      reads, OUTPUT and EXTEND write, I-O updates;
+*>   2. the DD names of system utilities: SYSUT1, SORTIN, and SORTINnn
+*>      are read, SYSUT2, SORTOUT, and SORTOFxx are written;
+*>   3. DISP: SHR reads, NEW and MOD write.
+*> What none of these settles (DISP=OLD, or no DISP) is "uses".
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-GRAPH-DATASETS.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbcallc.cpy".
+COPY "plbjclc.cpy".
+78  GD-MAX                      VALUE 5000.
+01  WS-DATASETS.
+    05  WS-DS-COUNT         PIC 9(9) COMP-5.
+    05  WS-DS-NAME          PIC X(60) OCCURS GD-MAX TIMES.
+78  GE-MAX                      VALUE 10000.
+01  WS-EDGES.
+    05  WS-GE-COUNT         PIC 9(9) COMP-5.
+    05  WS-GE               OCCURS GE-MAX TIMES.
+        10  WS-GE-STEP      PIC 9(9) COMP-5.
+        10  WS-GE-DATASET   PIC 9(9) COMP-5.
+        10  WS-GE-DD        PIC X(8).
+        *>   R read   W write   U update   ? uses
+        10  WS-GE-ACCESS    PIC X.
+*> The programs a step runs: its program and those it calls.
+78  RN-MAX                      VALUE 500.
+01  WS-RUNS.
+    05  WS-RUN-COUNT        PIC 9(4) COMP-5.
+    05  WS-RUN              PIC 9(9) COMP-5 OCCURS RN-MAX TIMES.
+LOCAL-STORAGE SECTION.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-A                    PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-J                    PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-C                    PIC 9(9) COMP-5.
+01  LS-F                    PIC 9(9) COMP-5.
+01  LS-P                    PIC 9(9) COMP-5.
+01  LS-DS                   PIC 9(9) COMP-5.
+01  LS-DSN                  PIC X(60).
+01  LS-PAREN                PIC 9(9) COMP-5.
+01  LS-READ                 PIC X.
+01  LS-WRITE                PIC X.
+01  LS-ACCESS               PIC X.
+01  LS-FOUND                PIC X.
+01  LS-PROGRAM-NAME         PIC X(8).
+01  LS-NAME                 PIC X(60).
+01  LS-FROM                 PIC X(60).
+01  LS-TO                   PIC X(60).
+01  LS-KIND                 PIC X(8).
+01  LS-OUT                  PIC X(512).
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-FIRST-ITEM           PIC X.
+LINKAGE SECTION.
+COPY "plbcall.cpy".
+COPY "plbjcl.cpy".
+01  LK-FORMAT               PIC X(5).
+PROCEDURE DIVISION USING PLB-CALL-GRAPH PLB-JCL LK-FORMAT.
+    MOVE 0 TO WS-DS-COUNT WS-GE-COUNT
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-KIND(LS-D) = "D" AND JD-NAME(LS-D) NOT = "STEPLIB"
+           AND JD-NAME(LS-D) NOT = "JOBLIB" AND JD-STEP(LS-D) > 0
+            PERFORM ADD-DD
+        END-IF
+    END-PERFORM
+    IF LK-FORMAT = "json"
+        DISPLAY '    {"nodes": ['
+    END-IF
+    MOVE "Y" TO LS-FIRST-ITEM
+    PERFORM VARYING LS-DS FROM 1 BY 1 UNTIL LS-DS > WS-DS-COUNT
+        MOVE WS-DS-NAME(LS-DS) TO LS-NAME
+        MOVE "dataset" TO LS-KIND
+        PERFORM WRITE-NODE
+    END-PERFORM
+    *> Each step with a data set, once.
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > WS-GE-COUNT
+        PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I >= LS-E
+            IF WS-GE-STEP(LS-I) = WS-GE-STEP(LS-E)
+                EXIT PERFORM
+            END-IF
+        END-PERFORM
+        IF LS-I = LS-E
+            MOVE WS-GE-STEP(LS-E) TO LS-S
+            PERFORM STEP-NAME
+            MOVE "step" TO LS-KIND
+            PERFORM WRITE-NODE
+        END-IF
+    END-PERFORM
+    IF LK-FORMAT = "json"
+        DISPLAY '     ],'
+        DISPLAY '     "edges": ['
+    END-IF
+    MOVE "Y" TO LS-FIRST-ITEM
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > WS-GE-COUNT
+        PERFORM WRITE-EDGE
+    END-PERFORM
+    IF LK-FORMAT = "json"
+        DISPLAY '     ]}'
+    END-IF
+    GOBACK.
+
+*> The edge of DD LS-D: its data set, its step, and the access.
+ADD-DD.
+    PERFORM DATASET-NAME
+    IF LS-DSN = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM FIND-DATASET
+    MOVE JD-STEP(LS-D) TO LS-S
+    *> The step whose program opens the DD: for PSTEP.DDNAME on a job
+    *> step running a procedure, step PSTEP of the procedure.
+    MOVE LS-S TO LS-A
+    IF JD-QUALIFIER(LS-D) NOT = SPACES AND JS-KIND(LS-S) = "R"
+        PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > JS-COUNT
+            IF JS-PROC(LS-I) > 0
+                IF JP-NAME(JS-PROC(LS-I)) = JS-TARGET(LS-S)
+                   AND JS-NAME(LS-I) = JD-QUALIFIER(LS-D)
+                    MOVE LS-I TO LS-A
+                    EXIT PERFORM
+                END-IF
+            END-IF
+        END-PERFORM
+    END-IF
+    PERFORM FIND-ACCESS
+    *> Once per step, data set, and DD.
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > WS-GE-COUNT
+        IF WS-GE-STEP(LS-E) = LS-S AND WS-GE-DATASET(LS-E) = LS-DS
+           AND WS-GE-DD(LS-E) = JD-NAME(LS-D)
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    IF WS-GE-COUNT < GE-MAX
+        ADD 1 TO WS-GE-COUNT
+        MOVE LS-S TO WS-GE-STEP(WS-GE-COUNT)
+        MOVE LS-DS TO WS-GE-DATASET(WS-GE-COUNT)
+        MOVE JD-NAME(LS-D) TO WS-GE-DD(WS-GE-COUNT)
+        MOVE LS-ACCESS TO WS-GE-ACCESS(WS-GE-COUNT)
+    END-IF.
+
+*> LS-DSN: the DSN of DD LS-D without a relative generation ((+1),
+*> (0), (-1)); a member name stays. A temporary data set gets its
+*> job's name: "&&TEMP (JOB)".
+DATASET-NAME.
+    MOVE SPACES TO LS-DSN
+    MOVE JD-DSN(LS-D) TO LS-DSN
+    MOVE 0 TO LS-PAREN
+    INSPECT LS-DSN TALLYING LS-PAREN FOR CHARACTERS BEFORE "("
+    IF LS-PAREN < 44
+        IF LS-DSN(LS-PAREN + 2:1) = "+" OR "-" OR "0"
+            MOVE SPACES TO LS-DSN(LS-PAREN + 1:)
+        END-IF
+    END-IF
+    IF LS-DSN(1:2) = "&&"
+        MOVE JD-STEP(LS-D) TO LS-S
+        IF JS-JOB(LS-S) > 0
+            CALL "PLB-STR-LENGTH" USING LS-DSN LS-LEN
+            ADD 1 TO LS-LEN
+            STRING " (" DELIMITED BY SIZE
+                   JJ-NAME(JS-JOB(LS-S)) DELIMITED BY SPACE
+                   ")" DELIMITED BY SIZE
+                INTO LS-DSN WITH POINTER LS-LEN
+        END-IF
+    END-IF.
+
+FIND-DATASET.
+    PERFORM VARYING LS-DS FROM 1 BY 1 UNTIL LS-DS > WS-DS-COUNT
+        IF WS-DS-NAME(LS-DS) = LS-DSN
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    IF WS-DS-COUNT < GD-MAX
+        ADD 1 TO WS-DS-COUNT
+        MOVE LS-DSN TO WS-DS-NAME(WS-DS-COUNT)
+        MOVE WS-DS-COUNT TO LS-DS
+    ELSE
+        MOVE GD-MAX TO LS-DS
+    END-IF.
+
+*> LS-ACCESS for DD LS-D opened by the programs of step LS-A.
+FIND-ACCESS.
+    MOVE "N" TO LS-READ LS-WRITE
+    PERFORM PROGRAM-FILES
+    IF LS-READ = "N" AND LS-WRITE = "N"
+        EVALUATE TRUE
+            WHEN JD-NAME(LS-D) = "SYSUT1" OR JD-NAME(LS-D) = "SORTIN"
+              OR JD-NAME(LS-D)(1:6) = "SORTIN"
+                MOVE "Y" TO LS-READ
+            WHEN JD-NAME(LS-D) = "SYSUT2" OR JD-NAME(LS-D) = "SORTOUT"
+              OR JD-NAME(LS-D)(1:6) = "SORTOF"
+                MOVE "Y" TO LS-WRITE
+            WHEN JD-DISP(LS-D) = "SHR"
+                MOVE "Y" TO LS-READ
+            WHEN JD-DISP(LS-D) = "NEW" OR JD-DISP(LS-D) = "MOD"
+                MOVE "Y" TO LS-WRITE
+        END-EVALUATE
+    END-IF
+    EVALUATE TRUE
+        WHEN LS-READ = "Y" AND LS-WRITE = "Y"
+            MOVE "U" TO LS-ACCESS
+        WHEN LS-READ = "Y"
+            MOVE "R" TO LS-ACCESS
+        WHEN LS-WRITE = "Y"
+            MOVE "W" TO LS-ACCESS
+        WHEN OTHER
+            MOVE "?" TO LS-ACCESS
+    END-EVALUATE.
+
+*> LS-READ and LS-WRITE from the open modes of the files that the
+*> programs of step LS-A assign to the DD.
+PROGRAM-FILES.
+    IF JS-KIND(LS-A) NOT = "P"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE JS-TARGET(LS-A) TO LS-PROGRAM-NAME
+    IF JS-INNER(LS-A) NOT = SPACES
+        MOVE JS-INNER(LS-A) TO LS-PROGRAM-NAME
+    END-IF
+    MOVE 0 TO LS-P
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > CP-COUNT
+        IF CP-KIND(LS-I) = "P" AND CP-PARENT(LS-I) = 0
+           AND CP-NAME(LS-I) = LS-PROGRAM-NAME
+            MOVE LS-I TO LS-P
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-P = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM COLLECT-RUNS
+    PERFORM VARYING LS-F FROM 1 BY 1 UNTIL LS-F > PF-COUNT
+        IF PF-DDNAME(LS-F) = JD-NAME(LS-D) AND PF-SORT(LS-F) = "N"
+            PERFORM IS-RUN-PROGRAM
+            IF LS-FOUND = "Y"
+                IF PF-INPUT(LS-F) = "Y"
+                    MOVE "Y" TO LS-READ
+                END-IF
+                IF PF-OUTPUT(LS-F) = "Y" OR PF-EXTEND(LS-F) = "Y"
+                    MOVE "Y" TO LS-WRITE
+                END-IF
+                IF PF-I-O(LS-F) = "Y"
+                    MOVE "Y" TO LS-READ LS-WRITE
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> WS-RUN = LS-P and every program it calls, directly or not, through
+*> calls the graph resolved.
+COLLECT-RUNS.
+    MOVE 1 TO WS-RUN-COUNT
+    MOVE LS-P TO WS-RUN(1)
+    MOVE 1 TO LS-K
+    PERFORM UNTIL LS-K > WS-RUN-COUNT
+        PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > CC-COUNT
+            IF CC-TO(LS-C) > 0
+                IF CP-OWNER(CC-FROM(LS-C)) = WS-RUN(LS-K)
+                    MOVE CP-OWNER(CC-TO(LS-C)) TO LS-J
+                    PERFORM ADD-RUN
+                END-IF
+            END-IF
+        END-PERFORM
+        ADD 1 TO LS-K
+    END-PERFORM.
+
+ADD-RUN.
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > WS-RUN-COUNT
+        IF WS-RUN(LS-I) = LS-J
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    IF WS-RUN-COUNT < RN-MAX
+        ADD 1 TO WS-RUN-COUNT
+        MOVE LS-J TO WS-RUN(WS-RUN-COUNT)
+    END-IF.
+
+*> LS-FOUND = "Y" when file LS-F belongs to a program of WS-RUN, or a
+*> program nested in one.
+IS-RUN-PROGRAM.
+    MOVE "N" TO LS-FOUND
+    MOVE PF-PROGRAM(LS-F) TO LS-J
+    PERFORM UNTIL LS-J = 0
+        PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > WS-RUN-COUNT
+            IF WS-RUN(LS-I) = LS-J
+                MOVE "Y" TO LS-FOUND
+                EXIT PARAGRAPH
+            END-IF
+        END-PERFORM
+        MOVE CP-PARENT(LS-J) TO LS-J
+    END-PERFORM.
+
+*> LS-NAME: "JOB.STEP" or "PROC.STEP" for step LS-S.
+STEP-NAME.
+    MOVE SPACES TO LS-NAME
+    EVALUATE TRUE
+        WHEN JS-JOB(LS-S) > 0
+            STRING JJ-NAME(JS-JOB(LS-S)) DELIMITED BY SPACE
+                   "." DELIMITED BY SIZE
+                   JS-NAME(LS-S) DELIMITED BY SPACE
+                INTO LS-NAME
+        WHEN JS-PROC(LS-S) > 0
+            STRING JP-NAME(JS-PROC(LS-S)) DELIMITED BY SPACE
+                   "." DELIMITED BY SIZE
+                   JS-NAME(LS-S) DELIMITED BY SPACE
+                INTO LS-NAME
+        WHEN OTHER
+            MOVE JS-NAME(LS-S) TO LS-NAME
+    END-EVALUATE.
+
+WRITE-NODE.
+    MOVE SPACES TO LS-OUT
+    MOVE 1 TO LS-PTR
+    IF LK-FORMAT = "json"
+        PERFORM JSON-SEPARATOR
+        STRING '{"id": ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-NAME LS-OUT LS-PTR
+        STRING ', "kind": "' DELIMITED BY SIZE
+               LS-KIND DELIMITED BY SPACE
+               '"}' DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING '  ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-NAME LS-OUT LS-PTR
+        IF LS-KIND = "dataset"
+            STRING ' [shape=cylinder];' DELIMITED BY SIZE
+                INTO LS-OUT WITH POINTER LS-PTR
+        ELSE
+            STRING ';' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        END-IF
+    END-IF
+    PERFORM PRINT-OUT.
+
+*> Reads go from the data set to the step, writes and updates from
+*> the step to the data set.
+WRITE-EDGE.
+    MOVE WS-GE-STEP(LS-E) TO LS-S
+    PERFORM STEP-NAME
+    MOVE LS-NAME TO LS-FROM
+    MOVE WS-DS-NAME(WS-GE-DATASET(LS-E)) TO LS-TO
+    IF WS-GE-ACCESS(LS-E) = "R" OR WS-GE-ACCESS(LS-E) = "?"
+        MOVE LS-TO TO LS-FROM
+        MOVE LS-NAME TO LS-TO
+    END-IF
+    EVALUATE WS-GE-ACCESS(LS-E)
+        WHEN "R" MOVE "read" TO LS-KIND
+        WHEN "W" MOVE "write" TO LS-KIND
+        WHEN "U" MOVE "update" TO LS-KIND
+        WHEN OTHER MOVE "uses" TO LS-KIND
+    END-EVALUATE
+    MOVE SPACES TO LS-OUT
+    MOVE 1 TO LS-PTR
+    IF LK-FORMAT = "json"
+        PERFORM JSON-SEPARATOR
+        STRING '{"from": ' DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-FROM LS-OUT LS-PTR
+        STRING ', "to": ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-TO LS-OUT LS-PTR
+        STRING ', "dd": ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT WS-GE-DD(LS-E) LS-OUT
+            LS-PTR
+        STRING ', "access": "' DELIMITED BY SIZE
+               LS-KIND DELIMITED BY SPACE
+               '"}' DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING '  ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-FROM LS-OUT LS-PTR
+        STRING ' -> ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-TO LS-OUT LS-PTR
+        STRING ' [label=' DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT WS-GE-DD(LS-E) LS-OUT
+            LS-PTR
+        EVALUATE LS-KIND
+            WHEN "update"
+                STRING ', dir=both' DELIMITED BY SIZE
+                    INTO LS-OUT WITH POINTER LS-PTR
+            WHEN "uses"
+                STRING ', style=dashed, arrowhead=none' DELIMITED BY SIZE
+                    INTO LS-OUT WITH POINTER LS-PTR
+        END-EVALUATE
+        STRING '];' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    PERFORM PRINT-OUT.
+
+JSON-SEPARATOR.
+    IF LS-FIRST-ITEM = "Y"
+        STRING '        ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING '       ,' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    MOVE "N" TO LS-FIRST-ITEM.
+
+PRINT-OUT.
+    CALL "PLB-STR-LENGTH" USING LS-OUT LS-LEN
+    IF LS-LEN > 0
+        DISPLAY LS-OUT(1:LS-LEN)
+    END-IF.
+END PROGRAM PLB-GRAPH-DATASETS.
+
 *> PLB-DATA-IMPACT-COLLECT: add the declarations of data items named
 *> NAME in the file just analyzed, and every reference to them, to
 *> PLB-DATA-USES.

@@ -573,13 +573,28 @@ check "graph of jobs"                     0 '"PAYROLL (job)" -> "PAYPROC (proc)"
     -- graph --kind jobs tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/payroll.jcl tests/fixtures/jcl/payproc.prc
 check "graph of jobs marks programs not in the run" 0 '"IEFBR14" \[style=dashed\];' \
     -- graph --kind jobs tests/fixtures/jcl/payroll.jcl
+jds="tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/paylog.cob tests/fixtures/jcl/payroll.jcl tests/fixtures/jcl/payproc.prc"
+check "graph of data sets follows the program's OPEN" 0 '^  "PAYROLL.UPDATE" -> "PAY.MASTER" \[label="PAYMAST", dir=both\];$' \
+    -- graph --kind datasets $jds
+check "graph of data sets falls back on DISP" 0 '^  "PAY.OLD" -> "PAYROLL.RERUN" \[label="OLDFILE"\];$' \
+    -- graph --kind datasets $jds
+check "graph of data sets gives overrides to the job step" 0 '^  "PAYROLL.NIGHTLY" -> "PAY.LOG" \[label="PAYLOG"\];$' \
+    -- graph --kind datasets $jds
+check "graph of data sets joins generations" 0 '^  "SORTGDG.COPY" -> "PAY.HISTORY" \[label="SYSUT2"\];$' \
+    -- graph --kind datasets tests/fixtures/jcl/sortgdg.jcl
+check "graph of data sets reads utility input" 0 '^  "PAY.HISTORY" -> "SORTGDG.SORT" \[label="SORTIN"\];$' \
+    -- graph --kind datasets tests/fixtures/jcl/sortgdg.jcl
+check "graph of data sets names temporaries with their job" 0 '^  "&&SORTED (SORTGDG)" -> "SORTGDG.COPY" \[label="SYSUT1"\];$' \
+    -- graph --kind datasets tests/fixtures/jcl/sortgdg.jcl
+check_absent "graph of data sets leaves out load libraries" 'LINKLIB' \
+    -- graph --kind datasets tests/fixtures/jcl/sortgdg.jcl
 check "impact lists the steps that run a program" 0 'run by step UPDATE of job PAYROLL at tests/fixtures/jcl/payroll.jcl:4$' \
     -- impact PAYUPD tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/paylog.cob tests/fixtures/jcl/payroll.jcl
 check "impact follows callers to their steps" 0 'run by step RERUN of job PAYROLL at tests/fixtures/jcl/payroll.jcl:11 through PAYUPD' \
     -- impact PAYLOG tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/paylog.cob tests/fixtures/jcl/payroll.jcl
 check "graph refuses csv"                 2 "invalid --report format 'csv' (expected dot or json)" \
     -- graph --report csv $ix/menu.cob
-for kind in performs calls copybooks jobs; do
+for kind in performs calls copybooks jobs datasets; do
     n=$((n + 1))
     if "$bin" graph --kind $kind --report json -I $ix $ix/custlook.cob $ix/billing.cob $ix/menu.cob \
             tests/fixtures/jcl/payroll.jcl \
