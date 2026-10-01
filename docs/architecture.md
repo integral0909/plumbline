@@ -278,6 +278,34 @@ item:
 4. A final walk of each reachable unit, starting from its entry set,
    reports reads of items that are not set yet.
 
+### Call graph
+
+`src/lib/plbcall.cob`, with its table in `copy/plbcall.cpy`.
+
+The other tables describe one file at a time. The call graph collects
+the programs of every file in the run instead, so that a call in one
+file can be checked against the program it calls in another:
+
+- **Programs**: their nesting, `COMMON` and `RECURSIVE`, and their
+  `PROCEDURE DIVISION USING` parameters, including `BY VALUE` and
+  sizes from the symbol table. `ENTRY` points are programs with their
+  own parameters.
+- **Calls**: the caller, the literal name called (or, for a dynamic
+  call, the data item holding the name), and each argument with its
+  passing mode and size. An argument's size is known for literals and
+  for data items that are not reference-modified, and not known for
+  `ANY LENGTH` items, whole tables, numeric literals, `ADDRESS OF`,
+  `LENGTH OF`, and functions.
+
+Once every file is collected, `PLB-CALL-RESOLVE` matches literal names
+the way COBOL scopes program names. It looks first at programs the
+caller contains, then at `COMMON` programs of the programs containing
+the caller, and then at outermost programs and entry points of any file.
+A name that matches several outermost programs is left unresolved.
+Names are compared without regard to case.
+
+`plumbline dump calls FILE...` prints the programs and calls.
+
 ### Rules and reporting
 
 `src/lib/plbrule.cob` (catalog and findings) and `src/lib/plbcheck.cob`
@@ -285,7 +313,9 @@ item:
 
 Each rule is one program that reads the analysis tables and reports
 findings through `PLB-FIND-AT-TOKEN`, which takes the rule's configured
-severity and does nothing for disabled rules. Findings are kept separate
+severity and does nothing for disabled rules. Rules that run on the
+call graph, after all files, report through `PLB-FIND-AT` with a
+recorded position instead. Findings are kept separate
 from diagnostics. Diagnostics describe problems with Plumbline's input,
 while findings describe problems in the analyzed program. Findings are
 sorted by file, line, column, and rule with a COBOL table `SORT` before
@@ -303,7 +333,6 @@ See the [rule reference](rules.md).
 
 ### Planned
 
-- **Call graph**: static `CALL` literals across programs in one run.
 - **Baselines**: record today's findings and report only new ones.
 
 ## Design principles

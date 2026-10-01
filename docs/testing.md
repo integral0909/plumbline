@@ -48,6 +48,7 @@ suites and their commands are listed in `GOLDEN_SUITES` in the Makefile:
 | `tests/golden/flow` | `plumbline dump flow` |
 | `tests/golden/rules` | `plumbline check --fail-on never` |
 | `tests/golden/refs` | `plumbline dump refs` |
+| `tests/golden/calls` | `plumbline dump calls` |
 
 Copybooks for the `pp` suite live in `tests/golden/pp/copy/`, with a
 `.cpy` extension, so the runner does not mistake them for test inputs.
@@ -61,7 +62,8 @@ has checked to be right.
 
 `make test` also runs `tools/selfcheck.sh`, which runs `plumbline check`
 on every COBOL source file of Plumbline itself and fails on any finding or
-diagnostic. Plumbline is held to its own rules.
+diagnostic. It then checks all of them in one run, so that every `CALL`
+between Plumbline's programs is checked against the program it calls. Plumbline is held to its own rules.
 The analyzer's own source is several thousand lines of real COBOL, and
 this check has already caught parser bugs that the targeted tests missed.
 
