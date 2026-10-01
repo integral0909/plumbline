@@ -1,7 +1,11 @@
 *> ---------------------------------------------------------------
 *> plbread: loading source files into a PLB-SOURCE-SET.
 *>
-*> PLB-SRC-LOAD reads a file in two passes:
+*> PLB-SRC-LOAD adds a file and reads it; PLB-SRC-ADD and PLB-SRC-READ
+*> do the two steps apart, PLB-SRC-ENSURE reads a file that is not in
+*> memory, and PLB-SRC-RELEASE drops the lines read since a mark.
+*>
+*> PLB-SRC-READ reads a file in two passes:
 *>   1. read every physical line, expand tabs, and append the text
 *>      to the heap;
 *>   2. decide the starting reference format (given, or detected)
@@ -27,13 +31,82 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET.
     GOBACK.
 END PROGRAM PLB-SRC-INIT.
 
-*> PLB-SRC-LOAD: read the file at PATH into the source set.
+*> PLB-SRC-LOAD: add the file at PATH to the source set and read it.
 *> MODE is "X" (fixed), "F" (free), or "A" (detect).
 *> FILE-ID receives the new file's id (0 if nothing was loaded).
 *> STATUS receives 0 when the file was loaded, 1 otherwise; problems
 *> are recorded in the diagnostics table either way.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-SRC-LOAD.
+DATA DIVISION.
+LINKAGE SECTION.
+COPY "plbsrc.cpy".
+COPY "plbdiag.cpy".
+01  LK-PATH                 PIC X ANY LENGTH.
+01  LK-MODE                 PIC X.
+01  LK-FILE-ID              PIC 9(4) COMP-5.
+01  LK-STATUS               PIC 9(4) COMP-5.
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS LK-PATH
+        LK-MODE LK-FILE-ID LK-STATUS.
+    CALL "PLB-SRC-ADD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS LK-PATH
+        LK-MODE LK-FILE-ID
+    IF LK-FILE-ID = 0
+        MOVE 1 TO LK-STATUS
+        GOBACK
+    END-IF
+    CALL "PLB-SRC-READ" USING PLB-SOURCE-SET PLB-DIAGNOSTICS LK-FILE-ID
+        LK-STATUS
+    *> A file that cannot be opened gets no id.
+    IF SF-READS(LK-FILE-ID) = 0 AND LK-FILE-ID = SS-FILE-COUNT
+        SUBTRACT 1 FROM SS-FILE-COUNT
+        MOVE 0 TO LK-FILE-ID
+    END-IF
+    GOBACK.
+END PROGRAM PLB-SRC-LOAD.
+
+*> PLB-SRC-ADD: give the file at PATH an id without reading it.
+*> FILE-ID receives 0 when the source set has no room for it.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SRC-ADD.
+DATA DIVISION.
+LOCAL-STORAGE SECTION.
+01  LS-MESSAGE              PIC X(200).
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-ZERO-COLUMN          PIC 9(4) COMP-5 VALUE 0.
+01  LS-NO-FILE              PIC 9(4) COMP-5 VALUE 0.
+LINKAGE SECTION.
+COPY "plbsrc.cpy".
+COPY "plbdiag.cpy".
+01  LK-PATH                 PIC X ANY LENGTH.
+01  LK-MODE                 PIC X.
+01  LK-FILE-ID              PIC 9(4) COMP-5.
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS LK-PATH
+        LK-MODE LK-FILE-ID.
+    MOVE 0 TO LK-FILE-ID
+    IF SS-FILE-COUNT >= SS-MAX-FILES
+        MOVE SPACES TO LS-MESSAGE
+        STRING "too many source files (limit " SS-MAX-FILES ")"
+            DELIMITED BY SIZE INTO LS-MESSAGE
+        CALL "PLB-DIAG-ADD" USING PLB-DIAGNOSTICS "E" "RD005"
+            LS-NO-FILE LS-ZERO LS-ZERO-COLUMN LS-MESSAGE
+        GOBACK
+    END-IF
+    ADD 1 TO SS-FILE-COUNT
+    MOVE SS-FILE-COUNT TO LK-FILE-ID
+    MOVE LK-PATH TO SF-PATH(LK-FILE-ID)
+    MOVE LK-MODE TO SF-MODE(LK-FILE-ID)
+    MOVE 0 TO SF-READS(LK-FILE-ID) SF-FIRST-LINE(LK-FILE-ID)
+        SF-LINE-COUNT(LK-FILE-ID)
+    MOVE "N" TO SF-LOADED(LK-FILE-ID) SF-DETECTED(LK-FILE-ID)
+    MOVE SPACE TO SF-FORMAT(LK-FILE-ID)
+    GOBACK.
+END PROGRAM PLB-SRC-ADD.
+
+*> PLB-SRC-READ: read file FILE-ID, which was added and whose lines
+*> are not in memory, appending its lines to the source set.
+*> STATUS receives 0 when the whole file was read, 1 otherwise.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SRC-READ.
 ENVIRONMENT DIVISION.
 INPUT-OUTPUT SECTION.
 FILE-CONTROL.
@@ -61,27 +134,17 @@ WORKING-STORAGE SECTION.
 01  WS-FULL                 PIC X.
 01  WS-MESSAGE              PIC X(200).
 01  WS-DONE                 PIC X.
+01  WS-NO-FILE              PIC 9(4) COMP-5 VALUE 0.
 LINKAGE SECTION.
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
-01  LK-PATH                 PIC X ANY LENGTH.
-01  LK-MODE                 PIC X.
 01  LK-FILE-ID              PIC 9(4) COMP-5.
 01  LK-STATUS               PIC 9(4) COMP-5.
-PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS LK-PATH
-        LK-MODE LK-FILE-ID LK-STATUS.
-    MOVE 0 TO LK-FILE-ID
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS LK-FILE-ID
+        LK-STATUS.
     MOVE 1 TO LK-STATUS
-    MOVE LK-PATH TO WS-PATH
+    MOVE SF-PATH(LK-FILE-ID) TO WS-PATH
     MOVE 0 TO WS-LINE-NO WS-COLUMN
-
-    IF SS-FILE-COUNT >= SS-MAX-FILES
-        MOVE SPACES TO WS-MESSAGE
-        STRING "too many source files (limit " SS-MAX-FILES ")"
-            DELIMITED BY SIZE INTO WS-MESSAGE
-        PERFORM ADD-LIMIT-ERROR
-        GOBACK
-    END-IF
 
     OPEN INPUT SOURCE-FILE
     IF WS-STATUS NOT = "00"
@@ -90,13 +153,12 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS LK-PATH
             " (file status " WS-STATUS ")"
             DELIMITED BY SIZE INTO WS-MESSAGE
         CALL "PLB-DIAG-ADD" USING PLB-DIAGNOSTICS "E" "RD001"
-            LK-FILE-ID WS-LINE-NO WS-COLUMN WS-MESSAGE
+            WS-NO-FILE WS-LINE-NO WS-COLUMN WS-MESSAGE
         GOBACK
     END-IF
 
-    ADD 1 TO SS-FILE-COUNT
-    MOVE SS-FILE-COUNT TO LK-FILE-ID
-    MOVE LK-PATH TO SF-PATH(LK-FILE-ID)
+    ADD 1 TO SF-READS(LK-FILE-ID)
+    MOVE "Y" TO SF-LOADED(LK-FILE-ID)
     COMPUTE SF-FIRST-LINE(LK-FILE-ID) = SS-LINE-COUNT + 1
     MOVE 0 TO SF-LINE-COUNT(LK-FILE-ID)
     MOVE "N" TO WS-FULL WS-DONE
@@ -129,7 +191,8 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS LK-PATH
     END-PERFORM
     CLOSE SOURCE-FILE
 
-    CALL "PLB-SRC-SET-FORMAT" USING PLB-SOURCE-SET LK-FILE-ID LK-MODE
+    CALL "PLB-SRC-SET-FORMAT" USING PLB-SOURCE-SET LK-FILE-ID
+        SF-MODE(LK-FILE-ID)
     CALL "PLB-SRC-CLASSIFY-FILE" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
         LK-FILE-ID
     IF WS-FULL = "N"
@@ -202,7 +265,86 @@ ADD-LIMIT-ERROR.
     MOVE 0 TO WS-COLUMN
     CALL "PLB-DIAG-ADD" USING PLB-DIAGNOSTICS "E" "RD005"
         LK-FILE-ID WS-LINE-NO WS-COLUMN WS-MESSAGE.
-END PROGRAM PLB-SRC-LOAD.
+END PROGRAM PLB-SRC-READ.
+
+*> PLB-SRC-ENSURE: make sure the lines of file FILE-ID are in memory,
+*> reading the file if they are not. The first read reports problems
+*> in the diagnostics table; a later one found them already and keeps
+*> quiet. STATUS receives 0 when the lines are there, 1 otherwise.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SRC-ENSURE.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+LOCAL-STORAGE SECTION.
+01  LS-SAVED-COUNT          PIC 9(9) COMP-5.
+01  LS-SAVED-ERRORS         PIC 9(9) COMP-5.
+01  LS-SAVED-WARNINGS       PIC 9(9) COMP-5.
+01  LS-SAVED-DROPPED        PIC 9(9) COMP-5.
+LINKAGE SECTION.
+COPY "plbsrc.cpy".
+COPY "plbdiag.cpy".
+01  LK-FILE-ID              PIC 9(4) COMP-5.
+01  LK-STATUS               PIC 9(4) COMP-5.
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS LK-FILE-ID
+        LK-STATUS.
+    MOVE 0 TO LK-STATUS
+    IF LK-FILE-ID < 1 OR LK-FILE-ID > SS-FILE-COUNT
+        MOVE 1 TO LK-STATUS
+        GOBACK
+    END-IF
+    IF SF-LOADED(LK-FILE-ID) = "Y"
+        GOBACK
+    END-IF
+    IF SF-READS(LK-FILE-ID) = 0
+        CALL "PLB-SRC-READ" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            LK-FILE-ID LK-STATUS
+    ELSE
+        *> Diagnostics are only ever appended: forget the ones this
+        *> read repeats.
+        MOVE DG-COUNT TO LS-SAVED-COUNT
+        MOVE DG-ERRORS TO LS-SAVED-ERRORS
+        MOVE DG-WARNINGS TO LS-SAVED-WARNINGS
+        MOVE DG-DROPPED TO LS-SAVED-DROPPED
+        CALL "PLB-SRC-READ" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            LK-FILE-ID LK-STATUS
+        MOVE LS-SAVED-COUNT TO DG-COUNT
+        MOVE LS-SAVED-ERRORS TO DG-ERRORS
+        MOVE LS-SAVED-WARNINGS TO DG-WARNINGS
+        MOVE LS-SAVED-DROPPED TO DG-DROPPED
+    END-IF
+    IF SF-LOADED(LK-FILE-ID) NOT = "Y"
+        MOVE 1 TO LK-STATUS
+    END-IF
+    GOBACK.
+END PROGRAM PLB-SRC-ENSURE.
+
+*> PLB-SRC-RELEASE: drop every line read since the mark LINES, HEAP
+*> (the values of SS-LINE-COUNT and SS-HEAP-USED then). Files whose
+*> lines go keep their ids, paths, and line counts, and can be read
+*> again with PLB-SRC-ENSURE.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SRC-RELEASE.
+DATA DIVISION.
+LOCAL-STORAGE SECTION.
+01  LS-F                    PIC 9(4) COMP-5.
+LINKAGE SECTION.
+COPY "plbsrc.cpy".
+01  LK-LINES                PIC 9(9) COMP-5.
+01  LK-HEAP                 PIC 9(9) COMP-5.
+PROCEDURE DIVISION USING PLB-SOURCE-SET LK-LINES LK-HEAP.
+    IF LK-LINES >= SS-LINE-COUNT
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-F FROM 1 BY 1 UNTIL LS-F > SS-FILE-COUNT
+        IF SF-LOADED(LS-F) = "Y" AND SF-FIRST-LINE(LS-F) > LK-LINES
+            MOVE "N" TO SF-LOADED(LS-F)
+            MOVE 0 TO SF-FIRST-LINE(LS-F)
+        END-IF
+    END-PERFORM
+    MOVE LK-LINES TO SS-LINE-COUNT
+    MOVE LK-HEAP TO SS-HEAP-USED
+    GOBACK.
+END PROGRAM PLB-SRC-RELEASE.
 
 *> PLB-SRC-SET-FORMAT: set the starting format of FILE-ID from MODE,
 *> detecting it when MODE is "A".

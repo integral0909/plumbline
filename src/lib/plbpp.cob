@@ -1061,7 +1061,8 @@ FIND-OR-LOAD.
         EXIT PARAGRAPH
     END-IF
     *> A copybook an earlier file of the run included is already in
-    *> the source set; tokenize it again rather than read it again.
+    *> the source set: tokenize it again, under the same id, reading it
+    *> again only if its lines were released since.
     MOVE 0 TO LS-FILE-ID
     PERFORM VARYING LS-LOADED FROM 1 BY 1
             UNTIL LS-LOADED > SS-FILE-COUNT
@@ -1073,6 +1074,12 @@ FIND-OR-LOAD.
     IF LS-FILE-ID = 0
         CALL "PLB-SRC-LOAD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS LS-PATH
             PO-FORMAT LS-FILE-ID LS-LOAD-STATUS
+    ELSE
+        CALL "PLB-SRC-ENSURE" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            LS-FILE-ID LS-LOAD-STATUS
+        IF LS-LOAD-STATUS NOT = 0
+            MOVE 0 TO LS-FILE-ID
+        END-IF
     END-IF
     IF LS-FILE-ID = 0
         MOVE "N" TO LS-OK
