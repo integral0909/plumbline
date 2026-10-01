@@ -201,6 +201,12 @@ check "evaluate-without-other finds the EVALUATE" 0 'evaluate.cob:12:12: note: E
     -- check --no-config --enable evaluate-without-other --fail-on error tests/fixtures/rules/evaluate.cob
 check_absent "an EVALUATE with WHEN OTHER is fine" 'evaluate.cob:8:' \
     -- check --no-config --enable PLB-M011 tests/fixtures/rules/evaluate.cob
+check "deep-nesting reports the outermost statement" 0 'nesting.cob:11:5: note: IF nests statements 4 levels deep (limit 3) \[PLB-M012\]' \
+    -- check --config tests/fixtures/config/nesting.conf tests/fixtures/rules/nesting.cob
+check_absent "deep-nesting reports it once" 'nesting.cob:2[0-9]:' \
+    -- check --config tests/fixtures/config/nesting.conf tests/fixtures/rules/nesting.cob
+check "deep-nesting allows 5 levels by default" 0 '^$' \
+    -- check --no-config --enable deep-nesting tests/fixtures/rules/nesting.cob
 check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
 check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
     -- rules --no-config --enable evaluate-without-other

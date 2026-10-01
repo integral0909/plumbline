@@ -45,6 +45,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M009](#plb-m009-complex-paragraph) | complex-paragraph | note, off | Paragraph or section is more complex than the limit |
 | [PLB-M010](#plb-m010-long-paragraph) | long-paragraph | note, off | Paragraph or section has more statements than the limit |
 | [PLB-M011](#plb-m011-evaluate-without-other) | evaluate-without-other | note, off | EVALUATE has no WHEN OTHER |
+| [PLB-M012](#plb-m012-deep-nesting) | deep-nesting | note, off | Statements are nested deeper than the limit |
 | [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, off | CALL of a compiler library routine |
 | [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
@@ -834,6 +835,25 @@ A value that no `WHEN` matches does nothing, silently. Often that is
 what was meant, so the rule is for teams whose convention is that
 every `EVALUATE` says what happens to the other values, if only
 `WHEN OTHER CONTINUE`.
+
+## PLB-M012 deep-nesting
+
+*Off by default.* A statement whose body nests statements deeper than
+the limit (5 by default):
+
+```
+IF nests statements 6 levels deep (limit 5)
+```
+
+A statement inside an `IF` inside another `IF` is at level 2. Every
+statement with a body counts: `IF`, `EVALUATE`, `SEARCH`, inline
+`PERFORM`, and the phrases of `READ ... AT END` or `ADD ... ON SIZE
+ERROR`. The finding is at the outermost statement of the paragraph,
+once, however many statements inside it go too deep. Moving the inner
+levels into a paragraph of their own, or testing the exceptional cases
+first and leaving, usually flattens the code. Like the size limits,
+where the limit lies is a team's choice: `limit deep-nesting N` in
+`plumbline.conf` changes it.
 
 ## PLB-P001 vendor-routine
 
