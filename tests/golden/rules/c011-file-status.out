@@ -1,0 +1,1 @@
+tests/golden/rules/c011-file-status.cob:18:13: warning: UNSET-STATUS is read but never given a value [PLB-C011]
