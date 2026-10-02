@@ -2,6 +2,10 @@
 # End-to-end checks of the plumbline executable: output and exit codes.
 # Usage: tests/cli/test-cli.sh path/to/plumbline
 # Emits TAP and exits non-zero on any failure.
+#
+# Variables such as $sm hold several file names, and are split into
+# arguments on purpose.
+# shellcheck disable=SC2086
 set -u
 
 bin=${1:?usage: test-cli.sh path/to/plumbline}
