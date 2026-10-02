@@ -1,0 +1,7 @@
+tests/golden/rules/c039-decimal-to-alphanumeric.cob:16:20: warning: the value given to TEXT-OUT here is replaced on line 17 before it is used [PLB-C030]
+tests/golden/rules/c039-decimal-to-alphanumeric.cob:16:20: warning: MOVE of AMOUNT, which has decimal places, to alphanumeric TEXT-OUT is not a valid MOVE: only integers may be moved to alphanumeric items [PLB-C039]
+tests/golden/rules/c039-decimal-to-alphanumeric.cob:17:18: warning: the value given to TEXT-OUT here is replaced on line 18 before it is used [PLB-C030]
+tests/golden/rules/c039-decimal-to-alphanumeric.cob:17:18: warning: MOVE of RATE, which has decimal places, to alphanumeric TEXT-OUT is not a valid MOVE: only integers may be moved to alphanumeric items [PLB-C039]
+tests/golden/rules/c039-decimal-to-alphanumeric.cob:18:21: warning: the value given to TEXT-OUT here is replaced on line 19 before it is used [PLB-C030]
+tests/golden/rules/c039-decimal-to-alphanumeric.cob:19:21: warning: the value given to TEXT-OUT here is replaced on line 21 before it is used [PLB-C030]
+tests/golden/rules/c039-decimal-to-alphanumeric.cob:22:20: warning: MOVE of AMOUNT, which has decimal places, to alphanumeric RECORD-AMOUNT is not a valid MOVE: only integers may be moved to alphanumeric items [PLB-C039]

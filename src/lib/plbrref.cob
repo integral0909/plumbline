@@ -84,6 +84,10 @@ END PROGRAM PLB-RULE-NAMES.
 *> checked: their sizes are not known here. Leading zeros of numeric
 *> literals do not count as digits.
 *>
+*> PLB-C039 decimal-to-alphanumeric and PLB-M016 signed-to-alphanumeric
+*> (off by default) are checked here too: a numeric item with decimal
+*> places, or a signed integer, moved to an alphanumeric item.
+*>
 *> PLB-M004 alnum-narrowing (off by default) is checked here too: an
 *> alphanumeric, edited, or group item moved to a smaller alphanumeric
 *> or group item. That is often intended, so it is only a note.
@@ -98,6 +102,8 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-RULE-TRUNCATION      PIC 9(4) COMP-5.
 01  LS-RULE-NARROWING       PIC 9(4) COMP-5.
+01  LS-RULE-DECIMAL-TEXT    PIC 9(4) COMP-5.
+01  LS-RULE-SIGNED-TEXT     PIC 9(4) COMP-5.
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-DEPTH                PIC S9(9) COMP-5.
@@ -147,8 +153,12 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         PLB-REFS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C008" LS-RULE-TRUNCATION
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M004" LS-RULE-NARROWING
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C039" LS-RULE-DECIMAL-TEXT
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M016" LS-RULE-SIGNED-TEXT
     IF RL-ENABLED(LS-RULE-TRUNCATION) NOT = "Y"
        AND RL-ENABLED(LS-RULE-NARROWING) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-DECIMAL-TEXT) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-SIGNED-TEXT) NOT = "Y"
         GOBACK
     END-IF
     IF AS-COUNT = 0
@@ -301,6 +311,13 @@ CHECK-RECEIVER.
                    AND LS-SEND-SIZE > SY-SIZE(LS-RECV)
                     PERFORM REPORT-ITEM-CHARACTERS
                 END-IF
+                *> A number with decimal places or a sign, as text.
+                IF SY-CATEGORY(LS-SEND-SYM) = "9"
+                   AND SY-CATEGORY(LS-RECV) NOT = "G"
+                   AND (SY-SCALE(LS-SEND-SYM) > 0
+                        OR SY-SIGNED(LS-SEND-SYM) = "Y")
+                    PERFORM REPORT-NUMERIC-TEXT
+                END-IF
             END-IF
         *> Digits into a numeric receiver.
         WHEN SY-CATEGORY(LS-RECV) = "9" OR "E"
@@ -355,6 +372,33 @@ REPORT-ITEM-CHARACTERS.
            SY-NAME(LS-RECV) DELIMITED BY SPACE
            " (" LS-B-TEXT(1:LS-B-LEN) " characters)" DELIMITED BY SIZE
         INTO LS-MESSAGE
+    PERFORM REPORT-FINDING.
+
+*> PLB-C039: a number with decimal places is not a valid sender at all
+*> (the standard allows only integers, and GnuCOBOL rejects the MOVE).
+*> PLB-M016: a signed integer loses its sign silently.
+REPORT-NUMERIC-TEXT.
+    MOVE SPACES TO LS-MESSAGE
+    IF SY-SCALE(LS-SEND-SYM) > 0
+        MOVE LS-RULE-DECIMAL-TEXT TO LS-RULE
+        STRING "MOVE of " DELIMITED BY SIZE
+               SY-NAME(LS-SEND-SYM) DELIMITED BY SPACE
+               ", which has decimal places, to alphanumeric "
+               DELIMITED BY SIZE
+               SY-NAME(LS-RECV) DELIMITED BY SPACE
+               " is not a valid MOVE: only integers may be moved to"
+               " alphanumeric items" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    ELSE
+        MOVE LS-RULE-SIGNED-TEXT TO LS-RULE
+        STRING "MOVE of signed " DELIMITED BY SIZE
+               SY-NAME(LS-SEND-SYM) DELIMITED BY SPACE
+               " to alphanumeric " DELIMITED BY SIZE
+               SY-NAME(LS-RECV) DELIMITED BY SPACE
+               " drops its sign: -5 and 5 give the same text"
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    END-IF
     PERFORM REPORT-FINDING.
 
 REPORT-DIGITS.

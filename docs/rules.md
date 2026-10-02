@@ -49,6 +49,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C036](#plb-c036-arithmetic-overflow) | arithmetic-overflow | warning | ADD, SUBTRACT, or MULTIPLY into a receiver narrower than an operand |
 | [PLB-C037](#plb-c037-search-index-not-set) | search-index-not-set | warning | Serial SEARCH whose index the paragraph does not set first |
 | [PLB-C038](#plb-c038-condition-value-unfit) | condition-value-unfit | warning | Condition name with a value its item cannot hold |
+| [PLB-C039](#plb-c039-decimal-to-alphanumeric) | decimal-to-alphanumeric | warning | MOVE of a number with decimal places to an alphanumeric item |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -74,6 +75,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M013](#plb-m013-unused-copybook) | unused-copybook | note | Copybook declares data the program never uses |
 | [PLB-M014](#plb-m014-sql-select-star) | sql-select-star | note | Embedded SQL selects every column with SELECT * |
 | [PLB-M015](#plb-m015-packed-even-digits) | packed-even-digits | note, off | Packed-decimal item has an even number of digits |
+| [PLB-M016](#plb-m016-signed-to-alphanumeric) | signed-to-alphanumeric | note, off | MOVE of a signed integer to an alphanumeric item |
 | [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, off | CALL of a compiler library routine |
 | [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
 | [PLB-Q001](#plb-q001-sql-table-undeclared) | sql-table-undeclared | note | Embedded SQL uses a table the program does not declare |
@@ -1077,6 +1079,23 @@ GnuCOBOL warns about some of these where the condition is used
 (`-Wconstant-expression`, `-Wtruncate`); this rule reports each value
 at its declaration, used or not, including decimal places and signs.
 
+## PLB-C039 decimal-to-alphanumeric
+
+A `MOVE` of a numeric item with decimal places to an alphanumeric item:
+
+```cobol
+01  RATE                PIC 9V999.
+01  TEXT-OUT            PIC X(10).
+    MOVE RATE TO TEXT-OUT                   *> reported
+```
+
+The standard allows only integers to be moved to an alphanumeric item,
+and GnuCOBOL rejects this `MOVE` ("invalid MOVE statement") unless the
+dialect option `move-noninteger-to-alphanumeric` allows it. Where a
+compiler accepts it, the decimal point is not written: `1.250` becomes
+`1250`. Move the number to a numeric-edited item (`PIC 9.999`) and that
+item to the text.
+
 ## PLB-I001 pcb-dbd-unknown
 
 The I rules check IMS definitions, given to `check` as `*.dbd` and
@@ -1462,6 +1481,22 @@ its first half byte is unused. IBM compilers generate extra code to
 keep that half byte zero, and data written by another program can
 hide a digit there that the picture does not show. Many shops' coding
 standards ask for odd digit counts; the rule is for them.
+
+## PLB-M016 signed-to-alphanumeric
+
+A `MOVE` of a signed integer to an alphanumeric item:
+
+```cobol
+01  BALANCE             PIC S9(7).
+01  TEXT-OUT            PIC X(10).
+    MOVE BALANCE TO TEXT-OUT                *> reported, when enabled
+```
+
+Only the digits are moved: `-500` and `500` both give `0000500`. When
+the value can be negative, move it to a numeric-edited item with a sign
+(`PIC -(6)9`) first. Most signed items moved to text (record counts,
+CICS response codes) are never negative, which is why the rule is off
+by default; enable it with `--enable signed-to-alphanumeric`.
 
 ## PLB-P001 vendor-routine
 
