@@ -177,6 +177,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-K002 read-update-not-released.
 - Rule PLB-Q004 sql-no-where.
 - Rule PLB-C046 overlapping-move.
+- Rule PLB-C047 foreign-index.
 - `plumbline xref`: the cross-reference of each program, its data
   items and procedures with the lines that define and name them, as
   text or JSON.
