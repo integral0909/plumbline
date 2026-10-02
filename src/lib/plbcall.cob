@@ -186,11 +186,23 @@ SQL-WORD.
     COMPUTE LS-C = LS-T + 1
     EVALUATE LS-WORD
         WHEN "FROM" WHEN "JOIN"
-            IF LS-SQL-VERB = "D"
-                MOVE "D" TO LS-KIND
-            ELSE
-                MOVE "S" TO LS-KIND
+            EVALUATE LS-SQL-VERB
+                WHEN "D"
+                    MOVE "D" TO LS-KIND
+                *> FETCH ... FROM cursor names no table.
+                WHEN "F"
+                    CONTINUE
+                WHEN OTHER
+                    MOVE "S" TO LS-KIND
+            END-EVALUATE
+        WHEN "FETCH"
+            *> The statement FETCH, not FETCH FIRST n ROWS in a SELECT.
+            COMPUTE LS-C = LS-T - 1
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C LS-TEXT LS-LEN
+            IF LS-TEXT = "SQL"
+                MOVE "F" TO LS-SQL-VERB
             END-IF
+            COMPUTE LS-C = LS-T + 1
         WHEN "UPDATE"
             *> Not FOR UPDATE OF column.
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C LS-TEXT LS-LEN

@@ -1,6 +1,7 @@
 *> Tables used in embedded SQL without a declaration: once per table,
 *> at its first use. Declared tables, the DB2 catalog, subqueries, and
-*> FOR UPDATE OF columns are fine.
+*> FOR UPDATE OF columns are fine, and so is the cursor of FETCH ...
+*> FROM.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. TABLES.
 DATA DIVISION.
@@ -37,5 +38,16 @@ PROCEDURE DIVISION.
     EXEC SQL DELETE FROM PAY.LEAVERS END-EXEC
     IF SQLCODE NOT = 0
         DISPLAY "NOT DELETED"
+    END-IF
+    EXEC SQL OPEN EMP-CURSOR END-EXEC
+    IF SQLCODE = 0
+        EXEC SQL FETCH NEXT FROM EMP-CURSOR INTO :EMP-NAME END-EXEC
+        IF SQLCODE NOT = 0
+            DISPLAY "NO ROW"
+        END-IF
+        EXEC SQL CLOSE EMP-CURSOR END-EXEC
+        IF SQLCODE NOT = 0
+            DISPLAY "NOT CLOSED"
+        END-IF
     END-IF
     GOBACK.
