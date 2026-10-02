@@ -188,6 +188,19 @@ The findings were checked by rule:
   `-INIT` paragraph that falls into or goes to the test paragraph, and
   the rule now follows that step.
 
+- **PLB-C041 write-from-truncation.** 9 findings, all read. Each
+  loses the end of its `FROM` area, and in each the suite means it.
+  SQ117A ("the rightmost 7 characters should be truncated in the output
+  record") and SQ116A, for `REWRITE`, test the truncation itself;
+  SQ106A writes its short, 120-byte record type from the 151-byte
+  buffer it also writes long records from (3); SQ212A and SQ224A write
+  2117- and 2065-byte areas into a variable record of at most 2048. In
+  IX207A (2) the record is 192 bytes, because the fields that would
+  make the 240 of its `RECORD CONTAINS` clause are commented out. A
+  first version also reported `READ ... INTO` a shorter item: 17 more
+  in NIST, and in CardDemo the 80-byte date parameter card read into a
+  21-byte area, which is meant.
+
 ## Limits
 
 - **Report Writer** is parsed and its `SOURCE`, `SUM`, and `CONTROL`

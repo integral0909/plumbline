@@ -51,6 +51,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C038](#plb-c038-condition-value-unfit) | condition-value-unfit | warning | Condition name with a value its item cannot hold |
 | [PLB-C039](#plb-c039-decimal-to-alphanumeric) | decimal-to-alphanumeric | warning | MOVE of a number with decimal places to an alphanumeric item |
 | [PLB-C040](#plb-c040-odo-object-too-small) | odo-object-too-small | warning | OCCURS DEPENDING ON object cannot hold the table's largest count |
+| [PLB-C041](#plb-c041-write-from-truncation) | write-from-truncation | warning | WRITE or REWRITE FROM an item longer than the record |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1119,6 +1120,26 @@ record is written. Declare the count with as many digits as the
 table's largest count. The count is the numeric item of that name in
 the same program; one with more than nine integer digits is not
 checked.
+
+## PLB-C041 write-from-truncation
+
+A `WRITE` or `REWRITE` `FROM` an item longer than the record:
+
+```cobol
+FD  OUT-FILE.
+01  OUT-REC             PIC X(80).
+01  WS-LONG-LINE        PIC X(100).
+    WRITE OUT-REC FROM WS-LONG-LINE         *> reported
+```
+
+`FROM` moves the item to the record first, as `MOVE` does, so the last
+20 bytes never reach the file. The record is usually what is wrong: a
+field added to the working-storage layout but not to the file's.
+
+`READ ... INTO` a shorter item is not reported, because reading only
+the start of a record, such as the first columns of a control card, is
+common and meant. Items whose size changes at run time (`OCCURS
+DEPENDING ON`) and reference-modified items are not checked.
 
 ## PLB-I001 pcb-dbd-unknown
 
