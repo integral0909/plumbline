@@ -50,6 +50,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C037](#plb-c037-search-index-not-set) | search-index-not-set | warning | Serial SEARCH whose index the paragraph does not set first |
 | [PLB-C038](#plb-c038-condition-value-unfit) | condition-value-unfit | warning | Condition name with a value its item cannot hold |
 | [PLB-C039](#plb-c039-decimal-to-alphanumeric) | decimal-to-alphanumeric | warning | MOVE of a number with decimal places to an alphanumeric item |
+| [PLB-C040](#plb-c040-odo-object-too-small) | odo-object-too-small | warning | OCCURS DEPENDING ON object cannot hold the table's largest count |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1098,6 +1099,25 @@ dialect option `move-noninteger-to-alphanumeric` allows it. Where a
 compiler accepts it, the decimal point is not written: `1.250` becomes
 `1250`. Move the number to a numeric-edited item (`PIC 9.999`) and that
 item to the text.
+
+## PLB-C040 odo-object-too-small
+
+A variable-length table whose count item cannot hold its largest count:
+
+```cobol
+01  SMALL-COUNT         PIC 99.
+01  ORDERS.
+    05  ORDER-LINE      PIC X(20) OCCURS 1 TO 500
+                        DEPENDING ON SMALL-COUNT.    *> reported
+```
+
+`SMALL-COUNT` never goes past 99, so `ORDERS` never holds more than 99
+lines, and moving a count of 150 to it stores 50: the table then looks
+shorter than it is, and the lines after the 50th are lost when the
+record is written. Declare the count with as many digits as the
+table's largest count. The count is the numeric item of that name in
+the same program; one with more than nine integer digits is not
+checked.
 
 ## PLB-I001 pcb-dbd-unknown
 

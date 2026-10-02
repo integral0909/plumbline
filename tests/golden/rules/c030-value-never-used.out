@@ -8,6 +8,5 @@ tests/golden/rules/c030-value-never-used.cob:50:20: warning: the value given to 
 tests/golden/rules/c030-value-never-used.cob:56:15: warning: the value given to TOTAL here is replaced on line 57 before it is used [PLB-C030]
 tests/golden/rules/c030-value-never-used.cob:64:15: warning: the value given to TOTAL here is replaced on line 67 before it is used [PLB-C030]
 tests/golden/rules/c030-value-never-used.cob:65:17: note: NAME-ENTRY is given a value but never read [PLB-M005]
-tests/golden/rules/c030-value-never-used.cob:69:15: note: NAME-COUNT is given a value but never read [PLB-M005]
 tests/golden/rules/c030-value-never-used.cob:73:24: warning: OTHER-REC is read but never given a value [PLB-C011]
 tests/golden/rules/c030-value-never-used.cob:75:1: warning: paragraph SHOW-TOTAL is performed, but HIDDEN-READS also falls into it [PLB-C002]

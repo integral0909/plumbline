@@ -151,6 +151,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C037 search-index-not-set.
 - Rule PLB-C038 condition-value-unfit.
 - Rules PLB-Q002 cursor-not-closed and PLB-Q003 cursor-not-opened.
+- Rule PLB-C040 odo-object-too-small.
 - Rule PLB-K002 read-update-not-released.
 - Rules PLB-C039 decimal-to-alphanumeric and PLB-M016
   signed-to-alphanumeric (off by default).
@@ -221,6 +222,8 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- PLB-M005 reported the object of OCCURS DEPENDING ON as never read,
+  though every use of the table reads it.
 - On a file system that ignores case (macOS), a copybook named in
   upper case was reported under its lower-case spelling.
 - PLB-Q001 took the cursor of `FETCH ... FROM cursor` for a table.

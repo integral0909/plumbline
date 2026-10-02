@@ -6,6 +6,7 @@
 *>   PLB-M013  unused-copybook
 *>   PLB-M015  packed-even-digits
 *>   PLB-C038  condition-value-unfit
+*>   PLB-C040  odo-object-too-small
 *> ---------------------------------------------------------------
 
 *> PLB-C007 redefines-larger: an item below level 01 that is larger
@@ -839,3 +840,101 @@ END-MESSAGE.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-T LS-MESSAGE.
 END PROGRAM PLB-RULE-C038.
+
+*> PLB-C040 odo-object-too-small: OCCURS ... TO max DEPENDING ON n,
+*> where n is a numeric item whose picture holds fewer integer digits
+*> than max: n never reaches max, so the table never holds more than
+*> n's largest value, and a larger count moved to n loses its
+*> high-order digits. The object is the item of that name in the same
+*> program; one with more than 9 integer digits is not checked.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-C040.
+DATA DIVISION.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-O                    PIC 9(9) COMP-5.
+01  LS-NAME                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-INT                  PIC S9(9) COMP-5.
+01  LS-CAPACITY             PIC 9(18) COMP-5.
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-A-TEXT               PIC X(20).
+01  LS-A-LEN                PIC 9(9) COMP-5.
+01  LS-B-TEXT               PIC X(20).
+01  LS-B-LEN                PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbsym.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-SYMBOLS
+        PLB-RULES PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C040" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
+        IF SY-ODO-TOKEN(LS-S) > 0 AND SY-OCCURS(LS-S) > 0
+           AND SY-UNBOUNDED(LS-S) NOT = "Y"
+            PERFORM CHECK-TABLE
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+CHECK-TABLE.
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS SY-ODO-TOKEN(LS-S) LS-NAME
+        LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-NAME) TO LS-NAME
+    PERFORM VARYING LS-O FROM 1 BY 1 UNTIL LS-O > SY-COUNT
+        IF SY-NAME(LS-O) = LS-NAME
+           AND SY-PROGRAM(LS-O) = SY-PROGRAM(LS-S)
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-O > SY-COUNT
+        EXIT PARAGRAPH
+    END-IF
+    IF SY-CATEGORY(LS-O) NOT = "9" OR SY-SIZE(LS-O) = 0
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-INT = SY-DIGITS(LS-O) - SY-SCALE(LS-O)
+    IF LS-INT < 1 OR LS-INT > 9
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-CAPACITY = 10 ** LS-INT - 1
+    IF LS-CAPACITY >= SY-OCCURS(LS-S)
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SY-OCCURS(LS-S) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-A-TEXT LS-A-LEN
+    MOVE LS-CAPACITY TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-B-TEXT LS-B-LEN
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    *> A FILLER table is named by the group it is in.
+    IF SY-NAME(LS-S) = SPACES OR SY-NAME(LS-S) = "FILLER"
+        STRING "the table in " DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+        IF SY-PARENT(LS-S) > 0
+            STRING SY-NAME(SY-PARENT(LS-S)) DELIMITED BY SPACE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+        END-IF
+    ELSE
+        STRING SY-NAME(LS-S) DELIMITED BY SPACE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    STRING " can have " LS-A-TEXT(1:LS-A-LEN) " entries, but "
+           DELIMITED BY SIZE
+           SY-NAME(LS-O) DELIMITED BY SPACE
+           " holds no more than " LS-B-TEXT(1:LS-B-LEN)
+           DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE SY-ODO-TOKEN(LS-S) LS-MESSAGE.
+END PROGRAM PLB-RULE-C040.

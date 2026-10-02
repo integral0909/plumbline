@@ -1,0 +1,7 @@
+tests/golden/rules/c040-odo-object-too-small.cob:11:64: warning: ORDER-LINE can have 500 entries, but SMALL-COUNT holds no more than 99 [PLB-C040]
+tests/golden/rules/c040-odo-object-too-small.cob:20:59: warning: the table in MARKS can have 10 entries, but TINY-COUNT holds no more than 9 [PLB-C040]
+tests/golden/rules/c040-odo-object-too-small.cob:23:13: warning: ORDERS is read but never given a value [PLB-C011]
+tests/golden/rules/c040-odo-object-too-small.cob:23:20: warning: ITEMS is read but never given a value [PLB-C011]
+tests/golden/rules/c040-odo-object-too-small.cob:23:26: warning: NOTES is read but never given a value [PLB-C011]
+tests/golden/rules/c040-odo-object-too-small.cob:23:32: warning: FLAGS is read but never given a value [PLB-C011]
+tests/golden/rules/c040-odo-object-too-small.cob:23:38: warning: MARKS is read but never given a value [PLB-C011]
