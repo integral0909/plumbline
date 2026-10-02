@@ -1,0 +1,42 @@
+tests/golden/lexer/literals.cob:2:5: word     DISPLAY
+tests/golden/lexer/literals.cob:2:13: alnum    "HELLO, WORLD"
+tests/golden/lexer/literals.cob:3:5: word     DISPLAY
+tests/golden/lexer/literals.cob:3:13: alnum    "IT'S"
+tests/golden/lexer/literals.cob:4:5: word     DISPLAY
+tests/golden/lexer/literals.cob:4:13: alnum    "SAY ""HI"""
+tests/golden/lexer/literals.cob:5:5: word     DISPLAY
+tests/golden/lexer/literals.cob:5:13: alnum    ""
+tests/golden/lexer/literals.cob:6:5: word     MOVE
+tests/golden/lexer/literals.cob:6:10: alnum    X"FF00"
+tests/golden/lexer/literals.cob:6:18: word     TO
+tests/golden/lexer/literals.cob:6:21: word     A
+tests/golden/lexer/literals.cob:7:5: word     MOVE
+tests/golden/lexer/literals.cob:7:10: alnum    X"0d0a"
+tests/golden/lexer/literals.cob:7:18: word     TO
+tests/golden/lexer/literals.cob:7:21: word     A
+tests/golden/lexer/literals.cob:8:5: word     MOVE
+tests/golden/lexer/literals.cob:8:10: alnum    N"NATIONAL"
+tests/golden/lexer/literals.cob:8:22: word     TO
+tests/golden/lexer/literals.cob:8:25: word     B
+tests/golden/lexer/literals.cob:9:5: word     MOVE
+tests/golden/lexer/literals.cob:9:10: alnum    NX"0041"
+tests/golden/lexer/literals.cob:9:19: word     TO
+tests/golden/lexer/literals.cob:9:22: word     B
+tests/golden/lexer/literals.cob:10:5: word     MOVE
+tests/golden/lexer/literals.cob:10:10: alnum    Z"C-STRING"
+tests/golden/lexer/literals.cob:10:22: word     TO
+tests/golden/lexer/literals.cob:10:25: word     C
+tests/golden/lexer/literals.cob:11:5: word     MOVE
+tests/golden/lexer/literals.cob:11:10: alnum    B"1010"
+tests/golden/lexer/literals.cob:11:18: word     TO
+tests/golden/lexer/literals.cob:11:21: word     D
+tests/golden/lexer/literals.cob:12:5: word     MOVE
+tests/golden/lexer/literals.cob:12:10: alnum    X"G1"
+tests/golden/lexer/literals.cob:12:16: word     TO
+tests/golden/lexer/literals.cob:12:19: word     A
+tests/golden/lexer/literals.cob:13:5: word     DISPLAY
+tests/golden/lexer/literals.cob:13:13: alnum    "UNTERMINATED"
+tests/golden/lexer/literals.cob:14:5: word     DISPLAY
+tests/golden/lexer/literals.cob:14:13: alnum    "NEXT LINE STILL LEXES"
+tests/golden/lexer/literals.cob:14:36: period   .
+tests/golden/lexer/literals.cob:14:36: eof

@@ -1,0 +1,16 @@
+tests/golden/lexer/continuation.cbl:1:8: number   01
+tests/golden/lexer/continuation.cbl:1:12: word     MSG
+tests/golden/lexer/continuation.cbl:1:16: word     PIC
+tests/golden/lexer/continuation.cbl:1:20: picture  X(40)
+tests/golden/lexer/continuation.cbl:1:26: word     VALUE
+tests/golden/lexer/continuation.cbl:1:32: alnum    "FIRST PART                               SECOND PART"
+tests/golden/lexer/continuation.cbl:2:26: period   .
+tests/golden/lexer/continuation.cbl:3:12: word     MOVE
+tests/golden/lexer/continuation.cbl:3:17: word     LONG-NAME-PART-TWO
+tests/golden/lexer/continuation.cbl:4:16: word     TO
+tests/golden/lexer/continuation.cbl:4:19: word     X
+tests/golden/lexer/continuation.cbl:4:20: period   .
+tests/golden/lexer/continuation.cbl:6:12: word     STOP
+tests/golden/lexer/continuation.cbl:6:17: word     RUN
+tests/golden/lexer/continuation.cbl:6:20: period   .
+tests/golden/lexer/continuation.cbl:6:20: eof

@@ -1,0 +1,6 @@
+000100 01  MSG PIC X(40) VALUE "FIRST PART
+000200-    " SECOND PART".
+000300     MOVE LONG-NAME-PART-
+000400-    TWO TO X.
+000500D    DISPLAY "DEBUG ONLY".
+000600     STOP RUN.                                                    ID-AREA
