@@ -27,6 +27,8 @@
 *>   plumbline graph [--kind performs|calls|copybooks]
 *>                   [--report dot|json] [-I DIR]... FILE...
 *>   plumbline impact NAME [-I DIR]... FILE...
+*>   plumbline format --to fixed|free [--format ...] FILE
+*>   plumbline format --to fixed|free --check [--format ...] FILE...
 *>   plumbline dump lines  [--format fixed|free|auto] FILE...
 *>   plumbline dump tokens [--format fixed|free|auto] [--debug] FILE...
 *>   plumbline dump expanded [-I DIR]... [--format ...] [--debug] FILE...
@@ -133,6 +135,9 @@ COPY "plbigr.cpy".
 01  WS-GRAPH-KIND           PIC X(10) VALUE "performs".
 01  WS-IMPACT-NAME          PIC X(512).
 01  WS-FOUND                PIC X.
+01  WS-FORMAT-TO            PIC X(5) VALUE SPACES.
+01  WS-FORMAT-CHECK         PIC X VALUE "N".
+01  WS-CHANGED              PIC X.
 
 PROCEDURE DIVISION.
 MAIN-LOGIC.
@@ -165,6 +170,9 @@ MAIN-LOGIC.
             WHEN "impact"
                 MOVE "impact" TO WS-COMMAND
                 PERFORM IMPACT-COMMAND
+            WHEN "format"
+                MOVE "format" TO WS-COMMAND
+                PERFORM FORMAT-COMMAND
             WHEN OTHER
                 IF WS-ARG(1:1) = "-"
                     PERFORM UNKNOWN-OPTION
@@ -204,6 +212,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline metrics [OPTION]... FILE..."
     DISPLAY "       plumbline graph [--kind KIND] [OPTION]... FILE..."
     DISPLAY "       plumbline impact NAME [OPTION]... FILE..."
+    DISPLAY "       plumbline format --to fixed|free [--check] FILE..."
     DISPLAY "       plumbline dump lines [--format FORMAT] FILE..."
     DISPLAY "       plumbline dump tokens [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump expanded [-I DIR]... [--format FORMAT] [--debug] FILE..."
@@ -228,6 +237,9 @@ SHOW-USAGE.
     DISPLAY "                   (copybooks), as DOT or JSON"
     DISPLAY "  impact NAME      list what includes copybook NAME or"
     DISPLAY "                   calls program NAME, directly or not"
+    DISPLAY "  format           rewrite a file in fixed or free format"
+    DISPLAY "                   (--to); --check only tells whether"
+    DISPLAY "                   that would change it"
     DISPLAY "  dump lines       show how each source line was read"
     DISPLAY "  dump tokens      show the tokens of each source file"
     DISPLAY "  dump expanded    show the tokens after COPY and REPLACE"
@@ -450,6 +462,47 @@ IMPACT-COMMAND.
     IF DG-ERRORS > 0
         MOVE 1 TO WS-EXIT-CODE
     END-IF.
+
+*> format -----------------------------------------------------------
+
+FORMAT-COMMAND.
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-FORMAT-TO = SPACES
+        DISPLAY PLB-NAME ": format needs --to fixed or --to free"
+            UPON SYSERR
+        PERFORM SUGGEST-HELP
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-FORMAT-CHECK = "N" AND WS-INPUT-COUNT > 1
+        DISPLAY PLB-NAME ": format writes one file to standard output;"
+            " give one file, or use --check" UPON SYSERR
+        MOVE 2 TO WS-EXIT-CODE
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM LOAD-INPUTS
+    PERFORM REPORT-DIAGNOSTICS
+    IF DG-ERRORS > 0
+        MOVE 1 TO WS-EXIT-CODE
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        CALL "PLB-FORMAT" USING PLB-SOURCE-SET WS-FILE-ID WS-FORMAT-TO
+            WS-FORMAT-CHECK WS-CHANGED
+        IF WS-FORMAT-CHECK = "Y" AND WS-CHANGED = "Y"
+            CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET WS-FILE-ID
+                WS-PATH
+            CALL "PLB-STR-LENGTH" USING WS-PATH WS-PATH-LEN
+            DISPLAY PLB-NAME ": " WS-PATH(1:WS-PATH-LEN)
+                " is not in " FUNCTION TRIM(WS-FORMAT-TO) " format"
+                UPON SYSERR
+            MOVE 1 TO WS-EXIT-CODE
+        END-IF
+    END-PERFORM.
 
 *> Findings at or above the --fail-on level.
 COUNT-FAILING.
@@ -1206,6 +1259,18 @@ PARSE-INPUT-ARGS.
             WHEN WS-ARG = "--report"
                 PERFORM NEXT-ARG
                 PERFORM SET-REPORT
+            WHEN WS-ARG = "--to" AND WS-COMMAND = "format"
+                PERFORM NEXT-ARG
+                IF WS-ARG = "fixed" OR WS-ARG = "free"
+                    MOVE WS-ARG TO WS-FORMAT-TO
+                ELSE
+                    DISPLAY PLB-NAME ": invalid --to '"
+                        WS-ARG(1:WS-ARG-LEN) "' (expected fixed or free)"
+                        UPON SYSERR
+                    MOVE 2 TO WS-EXIT-CODE
+                END-IF
+            WHEN WS-ARG = "--check" AND WS-COMMAND = "format"
+                MOVE "Y" TO WS-FORMAT-CHECK
             WHEN WS-ARG = "--kind" AND WS-COMMAND = "graph"
                 PERFORM NEXT-ARG
                 EVALUATE WS-ARG

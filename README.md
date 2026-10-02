@@ -111,6 +111,23 @@ program CUSTLOOK src/custlook.cbl:2
   called by MENU at src/menu.cbl:5 through BILLING
 ```
 
+## Formatting
+
+`plumbline format` rewrites a file in fixed or free reference format,
+without changing a single token:
+
+```console
+$ plumbline format --to free src/payroll.cbl > payroll-free.cob
+$ plumbline format --to fixed --check src/*.cbl     # exit 1 if any would change
+```
+
+To free format, it drops the sequence and identification areas, turns
+comment lines into `*>` comments, and joins continued lines. To fixed
+format, it fits code into columns 8-72. Headers and record entries go
+in area A, long lines are split at spaces, long literals are continued
+with `-` in column 7, and inline comments that do not fit move to a
+line of their own.
+
 ## Configuration
 
 Settings that a project always uses go in `plumbline.conf` in the

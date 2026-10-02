@@ -107,6 +107,13 @@ own:
   clauses' numbers read as level numbers and whose report names were
   undefined.
 
+## Formatting the suite
+
+`tests/tools/roundtrip_format.py` formats every program of the suite to
+free format and back to fixed format. All 459 keep every token, and
+formatting the results again changes nothing (2026-10-01, 3 minutes 40
+seconds).
+
 ## Checking the findings
 
 The findings were checked by rule:

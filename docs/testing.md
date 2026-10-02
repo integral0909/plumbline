@@ -69,6 +69,13 @@ between Plumbline's programs is checked against the program it calls. Plumbline 
 The analyzer's own source is several thousand lines of real COBOL, and
 this check has already caught parser bugs that the targeted tests missed.
 
+## Formatter round trip
+
+`make test` also runs `tests/tools/roundtrip_format.py` on every golden
+sample. It formats each one to free format and the result to fixed
+format, and checks that the tokens of both match the original's. It
+then checks that formatting either result again changes nothing.
+
 ## Coverage
 
 GnuCOBOL has no built-in coverage report, so `make coverage` builds its own

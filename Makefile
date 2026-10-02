@@ -54,6 +54,8 @@ test: $(TEST_BIN) $(BIN)
 	    tail -n 1 $(BUILD)/golden-$$dir.tap; \
 	done
 	tools/selfcheck.sh $(RUN_BIN)
+	@# Formatting to free and back to fixed keeps every token.
+	python3 tests/tools/roundtrip_format.py $(RUN_BIN) $(wildcard tests/golden/*/*.cob tests/golden/*/*.cbl)
 	python3 -m unittest discover -s tests/tools -p 'test_*.py' -q
 
 # Rewrite golden expectations from current output (review the diff!).
