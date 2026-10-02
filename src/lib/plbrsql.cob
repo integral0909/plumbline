@@ -372,3 +372,196 @@ OUTERMOST.
         MOVE CP-PARENT(LS-OWNER) TO LS-OWNER
     END-PERFORM.
 END PROGRAM PLB-RULE-SQL-TABLES.
+
+*> PLB-Q002 cursor-not-closed and PLB-Q003 cursor-not-opened: the
+*> cursors a file declares (EXEC SQL DECLARE name ... CURSOR), and the
+*> OPEN, FETCH, and CLOSE statements that name them.
+*>
+*>   Q002: a cursor that is opened but never closed holds its locks and
+*>         its place until the unit of work ends, and a second OPEN of
+*>         it fails (SQLCODE -502).
+*>   Q003: a cursor that is fetched or closed but never opened: the
+*>         statement fails (SQLCODE -501).
+*>
+*> The statements are read from the tokens of the file, so a cursor
+*> declared in working-storage counts, and the names are compared
+*> across the whole file.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-SQL-CURSORS.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+78  QC-MAX                      VALUE 200.
+01  WS-CURSORS.
+    05  WS-QC-COUNT         PIC 9(4) COMP-5.
+    05  WS-QC               OCCURS QC-MAX TIMES.
+        10  WS-QC-NAME      PIC X(31).
+        10  WS-QC-DECLARED  PIC 9(9) COMP-5.
+        10  WS-QC-OPENED    PIC 9(9) COMP-5.
+        10  WS-QC-FETCHED   PIC 9(9) COMP-5.
+        10  WS-QC-CLOSED    PIC 9(9) COMP-5.
+LOCAL-STORAGE SECTION.
+01  LS-RULE-NOT-CLOSED      PIC 9(4) COMP-5.
+01  LS-RULE-NOT-OPENED      PIC 9(4) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-END                  PIC 9(9) COMP-5.
+01  LS-C                    PIC 9(9) COMP-5.
+01  LS-TEXT                 PIC X(31).
+01  LS-NAME                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-PASS                 PIC 9.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q002" LS-RULE-NOT-CLOSED
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q003" LS-RULE-NOT-OPENED
+    IF RL-ENABLED(LS-RULE-NOT-CLOSED) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-NOT-OPENED) NOT = "Y"
+        GOBACK
+    END-IF
+    MOVE 0 TO WS-QC-COUNT
+    *> First the declarations, wherever they are, then the uses.
+    PERFORM VARYING LS-PASS FROM 1 BY 1 UNTIL LS-PASS > 2
+        PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T >= TK-COUNT
+            IF TK-IS-WORD(LS-T)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+                IF FUNCTION UPPER-CASE(LS-TEXT) = "EXEC"
+                    COMPUTE LS-K = LS-T + 1
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT
+                        LS-LEN
+                    IF FUNCTION UPPER-CASE(LS-TEXT) = "SQL"
+                        PERFORM SQL-BLOCK
+                    END-IF
+                END-IF
+            END-IF
+        END-PERFORM
+    END-PERFORM
+    PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > WS-QC-COUNT
+        PERFORM CHECK-CURSOR
+    END-PERFORM
+    GOBACK.
+
+*> The statement from LS-T + 2 to END-EXEC.
+SQL-BLOCK.
+    COMPUTE LS-END = LS-T + 2
+    PERFORM UNTIL LS-END >= TK-COUNT
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-END LS-TEXT LS-LEN
+        IF FUNCTION UPPER-CASE(LS-TEXT) = "END-EXEC"
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-END
+    END-PERFORM
+    COMPUTE LS-K = LS-T + 2
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+    EVALUATE TRUE
+        WHEN LS-PASS = 1 AND LS-TEXT = "DECLARE"
+            PERFORM DECLARATION
+        WHEN LS-PASS = 2 AND (LS-TEXT = "OPEN" OR LS-TEXT = "CLOSE")
+            ADD 1 TO LS-K
+            PERFORM FIND-CURSOR
+            IF LS-C > 0
+                IF LS-TEXT = "OPEN"
+                    IF WS-QC-OPENED(LS-C) = 0
+                        MOVE LS-K TO WS-QC-OPENED(LS-C)
+                    END-IF
+                ELSE
+                    IF WS-QC-CLOSED(LS-C) = 0
+                        MOVE LS-K TO WS-QC-CLOSED(LS-C)
+                    END-IF
+                END-IF
+            END-IF
+        WHEN LS-PASS = 2 AND LS-TEXT = "FETCH"
+            *> FETCH [orientation] [FROM] cursor: the first word that
+            *> names a cursor.
+            PERFORM VARYING LS-K FROM LS-K BY 1 UNTIL LS-K >= LS-END
+                PERFORM FIND-CURSOR
+                IF LS-C > 0
+                    IF WS-QC-FETCHED(LS-C) = 0
+                        MOVE LS-K TO WS-QC-FETCHED(LS-C)
+                    END-IF
+                    EXIT PERFORM
+                END-IF
+            END-PERFORM
+    END-EVALUATE.
+
+*> DECLARE name [options] CURSOR: a cursor when CURSOR comes before
+*> FOR (DECLARE name TABLE and DECLARE name STATEMENT are not).
+DECLARATION.
+    ADD 1 TO LS-K
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-NAME LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-NAME) TO LS-NAME
+    PERFORM VARYING LS-C FROM LS-K BY 1 UNTIL LS-C >= LS-END
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C LS-TEXT LS-LEN
+        MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+        IF LS-TEXT = "FOR" OR LS-TEXT = "TABLE"
+            EXIT PARAGRAPH
+        END-IF
+        IF LS-TEXT = "CURSOR"
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-C >= LS-END OR WS-QC-COUNT >= QC-MAX
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO WS-QC-COUNT
+    MOVE LS-NAME TO WS-QC-NAME(WS-QC-COUNT)
+    MOVE LS-K TO WS-QC-DECLARED(WS-QC-COUNT)
+    MOVE 0 TO WS-QC-OPENED(WS-QC-COUNT) WS-QC-FETCHED(WS-QC-COUNT)
+        WS-QC-CLOSED(WS-QC-COUNT).
+
+*> LS-C: the declared cursor named by token LS-K, or 0.
+FIND-CURSOR.
+    MOVE 0 TO LS-C
+    IF NOT TK-IS-WORD(LS-K)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-NAME LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-NAME) TO LS-NAME
+    PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > WS-QC-COUNT
+        IF WS-QC-NAME(LS-C) = LS-NAME
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    MOVE 0 TO LS-C.
+
+CHECK-CURSOR.
+    IF WS-QC-OPENED(LS-C) > 0 AND WS-QC-CLOSED(LS-C) = 0
+        MOVE SPACES TO LS-MESSAGE
+        STRING "cursor " DELIMITED BY SIZE
+               WS-QC-NAME(LS-C) DELIMITED BY SPACE
+               " is opened but never closed" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE-NOT-CLOSED
+            WS-QC-OPENED(LS-C) LS-MESSAGE
+    END-IF
+    IF WS-QC-OPENED(LS-C) = 0
+        IF WS-QC-FETCHED(LS-C) > 0
+            MOVE WS-QC-FETCHED(LS-C) TO LS-K
+            MOVE "fetched" TO LS-TEXT
+        ELSE
+            MOVE WS-QC-CLOSED(LS-C) TO LS-K
+            MOVE "closed" TO LS-TEXT
+        END-IF
+        IF LS-K > 0
+            MOVE SPACES TO LS-MESSAGE
+            STRING "cursor " DELIMITED BY SIZE
+                   WS-QC-NAME(LS-C) DELIMITED BY SPACE
+                   " is " DELIMITED BY SIZE
+                   LS-TEXT DELIMITED BY SPACE
+                   " but never opened" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-RULES PLB-FINDINGS LS-RULE-NOT-OPENED LS-K
+                LS-MESSAGE
+        END-IF
+    END-IF.
+END PROGRAM PLB-RULE-SQL-CURSORS.
