@@ -51,6 +51,7 @@ LOCAL-STORAGE SECTION.
 01  LS-TEXT                 PIC X(31).
 01  LS-LEN                  PIC 9(9) COMP-5.
 01  LS-KEYWORD              PIC X(31).
+01  LS-GIVING-AFTER         PIC X.
 01  LS-ROLE                 PIC X.
 01  LS-OUTER-END            PIC 9(9) COMP-5 VALUE 0.
 01  LS-HAS-UP-DOWN          PIC X.
@@ -299,6 +300,21 @@ FIND-KEYWORD.
         SUBTRACT 1 FROM LS-T
     END-PERFORM.
 
+*> LS-GIVING-AFTER = "Y" when the word GIVING follows the reference in
+*> its statement.
+FIND-GIVING-AFTER.
+    MOVE "N" TO LS-GIVING-AFTER
+    PERFORM VARYING LS-T FROM RF-TOKEN(LS-R) BY 1
+            UNTIL LS-T > ND-TOK-LAST(LS-STMT)
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            IF LS-TEXT = "GIVING"
+                MOVE "Y" TO LS-GIVING-AFTER
+                EXIT PERFORM
+            END-IF
+        END-IF
+    END-PERFORM.
+
 ROLE-FOR-VERB.
     MOVE "X" TO LS-ROLE
     EVALUATE LS-VERB
@@ -308,26 +324,54 @@ ROLE-FOR-VERB.
                 WHEN OTHER      MOVE "U" TO LS-ROLE
             END-EVALUATE
         WHEN "ADD"
+            PERFORM FIND-GIVING-AFTER
             EVALUATE LS-KEYWORD
-                WHEN "TO"       MOVE "B" TO LS-ROLE
+                WHEN "TO"
+                    *> With GIVING, the operands are only read.
+                    IF LS-GIVING-AFTER = "Y"
+                        MOVE "U" TO LS-ROLE
+                    ELSE
+                        MOVE "B" TO LS-ROLE
+                    END-IF
                 WHEN "GIVING"   MOVE "D" TO LS-ROLE
                 WHEN OTHER      MOVE "U" TO LS-ROLE
             END-EVALUATE
         WHEN "SUBTRACT"
+            PERFORM FIND-GIVING-AFTER
             EVALUATE LS-KEYWORD
-                WHEN "FROM"     MOVE "B" TO LS-ROLE
+                WHEN "FROM"
+                    *> With GIVING, the operands are only read.
+                    IF LS-GIVING-AFTER = "Y"
+                        MOVE "U" TO LS-ROLE
+                    ELSE
+                        MOVE "B" TO LS-ROLE
+                    END-IF
                 WHEN "GIVING"   MOVE "D" TO LS-ROLE
                 WHEN OTHER      MOVE "U" TO LS-ROLE
             END-EVALUATE
         WHEN "MULTIPLY"
+            PERFORM FIND-GIVING-AFTER
             EVALUATE LS-KEYWORD
-                WHEN "BY"       MOVE "B" TO LS-ROLE
+                WHEN "BY"
+                    *> With GIVING, the operands are only read.
+                    IF LS-GIVING-AFTER = "Y"
+                        MOVE "U" TO LS-ROLE
+                    ELSE
+                        MOVE "B" TO LS-ROLE
+                    END-IF
                 WHEN "GIVING"   MOVE "D" TO LS-ROLE
                 WHEN OTHER      MOVE "U" TO LS-ROLE
             END-EVALUATE
         WHEN "DIVIDE"
+            PERFORM FIND-GIVING-AFTER
             EVALUATE LS-KEYWORD
-                WHEN "INTO"     MOVE "B" TO LS-ROLE
+                WHEN "INTO"
+                    *> With GIVING, the operands are only read.
+                    IF LS-GIVING-AFTER = "Y"
+                        MOVE "U" TO LS-ROLE
+                    ELSE
+                        MOVE "B" TO LS-ROLE
+                    END-IF
                 WHEN "GIVING"   MOVE "D" TO LS-ROLE
                 WHEN "REMAINDER" MOVE "D" TO LS-ROLE
                 WHEN OTHER      MOVE "U" TO LS-ROLE
