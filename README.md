@@ -41,14 +41,16 @@ code is 1 when there are findings at or above the `--fail-on` level
 | `--format fixed\|free\|auto` | reference format of the sources (default `auto`) |
 | `--enable RULE`, `--disable RULE` | turn a rule on or off, by id or name |
 | `--fail-on error\|warning\|note\|never` | the lowest severity that fails the run |
-| `--report text\|json\|sarif` | output format (default `text`) |
+| `--report text\|json\|sarif\|html` | output format (default `text`) |
 | `--baseline FILE` | do not report the findings listed in `FILE` |
 | `--write-baseline FILE` | write the findings to `FILE` instead of reporting them |
 | `--config FILE`, `--no-config` | read settings from `FILE`, or from no file |
 
 `--report sarif` writes SARIF 2.1.0, which code-scanning services and
 many editors read directly; `--report json` writes a simpler document
-with one finding per line. In both, input diagnostics are part of the
+with one finding per line; `--report html` writes one self-contained
+page with each finding's source lines, to open in a browser or keep as
+a build artifact. In both, input diagnostics are part of the
 report rather than printed to standard error.
 
 See the [rule reference](docs/rules.md) for what each rule looks for.

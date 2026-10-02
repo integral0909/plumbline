@@ -74,6 +74,8 @@ uses [Semantic Versioning](https://semver.org/).
 
 - `make corpus` runs Plumbline over the NIST COBOL-85 test suite
   (`tools/corpus/`); see `docs/corpus.md`.
+- HTML report (`--report html`): one self-contained page with source
+  excerpts.
 - `plumbline graph` (PERFORM, CALL, and copybook graphs as DOT or
   JSON) and `plumbline impact` (what includes a copybook or calls a
   program, directly or not).
