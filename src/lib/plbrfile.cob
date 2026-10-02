@@ -5,6 +5,7 @@
 *>   PLB-C021  file-not-opened
 *>   PLB-C022  open-mode-mismatch
 *>   PLB-M008  file-not-closed
+*>   PLB-C048  sort-procedure-no-record
 *>
 *> Each program on its own: its files (SELECT), their records (FD),
 *> the declaratives that handle their errors (USE ... ERROR or
@@ -571,3 +572,220 @@ CHECK-CLOSED.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE-NOT-CLOSED FL-NAME-TOKEN(LS-F) LS-MESSAGE.
 END PROGRAM PLB-RULE-FILES.
+
+*> PLB-C048 sort-procedure-no-record: the INPUT PROCEDURE of a SORT
+*> that never RELEASEs a record, so the sort sorts nothing, or the
+*> OUTPUT PROCEDURE of a SORT or MERGE that never RETURNs one, so its
+*> records are never read.
+*>
+*> The procedure is the range it names (with THRU), and every
+*> paragraph and section that range performs or goes to, and those
+*> they perform or go to in turn. A procedure with a GO TO or PERFORM
+*> the analysis could not resolve is not reported.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-C048.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+*> Which units hold a RELEASE and which a RETURN statement (a section
+*> counts its paragraphs' statements too).
+01  WS-HAS-RELEASE          PIC X OCCURS 20000 TIMES.
+01  WS-HAS-RETURN           PIC X OCCURS 20000 TIMES.
+*> The units of the procedure being checked: a work list, and the mark
+*> of each unit already on it.
+01  WS-IN-SET               PIC X OCCURS 20000 TIMES.
+01  WS-SET                  PIC 9(9) COMP-5 OCCURS 20000 TIMES.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-N                    PIC 9(9) COMP-5.
+01  LS-U                    PIC 9(9) COMP-5.
+01  LS-V                    PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-F                    PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-STMT                 PIC 9(9) COMP-5.
+01  LS-SET-COUNT            PIC 9(9) COMP-5.
+01  LS-SET-NEXT             PIC 9(9) COMP-5.
+01  LS-FROM                 PIC 9(9) COMP-5.
+01  LS-TO                   PIC 9(9) COMP-5.
+01  LS-NAME-TOKEN           PIC 9(9) COMP-5.
+01  LS-PHASE                PIC X(6).
+01  LS-FOUND                PIC X.
+01  LS-UNRESOLVED           PIC X.
+01  LS-WORD                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbflow.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
+        PLB-RULES PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C048" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0 OR FU-COUNT = 0
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > FU-COUNT
+        MOVE "N" TO WS-HAS-RELEASE(LS-U) WS-HAS-RETURN(LS-U)
+            WS-IN-SET(LS-U)
+    END-PERFORM
+    PERFORM VARYING LS-N FROM 1 BY 1 UNTIL LS-N > AS-COUNT
+        IF ND-KIND(LS-N) = "STMT"
+           AND (ND-DETAIL(LS-N) = "RELEASE" OR ND-DETAIL(LS-N) = "RETURN")
+            PERFORM MARK-STATEMENT
+        END-IF
+    END-PERFORM
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > FE-COUNT
+        IF FE-KIND(LS-E) = "P" AND FE-TO(LS-E) > 0 AND FE-STMT(LS-E) > 0
+            IF ND-DETAIL(FE-STMT(LS-E)) = "SORT"
+               OR ND-DETAIL(FE-STMT(LS-E)) = "MERGE"
+                PERFORM CHECK-PROCEDURE
+            END-IF
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> Statement LS-N belongs to the last unit that starts before it, and
+*> to that unit's section.
+MARK-STATEMENT.
+    MOVE 0 TO LS-V
+    PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > FU-COUNT
+        IF FU-KIND(LS-U) NOT = "D"
+           AND ND-TOK-FIRST(FU-NODE(LS-U)) <= ND-TOK-FIRST(LS-N)
+           AND ND-TOK-LAST(FU-NODE(LS-U)) >= ND-TOK-FIRST(LS-N)
+            MOVE LS-U TO LS-V
+        END-IF
+    END-PERFORM
+    IF LS-V = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM MARK-UNIT
+    IF FU-SECTION(LS-V) > 0
+        MOVE FU-SECTION(LS-V) TO LS-V
+        PERFORM MARK-UNIT
+    END-IF.
+
+MARK-UNIT.
+    IF ND-DETAIL(LS-N) = "RELEASE"
+        MOVE "Y" TO WS-HAS-RELEASE(LS-V)
+    ELSE
+        MOVE "Y" TO WS-HAS-RETURN(LS-V)
+    END-IF.
+
+*> Edge LS-E runs a procedure of a SORT or MERGE: which one, and does
+*> anything it runs RELEASE or RETURN?
+CHECK-PROCEDURE.
+    MOVE FE-STMT(LS-E) TO LS-STMT
+    MOVE ND-NAME(FE-PROC(LS-E)) TO LS-NAME-TOKEN
+    IF LS-NAME-TOKEN = 0
+        MOVE ND-TOK-FIRST(FE-PROC(LS-E)) TO LS-NAME-TOKEN
+    END-IF
+    *> The phase is the last INPUT or OUTPUT before the name.
+    MOVE SPACES TO LS-PHASE
+    PERFORM VARYING LS-T FROM LS-NAME-TOKEN BY -1
+            UNTIL LS-T <= ND-TOK-FIRST(LS-STMT) OR LS-PHASE NOT = SPACES
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD
+            IF LS-WORD = "INPUT" OR LS-WORD = "OUTPUT"
+                MOVE LS-WORD TO LS-PHASE
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-PHASE = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-SET-COUNT
+    MOVE "N" TO LS-FOUND LS-UNRESOLVED
+    MOVE FE-TO(LS-E) TO LS-FROM
+    MOVE FE-THRU(LS-E) TO LS-TO
+    PERFORM ADD-RANGE
+    MOVE 1 TO LS-SET-NEXT
+    PERFORM UNTIL LS-SET-NEXT > LS-SET-COUNT OR LS-FOUND = "Y"
+        MOVE WS-SET(LS-SET-NEXT) TO LS-U
+        PERFORM VISIT-UNIT
+        ADD 1 TO LS-SET-NEXT
+    END-PERFORM
+    PERFORM VARYING LS-V FROM 1 BY 1 UNTIL LS-V > LS-SET-COUNT
+        MOVE "N" TO WS-IN-SET(WS-SET(LS-V))
+    END-PERFORM
+    IF LS-FOUND = "N" AND LS-UNRESOLVED = "N"
+        PERFORM REPORT-PROCEDURE
+    END-IF.
+
+*> Units LS-FROM through LS-TO (LS-FROM alone when LS-TO is 0), in
+*> source order, onto the work list.
+ADD-RANGE.
+    MOVE LS-FROM TO LS-V
+    PERFORM UNTIL LS-V = 0
+        IF WS-IN-SET(LS-V) = "N" AND LS-SET-COUNT < 20000
+            MOVE "Y" TO WS-IN-SET(LS-V)
+            ADD 1 TO LS-SET-COUNT
+            MOVE LS-V TO WS-SET(LS-SET-COUNT)
+        END-IF
+        IF LS-TO = 0 OR LS-V = LS-TO
+            EXIT PERFORM
+        END-IF
+        MOVE FU-NEXT(LS-V) TO LS-V
+    END-PERFORM.
+
+*> Unit LS-U: done if it has the statement, else add what it runs. A
+*> section runs its paragraphs, which go on the list for what they
+*> perform and go to.
+VISIT-UNIT.
+    IF (LS-PHASE = "INPUT" AND WS-HAS-RELEASE(LS-U) = "Y")
+       OR (LS-PHASE = "OUTPUT" AND WS-HAS-RETURN(LS-U) = "Y")
+        MOVE "Y" TO LS-FOUND
+        EXIT PARAGRAPH
+    END-IF
+    IF FU-KIND(LS-U) = "S"
+        PERFORM VARYING LS-V FROM 1 BY 1 UNTIL LS-V > FU-COUNT
+            IF FU-SECTION(LS-V) = LS-U AND WS-IN-SET(LS-V) = "N"
+               AND LS-SET-COUNT < 20000
+                MOVE "Y" TO WS-IN-SET(LS-V)
+                ADD 1 TO LS-SET-COUNT
+                MOVE LS-V TO WS-SET(LS-SET-COUNT)
+            END-IF
+        END-PERFORM
+    END-IF
+    PERFORM VARYING LS-F FROM 1 BY 1 UNTIL LS-F > FE-COUNT
+        IF FE-FROM(LS-F) = LS-U
+            IF FE-TO(LS-F) = 0
+                MOVE "Y" TO LS-UNRESOLVED
+            ELSE
+                MOVE FE-TO(LS-F) TO LS-FROM
+                MOVE FE-THRU(LS-F) TO LS-TO
+                IF FE-KIND(LS-F) NOT = "P"
+                    MOVE 0 TO LS-TO
+                END-IF
+                PERFORM ADD-RANGE
+            END-IF
+        END-IF
+    END-PERFORM.
+
+REPORT-PROCEDURE.
+    MOVE SPACES TO LS-MESSAGE
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-NAME-TOKEN LS-WORD LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD
+    IF LS-PHASE = "INPUT"
+        STRING "INPUT PROCEDURE " DELIMITED BY SIZE
+               LS-WORD DELIMITED BY SPACE
+               " never RELEASEs a record: the SORT sorts nothing"
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    ELSE
+        STRING "OUTPUT PROCEDURE " DELIMITED BY SIZE
+               LS-WORD DELIMITED BY SPACE
+               " never RETURNs a record: the " DELIMITED BY SIZE
+               ND-DETAIL(LS-STMT) DELIMITED BY SPACE
+               " output is never read" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    END-IF
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-NAME-TOKEN LS-MESSAGE.
+END PROGRAM PLB-RULE-C048.

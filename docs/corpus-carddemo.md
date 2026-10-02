@@ -200,6 +200,10 @@ Some findings that were read and are true:
   corpora. NIST declares 163 indexes in 50 programs and uses each with
   its own table; swapping one in a copy of `NC123A` (an index of 2-byte
   entries on a table of 3-byte entries) is reported.
+- **PLB-C048 sort-procedure-no-record.** None, here or in the NIST and
+  GnuCOBOL corpora. The 29 NIST programs with SORT or MERGE procedures
+  all release and return their records; with the `RELEASE` of `DB104A`
+  taken out, its input procedure `SORT-IN` is reported.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)

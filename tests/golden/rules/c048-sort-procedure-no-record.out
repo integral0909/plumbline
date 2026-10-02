@@ -1,0 +1,3 @@
+tests/golden/rules/c048-sort-procedure-no-record.cob:33:28: warning: INPUT PROCEDURE PREPARE never RELEASEs a record: the SORT sorts nothing [PLB-C048]
+tests/golden/rules/c048-sort-procedure-no-record.cob:37:29: warning: OUTPUT PROCEDURE COUNT-ONLY never RETURNs a record: the SORT output is never read [PLB-C048]
+tests/golden/rules/c048-sort-procedure-no-record.cob:75:5: note: GO TO makes the flow of control hard to follow [PLB-M001]
