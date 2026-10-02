@@ -59,6 +59,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C046](#plb-c046-overlapping-move) | overlapping-move | warning | MOVE between items that share storage |
 | [PLB-C047](#plb-c047-foreign-index) | foreign-index | warning | Index of one table subscripts a table with entries of another length |
 | [PLB-C048](#plb-c048-sort-procedure-no-record) | sort-procedure-no-record | warning | SORT procedure never RELEASEs or RETURNs a record |
+| [PLB-C049](#plb-c049-loop-condition-unchanged) | loop-condition-unchanged | warning | PERFORM UNTIL loop never changes what its condition reads |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1318,6 +1319,36 @@ The procedure is the range it names, with its `THRU` end, and every
 paragraph and section that range performs or goes to, and so on. A
 procedure that reaches a `GO TO` or `PERFORM` whose target could not be
 resolved is not reported.
+
+## PLB-C049 loop-condition-unchanged
+
+A `PERFORM ... UNTIL` whose loop changes nothing its condition reads:
+
+```cobol
+    PERFORM STEP UNTIL ALL-DONE             *> reported
+...
+STEP.
+    MOVE "Y" TO WS-OTHER.
+```
+
+Unless the condition holds when the loop starts, the loop runs until
+the job is cancelled. It is usually a flag set under another name, or a
+paragraph that used to set it and no longer does.
+
+The loop is the inline body, or the range it performs, with every
+paragraph and section reached from there by `PERFORM` or `GO TO`. The
+condition's items are the data items it names; a condition name stands
+for its item. An item changes when a statement of the loop stores into
+it or into an item that shares its storage (its group, or an item that
+redefines it).
+
+The rule stays quiet when the loop can end, or change the condition,
+in ways the data references do not show: a `GO TO`, `EXIT PERFORM`,
+`STOP RUN`, `GOBACK`, `EXIT PROGRAM`, `CALL`, `ALTER`, `EXEC`, or I/O
+statement in the loop; a `FUNCTION`, an index name, or an unresolved
+name in the condition; a condition item in the `LINKAGE SECTION`; or a
+procedure the analysis could not resolve. `VARYING` loops are left to
+PLB-C026 and PLB-C044.
 
 ## PLB-I001 pcb-dbd-unknown
 

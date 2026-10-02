@@ -1,8 +1,10 @@
 *> ---------------------------------------------------------------
-*> plbrloop: comparisons that a data item cannot satisfy.
+*> plbrloop: loops, and comparisons that a data item cannot satisfy.
 *>
 *>   PLB-C026  varying-limit-unreachable
 *>   PLB-C028  comparison-never-true
+*>   PLB-C044  varying-control-changed
+*>   PLB-C049  loop-condition-unchanged
 *>
 *> PERFORM VARYING I ... UNTIL I > 99, with I PIC 99: I goes from 99
 *> to 00 when it is increased, so it is never greater than 99, and the
@@ -719,3 +721,404 @@ REPORT-STORE.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-S LS-MESSAGE.
 END PROGRAM PLB-RULE-C044.
+
+*> PLB-C049 loop-condition-unchanged: a PERFORM ... UNTIL whose loop
+*> changes nothing its condition reads, so that unless the condition
+*> holds when the loop starts, the loop never ends:
+*>
+*>     PERFORM READ-NEXT UNTIL WS-EOF = "Y"
+*>
+*> when READ-NEXT sets some other flag. The loop is the inline body, or
+*> the procedure range it performs, with every paragraph and section
+*> that runs from there by PERFORM or GO TO; the condition's items are
+*> the data items it names (a condition name stands for its item). An
+*> item counts as changed when a statement of the loop stores into it,
+*> or into an item that shares storage with it, or passes it to a CALL
+*> by reference.
+*>
+*> The loop is left alone when it can end some other way, or change
+*> things the references do not show: when it reaches a GO TO, EXIT
+*> PERFORM, STOP RUN, GOBACK, EXIT PROGRAM, CALL, ALTER, EXEC, or I/O
+*> statement (READ changes a record and its FILE STATUS without naming
+*> them); when the condition calls a FUNCTION, names an index or a
+*> name that is not resolved, or names no data item; when one of its
+*> items is in the LINKAGE SECTION; and when the
+*> analysis could not resolve a procedure the loop runs.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-C049.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+*> Reference starting at each token (0: none), for the tokens of the
+*> current file.
+01  WS-TOKEN-REF            PIC 9(9) COMP-5 OCCURS 500000 TIMES.
+*> The storage of each item.
+COPY "plbspan.cpy" REPLACING ==PLB-SPANS== BY ==WS-SPANS==.
+*> The condition's items.
+78  WS-COND-MAX             VALUE 50.
+01  WS-COND-COUNT           PIC 9(4) COMP-5.
+01  WS-COND                 PIC 9(9) COMP-5 OCCURS WS-COND-MAX TIMES.
+01  WS-COND-CHANGED         PIC X OCCURS WS-COND-MAX TIMES.
+*> The units the loop runs: a work list, and the mark of each unit on
+*> it.
+01  WS-IN-SET               PIC X OCCURS 20000 TIMES.
+01  WS-SET                  PIC 9(9) COMP-5 OCCURS 20000 TIMES.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
+01  LS-NODE                 PIC 9(9) COMP-5.
+01  LS-DEPTH                PIC S9(9) COMP-5.
+01  LS-STMT                 PIC 9(9) COMP-5.
+01  LS-BODY                 PIC 9(9) COMP-5.
+01  LS-CHILD                PIC 9(9) COMP-5.
+01  LS-SCAN                 PIC 9(9) COMP-5.
+01  LS-SCAN-DEPTH           PIC S9(9) COMP-5.
+01  LS-SCAN-ROOT            PIC 9(9) COMP-5.
+01  LS-COND-FIRST           PIC 9(9) COMP-5.
+01  LS-COND-LAST            PIC 9(9) COMP-5.
+01  LS-UNTIL                PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-R                    PIC 9(9) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-C                    PIC 9(9) COMP-5.
+01  LS-U                    PIC 9(9) COMP-5.
+01  LS-V                    PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-FROM                 PIC 9(9) COMP-5.
+01  LS-TO                   PIC 9(9) COMP-5.
+01  LS-SET-COUNT            PIC 9(9) COMP-5.
+01  LS-SET-NEXT             PIC 9(9) COMP-5.
+01  LS-RANGE-FIRST          PIC 9(9) COMP-5.
+01  LS-RANGE-LAST           PIC 9(9) COMP-5.
+01  LS-GIVE-UP              PIC X.
+01  LS-OVERLAP              PIC X.
+01  LS-WORD                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-NAMES                PIC X(120).
+01  LS-NAMES-PTR            PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbsym.cpy".
+COPY "plbflow.cpy".
+COPY "plbref.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
+        PLB-FLOW PLB-REFS PLB-RULES PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C049" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+        GOBACK
+    END-IF
+    CALL "PLB-SPAN-BUILD" USING PLB-SYMBOLS WS-SPANS
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        MOVE LS-R TO WS-TOKEN-REF(RF-TOKEN(LS-R))
+    END-PERFORM
+    PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > FU-COUNT
+        MOVE "N" TO WS-IN-SET(LS-U)
+    END-PERFORM
+    MOVE 1 TO LS-NODE
+    MOVE 0 TO LS-DEPTH
+    PERFORM UNTIL LS-NODE = 0
+        IF ND-KIND(LS-NODE) = "STMT" AND ND-DETAIL(LS-NODE) = "PERFORM"
+            MOVE LS-NODE TO LS-STMT
+            PERFORM CHECK-PERFORM
+        END-IF
+        CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
+    END-PERFORM
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        MOVE 0 TO WS-TOKEN-REF(RF-TOKEN(LS-R))
+    END-PERFORM
+    GOBACK.
+
+CHECK-PERFORM.
+    PERFORM FIND-CONDITION
+    IF LS-UNTIL = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM CONDITION-ITEMS
+    IF LS-GIVE-UP = "Y" OR WS-COND-COUNT = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-SET-COUNT
+    *> The inline body, then the procedures the statement and the body
+    *> perform.
+    IF LS-BODY > 0
+        MOVE ND-TOK-FIRST(LS-BODY) TO LS-RANGE-FIRST
+        MOVE ND-TOK-LAST(LS-BODY) TO LS-RANGE-LAST
+        MOVE LS-BODY TO LS-SCAN-ROOT
+        PERFORM SCAN-RANGE
+        PERFORM VARYING LS-E FROM 1 BY 1
+                UNTIL LS-E > FE-COUNT OR LS-GIVE-UP = "Y"
+            IF FE-STMT(LS-E) > 0
+               AND ND-TOK-FIRST(FE-STMT(LS-E)) >= LS-RANGE-FIRST
+               AND ND-TOK-FIRST(FE-STMT(LS-E)) <= LS-RANGE-LAST
+                PERFORM ADD-EDGE
+            END-IF
+        END-PERFORM
+    ELSE
+        PERFORM VARYING LS-E FROM 1 BY 1
+                UNTIL LS-E > FE-COUNT OR LS-GIVE-UP = "Y"
+            IF FE-STMT(LS-E) = LS-STMT
+                PERFORM ADD-EDGE
+            END-IF
+        END-PERFORM
+    END-IF
+    MOVE 1 TO LS-SET-NEXT
+    PERFORM UNTIL LS-SET-NEXT > LS-SET-COUNT OR LS-GIVE-UP = "Y"
+        MOVE WS-SET(LS-SET-NEXT) TO LS-U
+        PERFORM VISIT-UNIT
+        ADD 1 TO LS-SET-NEXT
+    END-PERFORM
+    PERFORM VARYING LS-V FROM 1 BY 1 UNTIL LS-V > LS-SET-COUNT
+        MOVE "N" TO WS-IN-SET(WS-SET(LS-V))
+    END-PERFORM
+    IF LS-GIVE-UP = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > WS-COND-COUNT
+        IF WS-COND-CHANGED(LS-C) = "Y"
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    PERFORM REPORT-LOOP.
+
+*> LS-UNTIL: the UNTIL token of a PERFORM without VARYING or TIMES
+*> (0 otherwise); LS-COND-FIRST and LS-COND-LAST: the condition after
+*> it; LS-BODY: the inline body (0 for an out-of-line PERFORM).
+FIND-CONDITION.
+    MOVE 0 TO LS-UNTIL LS-BODY
+    MOVE ND-TOK-LAST(LS-STMT) TO LS-COND-LAST
+    MOVE ND-FIRST(LS-STMT) TO LS-CHILD
+    PERFORM UNTIL LS-CHILD = 0
+        IF ND-KIND(LS-CHILD) = "BLCK"
+            MOVE LS-CHILD TO LS-BODY
+            COMPUTE LS-COND-LAST = ND-TOK-FIRST(LS-CHILD) - 1
+        END-IF
+        MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+    END-PERFORM
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-STMT) BY 1
+            UNTIL LS-T > LS-COND-LAST
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD
+            EVALUATE LS-WORD
+                WHEN "VARYING"
+                WHEN "TIMES"
+                    MOVE 0 TO LS-UNTIL
+                    EXIT PARAGRAPH
+                WHEN "UNTIL"
+                    IF LS-UNTIL = 0
+                        MOVE LS-T TO LS-UNTIL
+                    END-IF
+            END-EVALUATE
+        END-IF
+    END-PERFORM
+    COMPUTE LS-COND-FIRST = LS-UNTIL + 1.
+
+*> The data items the condition names. A FUNCTION, a name that is not
+*> a data item (an index), an item of the LINKAGE SECTION, or more
+*> items than the table holds: give up.
+CONDITION-ITEMS.
+    MOVE 0 TO WS-COND-COUNT
+    MOVE "N" TO LS-GIVE-UP
+    PERFORM VARYING LS-T FROM LS-COND-FIRST BY 1
+            UNTIL LS-T > LS-COND-LAST OR LS-GIVE-UP = "Y"
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            IF FUNCTION UPPER-CASE(LS-WORD) = "FUNCTION"
+                MOVE "Y" TO LS-GIVE-UP
+            END-IF
+        END-IF
+        MOVE WS-TOKEN-REF(LS-T) TO LS-R
+        IF LS-R > 0
+            *> An index name, or a name that did not resolve: its changes
+            *> are not in the references.
+            IF RF-KIND(LS-R) NOT = "D" OR RF-SYMBOL(LS-R) = 0
+                MOVE "Y" TO LS-GIVE-UP
+            ELSE
+                MOVE RF-SYMBOL(LS-R) TO LS-S
+                *> A condition name stands for its item.
+                IF SY-CATEGORY(LS-S) = "C" AND SY-PARENT(LS-S) > 0
+                    MOVE SY-PARENT(LS-S) TO LS-S
+                END-IF
+                PERFORM ADD-CONDITION-ITEM
+            END-IF
+        END-IF
+    END-PERFORM.
+
+ADD-CONDITION-ITEM.
+    IF SY-SECTION(LS-S) = "K"
+        MOVE "Y" TO LS-GIVE-UP
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > WS-COND-COUNT
+        IF WS-COND(LS-C) = LS-S
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    IF WS-COND-COUNT >= WS-COND-MAX
+        MOVE "Y" TO LS-GIVE-UP
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO WS-COND-COUNT
+    MOVE LS-S TO WS-COND(WS-COND-COUNT)
+    MOVE "N" TO WS-COND-CHANGED(WS-COND-COUNT).
+
+*> Edge LS-E: its procedures join the loop; an unresolved one, or an
+*> ALTER, ends the check.
+ADD-EDGE.
+    IF FE-TO(LS-E) = 0 OR FE-KIND(LS-E) = "A"
+        MOVE "Y" TO LS-GIVE-UP
+        EXIT PARAGRAPH
+    END-IF
+    MOVE FE-TO(LS-E) TO LS-FROM
+    MOVE FE-THRU(LS-E) TO LS-TO
+    IF FE-KIND(LS-E) NOT = "P"
+        MOVE 0 TO LS-TO
+    END-IF
+    PERFORM ADD-RANGE.
+
+*> Units LS-FROM through LS-TO (LS-FROM alone when LS-TO is 0) onto
+*> the work list.
+ADD-RANGE.
+    MOVE LS-FROM TO LS-V
+    PERFORM UNTIL LS-V = 0
+        PERFORM ADD-UNIT
+        IF LS-TO = 0 OR LS-V = LS-TO
+            EXIT PERFORM
+        END-IF
+        MOVE FU-NEXT(LS-V) TO LS-V
+    END-PERFORM.
+
+ADD-UNIT.
+    IF WS-IN-SET(LS-V) = "N" AND LS-SET-COUNT < 20000
+        MOVE "Y" TO WS-IN-SET(LS-V)
+        ADD 1 TO LS-SET-COUNT
+        MOVE LS-V TO WS-SET(LS-SET-COUNT)
+    END-IF.
+
+*> Unit LS-U of the loop: its statements, its paragraphs if it is a
+*> section, and the procedures it performs or goes to.
+VISIT-UNIT.
+    MOVE ND-TOK-FIRST(FU-NODE(LS-U)) TO LS-RANGE-FIRST
+    MOVE ND-TOK-LAST(FU-NODE(LS-U)) TO LS-RANGE-LAST
+    MOVE FU-NODE(LS-U) TO LS-SCAN-ROOT
+    PERFORM SCAN-RANGE
+    IF FU-KIND(LS-U) = "S"
+        PERFORM VARYING LS-V FROM 1 BY 1 UNTIL LS-V > FU-COUNT
+            IF FU-SECTION(LS-V) = LS-U
+                PERFORM ADD-UNIT
+            END-IF
+        END-PERFORM
+    END-IF
+    PERFORM VARYING LS-E FROM 1 BY 1
+            UNTIL LS-E > FE-COUNT OR LS-GIVE-UP = "Y"
+        IF FE-FROM(LS-E) = LS-U
+            PERFORM ADD-EDGE
+        END-IF
+    END-PERFORM.
+
+*> The statements from LS-RANGE-FIRST to LS-RANGE-LAST: a way out of
+*> the loop ends the check; a store marks the condition items it
+*> reaches.
+SCAN-RANGE.
+    PERFORM VARYING LS-T FROM LS-RANGE-FIRST BY 1
+            UNTIL LS-T > LS-RANGE-LAST OR LS-GIVE-UP = "Y"
+        MOVE WS-TOKEN-REF(LS-T) TO LS-R
+        IF LS-R > 0
+            IF RF-KIND(LS-R) = "D" AND RF-SYMBOL(LS-R) > 0
+               AND (RF-ROLE(LS-R) = "D" OR RF-ROLE(LS-R) = "B"
+                    OR RF-ROLE(LS-R) = "X")
+                PERFORM MARK-CHANGED
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-GIVE-UP = "N"
+        PERFORM SCAN-STATEMENTS
+    END-IF.
+
+*> Statements under node LS-SCAN-ROOT that leave the loop or act
+*> unseen.
+SCAN-STATEMENTS.
+    MOVE LS-SCAN-ROOT TO LS-SCAN
+    MOVE 0 TO LS-SCAN-DEPTH
+    PERFORM UNTIL LS-SCAN = 0 OR LS-GIVE-UP = "Y"
+        IF ND-KIND(LS-SCAN) = "STMT"
+            EVALUATE ND-DETAIL(LS-SCAN)
+                WHEN "GO"
+                WHEN "STOP"
+                WHEN "GOBACK"
+                WHEN "CALL"
+                WHEN "ALTER"
+                WHEN "EXEC"
+                WHEN "READ"
+                WHEN "WRITE"
+                WHEN "REWRITE"
+                WHEN "DELETE"
+                WHEN "START"
+                WHEN "OPEN"
+                WHEN "CLOSE"
+                WHEN "RETURN"
+                WHEN "RELEASE"
+                WHEN "SORT"
+                WHEN "MERGE"
+                *> EXIT PARAGRAPH and EXIT SECTION stay in the loop.
+                WHEN "EXIT PERFORM"
+                WHEN "EXIT PROGRAM"
+                WHEN "EXIT METHOD"
+                WHEN "EXIT FUNCTION"
+                    MOVE "Y" TO LS-GIVE-UP
+            END-EVALUATE
+        END-IF
+        CALL "PLB-AST-NEXT" USING PLB-AST LS-SCAN-ROOT LS-SCAN
+            LS-SCAN-DEPTH
+    END-PERFORM.
+
+*> The item at reference LS-R is stored into: every condition item
+*> that shares storage with it has changed.
+MARK-CHANGED.
+    PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > WS-COND-COUNT
+        IF WS-COND-CHANGED(LS-C) = "N"
+            IF WS-COND(LS-C) = RF-SYMBOL(LS-R)
+                MOVE "Y" TO WS-COND-CHANGED(LS-C)
+            ELSE
+                CALL "PLB-SPAN-OVERLAP" USING WS-SPANS WS-COND(LS-C)
+                    RF-SYMBOL(LS-R) LS-OVERLAP
+                IF LS-OVERLAP = "Y"
+                    MOVE "Y" TO WS-COND-CHANGED(LS-C)
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
+
+REPORT-LOOP.
+    MOVE SPACES TO LS-NAMES
+    MOVE 1 TO LS-NAMES-PTR
+    PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > WS-COND-COUNT
+        EVALUATE TRUE
+            WHEN LS-C = 1
+                CONTINUE
+            WHEN LS-C = WS-COND-COUNT
+                STRING " or " DELIMITED BY SIZE
+                    INTO LS-NAMES WITH POINTER LS-NAMES-PTR
+            WHEN OTHER
+                STRING ", " DELIMITED BY SIZE
+                    INTO LS-NAMES WITH POINTER LS-NAMES-PTR
+        END-EVALUATE
+        STRING SY-NAME(WS-COND(LS-C)) DELIMITED BY SPACE
+            INTO LS-NAMES WITH POINTER LS-NAMES-PTR
+    END-PERFORM
+    MOVE SPACES TO LS-MESSAGE
+    STRING "the loop never changes " DELIMITED BY SIZE
+           LS-NAMES(1:LS-NAMES-PTR - 1) DELIMITED BY SIZE
+           ", which its UNTIL condition reads: unless the condition "
+           "holds when the loop starts, it never ends" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-UNTIL LS-MESSAGE.
+END PROGRAM PLB-RULE-C049.
