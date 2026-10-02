@@ -1,0 +1,2 @@
+tests/golden/symbols/layout.cob:28:33: warning: invalid character 'Q' in picture [SY001]
+tests/golden/symbols/layout.cob:29:28: error: REDEFINES must name an earlier item at the same level [SY002]

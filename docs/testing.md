@@ -44,6 +44,7 @@ suites and their commands are listed in `GOLDEN_SUITES` in the Makefile:
 | `tests/golden/lexer` | `plumbline dump tokens` |
 | `tests/golden/pp` | `plumbline dump expanded -I tests/golden/pp/copy` |
 | `tests/golden/parser` | `plumbline dump ast` |
+| `tests/golden/symbols` | `plumbline dump symbols` |
 
 Copybooks for the `pp` suite live in `tests/golden/pp/copy/`, with a
 `.cpy` extension, so the runner does not mistake them for test inputs.

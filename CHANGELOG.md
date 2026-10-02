@@ -38,3 +38,7 @@ uses [Semantic Versioning](https://semver.org/).
   terminators; error recovery at periods.
 - `plumbline dump ast [-I DIR]... FILE...` prints the syntax tree.
 - Reserved-word table with binary search.
+- PICTURE analysis (category, size, digits, scale, sign, validation)
+  and storage size by USAGE.
+- Symbol table with group sizes, OCCURS, REDEFINES, and byte offsets;
+  `plumbline dump symbols` prints it.

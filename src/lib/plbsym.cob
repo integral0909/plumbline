@@ -1,0 +1,320 @@
+*> ---------------------------------------------------------------
+*> plbsym: the symbol table of data items.
+*>
+*> PLB-SYM-BUILD walks the syntax tree and makes one PLB-SYMBOLS entry
+*> per data description entry, in three passes:
+*>
+*>   1. describe each item: name, level, section, parent group,
+*>      picture analysis, usage (inherited from the group when not
+*>      given), OCCURS, DEPENDING ON, REDEFINES, and VALUE;
+*>   2. compute sizes bottom-up: an elementary item's size comes from
+*>      its picture and usage; a group's is the sum of its members,
+*>      each multiplied by its OCCURS, not counting REDEFINES members;
+*>   3. compute offsets top-down: members follow one another inside
+*>      their group, and an item that redefines another starts where
+*>      that item starts.
+*>
+*> Diagnostic codes raised here:
+*>   SY001  warning  invalid PICTURE character-string
+*>   SY002  error    REDEFINES names no earlier item at the same level
+*>   SY004  error    symbol table full
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SYM-BUILD.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+*> The symbol entry made for each tree node (valid for DATA nodes of
+*> the current build only).
+01  WS-NODE-SYMBOL          PIC 9(9) COMP-5 OCCURS 400000 TIMES.
+*> Running offset inside each group during the offset pass.
+01  WS-CURSOR               PIC 9(9) COMP-5 OCCURS 100000 TIMES.
+LOCAL-STORAGE SECTION.
+COPY "plbpic.cpy".
+01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
+01  LS-NODE                 PIC 9(9) COMP-5.
+01  LS-DEPTH                PIC S9(9) COMP-5.
+01  LS-PROGRAM              PIC 9(9) COMP-5.
+01  LS-SECTION              PIC X.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-P                    PIC 9(9) COMP-5.
+01  LS-R                    PIC 9(9) COMP-5.
+01  LS-CHILD                PIC 9(9) COMP-5.
+01  LS-TOKEN                PIC 9(9) COMP-5.
+01  LS-TEXT                 PIC X(256).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-HAS-PICTURE          PIC X.
+01  LS-FULL                 PIC X VALUE "N".
+01  LS-TIMES                PIC 9(9) COMP-5.
+01  LS-DETAIL               PIC X(20).
+LINKAGE SECTION.
+COPY "plbsrc.cpy".
+COPY "plbdiag.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbsym.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
+        PLB-AST PLB-SYMBOLS.
+    MOVE 0 TO SY-COUNT LS-PROGRAM LS-DEPTH
+    MOVE "?" TO LS-SECTION
+    IF AS-COUNT = 0
+        GOBACK
+    END-IF
+    MOVE 1 TO LS-NODE
+    PERFORM UNTIL LS-NODE = 0 OR LS-FULL = "Y"
+        EVALUATE ND-KIND(LS-NODE)
+            WHEN "PROG"
+                MOVE LS-NODE TO LS-PROGRAM
+            WHEN "SECT"
+                PERFORM NOTE-SECTION
+            WHEN "DATA"
+                PERFORM DESCRIBE-ITEM
+        END-EVALUATE
+        CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
+    END-PERFORM
+    PERFORM COMPUTE-SIZES
+    PERFORM COMPUTE-OFFSETS
+    GOBACK.
+
+NOTE-SECTION.
+    EVALUATE ND-DETAIL(LS-NODE)
+        WHEN "WORKING-STORAGE"  MOVE "W" TO LS-SECTION
+        WHEN "LOCAL-STORAGE"    MOVE "L" TO LS-SECTION
+        WHEN "LINKAGE"          MOVE "K" TO LS-SECTION
+        WHEN "FILE"             MOVE "F" TO LS-SECTION
+        WHEN "REPORT"           MOVE "R" TO LS-SECTION
+        WHEN "SCREEN"           MOVE "S" TO LS-SECTION
+        WHEN OTHER              MOVE "?" TO LS-SECTION
+    END-EVALUATE.
+
+*> Pass 1 ---------------------------------------------------------
+
+DESCRIBE-ITEM.
+    IF SY-COUNT >= SY-MAX
+        MOVE "Y" TO LS-FULL
+        CALL "PLB-PX-DIAG" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            PLB-TOKENS ND-TOK-FIRST(LS-NODE) "E" "SY004"
+            "too many data items; the rest are not analyzed"
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO SY-COUNT
+    MOVE SY-COUNT TO LS-S
+    MOVE LS-S TO WS-NODE-SYMBOL(LS-NODE)
+    MOVE LS-NODE TO SY-NODE(LS-S)
+    MOVE LS-PROGRAM TO SY-PROGRAM(LS-S)
+    MOVE LS-SECTION TO SY-SECTION(LS-S)
+    MOVE ND-NUM(LS-NODE) TO SY-LEVEL(LS-S)
+    MOVE ND-NAME(LS-NODE) TO SY-NAME-TOKEN(LS-S)
+    MOVE SPACES TO SY-NAME(LS-S) SY-USAGE(LS-S)
+    IF ND-NAME(LS-NODE) > 0
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(LS-NODE)
+            SY-NAME(LS-S) LS-LEN
+    END-IF
+    MOVE 0 TO SY-PARENT(LS-S) SY-DIGITS(LS-S) SY-SCALE(LS-S)
+        SY-SIZE(LS-S) SY-OFFSET(LS-S) SY-OCCURS(LS-S)
+        SY-ODO-TOKEN(LS-S) SY-REDEFINES(LS-S)
+    MOVE "N" TO SY-SIGNED(LS-S) SY-HAS-VALUE(LS-S)
+    IF ND-KIND(ND-PARENT(LS-NODE)) = "DATA"
+        MOVE WS-NODE-SYMBOL(ND-PARENT(LS-NODE)) TO SY-PARENT(LS-S)
+    END-IF
+
+    MOVE "N" TO LS-HAS-PICTURE
+    MOVE ND-FIRST(LS-NODE) TO LS-CHILD
+    PERFORM UNTIL LS-CHILD = 0
+        IF ND-KIND(LS-CHILD) = "CLAU"
+            PERFORM DESCRIBE-CLAUSE
+        END-IF
+        MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+    END-PERFORM
+
+    *> A member without its own usage takes its group's.
+    IF SY-USAGE(LS-S) = SPACES AND SY-PARENT(LS-S) > 0
+        MOVE SY-USAGE(SY-PARENT(LS-S)) TO SY-USAGE(LS-S)
+    END-IF
+
+    EVALUATE TRUE
+        WHEN SY-LEVEL(LS-S) = 88
+            MOVE "C" TO SY-CATEGORY(LS-S)
+        WHEN SY-LEVEL(LS-S) = 66
+            MOVE "R" TO SY-CATEGORY(LS-S)
+        WHEN LS-HAS-PICTURE = "Y"
+            CONTINUE
+        WHEN OTHER
+            PERFORM CATEGORY-WITHOUT-PICTURE
+    END-EVALUATE
+    *> A parent that has members is a group.
+    IF SY-PARENT(LS-S) > 0 AND SY-LEVEL(LS-S) NOT = 88
+       AND SY-LEVEL(LS-S) NOT = 66
+        MOVE "G" TO SY-CATEGORY(SY-PARENT(LS-S))
+    END-IF.
+
+DESCRIBE-CLAUSE.
+    MOVE ND-DETAIL(LS-CHILD) TO LS-DETAIL
+    EVALUATE LS-DETAIL
+        WHEN "PICTURE"
+            IF ND-NAME(LS-CHILD) > 0
+                MOVE "Y" TO LS-HAS-PICTURE
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(LS-CHILD)
+                    LS-TEXT LS-LEN
+                CALL "PLB-PIC-ANALYZE" USING LS-TEXT PLB-PIC-INFO
+                MOVE PI-CATEGORY TO SY-CATEGORY(LS-S)
+                MOVE PI-DIGITS TO SY-DIGITS(LS-S)
+                MOVE PI-SCALE TO SY-SCALE(LS-S)
+                MOVE PI-SIGNED TO SY-SIGNED(LS-S)
+                IF PI-IS-INVALID
+                    CALL "PLB-PX-DIAG" USING PLB-SOURCE-SET
+                        PLB-DIAGNOSTICS PLB-TOKENS ND-NAME(LS-CHILD)
+                        "W" "SY001" PI-ERROR
+                END-IF
+            END-IF
+        WHEN "VALUE"
+            MOVE "Y" TO SY-HAS-VALUE(LS-S)
+        WHEN "OCCURS"
+            PERFORM DESCRIBE-OCCURS
+        WHEN "REDEFINES"
+            PERFORM FIND-REDEFINED
+        WHEN "USAGE"
+            *> USAGE IS x: the parser stored the usage word as detail.
+            CONTINUE
+        WHEN "SIGN" WHEN "JUSTIFIED" WHEN "SYNCHRONIZED"
+        WHEN "BLANK-WHEN-ZERO" WHEN "EXTERNAL" WHEN "GLOBAL"
+        WHEN "BASED" WHEN "RENAMES"
+            CONTINUE
+        WHEN OTHER
+            *> A usage clause: USAGE IS COMP-3 or plain COMP-3.
+            MOVE LS-DETAIL TO SY-USAGE(LS-S)
+    END-EVALUATE.
+
+*> OCCURS n [TO m] ...: the table has at most m (or n) entries.
+DESCRIBE-OCCURS.
+    COMPUTE LS-TOKEN = ND-TOK-FIRST(LS-CHILD) + 1
+    PERFORM UNTIL LS-TOKEN > ND-TOK-LAST(LS-CHILD)
+        IF TK-IS-NUMBER(LS-TOKEN)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT LS-LEN
+            MOVE FUNCTION NUMVAL(LS-TEXT(1:LS-LEN)) TO SY-OCCURS(LS-S)
+        ELSE
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT LS-LEN
+            IF LS-TEXT NOT = "TO"
+                EXIT PERFORM
+            END-IF
+        END-IF
+        ADD 1 TO LS-TOKEN
+    END-PERFORM
+    IF ND-FIRST(LS-CHILD) > 0
+        MOVE ND-NAME(ND-FIRST(LS-CHILD)) TO SY-ODO-TOKEN(LS-S)
+    END-IF.
+
+*> The redefined item is the nearest earlier item of the same program
+*> with the same level and name, with no item of a lower level in
+*> between (it must be a sibling).
+FIND-REDEFINED.
+    IF ND-NAME(LS-CHILD) = 0
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(LS-CHILD) LS-TEXT
+        LS-LEN
+    COMPUTE LS-R = LS-S - 1
+    PERFORM UNTIL LS-R = 0
+        IF SY-PROGRAM(LS-R) NOT = SY-PROGRAM(LS-S)
+           OR SY-LEVEL(LS-R) < SY-LEVEL(LS-S)
+           AND SY-LEVEL(LS-R) NOT = 88
+            MOVE 0 TO LS-R
+            EXIT PERFORM
+        END-IF
+        IF SY-LEVEL(LS-R) = SY-LEVEL(LS-S)
+           AND SY-NAME(LS-R) = LS-TEXT(1:31)
+            EXIT PERFORM
+        END-IF
+        SUBTRACT 1 FROM LS-R
+    END-PERFORM
+    IF LS-R = 0
+        CALL "PLB-PX-DIAG" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            PLB-TOKENS ND-NAME(LS-CHILD) "E" "SY002"
+            "REDEFINES must name an earlier item at the same level"
+    ELSE
+        MOVE LS-R TO SY-REDEFINES(LS-S)
+    END-IF.
+
+*> Items without a picture: a group, or a usage that implies its own
+*> format.
+CATEGORY-WITHOUT-PICTURE.
+    EVALUATE SY-USAGE(LS-S)
+        WHEN "INDEX" WHEN "POINTER" WHEN "PROCEDURE-POINTER"
+        WHEN "PROGRAM-POINTER" WHEN "COMP-1" WHEN "COMP-2"
+        WHEN "COMPUTATIONAL-1" WHEN "COMPUTATIONAL-2"
+        WHEN "FLOAT-SHORT" WHEN "FLOAT-LONG" WHEN "BINARY-CHAR"
+        WHEN "BINARY-SHORT" WHEN "BINARY-LONG" WHEN "BINARY-DOUBLE"
+        WHEN "OBJECT-REFERENCE"
+            MOVE "U" TO SY-CATEGORY(LS-S)
+        WHEN OTHER
+            *> Becomes G if members follow; otherwise the picture is
+            *> missing.
+            MOVE "?" TO SY-CATEGORY(LS-S)
+    END-EVALUATE.
+
+*> Pass 2: sizes, members before groups -----------------------------
+
+COMPUTE-SIZES.
+    PERFORM VARYING LS-S FROM SY-COUNT BY -1 UNTIL LS-S = 0
+        IF SY-CATEGORY(LS-S) NOT = "G" AND SY-CATEGORY(LS-S) NOT = "C"
+           AND SY-CATEGORY(LS-S) NOT = "R"
+            PERFORM ELEMENTARY-SIZE
+        END-IF
+        MOVE SY-PARENT(LS-S) TO LS-P
+        IF LS-P > 0 AND SY-REDEFINES(LS-S) = 0
+           AND SY-CATEGORY(LS-S) NOT = "C"
+           AND SY-CATEGORY(LS-S) NOT = "R"
+            PERFORM OCCURRENCES
+            COMPUTE SY-SIZE(LS-P) = SY-SIZE(LS-P)
+                + SY-SIZE(LS-S) * LS-TIMES
+        END-IF
+    END-PERFORM.
+
+ELEMENTARY-SIZE.
+    MOVE SY-CATEGORY(LS-S) TO PI-CATEGORY
+    MOVE SY-DIGITS(LS-S) TO PI-DIGITS
+    MOVE 0 TO PI-SIZE
+    IF SY-CATEGORY(LS-S) NOT = "U" AND SY-CATEGORY(LS-S) NOT = "?"
+        *> Re-read the picture for its display size.
+        MOVE ND-FIRST(SY-NODE(LS-S)) TO LS-CHILD
+        PERFORM UNTIL LS-CHILD = 0
+            IF ND-DETAIL(LS-CHILD) = "PICTURE" AND ND-NAME(LS-CHILD) > 0
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(LS-CHILD)
+                    LS-TEXT LS-LEN
+                CALL "PLB-PIC-ANALYZE" USING LS-TEXT PLB-PIC-INFO
+                EXIT PERFORM
+            END-IF
+            MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+        END-PERFORM
+    END-IF
+    CALL "PLB-PIC-STORAGE" USING PLB-PIC-INFO SY-USAGE(LS-S)
+        SY-SIZE(LS-S).
+
+OCCURRENCES.
+    MOVE 1 TO LS-TIMES
+    IF SY-OCCURS(LS-S) > 0
+        MOVE SY-OCCURS(LS-S) TO LS-TIMES
+    END-IF.
+
+*> Pass 3: offsets, groups before members --------------------------
+
+COMPUTE-OFFSETS.
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
+        MOVE SY-PARENT(LS-S) TO LS-P
+        EVALUATE TRUE
+            WHEN SY-REDEFINES(LS-S) > 0
+                MOVE SY-OFFSET(SY-REDEFINES(LS-S)) TO SY-OFFSET(LS-S)
+            WHEN LS-P = 0
+                MOVE 0 TO SY-OFFSET(LS-S)
+            WHEN SY-CATEGORY(LS-S) = "C" OR SY-CATEGORY(LS-S) = "R"
+                MOVE SY-OFFSET(LS-P) TO SY-OFFSET(LS-S)
+            WHEN OTHER
+                MOVE WS-CURSOR(LS-P) TO SY-OFFSET(LS-S)
+                PERFORM OCCURRENCES
+                COMPUTE WS-CURSOR(LS-P) = WS-CURSOR(LS-P)
+                    + SY-SIZE(LS-S) * LS-TIMES
+        END-EVALUATE
+        MOVE SY-OFFSET(LS-S) TO WS-CURSOR(LS-S)
+    END-PERFORM.
+END PROGRAM PLB-SYM-BUILD.

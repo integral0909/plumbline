@@ -6,6 +6,7 @@
 *>   plumbline dump tokens [--format fixed|free|auto] [--debug] FILE...
 *>   plumbline dump expanded [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump ast [-I DIR]... [--format ...] [--debug] FILE...
+*>   plumbline dump symbols [-I DIR]... [--format ...] [--debug] FILE...
 *>
 *> Exit codes:
 *>   0  success
@@ -25,6 +26,7 @@ COPY "plbppopt.cpy".
 COPY "plbincl.cpy".
 COPY "plbastc.cpy".
 COPY "plbast.cpy".
+COPY "plbsym.cpy".
 78  MAX-INPUTS                  VALUE 256.
 01  WS-ARG-COUNT            PIC 9(4).
 01  WS-ARG-INDEX            PIC 9(4).
@@ -62,6 +64,8 @@ COPY "plbast.cpy".
 01  WS-NODE                 PIC 9(9) COMP-5.
 01  WS-DEPTH                PIC S9(9) COMP-5.
 01  WS-TOK                  PIC 9(9) COMP-5.
+01  WS-S                    PIC 9(9) COMP-5.
+01  WS-P                    PIC 9(9) COMP-5.
 
 PROCEDURE DIVISION.
 MAIN-LOGIC.
@@ -120,6 +124,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline dump tokens [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump expanded [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump ast [-I DIR]... [--format FORMAT] [--debug] FILE..."
+    DISPLAY "       plumbline dump symbols [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "Static analysis for COBOL programs."
     DISPLAY " "
     DISPLAY "Options:"
@@ -131,6 +136,7 @@ SHOW-USAGE.
     DISPLAY "  dump tokens      show the tokens of each source file"
     DISPLAY "  dump expanded    show the tokens after COPY and REPLACE"
     DISPLAY "  dump ast         show the syntax tree"
+    DISPLAY "  dump symbols     show data items with sizes and offsets"
     DISPLAY " "
     DISPLAY "Command options:"
     DISPLAY "  --format FORMAT  reference format: fixed, free, or auto"
@@ -145,6 +151,7 @@ DUMP-COMMAND.
     MOVE WS-ARG TO WS-DUMP-TARGET
     IF WS-ARG NOT = "lines" AND WS-ARG NOT = "tokens"
        AND WS-ARG NOT = "expanded" AND WS-ARG NOT = "ast"
+       AND WS-ARG NOT = "symbols"
         IF WS-ARG-LEN = 0
             DISPLAY PLB-NAME ": dump: missing what to dump"
                 UPON SYSERR
@@ -171,6 +178,8 @@ DUMP-COMMAND.
         PERFORM DUMP-EXPANDED
     WHEN "ast"
         PERFORM DUMP-AST
+    WHEN "symbols"
+        PERFORM DUMP-SYMBOLS
     WHEN OTHER
         CALL "PLB-LEX-INIT" USING PLB-TOKENS
         PERFORM VARYING WS-FILE-ID FROM 1 BY 1
@@ -223,6 +232,103 @@ DUMP-AST.
             CALL "PLB-AST-NEXT" USING PLB-AST WS-ROOT WS-NODE WS-DEPTH
         END-PERFORM
     END-PERFORM.
+
+*> One line per data item, indented by nesting:
+*>     level name category size=n offset=n [attributes] @line:column
+DUMP-SYMBOLS.
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
+    MOVE WS-MODE TO PO-FORMAT
+    MOVE WS-DEBUG TO PO-DEBUG
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        CALL "PLB-PP-RUN" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            PLB-PP-OPTIONS PLB-TOKENS PLB-INCLUSIONS WS-FILE-ID
+        CALL "PLB-PARSE" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            PLB-TOKENS PLB-AST
+        CALL "PLB-SYM-BUILD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            PLB-TOKENS PLB-AST PLB-SYMBOLS
+        PERFORM VARYING WS-S FROM 1 BY 1 UNTIL WS-S > SY-COUNT
+            PERFORM DUMP-ONE-SYMBOL
+        END-PERFORM
+    END-PERFORM.
+
+DUMP-ONE-SYMBOL.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    MOVE SY-PARENT(WS-S) TO WS-P
+    PERFORM UNTIL WS-P = 0
+        STRING "  " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+        MOVE SY-PARENT(WS-P) TO WS-P
+    END-PERFORM
+    MOVE SY-LEVEL(WS-S) TO WS-NUM
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    STRING WS-NUM-TEXT(1:WS-NUM-LEN) " " DELIMITED BY SIZE
+        INTO WS-OUT WITH POINTER WS-PTR
+    IF SY-NAME(WS-S) = SPACES
+        STRING "FILLER" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    ELSE
+        STRING SY-NAME(WS-S) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    STRING " " SY-CATEGORY(WS-S) " size=" DELIMITED BY SIZE
+        INTO WS-OUT WITH POINTER WS-PTR
+    MOVE SY-SIZE(WS-S) TO WS-NUM
+    PERFORM APPEND-NUM
+    STRING " offset=" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE SY-OFFSET(WS-S) TO WS-NUM
+    PERFORM APPEND-NUM
+    IF SY-USAGE(WS-S) NOT = SPACES
+        STRING " usage=" SY-USAGE(WS-S) DELIMITED BY "  "
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF SY-DIGITS(WS-S) > 0
+        STRING " digits=" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+        MOVE SY-DIGITS(WS-S) TO WS-NUM
+        PERFORM APPEND-NUM
+    END-IF
+    IF SY-SCALE(WS-S) NOT = 0
+        STRING " scale=" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+        MOVE SY-SCALE(WS-S) TO WS-NUM
+        PERFORM APPEND-NUM
+    END-IF
+    IF SY-SIGNED(WS-S) = "Y"
+        STRING " signed" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF SY-OCCURS(WS-S) > 0
+        STRING " occurs=" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+        MOVE SY-OCCURS(WS-S) TO WS-NUM
+        PERFORM APPEND-NUM
+    END-IF
+    IF SY-ODO-TOKEN(WS-S) > 0
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS SY-ODO-TOKEN(WS-S)
+            WS-TOKEN-TEXT WS-TOKEN-LEN
+        STRING " depending=" WS-TOKEN-TEXT(1:WS-TOKEN-LEN)
+            DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF SY-REDEFINES(WS-S) > 0
+        STRING " redefines=" DELIMITED BY SIZE
+               SY-NAME(SY-REDEFINES(WS-S)) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF SY-HAS-VALUE(WS-S) = "Y"
+        STRING " value" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    STRING " section=" SY-SECTION(WS-S) DELIMITED BY SIZE
+        INTO WS-OUT WITH POINTER WS-PTR
+    MOVE ND-TOK-FIRST(SY-NODE(WS-S)) TO WS-TOK
+    MOVE SL-LINE-NO(TK-SRC-LINE(WS-TOK)) TO WS-NUM
+    STRING " @" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    PERFORM APPEND-NUM
+    STRING ":" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE TK-COLUMN(WS-TOK) TO WS-NUM
+    PERFORM APPEND-NUM
+    CALL "PLB-STR-LENGTH" USING WS-OUT WS-OUT-LEN
+    DISPLAY WS-OUT(1:WS-OUT-LEN).
+
+APPEND-NUM.
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    STRING WS-NUM-TEXT(1:WS-NUM-LEN) DELIMITED BY SIZE
+        INTO WS-OUT WITH POINTER WS-PTR.
 
 DUMP-ONE-NODE.
     MOVE SPACES TO WS-OUT
