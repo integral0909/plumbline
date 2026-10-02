@@ -96,6 +96,8 @@ class LanguageServerTest(unittest.TestCase):
             self.capabilities["renameProvider"]["prepareProvider"])
         self.assertTrue(self.capabilities["foldingRangeProvider"])
         self.assertTrue(self.capabilities["callHierarchyProvider"])
+        legend = self.capabilities["semanticTokensProvider"]["legend"]
+        self.assertIn("variable", legend["tokenTypes"])
         self.assertEqual(
             self.capabilities["codeActionProvider"]["codeActionKinds"],
             ["quickfix"])
@@ -345,6 +347,39 @@ class LanguageServerTest(unittest.TestCase):
                                     {"item": item})
         names = {call["to"]["name"] for call in reply["result"]}
         self.assertEqual(names, {"INIT", "STEP-1", "ABEND"})
+
+    def semantic_tokens(self):
+        reply = self.server.request("textDocument/semanticTokens/full",
+                                    {"textDocument": {"uri": URI}})
+        legend = self.capabilities["semanticTokensProvider"]["legend"]
+        data = reply["result"]["data"]
+        lines = self.text.splitlines()
+        tokens = {}
+        line = character = 0
+        for i in range(0, len(data), 5):
+            delta_line, delta_char, length, kind, modifiers = data[i:i + 5]
+            line += delta_line
+            character = character + delta_char if delta_line == 0 \
+                else delta_char
+            text = lines[line][character:character + length]
+            tokens[(line, text)] = (legend["tokenTypes"][kind], modifiers)
+        return tokens
+
+    def test_semantic_tokens(self):
+        tokens = self.semantic_tokens()
+        perform = self.position("PERFORM STEP-1")["line"]
+        self.assertEqual(tokens[(perform, "PERFORM")], ("keyword", 0))
+        self.assertEqual(tokens[(perform, "STEP-1")], ("function", 0))
+        self.assertEqual(tokens[(self.position("STEP-1.")["line"],
+                                 "STEP-1")], ("function", 1))
+        self.assertEqual(tokens[(self.position("01  ERRORS")["line"],
+                                 "ERRORS")], ("variable", 1))
+        self.assertEqual(tokens[(self.position("IF ERRORS")["line"],
+                                 "ERRORS")], ("variable", 0))
+        self.assertEqual(tokens[(self.position("01  ERRORS")["line"],
+                                 "9(4)")], ("type", 0))
+        self.assertIn(("string", 0), tokens.values())
+        self.assertIn(("number", 0), tokens.values())
 
     def test_folding_ranges(self):
         reply = self.server.request("textDocument/foldingRange",

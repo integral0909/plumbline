@@ -198,6 +198,13 @@ COPY "plbinput.cpy".
 01  WS-LSP-EDGE-2           PIC 9(9) COMP-5.
 01  WS-LSP-ITEM-UNIT        PIC 9(9) COMP-5.
 01  WS-LSP-BRACE            PIC 9(9) COMP-5.
+*> semanticTokens: per token, its type (an index into the legend, 9
+*> for none) and whether it declares the name.
+01  WS-LSP-TOKEN-TYPE       PIC 9 OCCURS TK-MAX TIMES.
+01  WS-LSP-TOKEN-DECL       PIC 9 OCCURS TK-MAX TIMES.
+01  WS-LSP-PREV-LINE        PIC 9(9) COMP-5.
+01  WS-LSP-PREV-CHAR        PIC 9(9) COMP-5.
+01  WS-LSP-SPAN             PIC 9(9) COMP-5.
 *> textDocument/rename: the new name, and the tokens to change, by
 *> file.
 01  WS-LSP-NEW-NAME         PIC X(31).
@@ -898,6 +905,8 @@ LSP-MESSAGE.
             PERFORM LSP-REFERENCES
         WHEN "workspace/symbol"
             PERFORM LSP-WORKSPACE-SYMBOLS
+        WHEN "textDocument/semanticTokens/full"
+            PERFORM LSP-SEMANTIC-TOKENS
         WHEN "textDocument/prepareCallHierarchy"
             PERFORM LSP-PREPARE-CALL-HIERARCHY
         WHEN "callHierarchy/incomingCalls"
@@ -944,6 +953,13 @@ LSP-INITIALIZE.
            '"documentHighlightProvider":true,' DELIMITED BY SIZE
            '"foldingRangeProvider":true,' DELIMITED BY SIZE
            '"callHierarchyProvider":true,' DELIMITED BY SIZE
+           '"semanticTokensProvider":{"legend":{"tokenTypes":'
+           DELIMITED BY SIZE
+           '["keyword","variable","function","string","number",'
+           DELIMITED BY SIZE
+           '"operator","type"],"tokenModifiers":["declaration"]},'
+           DELIMITED BY SIZE
+           '"full":true},' DELIMITED BY SIZE
            '"codeActionProvider":{"codeActionKinds":["quickfix"]},'
            DELIMITED BY SIZE
            '"renameProvider":{"prepareProvider":true}},'
@@ -1554,6 +1570,143 @@ LSP-APPEND-SUPPRESS-ACTION.
            RL-NAME(FN-RULE(WS-I)) DELIMITED BY SPACE
            '\n"}]}}}' DELIMITED BY SIZE
         INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
+*> Semantic tokens --------------------------------------------------
+
+*> textDocument/semanticTokens/full: the tokens of the document (not
+*> of its copybooks), classified from the analysis: reserved words,
+*> data names, paragraph and section names, literals, operators, and
+*> pictures; data and procedure names where they are declared carry
+*> the declaration modifier. Encoded as LSP asks: five numbers a token,
+*> each place relative to the token before.
+LSP-SEMANTIC-TOKENS.
+    PERFORM LSP-FIND-DOCUMENT
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":{"data":[' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-DOC-INDEX > 0
+        PERFORM LSP-ANALYZE
+        PERFORM LSP-CLASSIFY-TOKENS
+        MOVE "Y" TO WS-LSP-FIRST
+        MOVE 1 TO WS-LSP-PREV-LINE WS-LSP-PREV-CHAR
+        PERFORM VARYING WS-TOK FROM 1 BY 1 UNTIL WS-TOK > TK-COUNT
+            IF WS-LSP-TOKEN-TYPE(WS-TOK) < 9
+               AND WS-LSP-PTR < LSP-SIZE - 256
+                PERFORM LSP-APPEND-SEMANTIC-TOKEN
+            END-IF
+        END-PERFORM
+    END-IF
+    STRING "]}}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> WS-LSP-TOKEN-TYPE and WS-LSP-TOKEN-DECL for the tokens of the
+*> document written in it: not those a copybook brought in.
+LSP-CLASSIFY-TOKENS.
+    PERFORM VARYING WS-TOK FROM 1 BY 1 UNTIL WS-TOK > TK-COUNT
+        MOVE 9 TO WS-LSP-TOKEN-TYPE(WS-TOK)
+        MOVE 0 TO WS-LSP-TOKEN-DECL(WS-TOK)
+        IF TK-FILE-ID(WS-TOK) = 1 AND TK-INCL(WS-TOK) = 0
+           AND TK-SRC-LINE(WS-TOK) > 0
+            EVALUATE TRUE
+                WHEN TK-IS-ALNUM(WS-TOK)
+                    MOVE 3 TO WS-LSP-TOKEN-TYPE(WS-TOK)
+                WHEN TK-IS-NUMBER(WS-TOK)
+                    MOVE 4 TO WS-LSP-TOKEN-TYPE(WS-TOK)
+                WHEN TK-IS-OPERATOR(WS-TOK)
+                    MOVE 5 TO WS-LSP-TOKEN-TYPE(WS-TOK)
+                WHEN TK-IS-PICTURE(WS-TOK)
+                    MOVE 6 TO WS-LSP-TOKEN-TYPE(WS-TOK)
+                WHEN TK-IS-WORD(WS-TOK) AND TK-KEYWORD(WS-TOK) = "S"
+                    MOVE 1 TO WS-LSP-TOKEN-TYPE(WS-TOK)
+                WHEN TK-IS-WORD(WS-TOK) AND TK-KEYWORD(WS-TOK) NOT = SPACE
+                    MOVE 0 TO WS-LSP-TOKEN-TYPE(WS-TOK)
+            END-EVALUATE
+        END-IF
+    END-PERFORM
+    *> Names: data references, declared data items, procedures.
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > RF-COUNT
+        IF RF-KIND(WS-I) = "D" OR RF-KIND(WS-I) = "A"
+            MOVE RF-TOKEN(WS-I) TO WS-TOK
+            PERFORM LSP-NAME-TOKEN-AS-VARIABLE
+        END-IF
+    END-PERFORM
+    PERFORM VARYING WS-S FROM 1 BY 1 UNTIL WS-S > SY-COUNT
+        IF SY-NAME-TOKEN(WS-S) > 0
+            MOVE SY-NAME-TOKEN(WS-S) TO WS-TOK
+            PERFORM LSP-NAME-TOKEN-AS-VARIABLE
+            IF WS-LSP-TOKEN-TYPE(WS-TOK) = 1
+                MOVE 1 TO WS-LSP-TOKEN-DECL(WS-TOK)
+            END-IF
+        END-IF
+    END-PERFORM
+    PERFORM VARYING WS-NODE FROM 1 BY 1 UNTIL WS-NODE > AS-COUNT
+        IF ND-NAME(WS-NODE) > 0
+            EVALUATE ND-KIND(WS-NODE)
+                WHEN "PARA" WHEN "SECT"
+                    MOVE ND-NAME(WS-NODE) TO WS-TOK
+                    PERFORM LSP-NAME-TOKEN-AS-FUNCTION
+                    IF WS-LSP-TOKEN-TYPE(WS-TOK) = 2
+                        MOVE 1 TO WS-LSP-TOKEN-DECL(WS-TOK)
+                    END-IF
+                WHEN "PROC"
+                    MOVE ND-NAME(WS-NODE) TO WS-TOK
+                    PERFORM LSP-NAME-TOKEN-AS-FUNCTION
+            END-EVALUATE
+        END-IF
+    END-PERFORM.
+
+LSP-NAME-TOKEN-AS-VARIABLE.
+    IF TK-FILE-ID(WS-TOK) = 1 AND TK-INCL(WS-TOK) = 0
+       AND TK-SRC-LINE(WS-TOK) > 0 AND TK-IS-WORD(WS-TOK)
+        MOVE 1 TO WS-LSP-TOKEN-TYPE(WS-TOK)
+    END-IF.
+
+LSP-NAME-TOKEN-AS-FUNCTION.
+    IF TK-FILE-ID(WS-TOK) = 1 AND TK-INCL(WS-TOK) = 0
+       AND TK-SRC-LINE(WS-TOK) > 0 AND TK-IS-WORD(WS-TOK)
+        MOVE 2 TO WS-LSP-TOKEN-TYPE(WS-TOK)
+    END-IF.
+
+*> deltaLine, deltaStart, length, type, modifiers of token WS-TOK. A
+*> token continued onto the next line counts to its line's end.
+LSP-APPEND-SEMANTIC-TOKEN.
+    MOVE SL-LINE-NO(TK-SRC-LINE(WS-TOK)) TO WS-LSP-LINE
+    MOVE TK-COLUMN(WS-TOK) TO WS-LSP-CHAR
+    MOVE TK-SPAN(WS-TOK) TO WS-LSP-SPAN
+    IF WS-LSP-CHAR + WS-LSP-SPAN - 1 > SL-TEXT-LEN(TK-SRC-LINE(WS-TOK))
+        COMPUTE WS-LSP-SPAN =
+            SL-TEXT-LEN(TK-SRC-LINE(WS-TOK)) - WS-LSP-CHAR + 1
+    END-IF
+    IF WS-LSP-SPAN = 0 OR WS-LSP-LINE < WS-LSP-PREV-LINE
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-LINE = WS-LSP-PREV-LINE AND WS-LSP-CHAR < WS-LSP-PREV-CHAR
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST
+    COMPUTE WS-NUM = WS-LSP-LINE - WS-LSP-PREV-LINE
+    PERFORM LSP-APPEND-NUM
+    STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-LINE = WS-LSP-PREV-LINE
+        COMPUTE WS-NUM = WS-LSP-CHAR - WS-LSP-PREV-CHAR
+    ELSE
+        COMPUTE WS-NUM = WS-LSP-CHAR - 1
+    END-IF
+    PERFORM LSP-APPEND-NUM
+    STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE WS-LSP-SPAN TO WS-NUM
+    PERFORM LSP-APPEND-NUM
+    STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE WS-LSP-TOKEN-TYPE(WS-TOK) TO WS-NUM
+    PERFORM LSP-APPEND-NUM
+    STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE WS-LSP-TOKEN-DECL(WS-TOK) TO WS-NUM
+    PERFORM LSP-APPEND-NUM
+    MOVE WS-LSP-LINE TO WS-LSP-PREV-LINE
+    MOVE WS-LSP-CHAR TO WS-LSP-PREV-CHAR.
 
 *> Call hierarchy ---------------------------------------------------
 
