@@ -250,7 +250,7 @@ See the [rule reference](rules.md).
 - **Data flow**: reaching definitions over the procedure graph, for
   uninitialized-use and dead-store checks.
 - **Call graph**: static `CALL` literals across programs in one run.
-- **Suppressions**: `*> plumbline: ignore PLB-C001` comments and baselines.
+- **Baselines**: record today's findings and report only new ones.
 
 ## Design principles
 
