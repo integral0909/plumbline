@@ -1,0 +1,3 @@
+tests/golden/rules/m001-m002-go-to.cob:4:5: warning: ALTER changes GO TO targets at run time and is obsolete [PLB-M002]
+tests/golden/rules/m001-m002-go-to.cob:5:5: note: GO TO makes the flow of control hard to follow [PLB-M001]
+tests/golden/rules/m001-m002-go-to.cob:7:5: note: GO TO makes the flow of control hard to follow [PLB-M001]

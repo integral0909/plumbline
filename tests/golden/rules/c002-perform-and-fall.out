@@ -1,0 +1,1 @@
+tests/golden/rules/c002-perform-and-fall.cob:6:1: warning: paragraph CALC is performed, but MAIN-LINE also falls into it [PLB-C002]

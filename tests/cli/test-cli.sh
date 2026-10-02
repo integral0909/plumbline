@@ -100,8 +100,10 @@ check "help lists check"                  0 'check            analyze programs' 
 check "check reports findings"            1 'c001-unreachable.cob:23:1: warning: paragraph NEVER-CALLED is never executed \[PLB-C001\]' \
     -- check $rx/c001-unreachable.cob
 check "--fail-on error ignores warnings"  0 'NEVER-CALLED' -- check --fail-on error $rx/c001-unreachable.cob
-check "--disable by rule name"            0 '^$' -- check --disable unreachable-code $rx/c001-unreachable.cob
-check "--disable by rule id"              0 '^$' -- check --disable PLB-C001 $rx/c001-unreachable.cob
+check "--disable by rule name"            0 '^$' -- check --disable unreachable-code --disable go-to $rx/c001-unreachable.cob
+check "--disable by rule id"              0 '^$' -- check --disable PLB-C001 --disable PLB-M001 $rx/c001-unreachable.cob
+check "notes do not fail by default"      0 'GO TO makes' -- check --disable PLB-C001 $rx/c001-unreachable.cob
+check "--fail-on note fails on notes"     1 'GO TO makes' -- check --disable PLB-C001 --fail-on note $rx/c001-unreachable.cob
 check "unknown rule is a usage error"     2 "unknown rule 'PLB-X999'" -- check --disable PLB-X999 $rx/c001-unreachable.cob
 check "invalid --fail-on level"           2 "invalid --fail-on level 'sometimes'" -- check --fail-on sometimes $rx/c001-unreachable.cob
 check "--debug includes debugging lines"  0 'continuation.cbl:5:20: alnum    "DEBUG ONLY"' \
