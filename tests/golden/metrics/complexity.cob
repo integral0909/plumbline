@@ -1,0 +1,34 @@
+*> Decisions counted in DECIDE: IF (1), its AND and OR (2), two WHENs
+*> (2; WHEN OTHER is not one), PERFORM UNTIL (1), ON SIZE ERROR (1),
+*> SEARCH AT END and WHEN (2), PERFORM ... TIMES (1), and GO TO with
+*> two targets DEPENDING ON (2): complexity 1 + 12 = 13. The deepest
+*> statement is the DISPLAY of ON SIZE ERROR in ADD in PERFORM in IF:
+*> nesting 4.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. METRICS.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  COUNTER             PIC 9 VALUE 0.
+01  CODES               PIC X OCCURS 5 INDEXED BY CODE-IX.
+
+PROCEDURE DIVISION.
+DECIDE.
+    IF COUNTER = 1 AND COUNTER < 2 OR COUNTER > 3
+        EVALUATE COUNTER
+            WHEN 1 DISPLAY "ONE"
+            WHEN 2 DISPLAY "TWO"
+            WHEN OTHER DISPLAY "OTHER"
+        END-EVALUATE
+    ELSE
+        PERFORM UNTIL COUNTER > 5
+            ADD 1 TO COUNTER ON SIZE ERROR DISPLAY "FULL" END-ADD
+        END-PERFORM
+    END-IF
+    SEARCH CODES AT END DISPLAY "NONE"
+        WHEN CODES(CODE-IX) = "X" DISPLAY "FOUND"
+    END-SEARCH
+    PERFORM FINISH 3 TIMES
+    GO TO DECIDE FINISH DEPENDING ON COUNTER.
+*> A paragraph with one statement has complexity 1.
+FINISH.
+    STOP RUN.

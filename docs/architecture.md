@@ -325,6 +325,20 @@ Names are compared without regard to case.
 
 `plumbline dump calls FILE...` prints the programs and calls.
 
+### Metrics
+
+`src/lib/plbmetr.cob`, with its table in `copy/plbmetr.cpy`.
+
+`PLB-METRICS-COMPUTE` measures each program of a file and each of its
+units, using the tree, the symbol table, and the procedure graph.
+Statements are counted in the innermost unit whose tokens hold them.
+Decisions come from the tree: IF statements, WHEN blocks other than
+WHEN OTHER, PERFORM statements that loop, conditional phrase blocks,
+AND and OR in condition nodes, and the targets of GO TO DEPENDING ON.
+Nesting is the number of statements a statement is inside, plus one.
+The text, JSON, and CSV writers are in the same file. The size rules
+PLB-M009 and PLB-M010 (`src/lib/plbrsize.cob`) use the same figures.
+
 ### Rules and reporting
 
 `src/lib/plbrule.cob` (catalog and findings) and `src/lib/plbcheck.cob`

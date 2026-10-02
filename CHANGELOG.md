@@ -74,6 +74,10 @@ uses [Semantic Versioning](https://semver.org/).
 
 - `make corpus` runs Plumbline over the NIST COBOL-85 test suite
   (`tools/corpus/`); see `docs/corpus.md`.
+- `plumbline metrics`: size and complexity of programs, paragraphs, and
+  sections, as text, JSON, or CSV.
+- Measuring rules have limits (`limit RULE N`); PLB-M009
+  complex-paragraph and PLB-M010 long-paragraph (both off by default).
 - File rules PLB-C020 file-status-not-checked, PLB-C021
   file-not-opened, PLB-C022 open-mode-mismatch, and PLB-M008
   file-not-closed.

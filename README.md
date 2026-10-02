@@ -62,6 +62,26 @@ Give `check` all the programs that call each other in one run. Calls
 between them are then checked against the programs they call: the
 number of arguments, how they are passed, and their sizes.
 
+## Metrics
+
+`plumbline metrics` reports the size and complexity of each program and
+of its paragraphs and sections:
+
+```console
+$ plumbline metrics src/payroll.cbl
+program PAYROLL src/payroll.cbl:2
+  lines 412 (code 318, comment 81, blank 13)
+  statements 245, sections 4, paragraphs 31, data items 120
+  complexity 57, deepest nesting 4, GO TO 12, PERFORM 40, CALL 3
+  paragraph MAIN-LINE line 61: 12 statements, complexity 3, nesting 2, 18 lines
+  ...
+```
+
+Complexity is McCabe's: one plus each decision (IF, WHEN, a looping
+PERFORM, a conditional phrase such as AT END, AND and OR in conditions,
+and the targets of GO TO DEPENDING ON). `--report json` and
+`--report csv` give the same figures for other tools and spreadsheets.
+
 ## Configuration
 
 Settings that a project always uses go in `plumbline.conf` in the
@@ -80,7 +100,9 @@ baseline plumbline.baseline
 
 `include`, `format`, `enable`, `disable`, `fail-on`, `report`, and
 `baseline` work like the options of the same names. `severity RULE
-LEVEL` reports a rule as `error`, `warning`, or `note`. Options given on
+LEVEL` reports a rule as `error`, `warning`, or `note`, and `limit RULE
+N` sets the threshold of a rule that measures something, such as
+`limit complex-paragraph 20`. Options given on
 the command line are applied after the file, so they override it. Paths
 in the file are relative to the directory `plumbline` runs in.
 

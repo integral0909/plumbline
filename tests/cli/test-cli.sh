@@ -156,11 +156,34 @@ check "options override the config"       1 'never executed' \
 check "config can name a baseline"        0 '^$' -- check --config $cfx/baseline.conf $rx/c001-unreachable.cob
 check "unknown settings are errors"       2 "in $cfx/unknown.conf line 1" -- check --config $cfx/unknown.conf $rx/c001-unreachable.cob
 check "invalid severity"                  2 "invalid severity 'fatal'" -- check --config $cfx/bad-severity.conf $rx/c001-unreachable.cob
+check "limit lowers a rule's threshold"   0 'paragraph DECIDE has complexity 13 (limit 10) \[PLB-M009\]' \
+    -- check --config $cfx/limits.conf --fail-on never tests/golden/metrics/complexity.cob
+check "limit needs a measuring rule"      2 "rule 'go-to' has no limit" \
+    -- check --config $cfx/no-limit.conf tests/golden/metrics/complexity.cob
+check "limit needs a number"              2 "invalid limit 'many'" \
+    -- check --config $cfx/bad-limit.conf tests/golden/metrics/complexity.cob
 check "--config with a missing file"      2 'cannot read configuration file nope.conf' -- check --config nope.conf $rx/c001-unreachable.cob
 run_dir=$cfx/project
 check "plumbline.conf in the current directory is read" 0 '^$' -- check ../../../golden/rules/c001-unreachable.cob
 check "--no-config skips plumbline.conf"  1 'GO TO makes' -- check --no-config ../../../golden/rules/c001-unreachable.cob
 run_dir=.
+
+mx=tests/golden/metrics
+check "metrics csv has a header"          0 '^file,program,kind,name,line,lines,statements,complexity,nesting$' \
+    -- metrics --report csv $mx/complexity.cob
+check "metrics csv quotes paths"          0 '^"tests/golden/metrics/complexity.cob",METRICS,paragraph,DECIDE,15,' \
+    -- metrics --report csv $mx/complexity.cob
+check "metrics refuses sarif"             2 "invalid --report format 'sarif' (expected text, json, or csv)" \
+    -- metrics --report sarif $mx/complexity.cob
+check "check refuses csv"                 2 "invalid --report format 'csv' (expected text, json, or sarif)" \
+    -- check --report csv $mx/complexity.cob
+n=$((n + 1))
+if "$bin" metrics --report json $mx/complexity.cob $rx/c001-unreachable.cob | python3 -m json.tool >/dev/null 2>&1; then
+    echo "ok $n - metrics json is valid for several files"
+else
+    failed=$((failed + 1))
+    echo "not ok $n - metrics json is valid for several files"
+fi
 
 # check_report LABEL FORMAT EXPECTED-COUNT -- ARGS...
 # Run plumbline and validate its report with tests/tools/check_report.py.

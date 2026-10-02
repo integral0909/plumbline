@@ -18,9 +18,12 @@
 *>   enable RULE          like --enable RULE
 *>   disable RULE         like --disable RULE
 *>   severity RULE LEVEL  report RULE as error, warning, or note
+*>   limit RULE N         the threshold of a measuring rule
 *>   fail-on LEVEL        like --fail-on LEVEL
 *>   report FORMAT        like --report FORMAT
 *>   baseline FILE        like --baseline FILE
+*>   plumbline metrics [-I DIR]... [--format ...] [--debug]
+*>                     [--report text|json|csv] FILE...
 *>   plumbline dump lines  [--format fixed|free|auto] FILE...
 *>   plumbline dump tokens [--format fixed|free|auto] [--debug] FILE...
 *>   plumbline dump expanded [-I DIR]... [--format ...] [--debug] FILE...
@@ -57,6 +60,8 @@ COPY "plbref.cpy".
 COPY "plbcallc.cpy".
 COPY "plbcall.cpy".
 COPY "plbconf.cpy".
+COPY "plbmetrc.cpy".
+COPY "plbmetr.cpy".
 78  MAX-INPUTS                  VALUE 256.
 01  WS-ARG-COUNT            PIC 9(4).
 01  WS-ARG-INDEX            PIC 9(4).
@@ -118,6 +123,8 @@ COPY "plbconf.cpy".
 01  WS-BASELINE             PIC X(512) VALUE SPACES.
 01  WS-WRITE-BASELINE       PIC X(512) VALUE SPACES.
 01  WS-BASELINE-COUNT       PIC 9(9) COMP-5.
+01  WS-COMMAND              PIC X(8).
+01  WS-FIRST                PIC X.
 
 PROCEDURE DIVISION.
 MAIN-LOGIC.
@@ -138,7 +145,11 @@ MAIN-LOGIC.
             WHEN "dump"
                 PERFORM DUMP-COMMAND
             WHEN "check"
+                MOVE "check" TO WS-COMMAND
                 PERFORM CHECK-COMMAND
+            WHEN "metrics"
+                MOVE "metrics" TO WS-COMMAND
+                PERFORM METRICS-COMMAND
             WHEN OTHER
                 IF WS-ARG(1:1) = "-"
                     PERFORM UNKNOWN-OPTION
@@ -175,6 +186,7 @@ SUGGEST-HELP.
 SHOW-USAGE.
     DISPLAY "Usage: plumbline [OPTION]..."
     DISPLAY "       plumbline check [OPTION]... FILE..."
+    DISPLAY "       plumbline metrics [OPTION]... FILE..."
     DISPLAY "       plumbline dump lines [--format FORMAT] FILE..."
     DISPLAY "       plumbline dump tokens [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump expanded [-I DIR]... [--format FORMAT] [--debug] FILE..."
@@ -191,6 +203,8 @@ SHOW-USAGE.
     DISPLAY " "
     DISPLAY "Commands:"
     DISPLAY "  check            analyze programs and report findings"
+    DISPLAY "  metrics          report size and complexity of programs"
+    DISPLAY "                   and their paragraphs"
     DISPLAY "  dump lines       show how each source line was read"
     DISPLAY "  dump tokens      show the tokens of each source file"
     DISPLAY "  dump expanded    show the tokens after COPY and REPLACE"
@@ -214,7 +228,8 @@ SHOW-USAGE.
     DISPLAY "  --disable RULE   disable a rule (id or name; repeatable)"
     DISPLAY "  --fail-on LEVEL  exit 1 on findings at or above LEVEL:"
     DISPLAY "                   error, warning (default), note, never"
-    DISPLAY "  --report FORMAT  text (default), json, or sarif"
+    DISPLAY "  --report FORMAT  text (default), json, or sarif; for"
+    DISPLAY "                   metrics: text, json, or csv"
     DISPLAY "  --baseline FILE  do not report the findings listed in FILE"
     DISPLAY "  --write-baseline FILE"
     DISPLAY "                   write the findings to FILE instead of"
@@ -289,6 +304,49 @@ WRITE-BASELINE.
         CALL "PLB-STR-LENGTH" USING WS-WRITE-BASELINE WS-PATH-LEN
         DISPLAY PLB-NAME ": wrote " WS-NUM-TEXT(1:WS-NUM-LEN)
             " findings to " WS-WRITE-BASELINE(1:WS-PATH-LEN) UPON SYSERR
+    END-IF.
+
+*> metrics ----------------------------------------------------------
+
+METRICS-COMMAND.
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM LOAD-INPUTS
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
+    MOVE WS-MODE TO PO-FORMAT
+    MOVE WS-DEBUG TO PO-DEBUG
+    MOVE "Y" TO WS-FIRST
+    IF WS-REPORT = "json"
+        DISPLAY "{"
+        DISPLAY '  "tool": "' PLB-NAME '",'
+        DISPLAY '  "version": "' PLB-VERSION '",'
+        DISPLAY '  "programs": ['
+    END-IF
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        PERFORM ANALYZE-FILE
+        CALL "PLB-METRICS-COMPUTE" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-AST PLB-SYMBOLS PLB-FLOW PLB-METRICS
+        EVALUATE WS-REPORT
+            WHEN "json"
+                CALL "PLB-METRICS-JSON" USING PLB-SOURCE-SET PLB-METRICS
+                    WS-FIRST
+            WHEN "csv"
+                CALL "PLB-METRICS-CSV" USING PLB-SOURCE-SET PLB-METRICS
+                    WS-FIRST
+            WHEN OTHER
+                CALL "PLB-METRICS-TEXT" USING PLB-SOURCE-SET PLB-METRICS
+        END-EVALUATE
+    END-PERFORM
+    IF WS-REPORT = "json"
+        DISPLAY "  ]"
+        DISPLAY "}"
+    END-IF
+    PERFORM REPORT-DIAGNOSTICS
+    IF DG-ERRORS > 0
+        MOVE 1 TO WS-EXIT-CODE
     END-IF.
 
 *> Findings at or above the --fail-on level.
@@ -1160,6 +1218,8 @@ APPLY-SETTING.
             PERFORM SET-RULE-ENABLED
         WHEN "severity"
             PERFORM SET-SEVERITY
+        WHEN "limit"
+            PERFORM SET-LIMIT
         WHEN "fail-on"
             PERFORM SET-FAIL-ON
         WHEN "report"
@@ -1170,6 +1230,34 @@ APPLY-SETTING.
             DISPLAY PLB-NAME ": unknown setting '"
                 FUNCTION TRIM(CF-KEY(WS-SETTING)) "'" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
+    END-EVALUATE.
+
+*> WS-ARG holds "RULE N": the threshold of a measuring rule.
+SET-LIMIT.
+    MOVE SPACES TO WS-SEVERITY-RULE WS-SEVERITY-LEVEL
+    UNSTRING WS-ARG DELIMITED BY ALL SPACE
+        INTO WS-SEVERITY-RULE WS-SEVERITY-LEVEL
+    CALL "PLB-RULE-FIND" USING PLB-RULES WS-SEVERITY-RULE WS-RULE
+    EVALUATE TRUE
+        WHEN WS-RULE = 0
+            DISPLAY PLB-NAME ": unknown rule '"
+                FUNCTION TRIM(WS-SEVERITY-RULE) "'" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        WHEN RL-LIMIT(WS-RULE) = 0
+            DISPLAY PLB-NAME ": rule '" FUNCTION TRIM(WS-SEVERITY-RULE)
+                "' has no limit" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        WHEN FUNCTION TEST-NUMVAL(WS-SEVERITY-LEVEL) NOT = 0
+        WHEN WS-SEVERITY-LEVEL = SPACES
+            DISPLAY PLB-NAME ": invalid limit '"
+                FUNCTION TRIM(WS-SEVERITY-LEVEL) "'" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        WHEN FUNCTION NUMVAL(WS-SEVERITY-LEVEL) < 1
+            DISPLAY PLB-NAME ": invalid limit '"
+                FUNCTION TRIM(WS-SEVERITY-LEVEL) "'" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        WHEN OTHER
+            MOVE FUNCTION NUMVAL(WS-SEVERITY-LEVEL) TO RL-LIMIT(WS-RULE)
     END-EVALUATE.
 
 *> WS-ARG holds "RULE LEVEL".
@@ -1226,11 +1314,18 @@ SET-FAIL-ON.
     END-EVALUATE.
 
 SET-REPORT.
-    EVALUATE WS-ARG
-        WHEN "text"
-        WHEN "json"
-        WHEN "sarif"
+    EVALUATE TRUE
+        WHEN WS-ARG = "text" OR WS-ARG = "json"
             MOVE WS-ARG TO WS-REPORT
+        WHEN WS-ARG = "sarif" AND WS-COMMAND NOT = "metrics"
+            MOVE WS-ARG TO WS-REPORT
+        WHEN WS-ARG = "csv" AND WS-COMMAND = "metrics"
+            MOVE WS-ARG TO WS-REPORT
+        WHEN WS-COMMAND = "metrics"
+            DISPLAY PLB-NAME ": invalid --report format '"
+                WS-ARG(1:WS-ARG-LEN)
+                "' (expected text, json, or csv)" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
         WHEN OTHER
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)

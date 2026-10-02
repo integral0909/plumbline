@@ -105,6 +105,19 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M008"
         "file-not-closed" "N"
         "File is opened but never closed"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M009"
+        "complex-paragraph" "N"
+        "Paragraph or section is more complex than the limit"
+    MOVE 15 TO RL-LIMIT(RL-COUNT)
+    *> Size limits are a team's choice, and a paragraph that dispatches
+    *> through one long EVALUATE is complex by count but easy to read:
+    *> these rules only run on request.
+    MOVE "N" TO RL-ENABLED(RL-COUNT)
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M010"
+        "long-paragraph" "N"
+        "Paragraph or section has more statements than the limit"
+    MOVE 50 TO RL-LIMIT(RL-COUNT)
+    MOVE "N" TO RL-ENABLED(RL-COUNT)
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-S001"
         "dynamic-sql" "N"
         "SQL text is built at run time"
@@ -129,6 +142,7 @@ PROCEDURE DIVISION USING PLB-RULES LK-ID LK-NAME LK-SEVERITY LK-TITLE.
         MOVE LK-SEVERITY TO RL-SEVERITY(RL-COUNT)
         MOVE "Y" TO RL-ENABLED(RL-COUNT)
         MOVE LK-TITLE TO RL-TITLE(RL-COUNT)
+        MOVE 0 TO RL-LIMIT(RL-COUNT)
     END-IF
     GOBACK.
 END PROGRAM PLB-RULE-DEFINE.
