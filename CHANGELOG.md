@@ -243,6 +243,9 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- A signed literal at the start of pseudo-text (`==+1==`) was read as
+  an operator and a number, so `COPY ... REPLACING ==+1== BY ...` never
+  matched the literal `+1` of the copybook.
 - In `ADD a TO b GIVING c` (and `SUBTRACT ... FROM`, `MULTIPLY ... BY`,
   `DIVIDE ... INTO` with `GIVING`), `b` was taken as both read and set;
   it is only read.
