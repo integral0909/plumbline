@@ -108,6 +108,13 @@ check for it. They are listed here as a check of the rules:
   the counter is the control variable of an inline `PERFORM VARYING`
   that stops at 10, were reported until the rule took the loop's limit
   into account.
+- **PLB-C039 decimal-to-alphanumeric** reports the six `MOVE`s of the
+  test `MOVE of non-integer to alphanumeric`, an extension that the
+  dialect option `move-noninteger-to-alphanumeric` allows. Enabled,
+  PLB-M016 signed-to-alphanumeric reported 91 signed items moved to
+  text in the three corpora (38 in CardDemo, all CICS response and
+  reason codes), nearly all of them never negative; that is why it is
+  off by default.
 - **PLB-C038 condition-value-unfit** reports nothing in the runtime
   tests. Run by hand on the syntax test `warn literal size in constant
   expr. (level 88)` (`syn_misc.at`), it reports the five values that

@@ -139,6 +139,12 @@ PROCEDURE DIVISION USING PLB-RULES.
         "Packed-decimal item has an even number of digits"
     *> A shop's coding standard: on request.
     MOVE "N" TO RL-ENABLED(RL-COUNT)
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M016"
+        "signed-to-alphanumeric" "N"
+        "MOVE of a signed integer to an alphanumeric item"
+    *> Most signed items moved to text (counts, response codes) are
+    *> never negative, so this rule is only run on request.
+    MOVE "N" TO RL-ENABLED(RL-COUNT)
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-Q001"
         "sql-table-undeclared" "N"
         "Embedded SQL uses a table the program does not declare"
@@ -226,6 +232,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C038"
         "condition-value-unfit" "W"
         "Condition name with a value its item cannot hold"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C039"
+        "decimal-to-alphanumeric" "W"
+        "MOVE of a number with decimal places to an alphanumeric item"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-I001"
         "pcb-dbd-unknown" "E"
         "PCB names a database no DBD of the run defines"

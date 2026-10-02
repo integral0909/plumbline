@@ -146,6 +146,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C036 arithmetic-overflow.
 - Rule PLB-C037 search-index-not-set.
 - Rule PLB-C038 condition-value-unfit.
+- Rules PLB-C039 decimal-to-alphanumeric and PLB-M016
+  signed-to-alphanumeric (off by default).
 - Rule PLB-J005 temp-not-created.
 - Rule PLB-M011 evaluate-without-other (off by default).
 - Rule PLB-M012 deep-nesting (off by default, limit 5).
