@@ -1013,9 +1013,11 @@ count. `COMPUTE` and `DIVIDE` are not checked, because a quotient is
 commonly much smaller than its dividend, nor are the `CORRESPONDING`
 forms, reference-modified items, or items of unknown size.
 
-The rule reads declarations, not values: a `PIC 9(6)` loop counter
-added to a `PIC 9(3)` field is reported even when the loop never goes
-past 50. Declare the counter to fit, or suppress the finding and say
+The rule reads declarations, not values. One case is known without
+them: inside an inline `PERFORM VARYING IX ... UNTIL IX > 50` (or `>=`),
+`IX` counts as two digits, however it is declared. Elsewhere, a `PIC
+9(6)` counter added to a `PIC 9(3)` field is reported even when it
+never goes past 50: declare it to fit, or suppress the finding and say
 why.
 
 ## PLB-C037 search-index-not-set

@@ -15,7 +15,9 @@
 *> are those after TO, FROM, or BY, or after GIVING. COMPUTE and DIVIDE
 *> are not checked: a quotient is commonly much smaller than its
 *> dividend. Neither are CORRESPONDING forms, reference-modified items,
-*> or items of unknown size.
+*> or items of unknown size. Inside an inline PERFORM VARYING with a
+*> literal limit, the control variable counts with the digits of the
+*> limit.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-C036.
 DATA DIVISION.
@@ -51,6 +53,15 @@ LOCAL-STORAGE SECTION.
 01  LS-B-TEXT               PIC X(20).
 01  LS-B-LEN                PIC 9(9) COMP-5.
 01  LS-WIDE-NAME            PIC X(40).
+01  LS-OPERAND              PIC X(40).
+01  LS-WORD-2               PIC X(40).
+01  LS-UP                   PIC 9(9) COMP-5.
+01  LS-LOOP                 PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-NEXT                 PIC 9(9) COMP-5.
+01  LS-STEP                 PIC 9(9) COMP-5.
+01  LS-VARIED               PIC X.
+01  LS-LIMIT-INT            PIC S9(9) COMP-5.
 01  LS-MESSAGE              PIC X(200).
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
@@ -183,9 +194,93 @@ OPERAND-DIGITS.
                 IF SY-CATEGORY(LS-RECV) = "9" AND SY-SIZE(LS-RECV) > 0
                     COMPUTE LS-INT = SY-DIGITS(LS-RECV)
                         - SY-SCALE(LS-RECV)
+                    PERFORM LOOP-BOUND
                 END-IF
             END-IF
     END-EVALUATE.
+
+*> The control variable of an inline PERFORM VARYING around the
+*> statement, with a literal limit (UNTIL name > n, or >= n), holds no
+*> more digits than n inside the loop: LS-INT becomes that when it is
+*> fewer. AFTER phrases count as VARYING does.
+LOOP-BOUND.
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-OPERAND LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-OPERAND) TO LS-OPERAND
+    MOVE ND-PARENT(LS-NODE) TO LS-UP
+    PERFORM UNTIL LS-UP = 0
+        IF ND-KIND(LS-UP) = "STMT" AND ND-DETAIL(LS-UP) = "PERFORM"
+            MOVE ND-FIRST(LS-UP) TO LS-LOOP
+            PERFORM UNTIL LS-LOOP = 0
+                IF ND-KIND(LS-LOOP) = "COND"
+                   AND ND-DETAIL(LS-LOOP) = "LOOP"
+                    PERFORM READ-LOOP-LIMIT
+                END-IF
+                MOVE ND-NEXT(LS-LOOP) TO LS-LOOP
+            END-PERFORM
+        END-IF
+        MOVE ND-PARENT(LS-UP) TO LS-UP
+    END-PERFORM.
+
+*> In the loop phrase LS-LOOP: VARYING (or AFTER) the operand, and
+*> UNTIL the operand > n or >= n (or GREATER THAN [OR EQUAL TO] n).
+READ-LOOP-LIMIT.
+    MOVE "N" TO LS-VARIED
+    MOVE 0 TO LS-STEP
+    PERFORM VARYING LS-K FROM ND-TOK-FIRST(LS-LOOP) BY 1
+            UNTIL LS-K >= ND-TOK-LAST(LS-LOOP)
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-WORD LS-LEN
+        MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD
+        COMPUTE LS-NEXT = LS-K + 1
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-NEXT LS-WORD-2 LS-LEN
+        MOVE FUNCTION UPPER-CASE(LS-WORD-2) TO LS-WORD-2
+        EVALUATE TRUE
+            WHEN (LS-WORD = "VARYING" OR LS-WORD = "AFTER")
+             AND LS-WORD-2 = LS-OPERAND
+                MOVE "Y" TO LS-VARIED
+            WHEN LS-WORD = "UNTIL" AND LS-WORD-2 = LS-OPERAND
+             AND LS-VARIED = "Y"
+                COMPUTE LS-STEP = LS-K + 2
+                PERFORM READ-LIMIT
+        END-EVALUATE
+    END-PERFORM.
+
+*> From token LS-STEP: > or >= or GREATER [THAN] [OR EQUAL [TO]], then
+*> a numeric literal.
+READ-LIMIT.
+    PERFORM UNTIL LS-STEP > ND-TOK-LAST(LS-LOOP)
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-STEP LS-WORD LS-LEN
+        MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD
+        EVALUATE TRUE
+            WHEN LS-WORD = ">" OR LS-WORD = ">=" OR LS-WORD = "GREATER"
+              OR LS-WORD = "THAN" OR LS-WORD = "OR" OR LS-WORD = "EQUAL"
+              OR LS-WORD = "TO"
+                ADD 1 TO LS-STEP
+            WHEN TK-IS-NUMBER(LS-STEP)
+                PERFORM LIMIT-DIGITS
+                EXIT PERFORM
+            WHEN OTHER
+                EXIT PERFORM
+        END-EVALUATE
+    END-PERFORM.
+
+LIMIT-DIGITS.
+    MOVE 0 TO LS-LIMIT-INT
+    MOVE "N" TO LS-DIGITS-SEEN
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > LS-LEN
+        EVALUATE TRUE
+            WHEN LS-WORD(LS-I:1) = "." OR LS-WORD(LS-I:1) = ","
+              OR LS-WORD(LS-I:1) = "-"
+                EXIT PERFORM
+            WHEN LS-WORD(LS-I:1) >= "1" AND LS-WORD(LS-I:1) <= "9"
+                MOVE "Y" TO LS-DIGITS-SEEN
+                ADD 1 TO LS-LIMIT-INT
+            WHEN LS-WORD(LS-I:1) = "0" AND LS-DIGITS-SEEN = "Y"
+                ADD 1 TO LS-LIMIT-INT
+        END-EVALUATE
+    END-PERFORM
+    IF LS-LIMIT-INT > 0 AND LS-LIMIT-INT < LS-INT
+        MOVE LS-LIMIT-INT TO LS-INT
+    END-IF.
 
 *> Integer digits of a numeric literal, without sign or leading zeros.
 *> Floating-point literals count as 0.

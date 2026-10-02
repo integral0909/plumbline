@@ -101,10 +101,13 @@ check for it. They are listed here as a check of the rules:
   set again before reading.
 - **PLB-C033 self-move** reports the `MOVE X TO X` of the test of that
   statement.
-- **PLB-C036 arithmetic-overflow** reports nine statements: one test
+- **PLB-C036 arithmetic-overflow** reports four statements: one test
   adds `30000` to a `PIC 9(4)` item on purpose, one computes a
-  four-digit tax from a five-digit order amount, and the others add a
-  `PIC 9(6)` loop counter, which stops at 10, to three-digit keys.
+  four-digit tax from a five-digit order amount, and two add a `PIC
+  9(6)` counter, just set to 20, to three-digit keys. Five more, where
+  the counter is the control variable of an inline `PERFORM VARYING`
+  that stops at 10, were reported until the rule took the loop's limit
+  into account.
 - **PLB-C038 condition-value-unfit** reports nothing in the runtime
   tests. Run by hand on the syntax test `warn literal size in constant
   expr. (level 88)` (`syn_misc.at`), it reports the five values that
