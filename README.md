@@ -23,6 +23,23 @@ make coverage               # COBOL statement coverage (LCOV)
 build/bin/plumbline --help
 ```
 
+## Usage
+
+The analyzer is not ready yet. For now, `dump lines` shows how Plumbline
+reads a source file, which helps when checking format detection:
+
+```console
+$ plumbline dump lines tests/fixtures/reader/fixed-basic.cbl
+tests/fixtures/reader/fixed-basic.cbl:1: code      fixed A IDENTIFICATION DIVISION.
+tests/fixtures/reader/fixed-basic.cbl:3: comment   fixed -
+tests/fixtures/reader/fixed-basic.cbl:8: cont      fixed - "THE CURRENT PERIOD".
+...
+```
+
+Each line shows the line kind (code, comment, blank, page, debug, cont,
+directive), the reference format it was read in, whether it starts in
+area A, and its significant text.
+
 ## Documentation
 
 - [Architecture](docs/architecture.md)

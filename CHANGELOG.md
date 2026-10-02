@@ -10,6 +10,8 @@ uses [Semantic Versioning](https://semver.org/).
 
 - Build system (`make`, `make test`, `make coverage`).
 - `plumbline` command with `--help` and `--version`.
+- `plumbline dump lines [--format fixed|free|auto] FILE...` shows how
+  each source line was classified; diagnostics go to standard error.
 - `plbstr` string helpers.
 - `PLBT-*` unit test library with TAP output.
 - COBOL statement coverage from runtime traces (`tools/cobcov.py`).
