@@ -14,6 +14,7 @@ shows what it reports as you work.
 | Find references | Every reference to a data item (also in copybooks), or every `PERFORM`, `GO TO`, `ALTER`, and `SORT` procedure naming a paragraph or section of the same program |
 | Highlight | The same references in the open file, with reads and writes of a data item told apart |
 | Quick fix | For a finding, a comment on the line before that suppresses its rule there (`*> plumbline: ignore unreachable-code`) |
+| Call hierarchy | For a paragraph or section, the paragraphs that PERFORM it or jump to it, and those it performs or jumps to |
 | Folding | Programs, divisions, sections, paragraphs, and statements with a body (`IF`, `EVALUATE`, inline `PERFORM`, ...) |
 | Rename | A data item, paragraph, or section, at its declaration and every reference, in the open file and its copybooks. The new name must be a user-defined word. A name written in a `COPY ... REPLACING` phrase is not changed. |
 

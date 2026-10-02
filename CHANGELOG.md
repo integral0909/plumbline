@@ -133,8 +133,8 @@ uses [Semantic Versioning](https://semver.org/).
 - `--tab-width N` (`tab-width` in `plumbline.conf`), as `cobc -ftab-width`.
 - `plumbline lsp` finds references and highlights them, telling reads
   from writes, renames data items and procedures, gives folding
-  ranges, offers quick fixes that suppress a finding, and finds
-  symbols across the open files.
+  ranges, offers quick fixes that suppress a finding, finds symbols
+  across the open files, and gives the call hierarchy of paragraphs.
 - Object-oriented COBOL definitions (`CLASS-ID`, `FACTORY`, `OBJECT`,
   `METHOD-ID`, `INTERFACE-ID`) are read as nested units, with instance
   data visible to methods.
