@@ -128,6 +128,12 @@ in area A, long lines are split at spaces, long literals are continued
 with `-` in column 7, and inline comments that do not fit move to a
 line of their own.
 
+## Editors
+
+`plumbline lsp` is a language server, so editors that speak the Language
+Server Protocol can show findings as you type, with an outline, go to
+definition, and hover. See [Using Plumbline in an editor](docs/editors.md).
+
 ## Configuration
 
 Settings that a project always uses go in `plumbline.conf` in the
@@ -174,6 +180,7 @@ with the same paths each time.
 ## Documentation
 
 - [Rule reference](docs/rules.md)
+- [Using Plumbline in an editor](docs/editors.md)
 - [Running Plumbline on the NIST COBOL-85 suite](docs/corpus.md)
 - [Architecture](docs/architecture.md)
 - [Testing](docs/testing.md)

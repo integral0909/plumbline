@@ -1,0 +1,25 @@
+UNIT @3:1
+  PROG PROGRAM FOREVER @3:1
+    DIVN IDENTIFICATION @3:1
+      IDPA PROGRAM-ID FOREVER @4:1
+    DIVN DATA @5:1
+      SECT WORKING-STORAGE @6:1
+        DATA 1 COUNTER @7:1
+          CLAU PICTURE 9(4) @7:25
+          CLAU VALUE @7:34
+    DIVN PROCEDURE @8:1
+      PARA MAIN-LINE @9:1
+        SENT @10:5
+          STMT PERFORM @10:5
+            COND LOOP @10:13
+            BLCK BODY @11:9
+              STMT PERFORM @11:9
+                PROC PERFORM NEXT-STEP @11:17
+              STMT IF @12:9
+                COND IF @12:12
+                BLCK THEN @13:13
+                  STMT EXIT PERFORM @13:13
+          STMT STOP @16:5
+      PARA NEXT-STEP @17:1
+        SENT @18:5
+          STMT ADD @18:5

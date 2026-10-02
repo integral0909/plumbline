@@ -29,6 +29,8 @@
 *>   plumbline impact NAME [-I DIR]... FILE...
 *>   plumbline format --to fixed|free [--format ...] FILE
 *>   plumbline format --to fixed|free --check [--format ...] FILE...
+*>   plumbline lsp [-I DIR]... [--format ...] [--enable RULE]...
+*>       a language server on standard input and output
 *>   plumbline dump lines  [--format fixed|free|auto] FILE...
 *>   plumbline dump tokens [--format fixed|free|auto] [--debug] FILE...
 *>   plumbline dump expanded [-I DIR]... [--format ...] [--debug] FILE...
@@ -138,6 +140,48 @@ COPY "plbigr.cpy".
 01  WS-FORMAT-TO            PIC X(5) VALUE SPACES.
 01  WS-FORMAT-CHECK         PIC X VALUE "N".
 01  WS-CHANGED              PIC X.
+*> Language server: one message in, one out, the text of a document.
+78  LSP-SIZE                    VALUE 4000000.
+01  WS-LSP-IN               PIC X(LSP-SIZE).
+01  WS-LSP-IN-LEN           PIC 9(9) COMP-5.
+01  WS-LSP-OUT              PIC X(LSP-SIZE).
+01  WS-LSP-PTR              PIC 9(9) COMP-5.
+01  WS-LSP-TEXT             PIC X(LSP-SIZE).
+01  WS-LSP-TEXT-LEN         PIC 9(9) COMP-5.
+01  WS-LSP-STATUS           PIC 9(4) COMP-5.
+01  WS-LSP-METHOD           PIC X(64).
+01  WS-LSP-ID               PIC X(64).
+01  WS-LSP-ID-KIND          PIC X.
+01  WS-LSP-KIND             PIC X.
+01  WS-LSP-VALUE            PIC X(1024).
+01  WS-LSP-VALUE-LEN        PIC 9(9) COMP-5.
+01  WS-LSP-URI              PIC X(1024).
+01  WS-LSP-SHUTDOWN         PIC X VALUE "N".
+01  WS-LSP-DONE             PIC X VALUE "N".
+01  WS-LSP-TMP              PIC X(400).
+01  WS-LSP-STAMP            PIC X(21).
+01  WS-LSP-LINE             PIC 9(9) COMP-5.
+01  WS-LSP-CHAR             PIC 9(9) COMP-5.
+01  WS-LSP-TOKEN            PIC 9(9) COMP-5.
+01  WS-LSP-SYMBOL           PIC 9(9) COMP-5.
+01  WS-LSP-UNIT             PIC 9(9) COMP-5.
+01  WS-LSP-FIRST            PIC X.
+01  WS-LSP-SEVERITY         PIC X.
+01  WS-LSP-TEXT-PATH        PIC X(512).
+01  WS-LSP-NAME             PIC X(31).
+01  WS-LSP-PIC              PIC X(64).
+01  WS-LSP-KIND-NUM         PIC 9(4) COMP-5.
+78  LSP-DOC-MAX             VALUE 64.
+01  WS-LSP-DOCS.
+    05  WS-LSP-DOC          OCCURS LSP-DOC-MAX TIMES.
+        10  DOC-URI         PIC X(1024).
+        10  DOC-DIR         PIC X(512).
+        10  DOC-TEMP        PIC X(512).
+01  WS-LSP-DOC-INDEX        PIC 9(4) COMP-5.
+01  WS-LSP-SLOT             PIC 9(4) COMP-5.
+01  WS-LSP-EXIT-ROUTINE     PIC X(8) VALUE "_exit".
+01  WS-LSP-EXIT-STATUS      PIC S9(9) COMP-5.
+01  WS-LEN                  PIC 9(9) COMP-5.
 
 PROCEDURE DIVISION.
 MAIN-LOGIC.
@@ -173,6 +217,9 @@ MAIN-LOGIC.
             WHEN "format"
                 MOVE "format" TO WS-COMMAND
                 PERFORM FORMAT-COMMAND
+            WHEN "lsp"
+                MOVE "lsp" TO WS-COMMAND
+                PERFORM LSP-COMMAND
             WHEN OTHER
                 IF WS-ARG(1:1) = "-"
                     PERFORM UNKNOWN-OPTION
@@ -213,6 +260,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline graph [--kind KIND] [OPTION]... FILE..."
     DISPLAY "       plumbline impact NAME [OPTION]... FILE..."
     DISPLAY "       plumbline format --to fixed|free [--check] FILE..."
+    DISPLAY "       plumbline lsp [OPTION]..."
     DISPLAY "       plumbline dump lines [--format FORMAT] FILE..."
     DISPLAY "       plumbline dump tokens [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump expanded [-I DIR]... [--format FORMAT] [--debug] FILE..."
@@ -240,6 +288,8 @@ SHOW-USAGE.
     DISPLAY "  format           rewrite a file in fixed or free format"
     DISPLAY "                   (--to); --check only tells whether"
     DISPLAY "                   that would change it"
+    DISPLAY "  lsp              run as a language server for editors, on"
+    DISPLAY "                   standard input and output"
     DISPLAY "  dump lines       show how each source line was read"
     DISPLAY "  dump tokens      show the tokens of each source file"
     DISPLAY "  dump expanded    show the tokens after COPY and REPLACE"
@@ -503,6 +553,657 @@ FORMAT-COMMAND.
             MOVE 1 TO WS-EXIT-CODE
         END-IF
     END-PERFORM.
+
+*> lsp --------------------------------------------------------------
+
+*> The language server: read messages until "exit" or the end of
+*> input. Documents are analyzed from a copy of the editor's text in
+*> the temporary directory, with the document's own directory added to
+*> the copybook search paths.
+LSP-COMMAND.
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    ACCEPT WS-LSP-TMP FROM ENVIRONMENT "TMPDIR"
+    IF WS-LSP-TMP = SPACES
+        MOVE "/tmp" TO WS-LSP-TMP
+    END-IF
+    MOVE FUNCTION CURRENT-DATE TO WS-LSP-STAMP
+    PERFORM VARYING WS-LSP-DOC-INDEX FROM 1 BY 1
+            UNTIL WS-LSP-DOC-INDEX > LSP-DOC-MAX
+        MOVE SPACES TO DOC-URI(WS-LSP-DOC-INDEX)
+    END-PERFORM
+    PERFORM UNTIL WS-LSP-DONE = "Y"
+        CALL "PLB-LSP-RECEIVE" USING WS-LSP-IN WS-LSP-IN-LEN WS-LSP-STATUS
+        EVALUATE WS-LSP-STATUS
+            WHEN 0
+                PERFORM LSP-MESSAGE
+            WHEN 1
+                MOVE "Y" TO WS-LSP-DONE
+        END-EVALUATE
+    END-PERFORM
+    PERFORM LSP-REMOVE-COPIES
+    IF WS-LSP-SHUTDOWN = "Y"
+        MOVE 0 TO WS-EXIT-CODE
+    ELSE
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF
+    *> End here, without closing standard input: the runtime's close
+    *> of a pipe read as a record file reports a spurious unlock error
+    *> on standard error, which editors show to their users. The
+    *> output is flushed and the copies are gone, so the C library's
+    *> _exit is enough.
+    *> Called by name at run time: a static call would redeclare it.
+    CALL "fflush" USING BY VALUE 0
+    MOVE WS-EXIT-CODE TO WS-LSP-EXIT-STATUS
+    CALL WS-LSP-EXIT-ROUTINE USING BY VALUE WS-LSP-EXIT-STATUS.
+
+LSP-MESSAGE.
+    MOVE "method" TO WS-LSP-NAME
+    PERFORM LSP-GET
+    MOVE WS-LSP-VALUE TO WS-LSP-METHOD
+    CALL "PLB-JSON-GET" USING WS-LSP-IN WS-LSP-IN-LEN "id" WS-LSP-ID-KIND
+        WS-LSP-ID WS-LSP-VALUE-LEN
+    EVALUATE WS-LSP-METHOD
+        WHEN "initialize"
+            PERFORM LSP-INITIALIZE
+        WHEN "shutdown"
+            MOVE "Y" TO WS-LSP-SHUTDOWN
+            PERFORM LSP-START-RESPONSE
+            STRING '"result":null}' DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+            PERFORM LSP-SEND-OUT
+        WHEN "exit"
+            MOVE "Y" TO WS-LSP-DONE
+        WHEN "textDocument/didOpen"
+        WHEN "textDocument/didChange"
+            PERFORM LSP-DOCUMENT-TEXT
+        WHEN "textDocument/didSave"
+            PERFORM LSP-FIND-DOCUMENT
+            IF WS-LSP-DOC-INDEX > 0
+                PERFORM LSP-PUBLISH
+            END-IF
+        WHEN "textDocument/didClose"
+            PERFORM LSP-CLOSE-DOCUMENT
+        WHEN "textDocument/documentSymbol"
+            PERFORM LSP-DOCUMENT-SYMBOLS
+        WHEN "textDocument/definition"
+            PERFORM LSP-DEFINITION
+        WHEN "textDocument/hover"
+            PERFORM LSP-HOVER
+        WHEN OTHER
+            *> A request (with an id) must be answered.
+            IF WS-LSP-ID-KIND NOT = "-"
+                PERFORM LSP-START-RESPONSE
+                STRING '"error":{"code":-32601,"message":"method not '
+                       'supported"}}' DELIMITED BY SIZE
+                    INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+                PERFORM LSP-SEND-OUT
+            END-IF
+    END-EVALUATE.
+
+*> WS-LSP-VALUE = the value of key WS-LSP-NAME in the message.
+LSP-GET.
+    CALL "PLB-JSON-GET" USING WS-LSP-IN WS-LSP-IN-LEN WS-LSP-NAME
+        WS-LSP-KIND WS-LSP-VALUE WS-LSP-VALUE-LEN.
+
+LSP-INITIALIZE.
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":{"capabilities":{' DELIMITED BY SIZE
+           '"textDocumentSync":{"openClose":true,"change":1,'
+           DELIMITED BY SIZE
+           '"save":true},' DELIMITED BY SIZE
+           '"documentSymbolProvider":true,' DELIMITED BY SIZE
+           '"definitionProvider":true,' DELIMITED BY SIZE
+           '"hoverProvider":true},' DELIMITED BY SIZE
+           '"serverInfo":{"name":"' DELIMITED BY SIZE
+           PLB-NAME DELIMITED BY SPACE
+           '","version":"' DELIMITED BY SIZE
+           PLB-VERSION DELIMITED BY SPACE
+           '"}}}' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> {"jsonrpc":"2.0","id":ID, ... the caller adds the rest.
+LSP-START-RESPONSE.
+    MOVE 1 TO WS-LSP-PTR
+    STRING '{"jsonrpc":"2.0","id":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-ID-KIND = "S"
+        CALL "PLB-JSON-STRING" USING WS-LSP-ID WS-LSP-OUT WS-LSP-PTR
+    ELSE
+        IF WS-LSP-ID-KIND = "-"
+            STRING "null" DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        ELSE
+            STRING WS-LSP-ID DELIMITED BY SPACE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        END-IF
+    END-IF
+    STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
+LSP-SEND-OUT.
+    COMPUTE WS-LSP-IN-LEN = WS-LSP-PTR - 1
+    CALL "PLB-LSP-SEND" USING WS-LSP-OUT WS-LSP-IN-LEN.
+
+*> Documents ---------------------------------------------------------
+
+*> WS-LSP-DOC-INDEX = the slot of the message's document, or 0.
+LSP-FIND-DOCUMENT.
+    MOVE "uri" TO WS-LSP-NAME
+    PERFORM LSP-GET
+    MOVE WS-LSP-VALUE TO WS-LSP-URI
+    MOVE 0 TO WS-LSP-DOC-INDEX
+    PERFORM VARYING WS-LSP-SLOT FROM 1 BY 1 UNTIL WS-LSP-SLOT > LSP-DOC-MAX
+        IF DOC-URI(WS-LSP-SLOT) = WS-LSP-URI
+            MOVE WS-LSP-SLOT TO WS-LSP-DOC-INDEX
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+*> didOpen or didChange (whole text): keep a copy and publish.
+LSP-DOCUMENT-TEXT.
+    PERFORM LSP-FIND-DOCUMENT
+    IF WS-LSP-DOC-INDEX = 0
+        PERFORM VARYING WS-LSP-SLOT FROM 1 BY 1
+                UNTIL WS-LSP-SLOT > LSP-DOC-MAX
+            IF DOC-URI(WS-LSP-SLOT) = SPACES
+                MOVE WS-LSP-SLOT TO WS-LSP-DOC-INDEX
+                EXIT PERFORM
+            END-IF
+        END-PERFORM
+        IF WS-LSP-DOC-INDEX = 0
+            EXIT PARAGRAPH
+        END-IF
+        PERFORM LSP-NEW-DOCUMENT
+    END-IF
+    CALL "PLB-JSON-GET" USING WS-LSP-IN WS-LSP-IN-LEN "text" WS-LSP-KIND
+        WS-LSP-TEXT WS-LSP-TEXT-LEN
+    IF WS-LSP-KIND NOT = "S" OR WS-LSP-TEXT-LEN > LSP-SIZE
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-LSP-WRITE-FILE" USING DOC-TEMP(WS-LSP-DOC-INDEX)
+        WS-LSP-TEXT WS-LSP-TEXT-LEN WS-LSP-STATUS
+    IF WS-LSP-STATUS = 0
+        PERFORM LSP-PUBLISH
+    END-IF.
+
+*> Slot WS-LSP-DOC-INDEX for document WS-LSP-URI: its directory, for
+*> copybooks, and the name of its copy.
+LSP-NEW-DOCUMENT.
+    MOVE WS-LSP-URI TO DOC-URI(WS-LSP-DOC-INDEX)
+    CALL "PLB-LSP-URI-PATH" USING WS-LSP-URI WS-LSP-TEXT-PATH
+    MOVE SPACES TO DOC-DIR(WS-LSP-DOC-INDEX)
+    CALL "PLB-STR-LENGTH" USING WS-LSP-TEXT-PATH WS-PATH-LEN
+    PERFORM VARYING WS-K FROM WS-PATH-LEN BY -1 UNTIL WS-K = 0
+        IF WS-LSP-TEXT-PATH(WS-K:1) = "/"
+            IF WS-K > 1
+                MOVE WS-LSP-TEXT-PATH(1:WS-K - 1)
+                    TO DOC-DIR(WS-LSP-DOC-INDEX)
+            END-IF
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF DOC-DIR(WS-LSP-DOC-INDEX) NOT = SPACES
+        MOVE "N" TO WS-FOUND
+        PERFORM VARYING WS-K FROM 1 BY 1 UNTIL WS-K > PO-PATH-COUNT
+            IF PO-PATH(WS-K) = DOC-DIR(WS-LSP-DOC-INDEX)
+                MOVE "Y" TO WS-FOUND
+            END-IF
+        END-PERFORM
+        IF WS-FOUND = "N"
+            CALL "PLB-PP-ADD-PATH" USING PLB-PP-OPTIONS
+                DOC-DIR(WS-LSP-DOC-INDEX) WS-PATH-STATUS
+        END-IF
+    END-IF
+    MOVE WS-LSP-DOC-INDEX TO WS-NUM
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    MOVE SPACES TO DOC-TEMP(WS-LSP-DOC-INDEX)
+    STRING FUNCTION TRIM(WS-LSP-TMP) DELIMITED BY SIZE
+           "/plumbline-lsp-" DELIMITED BY SIZE
+           WS-LSP-STAMP(1:16) DELIMITED BY SIZE
+           "-" DELIMITED BY SIZE
+           WS-NUM-TEXT(1:WS-NUM-LEN) DELIMITED BY SIZE
+           ".cbl" DELIMITED BY SIZE
+        INTO DOC-TEMP(WS-LSP-DOC-INDEX).
+
+LSP-CLOSE-DOCUMENT.
+    PERFORM LSP-FIND-DOCUMENT
+    IF WS-LSP-DOC-INDEX = 0
+        EXIT PARAGRAPH
+    END-IF
+    *> Clear the document's diagnostics in the editor.
+    MOVE 1 TO WS-LSP-PTR
+    STRING '{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics",'
+           '"params":{"uri":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    CALL "PLB-JSON-STRING" USING WS-LSP-URI WS-LSP-OUT WS-LSP-PTR
+    STRING ',"diagnostics":[]}}' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT
+    CALL "CBL_DELETE_FILE" USING DOC-TEMP(WS-LSP-DOC-INDEX)
+    MOVE SPACES TO DOC-URI(WS-LSP-DOC-INDEX) DOC-TEMP(WS-LSP-DOC-INDEX).
+
+LSP-REMOVE-COPIES.
+    PERFORM VARYING WS-J FROM 1 BY 1 UNTIL WS-J > LSP-DOC-MAX
+        IF DOC-URI(WS-J) NOT = SPACES
+            CALL "CBL_DELETE_FILE" USING DOC-TEMP(WS-J)
+        END-IF
+    END-PERFORM.
+
+*> Analyze the copy of document WS-LSP-DOC-INDEX: file 1 of the
+*> source set, with its tokens, tree, symbols, flow, references, and
+*> findings.
+LSP-ANALYZE.
+    CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET
+    CALL "PLB-DIAG-INIT" USING PLB-DIAGNOSTICS
+    CALL "PLB-SRC-LOAD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+        DOC-TEMP(WS-LSP-DOC-INDEX) WS-MODE WS-FILE-ID WS-STATUS
+    CALL "PLB-FIND-INIT" USING PLB-FINDINGS
+    IF WS-FILE-ID = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE WS-MODE TO PO-FORMAT
+    MOVE WS-DEBUG TO PO-DEBUG
+    PERFORM ANALYZE-FILE
+    CALL "PLB-CHECK-RUN" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
+        PLB-SYMBOLS PLB-FLOW PLB-REFS PLB-RULES PLB-FINDINGS
+    CALL "PLB-FIND-SUPPRESS" USING PLB-SOURCE-SET PLB-RULES PLB-FINDINGS
+    CALL "PLB-FIND-SORT" USING PLB-FINDINGS.
+
+*> Diagnostics -------------------------------------------------------
+
+*> textDocument/publishDiagnostics: the findings and input problems
+*> in the document itself (not in its copybooks).
+LSP-PUBLISH.
+    PERFORM LSP-ANALYZE
+    MOVE 1 TO WS-LSP-PTR
+    STRING '{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics",'
+           '"params":{"uri":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    CALL "PLB-JSON-STRING" USING DOC-URI(WS-LSP-DOC-INDEX) WS-LSP-OUT
+        WS-LSP-PTR
+    STRING ',"diagnostics":[' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE "Y" TO WS-LSP-FIRST
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > FN-COUNT
+        IF FN-SUPPRESSED(WS-I) = "N" AND FN-FILE-ID(WS-I) = 1
+           AND FN-LINE(WS-I) > 0
+            MOVE FN-LINE(WS-I) TO WS-LSP-LINE
+            MOVE FN-COLUMN(WS-I) TO WS-LSP-CHAR
+            MOVE FN-SEVERITY(WS-I) TO WS-LSP-SEVERITY
+            PERFORM LSP-DIAGNOSTIC-START
+            STRING '"code":"' DELIMITED BY SIZE
+                   RL-ID(FN-RULE(WS-I)) DELIMITED BY SPACE
+                   '","source":"plumbline","message":' DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+            CALL "PLB-JSON-STRING" USING FN-MESSAGE(WS-I) WS-LSP-OUT
+                WS-LSP-PTR
+            STRING "}" DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        END-IF
+    END-PERFORM
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > DG-COUNT
+        IF DG-FILE-ID(WS-I) = 1 AND DG-LINE(WS-I) > 0
+            MOVE DG-LINE(WS-I) TO WS-LSP-LINE
+            MOVE DG-COLUMN(WS-I) TO WS-LSP-CHAR
+            MOVE DG-SEVERITY(WS-I) TO WS-LSP-SEVERITY
+            PERFORM LSP-DIAGNOSTIC-START
+            STRING '"code":"' DELIMITED BY SIZE
+                   DG-CODE(WS-I) DELIMITED BY SPACE
+                   '","source":"plumbline","message":' DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+            CALL "PLB-JSON-STRING" USING DG-MESSAGE(WS-I) WS-LSP-OUT
+                WS-LSP-PTR
+            STRING "}" DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        END-IF
+    END-PERFORM
+    STRING "]}}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> {"range":..., "severity":N, of a diagnostic at WS-LSP-LINE and
+*> WS-LSP-CHAR (1-based), as wide as the token there.
+LSP-DIAGNOSTIC-START.
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST
+    PERFORM LSP-TOKEN-AT-LINE-COLUMN
+    STRING '{"range":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-APPEND-RANGE
+    STRING ',"severity":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    EVALUATE WS-LSP-SEVERITY
+        WHEN "E"   STRING "1," DELIMITED BY SIZE
+                       INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        WHEN "W"   STRING "2," DELIMITED BY SIZE
+                       INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        WHEN OTHER STRING "3," DELIMITED BY SIZE
+                       INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-EVALUATE.
+
+*> WS-LSP-TOKEN = the token of file 1 that starts at line WS-LSP-LINE,
+*> column WS-LSP-CHAR (1-based), or 0.
+LSP-TOKEN-AT-LINE-COLUMN.
+    MOVE 0 TO WS-LSP-TOKEN
+    PERFORM VARYING WS-TOK FROM 1 BY 1 UNTIL WS-TOK > TK-COUNT
+        IF TK-FILE-ID(WS-TOK) = 1 AND TK-SRC-LINE(WS-TOK) > 0
+            IF SL-LINE-NO(TK-SRC-LINE(WS-TOK)) = WS-LSP-LINE
+               AND TK-COLUMN(WS-TOK) = WS-LSP-CHAR
+                MOVE WS-TOK TO WS-LSP-TOKEN
+                EXIT PERFORM
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> {"start":{...},"end":{...}} for WS-LSP-LINE and WS-LSP-CHAR, to the
+*> end of token WS-LSP-TOKEN (one character when there is none).
+LSP-APPEND-RANGE.
+    STRING '{"start":{"line":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-NUM = WS-LSP-LINE - 1
+    PERFORM LSP-APPEND-NUM
+    STRING ',"character":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-NUM = WS-LSP-CHAR - 1
+    PERFORM LSP-APPEND-NUM
+    STRING '},"end":{"line":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-NUM = WS-LSP-LINE - 1
+    PERFORM LSP-APPEND-NUM
+    STRING ',"character":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-TOKEN > 0
+        COMPUTE WS-NUM = WS-LSP-CHAR - 1 + TK-SPAN(WS-LSP-TOKEN)
+    ELSE
+        MOVE WS-LSP-CHAR TO WS-NUM
+    END-IF
+    PERFORM LSP-APPEND-NUM
+    STRING '}}' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
+LSP-APPEND-NUM.
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    STRING WS-NUM-TEXT(1:WS-NUM-LEN) DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
+*> A location for token WS-LSP-TOKEN: {"uri":...,"range":...}.
+LSP-APPEND-LOCATION.
+    STRING '{"uri":' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF TK-FILE-ID(WS-LSP-TOKEN) = 1
+        CALL "PLB-JSON-STRING" USING DOC-URI(WS-LSP-DOC-INDEX) WS-LSP-OUT
+            WS-LSP-PTR
+    ELSE
+        *> A copybook, by its path on disk.
+        CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET
+            TK-FILE-ID(WS-LSP-TOKEN) WS-PATH
+        MOVE SPACES TO WS-LSP-TEXT-PATH
+        STRING "file://" DELIMITED BY SIZE
+               WS-PATH DELIMITED BY SPACE
+            INTO WS-LSP-TEXT-PATH
+        CALL "PLB-JSON-STRING" USING WS-LSP-TEXT-PATH WS-LSP-OUT
+            WS-LSP-PTR
+    END-IF
+    STRING ',"range":' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE SL-LINE-NO(TK-SRC-LINE(WS-LSP-TOKEN)) TO WS-LSP-LINE
+    MOVE TK-COLUMN(WS-LSP-TOKEN) TO WS-LSP-CHAR
+    PERFORM LSP-APPEND-RANGE
+    STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
+*> Requests about a position -------------------------------------------
+
+*> Analyze the request's document, and find the token at its position
+*> (line and character are 0-based): WS-LSP-TOKEN, or 0.
+LSP-POSITION.
+    MOVE 0 TO WS-LSP-TOKEN
+    PERFORM LSP-FIND-DOCUMENT
+    IF WS-LSP-DOC-INDEX = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM LSP-ANALYZE
+    MOVE "line" TO WS-LSP-NAME
+    PERFORM LSP-GET
+    COMPUTE WS-LSP-LINE = FUNCTION NUMVAL(WS-LSP-VALUE) + 1
+    MOVE "character" TO WS-LSP-NAME
+    PERFORM LSP-GET
+    COMPUTE WS-LSP-CHAR = FUNCTION NUMVAL(WS-LSP-VALUE) + 1
+    PERFORM VARYING WS-TOK FROM 1 BY 1 UNTIL WS-TOK > TK-COUNT
+        IF TK-FILE-ID(WS-TOK) = 1 AND TK-SRC-LINE(WS-TOK) > 0
+            IF SL-LINE-NO(TK-SRC-LINE(WS-TOK)) = WS-LSP-LINE
+               AND TK-COLUMN(WS-TOK) <= WS-LSP-CHAR
+               AND TK-COLUMN(WS-TOK) + TK-SPAN(WS-TOK) > WS-LSP-CHAR
+                MOVE WS-TOK TO WS-LSP-TOKEN
+                EXIT PERFORM
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> WS-LSP-SYMBOL = the data item the reference at WS-LSP-TOKEN names,
+*> or 0; WS-LSP-UNIT = the paragraph or section a procedure name
+*> there names, or 0.
+LSP-TARGET.
+    MOVE 0 TO WS-LSP-SYMBOL WS-LSP-UNIT
+    IF WS-LSP-TOKEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > RF-COUNT
+        IF RF-TOKEN(WS-I) = WS-LSP-TOKEN
+            IF RF-KIND(WS-I) = "D" OR RF-KIND(WS-I) = "A"
+                MOVE RF-SYMBOL(WS-I) TO WS-LSP-SYMBOL
+            END-IF
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF WS-LSP-SYMBOL > 0
+        EXIT PARAGRAPH
+    END-IF
+    *> A procedure name: the unit of that name in the same program.
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-LSP-TOKEN WS-LSP-NAME
+        WS-TOKEN-LEN
+    PERFORM VARYING WS-U FROM 1 BY 1 UNTIL WS-U > FU-COUNT
+        IF FU-NAME(WS-U) = WS-LSP-NAME AND FU-KIND(WS-U) NOT = "D"
+           AND ND-TOK-FIRST(FU-PROGRAM(WS-U)) <= WS-LSP-TOKEN
+           AND ND-TOK-LAST(FU-PROGRAM(WS-U)) >= WS-LSP-TOKEN
+            MOVE WS-U TO WS-LSP-UNIT
+        END-IF
+    END-PERFORM.
+
+LSP-DEFINITION.
+    PERFORM LSP-POSITION
+    PERFORM LSP-TARGET
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    EVALUATE TRUE
+        WHEN WS-LSP-SYMBOL > 0 AND SY-NAME-TOKEN(WS-LSP-SYMBOL) > 0
+            MOVE SY-NAME-TOKEN(WS-LSP-SYMBOL) TO WS-LSP-TOKEN
+            PERFORM LSP-APPEND-LOCATION
+        WHEN WS-LSP-UNIT > 0 AND ND-NAME(FU-NODE(WS-LSP-UNIT)) > 0
+            MOVE ND-NAME(FU-NODE(WS-LSP-UNIT)) TO WS-LSP-TOKEN
+            PERFORM LSP-APPEND-LOCATION
+        WHEN OTHER
+            STRING "null" DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-EVALUATE
+    STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> Hover over a data item: its level, name, picture, usage, size, and
+*> place in its record.
+LSP-HOVER.
+    PERFORM LSP-POSITION
+    PERFORM LSP-TARGET
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-SYMBOL = 0
+        STRING "null}" DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        PERFORM LSP-SEND-OUT
+        EXIT PARAGRAPH
+    END-IF
+    MOVE WS-LSP-SYMBOL TO WS-S
+    MOVE SPACES TO WS-LSP-PIC
+    MOVE ND-FIRST(SY-NODE(WS-S)) TO WS-NODE
+    PERFORM UNTIL WS-NODE = 0
+        IF ND-KIND(WS-NODE) = "CLAU" AND ND-DETAIL(WS-NODE) = "PICTURE"
+           AND ND-NAME(WS-NODE) > 0
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(WS-NODE)
+                WS-LSP-PIC WS-TOKEN-LEN
+        END-IF
+        MOVE ND-NEXT(WS-NODE) TO WS-NODE
+    END-PERFORM
+    MOVE SPACES TO WS-LSP-TEXT-PATH
+    MOVE 1 TO WS-PTR
+    MOVE SY-LEVEL(WS-S) TO WS-NUM
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    STRING "```cobol\n" DELIMITED BY SIZE
+           WS-NUM-TEXT(1:WS-NUM-LEN) DELIMITED BY SIZE
+           " " DELIMITED BY SIZE
+           SY-NAME(WS-S) DELIMITED BY SPACE
+        INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    IF WS-LSP-PIC NOT = SPACES
+        STRING " PIC " DELIMITED BY SIZE
+               WS-LSP-PIC DELIMITED BY SPACE
+            INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    END-IF
+    IF SY-USAGE(WS-S) NOT = SPACES
+        STRING " " DELIMITED BY SIZE
+               SY-USAGE(WS-S) DELIMITED BY SPACE
+            INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    END-IF
+    STRING "\n```\n" DELIMITED BY SIZE INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    MOVE SY-SIZE(WS-S) TO WS-NUM
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    STRING WS-NUM-TEXT(1:WS-NUM-LEN) DELIMITED BY SIZE
+           " bytes at offset " DELIMITED BY SIZE
+        INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    MOVE SY-OFFSET(WS-S) TO WS-NUM
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    STRING WS-NUM-TEXT(1:WS-NUM-LEN) DELIMITED BY SIZE
+        INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    *> The record it is in.
+    MOVE WS-S TO WS-P
+    PERFORM UNTIL SY-PARENT(WS-P) = 0
+        MOVE SY-PARENT(WS-P) TO WS-P
+    END-PERFORM
+    IF WS-P NOT = WS-S
+        STRING " of " DELIMITED BY SIZE
+               SY-NAME(WS-P) DELIMITED BY SPACE
+            INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    END-IF
+    IF SY-OCCURS(WS-S) > 0
+        MOVE SY-OCCURS(WS-S) TO WS-NUM
+        CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+        STRING ", occurs " DELIMITED BY SIZE
+               WS-NUM-TEXT(1:WS-NUM-LEN) DELIMITED BY SIZE
+               " times" DELIMITED BY SIZE
+            INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    END-IF
+    STRING '{"contents":{"kind":"markdown","value":"' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    *> Already JSON-safe: names, pictures, numbers, and \n escapes.
+    COMPUTE WS-LEN = WS-PTR - 1
+    STRING WS-LSP-TEXT-PATH(1:WS-LEN) DELIMITED BY SIZE
+           '"}}}' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> Outline ------------------------------------------------------------
+
+*> textDocument/documentSymbol: programs, sections, paragraphs, and
+*> named data items of the document (not of its copybooks), as a flat
+*> list with container names.
+LSP-DOCUMENT-SYMBOLS.
+    PERFORM LSP-FIND-DOCUMENT
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":[' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-DOC-INDEX > 0
+        PERFORM LSP-ANALYZE
+        MOVE "Y" TO WS-LSP-FIRST
+        MOVE 1 TO WS-ROOT WS-NODE
+        MOVE 0 TO WS-DEPTH
+        PERFORM UNTIL WS-NODE = 0
+            IF ND-KIND(WS-NODE) = "PROG" AND ND-NAME(WS-NODE) > 0
+                MOVE ND-NAME(WS-NODE) TO WS-LSP-TOKEN
+                MOVE 2 TO WS-LSP-KIND-NUM
+                MOVE SPACES TO WS-LSP-NAME
+                PERFORM LSP-APPEND-SYMBOL
+            END-IF
+            CALL "PLB-AST-NEXT" USING PLB-AST WS-ROOT WS-NODE WS-DEPTH
+        END-PERFORM
+        PERFORM VARYING WS-U FROM 1 BY 1 UNTIL WS-U > FU-COUNT
+            IF FU-KIND(WS-U) NOT = "D" AND ND-NAME(FU-NODE(WS-U)) > 0
+                MOVE ND-NAME(FU-NODE(WS-U)) TO WS-LSP-TOKEN
+                IF FU-KIND(WS-U) = "S"
+                    MOVE 3 TO WS-LSP-KIND-NUM
+                ELSE
+                    MOVE 6 TO WS-LSP-KIND-NUM
+                END-IF
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS
+                    ND-NAME(FU-PROGRAM(WS-U)) WS-LSP-NAME WS-TOKEN-LEN
+                IF FU-SECTION(WS-U) > 0
+                    MOVE FU-NAME(FU-SECTION(WS-U)) TO WS-LSP-NAME
+                END-IF
+                PERFORM LSP-APPEND-SYMBOL
+            END-IF
+        END-PERFORM
+        PERFORM VARYING WS-S FROM 1 BY 1 UNTIL WS-S > SY-COUNT
+            IF SY-NAME-TOKEN(WS-S) > 0
+                MOVE SY-NAME-TOKEN(WS-S) TO WS-LSP-TOKEN
+                EVALUATE TRUE
+                    WHEN SY-LEVEL(WS-S) = 88
+                        MOVE 22 TO WS-LSP-KIND-NUM
+                    WHEN SY-LEVEL(WS-S) = 78
+                        MOVE 14 TO WS-LSP-KIND-NUM
+                    WHEN SY-CATEGORY(WS-S) = "G"
+                        MOVE 23 TO WS-LSP-KIND-NUM
+                    WHEN SY-PARENT(WS-S) > 0
+                        MOVE 8 TO WS-LSP-KIND-NUM
+                    WHEN OTHER
+                        MOVE 13 TO WS-LSP-KIND-NUM
+                END-EVALUATE
+                IF SY-PARENT(WS-S) > 0
+                    MOVE SY-NAME(SY-PARENT(WS-S)) TO WS-LSP-NAME
+                ELSE
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS
+                        ND-NAME(SY-PROGRAM(WS-S)) WS-LSP-NAME WS-TOKEN-LEN
+                END-IF
+                PERFORM LSP-APPEND-SYMBOL
+            END-IF
+        END-PERFORM
+    END-IF
+    STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> A SymbolInformation for the name at WS-LSP-TOKEN, of kind
+*> WS-LSP-KIND-NUM, in container WS-LSP-NAME; only for names in the
+*> document itself.
+LSP-APPEND-SYMBOL.
+    IF TK-FILE-ID(WS-LSP-TOKEN) NOT = 1
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-LSP-TOKEN WS-TOKEN-TEXT
+        WS-TOKEN-LEN
+    STRING '{"name":' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    CALL "PLB-JSON-STRING" USING WS-TOKEN-TEXT(1:WS-TOKEN-LEN) WS-LSP-OUT
+        WS-LSP-PTR
+    STRING ',"kind":' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE WS-LSP-KIND-NUM TO WS-NUM
+    PERFORM LSP-APPEND-NUM
+    IF WS-LSP-NAME NOT = SPACES
+        STRING ',"containerName":' DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        CALL "PLB-JSON-STRING" USING WS-LSP-NAME WS-LSP-OUT WS-LSP-PTR
+    END-IF
+    STRING ',"location":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-APPEND-LOCATION
+    STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
 
 *> Findings at or above the --fail-on level.
 COUNT-FAILING.
@@ -1315,7 +2016,7 @@ PARSE-INPUT-ARGS.
                 MOVE WS-ARG TO WS-INPUT(WS-INPUT-COUNT)
         END-EVALUATE
     END-PERFORM
-    IF WS-EXIT-CODE = 0 AND WS-INPUT-COUNT = 0
+    IF WS-EXIT-CODE = 0 AND WS-INPUT-COUNT = 0 AND WS-COMMAND NOT = "lsp"
         DISPLAY PLB-NAME ": no input files" UPON SYSERR
         PERFORM SUGGEST-HELP
     END-IF.

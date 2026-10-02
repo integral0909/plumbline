@@ -622,7 +622,13 @@ COLLECT-CONDITION.
     PERFORM UNTIL PS-POS >= PS-END
         CALL "PLB-PX-TOKEN" USING PLB-TOKENS PS-POS PLB-PX-VIEW
         MOVE "N" TO LS-STOP
+        COMPUTE LS-NEXT = PS-POS - 1
+        PERFORM PREVIOUS-WORD
         EVALUATE TRUE
+            *> PERFORM UNTIL EXIT loops until something leaves it: the
+            *> EXIT is the condition, not a statement.
+            WHEN PX-TEXT = "EXIT" AND LS-NEXT-TEXT = "UNTIL"
+                CONTINUE
             WHEN PX-KIND = "."
             WHEN PX-KW = "V"
             WHEN PX-KW = "T"
