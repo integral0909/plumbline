@@ -108,6 +108,9 @@ check for it. They are listed here as a check of the rules:
   the counter is the control variable of an inline `PERFORM VARYING`
   that stops at 10, were reported until the rule took the loop's limit
   into account.
+- **PLB-C040 odo-object-too-small** reports the test of
+  `FUNCTION NUMVAL`, whose `FILLER PIC X OCCURS 0 TO 10 DEPENDING ON
+  CSZE` has a `PIC 9` count. NIST and CardDemo have none.
 - **PLB-C039 decimal-to-alphanumeric** reports the six `MOVE`s of the
   test `MOVE of non-integer to alphanumeric`, an extension that the
   dialect option `move-noninteger-to-alphanumeric` allows. Enabled,
