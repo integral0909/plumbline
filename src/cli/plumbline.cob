@@ -1683,11 +1683,45 @@ LSP-DEFINITION.
             MOVE ND-NAME(FU-NODE(WS-LSP-UNIT)) TO WS-LSP-TOKEN
             PERFORM LSP-APPEND-LOCATION
         WHEN OTHER
-            STRING "null" DELIMITED BY SIZE
-                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+            PERFORM LSP-COPYBOOK-AT-LINE
+            IF WS-I > 0
+                PERFORM LSP-APPEND-COPYBOOK
+            ELSE
+                STRING "null" DELIMITED BY SIZE
+                    INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+            END-IF
     END-EVALUATE
     STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
     PERFORM LSP-SEND-OUT.
+
+*> WS-I: the inclusion made by a COPY statement of the document on the
+*> line of the position, at or before its character, or 0. The COPY
+*> statement itself leaves no tokens, so this is found by its place.
+LSP-COPYBOOK-AT-LINE.
+    MOVE 0 TO WS-J
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > IN-COUNT
+        IF IN-PARENT(WS-I) = 0 AND IN-FROM-FILE-ID(WS-I) = 1
+           AND IN-FROM-LINE(WS-I) = WS-LSP-LINE
+           AND IN-FROM-COLUMN(WS-I) <= WS-LSP-CHAR
+            MOVE WS-I TO WS-J
+        END-IF
+    END-PERFORM
+    MOVE WS-J TO WS-I.
+
+*> The first line of the copybook of inclusion WS-I.
+LSP-APPEND-COPYBOOK.
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET IN-FILE-ID(WS-I)
+        WS-PATH
+    MOVE SPACES TO WS-LSP-TEXT-PATH
+    STRING "file://" DELIMITED BY SIZE
+           WS-PATH DELIMITED BY SPACE
+        INTO WS-LSP-TEXT-PATH
+    STRING '{"uri":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    CALL "PLB-JSON-STRING" USING WS-LSP-TEXT-PATH WS-LSP-OUT WS-LSP-PTR
+    STRING ',"range":{"start":{"line":0,"character":0},'
+           '"end":{"line":0,"character":0}}}' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
 
 *> textDocument/references and textDocument/documentHighlight: the
 *> declaration of the data item or procedure at the position, and every

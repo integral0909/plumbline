@@ -307,6 +307,33 @@ class LanguageServerTest(unittest.TestCase):
             self.assertEqual(declaration[0]["range"]["start"],
                              {"line": 0, "character": 4})
 
+    def test_definition_of_a_copybook(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with open(os.path.join(directory, "totals.cpy"), "w") as f:
+                f.write("01  TOTAL-AMOUNT PIC 9(7).\n")
+            program = os.path.join(directory, "report.cob")
+            text = ("IDENTIFICATION DIVISION.\nPROGRAM-ID. REPORT1.\n"
+                    "DATA DIVISION.\nWORKING-STORAGE SECTION.\n"
+                    "    COPY totals.\nPROCEDURE DIVISION.\n"
+                    "    DISPLAY TOTAL-AMOUNT\n    GOBACK.\n")
+            uri = "file://" + os.path.realpath(program)
+            self.server.notify("textDocument/didOpen", {"textDocument": {
+                "uri": uri, "languageId": "cobol", "version": 1,
+                "text": text}})
+            self.server.receive()
+            # On the name of the copybook, after COPY.
+            reply = self.server.request("textDocument/definition", {
+                "textDocument": {"uri": uri},
+                "position": {"line": 4, "character": 10}})
+            self.assertTrue(reply["result"]["uri"].endswith("/totals.cpy"))
+            self.assertEqual(reply["result"]["range"]["start"],
+                             {"line": 0, "character": 0})
+            # Before the COPY statement, nothing.
+            reply = self.server.request("textDocument/definition", {
+                "textDocument": {"uri": uri},
+                "position": {"line": 4, "character": 1}})
+            self.assertIsNone(reply["result"])
+
     def code_actions(self, line):
         return self.server.request("textDocument/codeAction", {
             "textDocument": {"uri": URI},
