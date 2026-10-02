@@ -1,0 +1,1 @@
+tests/golden/pp/replacing-unused.cob:7:1: warning: REPLACING ==SUBTOTAL== replaces nothing in the copybook [PP008]

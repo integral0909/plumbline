@@ -571,6 +571,8 @@ WORKING-STORAGE SECTION.
         10  FR-RULE-FIRST   PIC 9(9) COMP-5.
         10  FR-RULE-COUNT   PIC 9(9) COMP-5.
         10  FR-INCL         PIC 9(4) COMP-5.
+        *> The word COPY of the statement that opened the frame.
+        10  FR-COPY-TOKEN   PIC 9(9) COMP-5.
 *> REPLACING rules of the frames on the stack, innermost last.
 01  WS-RULES.
     05  WS-RULE-COUNT       PIC 9(9) COMP-5.
@@ -580,6 +582,8 @@ WORKING-STORAGE SECTION.
         10  RU-PAT-TO       PIC 9(9) COMP-5.
         10  RU-REP-FROM     PIC 9(9) COMP-5.
         10  RU-REP-TO       PIC 9(9) COMP-5.
+        *> "Y" once the rule has replaced something.
+        10  RU-USED         PIC X.
 *> Copybooks already read and tokenized in this run.
 01  WS-CACHE.
     05  WS-CACHE-COUNT      PIC 9(4) COMP-5.
@@ -619,6 +623,7 @@ LOCAL-STORAGE SECTION.
 01  LS-CACHE-INDEX          PIC 9(4) COMP-5.
 01  LS-TEXT                 PIC X(8192).
 01  LS-TEXT-LEN             PIC 9(9) COMP-5.
+01  LS-MSG-PTR              PIC 9(9) COMP-5.
 01  LS-USE-TEXT             PIC X.
 01  LS-DIAG-TOKEN           PIC 9(9) COMP-5.
 01  LS-DIAG-CODE            PIC X(5).
@@ -676,6 +681,12 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS
     GOBACK.
 
 POP-FRAME.
+    PERFORM VARYING LS-R FROM FR-RULE-FIRST(LS-F) BY 1
+            UNTIL LS-R >= FR-RULE-FIRST(LS-F) + FR-RULE-COUNT(LS-F)
+        IF RU-USED(LS-R) = "N"
+            PERFORM REPORT-UNUSED-RULE
+        END-IF
+    END-PERFORM
     MOVE FR-RULE-FIRST(LS-F) TO WS-RULE-COUNT
     SUBTRACT 1 FROM WS-RULE-COUNT
     SUBTRACT 1 FROM WS-FRAME-COUNT.
@@ -723,6 +734,7 @@ EXPAND-NEXT.
 *> Rule LS-R matched at LS-I: emit its replacement and move past the
 *> text it replaced.
 APPLY-RULE.
+    MOVE "Y" TO RU-USED(LS-R)
     MOVE FR-INCL(LS-F) TO LS-INCL
     IF LS-MATCHED = "Y"
         MOVE "N" TO LS-USE-TEXT
@@ -1041,7 +1053,8 @@ ADD-RULE.
     MOVE LS-PAT-FROM TO RU-PAT-FROM(WS-RULE-COUNT)
     MOVE LS-PAT-TO TO RU-PAT-TO(WS-RULE-COUNT)
     MOVE LS-OPERAND-FROM TO RU-REP-FROM(WS-RULE-COUNT)
-    MOVE LS-OPERAND-TO TO RU-REP-TO(WS-RULE-COUNT).
+    MOVE LS-OPERAND-TO TO RU-REP-TO(WS-RULE-COUNT)
+    MOVE "N" TO RU-USED(WS-RULE-COUNT).
 
 *> After a malformed COPY, resume after the next period so that the
 *> rest of the statement is not taken as program text.
@@ -1131,7 +1144,8 @@ OPEN-COPYBOOK.
     MOVE LS-RULE-START TO FR-RULE-FIRST(WS-FRAME-COUNT)
     COMPUTE FR-RULE-COUNT(WS-FRAME-COUNT) =
         WS-RULE-COUNT - LS-RULE-START + 1
-    MOVE IN-COUNT TO FR-INCL(WS-FRAME-COUNT).
+    MOVE IN-COUNT TO FR-INCL(WS-FRAME-COUNT)
+    MOVE LS-COPY-TOKEN TO FR-COPY-TOKEN(WS-FRAME-COUNT).
 
 *> Use the cached tokens of LS-PATH, or read and tokenize it.
 FIND-OR-LOAD.
@@ -1234,6 +1248,40 @@ LOOK-UP-KEYWORD.
     END-IF.
 
 *> Report LS-DIAG-CODE / LS-MESSAGE at WORK token LS-DIAG-TOKEN.
+*> PP008: REPLACING rule LS-R of the frame being closed replaced
+*> nothing in its copybook: the pattern is misspelled, or the copybook
+*> no longer has what it names.
+REPORT-UNUSED-RULE.
+    MOVE "PP008" TO LS-DIAG-CODE
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-MSG-PTR
+    STRING "REPLACING ==" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-MSG-PTR
+    PERFORM VARYING LS-I FROM RU-PAT-FROM(LS-R) BY 1
+            UNTIL LS-I > RU-PAT-TO(LS-R) OR LS-MSG-PTR > 120
+        CALL "PLB-TOK-TEXT" USING WORK-TOKENS LS-I LS-TEXT LS-TEXT-LEN
+        IF LS-I > RU-PAT-FROM(LS-R)
+            STRING " " DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-MSG-PTR
+        END-IF
+        IF LS-TEXT-LEN > 0 AND LS-TEXT-LEN < 60
+            STRING LS-TEXT(1:LS-TEXT-LEN) DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-MSG-PTR
+        END-IF
+    END-PERFORM
+    STRING "== replaces nothing in the copybook" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-MSG-PTR
+    MOVE FR-COPY-TOKEN(LS-F) TO LS-DIAG-TOKEN
+    MOVE TK-FILE-ID OF WORK-TOKENS (LS-DIAG-TOKEN) TO LS-DIAG-FILE
+    MOVE 0 TO LS-LINE-NO
+    IF TK-SRC-LINE OF WORK-TOKENS (LS-DIAG-TOKEN) > 0
+        MOVE SL-LINE-NO(TK-SRC-LINE OF WORK-TOKENS (LS-DIAG-TOKEN))
+            TO LS-LINE-NO
+    END-IF
+    MOVE TK-COLUMN OF WORK-TOKENS (LS-DIAG-TOKEN) TO LS-COLUMN
+    CALL "PLB-DIAG-ADD" USING PLB-DIAGNOSTICS "W" LS-DIAG-CODE
+        LS-DIAG-FILE LS-LINE-NO LS-COLUMN LS-MESSAGE.
+
 REPORT-AT-TOKEN.
     MOVE TK-FILE-ID OF WORK-TOKENS (LS-DIAG-TOKEN) TO LS-DIAG-FILE
     MOVE 0 TO LS-LINE-NO

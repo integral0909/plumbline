@@ -208,6 +208,14 @@ The findings were checked by rule:
 - **PLB-C044 varying-control-changed.** Two, both in NC201A's test of
   a `PERFORM VARYING` whose body divides and subtracts its own control
   on purpose.
+- **PP008, a REPLACING rule that replaces nothing.** Six, all in tests
+  of `COPY ... REPLACING` whose expected results need the rule to
+  replace nothing: replaced text is not scanned again (SM206A), a
+  continued literal is one literal (SM206A), a debugging line is a
+  comment (SM206A), the copybook lacks the name (SM201A), and a literal
+  pattern only matches a whole literal (SM401M). A seventh,
+  `==+00001==` in SM206A, was Plumbline reading the sign of a pseudo-text
+  pattern as an operator, fixed before this diagnostic was added.
 ## Limits
 
 - **Report Writer** is parsed and its `SOURCE`, `SUM`, and `CONTROL`
