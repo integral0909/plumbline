@@ -1425,7 +1425,19 @@ END PROGRAM PLB-CALL-COLLECT.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-CALL-RESOLVE.
 DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbcallc.cpy".
+*> The programs by name: a hash of the name picks a bucket, which
+*> chains the programs of that name (and others of the same hash) in
+*> program order, so that a call is not compared with every program.
+78  CH-BUCKETS                  VALUE 4093.
+01  WS-CP-HEAD              PIC 9(9) COMP-5 OCCURS CH-BUCKETS TIMES.
+01  WS-CP-NEXT              PIC 9(9) COMP-5 OCCURS CP-MAX TIMES.
 LOCAL-STORAGE SECTION.
+01  LS-HASH                 PIC 9(9) COMP-5.
+01  LS-HASH-SUM             PIC 9(9) COMP-5.
+01  LS-HASH-I               PIC 9(4) COMP-5.
+01  LS-HASH-NAME            PIC X(31).
 01  LS-C                    PIC 9(9) COMP-5.
 01  LS-P                    PIC 9(9) COMP-5.
 01  LS-A                    PIC 9(9) COMP-5.
@@ -1433,9 +1445,17 @@ LOCAL-STORAGE SECTION.
 01  LS-FOUND                PIC 9(9) COMP-5.
 01  LS-EXACT                PIC 9(9) COMP-5.
 LINKAGE SECTION.
-COPY "plbcallc.cpy".
 COPY "plbcall.cpy".
 PROCEDURE DIVISION USING PLB-CALL-GRAPH.
+    PERFORM VARYING LS-HASH FROM 1 BY 1 UNTIL LS-HASH > CH-BUCKETS
+        MOVE 0 TO WS-CP-HEAD(LS-HASH)
+    END-PERFORM
+    PERFORM VARYING LS-P FROM CP-COUNT BY -1 UNTIL LS-P = 0
+        MOVE CP-NAME(LS-P) TO LS-HASH-NAME
+        PERFORM NAME-HASH
+        MOVE WS-CP-HEAD(LS-HASH) TO WS-CP-NEXT(LS-P)
+        MOVE LS-P TO WS-CP-HEAD(LS-HASH)
+    END-PERFORM
     PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > CC-COUNT
         MOVE 0 TO CC-TO(LS-C) CC-MATCHES(LS-C)
         IF CC-DYNAMIC(LS-C) = "N" AND CC-FROM(LS-C) > 0
@@ -1446,10 +1466,13 @@ PROCEDURE DIVISION USING PLB-CALL-GRAPH.
 
 RESOLVE-CALL.
     MOVE CC-FROM(LS-C) TO LS-FROM
+    MOVE CC-TARGET(LS-C) TO LS-HASH-NAME
+    PERFORM NAME-HASH
     *> 1. Contained in the caller, or the caller itself; a name spelled
     *> the same way, case included, before one that only matches
     *> without regard to case.
-    PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+    MOVE WS-CP-HEAD(LS-HASH) TO LS-P
+    PERFORM UNTIL LS-P = 0
         IF CP-NAME(LS-P) = CC-TARGET(LS-C) AND CP-KIND(LS-P) = "P"
            AND (CP-PARENT(LS-P) = LS-FROM OR LS-P = LS-FROM)
            AND CP-SPELLING(LS-P) = CC-SPELLING(LS-C)
@@ -1457,35 +1480,42 @@ RESOLVE-CALL.
             MOVE 1 TO CC-MATCHES(LS-C)
             EXIT PARAGRAPH
         END-IF
+        MOVE WS-CP-NEXT(LS-P) TO LS-P
     END-PERFORM
-    PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+    MOVE WS-CP-HEAD(LS-HASH) TO LS-P
+    PERFORM UNTIL LS-P = 0
         IF CP-NAME(LS-P) = CC-TARGET(LS-C) AND CP-KIND(LS-P) = "P"
            AND (CP-PARENT(LS-P) = LS-FROM OR LS-P = LS-FROM)
             MOVE LS-P TO CC-TO(LS-C)
             MOVE 1 TO CC-MATCHES(LS-C)
             EXIT PARAGRAPH
         END-IF
+        MOVE WS-CP-NEXT(LS-P) TO LS-P
     END-PERFORM
     *> 2. COMMON programs of the programs containing the caller.
     MOVE CP-PARENT(LS-FROM) TO LS-A
     PERFORM UNTIL LS-A = 0
-        PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+        MOVE WS-CP-HEAD(LS-HASH) TO LS-P
+        PERFORM UNTIL LS-P = 0
             IF CP-NAME(LS-P) = CC-TARGET(LS-C) AND CP-KIND(LS-P) = "P"
                AND CP-COMMON(LS-P) = "Y" AND CP-PARENT(LS-P) = LS-A
                 MOVE LS-P TO CC-TO(LS-C)
                 MOVE 1 TO CC-MATCHES(LS-C)
                 EXIT PARAGRAPH
             END-IF
+            MOVE WS-CP-NEXT(LS-P) TO LS-P
         END-PERFORM
         MOVE CP-PARENT(LS-A) TO LS-A
     END-PERFORM
     *> 3. Outermost programs and their entry points.
     MOVE 0 TO LS-FOUND
-    PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+    MOVE WS-CP-HEAD(LS-HASH) TO LS-P
+    PERFORM UNTIL LS-P = 0
         IF CP-NAME(LS-P) = CC-TARGET(LS-C) AND CP-PARENT(LS-P) = 0
             ADD 1 TO CC-MATCHES(LS-C)
             MOVE LS-P TO LS-FOUND
         END-IF
+        MOVE WS-CP-NEXT(LS-P) TO LS-P
     END-PERFORM
     IF CC-MATCHES(LS-C) = 1
         MOVE LS-FOUND TO CC-TO(LS-C)
@@ -1493,16 +1523,30 @@ RESOLVE-CALL.
     *> Several, told apart by case: the one spelled the same way.
     IF CC-MATCHES(LS-C) > 1
         MOVE 0 TO LS-EXACT LS-FOUND
-        PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+        MOVE WS-CP-HEAD(LS-HASH) TO LS-P
+        PERFORM UNTIL LS-P = 0
             IF CP-NAME(LS-P) = CC-TARGET(LS-C) AND CP-PARENT(LS-P) = 0
                AND CP-SPELLING(LS-P) = CC-SPELLING(LS-C)
                 ADD 1 TO LS-EXACT
                 MOVE LS-P TO LS-FOUND
             END-IF
+            MOVE WS-CP-NEXT(LS-P) TO LS-P
         END-PERFORM
         IF LS-EXACT = 1
             MOVE LS-FOUND TO CC-TO(LS-C)
             MOVE 1 TO CC-MATCHES(LS-C)
         END-IF
     END-IF.
+
+*> LS-HASH: the bucket of LS-HASH-NAME, 1 to CH-BUCKETS.
+NAME-HASH.
+    MOVE 0 TO LS-HASH-SUM
+    PERFORM VARYING LS-HASH-I FROM 1 BY 1 UNTIL LS-HASH-I > 31
+        IF LS-HASH-NAME(LS-HASH-I:1) = SPACE
+            EXIT PERFORM
+        END-IF
+        COMPUTE LS-HASH-SUM = FUNCTION MOD(LS-HASH-SUM * 31
+            + FUNCTION ORD(LS-HASH-NAME(LS-HASH-I:1)), CH-BUCKETS)
+    END-PERFORM
+    COMPUTE LS-HASH = LS-HASH-SUM + 1.
 END PROGRAM PLB-CALL-RESOLVE.
