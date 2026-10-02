@@ -1,0 +1,2 @@
+tests/golden/rules/c051-duplicate-if-condition.cob:11:8: warning: WS-CODE is read but never given a value [PLB-C011]
+tests/golden/rules/c051-duplicate-if-condition.cob:15:13: warning: this IF tests the condition of the IF on line 11, whose ELSE it is in; its branch never runs [PLB-C051]

@@ -61,6 +61,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C048](#plb-c048-sort-procedure-no-record) | sort-procedure-no-record | warning | SORT procedure never RELEASEs or RETURNs a record |
 | [PLB-C049](#plb-c049-loop-condition-unchanged) | loop-condition-unchanged | warning | PERFORM UNTIL loop never changes what its condition reads |
 | [PLB-C050](#plb-c050-record-read-at-end) | record-read-at-end | warning | AT END of a READ reads the file's record |
+| [PLB-C051](#plb-c051-duplicate-if-condition) | duplicate-if-condition | warning | ELSE IF repeats a condition the chain already tested |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1373,6 +1374,30 @@ read the copy.
 Stores into the record are fine. Each item is reported once per phrase,
 and condition names count as reads of their item. Statements the phrase
 reaches through `PERFORM` are not followed.
+
+## PLB-C051 duplicate-if-condition
+
+An `IF` of an `ELSE IF` chain that tests what an earlier `IF` of the
+chain tests:
+
+```cobol
+    IF WS-CODE = "A"
+        DISPLAY "ADD"
+    ELSE IF WS-CODE = "C"
+        DISPLAY "CHANGE"
+    ELSE IF WS-CODE = "A"                   *> reported
+        DISPLAY "NEVER"
+```
+
+The chain reaches the later `IF` only when the earlier test failed, and
+nothing runs in between, so the later branch is dead code. It is
+usually a copied test whose value was not changed. This is PLB-C032 for
+`IF` chains.
+
+An `IF` belongs to the chain when it is the first statement of the
+`ELSE` of the one before; an `IF` after other statements can see other
+values and is not compared. Conditions are compared as text, as in
+PLB-C032, and those that call a `FUNCTION` are left out.
 
 ## PLB-I001 pcb-dbd-unknown
 
