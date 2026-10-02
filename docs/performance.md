@@ -17,6 +17,8 @@ On an Apple M1, with GnuCOBOL 3.2 and the default `make` build
 | Generated program, 2,500 paragraphs (`make bench`) | 25,259 | 0.8 s |
 | Generated program, 5,000 paragraphs | 50,509 | 1.6 s |
 | Generated program, 10,000 paragraphs | 101,009 | 3.2 s |
+| 1,000 generated programs, each calling three others | 13,000 | 1.5 s |
+| 2,000 generated programs, each calling three others | 26,000 | 3.0 s |
 
 ## `make bench`
 
@@ -31,7 +33,9 @@ Two such passes were found this way and replaced by hashed lookups:
 resolving a name to its data items read the whole symbol table for
 every reference, and PLB-C035 duplicate-paragraph compared every
 paragraph with all those before it. A program of 80,000 lines took
-13.5 s before and 2.5 s after.
+13.5 s before and 2.5 s after. Across programs, resolving each `CALL`
+compared it with every program of the run; it now reads only the
+programs of its name, through a hash.
 
 ## Limits
 
