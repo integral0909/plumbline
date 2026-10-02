@@ -26,6 +26,7 @@ FILE SECTION.
 FD  INPUT-FILE.
 01  INPUT-BYTE              PIC X.
 WORKING-STORAGE SECTION.
+*> plumbline: ignore hard-coded-path -- Plumbline runs on POSIX hosts
 01  WS-INPUT-PATH           PIC X(16) VALUE "/dev/stdin".
 01  WS-INPUT-STATUS         PIC XX.
 01  WS-OPEN                 PIC X VALUE "N".

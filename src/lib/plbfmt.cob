@@ -41,6 +41,7 @@ FILE SECTION.
 FD  OUTPUT-FILE.
 01  OUTPUT-RECORD           PIC X(1024).
 WORKING-STORAGE SECTION.
+*> plumbline: ignore hard-coded-path -- Plumbline runs on POSIX hosts
 01  WS-OUTPUT-PATH          PIC X(16) VALUE "/dev/stdout".
 01  WS-OUTPUT-STATUS        PIC XX.
 01  WS-OUTPUT-OPEN          PIC X.
