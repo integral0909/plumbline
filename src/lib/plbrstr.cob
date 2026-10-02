@@ -1,7 +1,8 @@
 *> ---------------------------------------------------------------
-*> plbrstr: STRING statements that cannot fit their receiver.
+*> plbrstr: STRING and UNSTRING statements.
 *>
 *>   PLB-C031  string-overflow
+*>   PLB-C052  string-overlap
 *>
 *> An operand DELIMITED BY SIZE is sent whole. When those operands of
 *> a STRING are longer together than the receiving item, the
@@ -257,3 +258,155 @@ REPORT-OVERFLOW.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-TOKEN LS-MESSAGE.
 END PROGRAM PLB-RULE-STRINGS.
+
+*> PLB-C052 string-overlap: a STRING or UNSTRING whose receiving item
+*> shares storage with an item it sends from:
+*>
+*>     STRING WS-LINE DELIMITED BY "  " ", DONE" DELIMITED BY SIZE
+*>         INTO WS-LINE
+*>
+*> The standard leaves the result undefined when a sending and a
+*> receiving item of these statements overlap. Compilers that move
+*> character by character append as meant; others build the result in
+*> place and copy the receiver's own new start into its tail. Build
+*> the text in another item and move it back.
+*>
+*> Senders are the items a STRING sends and its delimiters, or the
+*> item an UNSTRING splits and its delimiters; receivers are the INTO
+*> item of a STRING, or the receivers of an UNSTRING with their
+*> DELIMITER IN and COUNT IN items. POINTER and TALLYING items, and
+*> items in subscripts, do not count. Each statement is reported once.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-C052.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+*> The storage of each item.
+COPY "plbspan.cpy" REPLACING ==PLB-SPANS== BY ==WS-SPANS==.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
+01  LS-NODE                 PIC 9(9) COMP-5.
+01  LS-DEPTH                PIC S9(9) COMP-5.
+01  LS-FIRST-REF            PIC 9(9) COMP-5 VALUE 1.
+01  LS-R                    PIC 9(9) COMP-5.
+01  LS-Q                    PIC 9(9) COMP-5.
+01  LS-SEND                 PIC 9(9) COMP-5.
+01  LS-RECEIVE              PIC 9(9) COMP-5.
+01  LS-SEND-SYM             PIC 9(9) COMP-5.
+01  LS-RECEIVE-SYM          PIC 9(9) COMP-5.
+01  LS-OVERLAP              PIC X.
+01  LS-INSIDE               PIC X.
+01  LS-DONE                 PIC X.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbsym.cpy".
+COPY "plbref.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
+        PLB-REFS PLB-RULES PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C052" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0 OR RF-COUNT = 0
+        GOBACK
+    END-IF
+    CALL "PLB-SPAN-BUILD" USING PLB-SYMBOLS WS-SPANS
+    *> Statements come in source order, as do the references, so the
+    *> first reference of each statement is found by moving forward.
+    MOVE 1 TO LS-NODE
+    MOVE 0 TO LS-DEPTH
+    PERFORM UNTIL LS-NODE = 0
+        IF ND-KIND(LS-NODE) = "STMT"
+           AND (ND-DETAIL(LS-NODE) = "STRING"
+                OR ND-DETAIL(LS-NODE) = "UNSTRING")
+            PERFORM UNTIL LS-FIRST-REF > RF-COUNT
+                    OR RF-TOKEN(LS-FIRST-REF) >= ND-TOK-FIRST(LS-NODE)
+                ADD 1 TO LS-FIRST-REF
+            END-PERFORM
+            PERFORM CHECK-STATEMENT
+        END-IF
+        CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
+    END-PERFORM
+    GOBACK.
+
+*> Every receiver of the statement against every sender.
+CHECK-STATEMENT.
+    MOVE "N" TO LS-DONE
+    PERFORM VARYING LS-RECEIVE FROM LS-FIRST-REF BY 1
+            UNTIL LS-RECEIVE > RF-COUNT OR LS-DONE = "Y"
+               OR RF-TOKEN(LS-RECEIVE) > ND-TOK-LAST(LS-NODE)
+        IF RF-STMT(LS-RECEIVE) = LS-NODE AND RF-ROLE(LS-RECEIVE) = "D"
+           AND RF-KIND(LS-RECEIVE) = "D" AND RF-SYMBOL(LS-RECEIVE) > 0
+            MOVE LS-RECEIVE TO LS-R
+            PERFORM IN-SUBSCRIPT
+            IF LS-INSIDE = "N"
+                PERFORM CHECK-RECEIVER
+            END-IF
+        END-IF
+    END-PERFORM.
+
+CHECK-RECEIVER.
+    PERFORM VARYING LS-SEND FROM LS-FIRST-REF BY 1
+            UNTIL LS-SEND > RF-COUNT OR LS-DONE = "Y"
+               OR RF-TOKEN(LS-SEND) > ND-TOK-LAST(LS-NODE)
+        IF RF-STMT(LS-SEND) = LS-NODE AND RF-ROLE(LS-SEND) = "U"
+           AND RF-KIND(LS-SEND) = "D" AND RF-SYMBOL(LS-SEND) > 0
+            MOVE LS-SEND TO LS-R
+            PERFORM IN-SUBSCRIPT
+            IF LS-INSIDE = "N"
+                PERFORM COMPARE-ITEMS
+            END-IF
+        END-IF
+    END-PERFORM.
+
+COMPARE-ITEMS.
+    IF RF-SYMBOL(LS-SEND) = RF-SYMBOL(LS-RECEIVE)
+        MOVE "Y" TO LS-OVERLAP
+    ELSE
+        MOVE RF-SYMBOL(LS-SEND) TO LS-SEND-SYM
+        MOVE RF-SYMBOL(LS-RECEIVE) TO LS-RECEIVE-SYM
+        CALL "PLB-SPAN-OVERLAP" USING WS-SPANS LS-SEND-SYM
+            LS-RECEIVE-SYM LS-OVERLAP
+    END-IF
+    IF LS-OVERLAP NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "Y" TO LS-DONE
+    MOVE SPACES TO LS-MESSAGE
+    IF RF-SYMBOL(LS-SEND) = RF-SYMBOL(LS-RECEIVE)
+        STRING ND-DETAIL(LS-NODE) DELIMITED BY SPACE
+               " sends " DELIMITED BY SIZE
+               SY-NAME(RF-SYMBOL(LS-SEND)) DELIMITED BY SPACE
+               " into itself: the result is undefined"
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    ELSE
+        STRING ND-DETAIL(LS-NODE) DELIMITED BY SPACE
+               " sends " DELIMITED BY SIZE
+               SY-NAME(RF-SYMBOL(LS-SEND)) DELIMITED BY SPACE
+               " into " DELIMITED BY SIZE
+               SY-NAME(RF-SYMBOL(LS-RECEIVE)) DELIMITED BY SPACE
+               ", which shares its storage: the result is undefined"
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    END-IF
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE RF-TOKEN(LS-RECEIVE) LS-MESSAGE.
+
+*> LS-INSIDE = "Y" when reference LS-R is inside the subscripts or
+*> reference modifier of another reference of the statement.
+IN-SUBSCRIPT.
+    MOVE "N" TO LS-INSIDE
+    PERFORM VARYING LS-Q FROM LS-FIRST-REF BY 1
+            UNTIL LS-Q >= LS-R OR LS-INSIDE = "Y"
+        IF RF-TOKEN(LS-Q) < RF-TOKEN(LS-R)
+           AND RF-LAST(LS-Q) >= RF-TOKEN(LS-R)
+            MOVE "Y" TO LS-INSIDE
+        END-IF
+    END-PERFORM.
+END PROGRAM PLB-RULE-C052.
