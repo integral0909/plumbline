@@ -49,6 +49,7 @@ LOCAL-STORAGE SECTION.
 01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
 01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 1.
 01  LS-MESSAGE              PIC X(200).
+01  LS-PTR                  PIC 9(4) COMP-5.
 LINKAGE SECTION.
 COPY "plbrules.cpy".
 COPY "plbfind.cpy".
@@ -122,32 +123,31 @@ CHECK-SENSEG.
         IF XS-PARENT(LS-S) = XG-PARENT(LS-G)
             EXIT PARAGRAPH
         END-IF
+        *> Built with a pointer: sending LS-MESSAGE into itself to
+        *> append would be undefined (PLB-C052).
+        MOVE 1 TO LS-PTR
         STRING "sensitive segment " DELIMITED BY SIZE
                XS-NAME(LS-S) DELIMITED BY SPACE
-               " has parent " DELIMITED BY SIZE
-            INTO LS-MESSAGE
+               " has parent" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
         IF XS-PARENT(LS-S) = SPACES
-            STRING LS-MESSAGE DELIMITED BY "  "
-                   " 0" DELIMITED BY SIZE
-                INTO LS-MESSAGE
+            STRING " 0" DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
         ELSE
-            STRING LS-MESSAGE DELIMITED BY "  "
-                   " " DELIMITED BY SIZE
+            STRING " " DELIMITED BY SIZE
                    XS-PARENT(LS-S) DELIMITED BY SPACE
-                INTO LS-MESSAGE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
         END-IF
         IF XG-PARENT(LS-G) = SPACES
-            STRING LS-MESSAGE DELIMITED BY "  "
-                   ", but is a root of database " DELIMITED BY SIZE
+            STRING ", but is a root of database " DELIMITED BY SIZE
                    XD-NAME(LS-D) DELIMITED BY SPACE
-                INTO LS-MESSAGE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
         ELSE
-            STRING LS-MESSAGE DELIMITED BY "  "
-                   ", but its parent in database " DELIMITED BY SIZE
+            STRING ", but its parent in database " DELIMITED BY SIZE
                    XD-NAME(LS-D) DELIMITED BY SPACE
                    " is " DELIMITED BY SIZE
                    XG-PARENT(LS-G) DELIMITED BY SPACE
-                INTO LS-MESSAGE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
         END-IF
     END-IF
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE-SENSEG
