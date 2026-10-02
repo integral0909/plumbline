@@ -1,0 +1,7 @@
+tests/golden/pp/copy/selfref.cpy:1:1: number   01
+tests/golden/pp/copy/selfref.cpy:1:5: word     LOOPING
+tests/golden/pp/copy/selfref.cpy:1:13: word     PIC
+tests/golden/pp/copy/selfref.cpy:1:17: picture  X
+tests/golden/pp/copy/selfref.cpy:1:18: period   .
+tests/golden/pp/recursive.cob:2:13: eof
+inclusion 1: tests/golden/pp/copy/selfref.cpy from tests/golden/pp/recursive.cob:2:1

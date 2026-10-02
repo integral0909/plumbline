@@ -307,7 +307,15 @@ TEST-MF-DIRECTIVE.
     MOVE 2 TO WS-LINE-NO
     PERFORM LINE-AT
     CALL "PLBT-ASSERT-STR" USING "free code after $SET"
-        "IDENTIFICATION DIVISION." WS-TEXT.
+        "IDENTIFICATION DIVISION." WS-TEXT
+
+    *> Only the first line has a bad indicator, but every line starts
+    *> inside the sequence area and leaves part of it blank.
+    PERFORM RESET-SET
+    MOVE "free-copybook.cpy" TO WS-PATH
+    PERFORM LOAD-FIXTURE
+    CALL "PLBT-ASSERT-FLAG" USING "indented copybook is free" "F"
+        SF-FORMAT(WS-FILE-ID).
 
 TEST-EDGE-FILES.
     CALL "PLBT-CASE" USING "empty and unterminated files"

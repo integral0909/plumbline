@@ -59,9 +59,7 @@ tests/golden/lexer/operators.cob:7:5: word     COPY
 tests/golden/lexer/operators.cob:7:10: word     PAYREC
 tests/golden/lexer/operators.cob:7:17: word     REPLACING
 tests/golden/lexer/operators.cob:7:27: pseudo   ==
-tests/golden/lexer/operators.cob:7:29: colon    :
-tests/golden/lexer/operators.cob:7:30: word     PFX
-tests/golden/lexer/operators.cob:7:33: colon    :
+tests/golden/lexer/operators.cob:7:29: word     :PFX:
 tests/golden/lexer/operators.cob:7:34: pseudo   ==
 tests/golden/lexer/operators.cob:7:37: word     BY
 tests/golden/lexer/operators.cob:7:40: pseudo   ==

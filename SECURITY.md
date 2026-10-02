@@ -29,6 +29,10 @@ pull request under review. Treat these as security bugs:
 - crashes, hangs, or unbounded memory use caused by crafted COBOL source,
   copybooks, or configuration files;
 - reading or writing files outside the paths the user asked Plumbline to
-  analyze, including through `COPY` resolution;
+  analyze, including through `COPY` resolution. Copybook names must be
+  relative and free of `..` segments, and they are resolved only in the
+  including file's directory and the `-I` search paths. Symbolic links
+  inside those directories are followed, so only add search paths whose
+  contents you trust as much as the source itself;
 - executing any part of the analyzed program. Plumbline must never run the
   code it analyzes.

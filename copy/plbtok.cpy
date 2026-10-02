@@ -12,8 +12,10 @@
 *> TK-SRC-LINE is the SS-LINE index of the token's first character;
 *> TK-COLUMN its column there. TK-SPAN is the token's length in the
 *> logical stream (a token continued onto another line spans both).
-78  TK-MAX                      VALUE 500000.
-78  TK-TEXT-SIZE                VALUE 8000000.
+*>
+*> The table limits are in plbtokc.cpy, which a program copies once
+*> even when it copies this record several times under other names
+*> (COPY "plbtok.cpy" REPLACING ==PLB-TOKENS== BY ==OTHER-TOKENS==).
 01  PLB-TOKENS.
     05  TK-COUNT                PIC 9(9) COMP-5.
     05  TK-TEXT-USED            PIC 9(9) COMP-5.
@@ -34,6 +36,9 @@
         *> BX, U (as in X"FF", N"text").
         10  TK-PREFIX           PIC XX.
         10  TK-FILE-ID          PIC 9(4) COMP-5.
+        *> Inclusion the token came through (see plbincl.cpy); 0 for
+        *> tokens of the main file and for unexpanded token streams.
+        10  TK-INCL             PIC 9(4) COMP-5.
         10  TK-SRC-LINE         PIC 9(9) COMP-5.
         10  TK-COLUMN           PIC 9(4) COMP-5.
         10  TK-SPAN             PIC 9(9) COMP-5.

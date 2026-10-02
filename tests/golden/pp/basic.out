@@ -1,0 +1,39 @@
+tests/golden/pp/basic.cob:3:1: word     DATA
+tests/golden/pp/basic.cob:3:6: word     DIVISION
+tests/golden/pp/basic.cob:3:14: period   .
+tests/golden/pp/basic.cob:4:1: word     WORKING-STORAGE
+tests/golden/pp/basic.cob:4:17: word     SECTION
+tests/golden/pp/basic.cob:4:24: period   .
+tests/golden/pp/copy/payrec.cpy:2:1: number   01
+tests/golden/pp/copy/payrec.cpy:2:5: word     PAY-RECORD
+tests/golden/pp/copy/payrec.cpy:2:15: period   .
+tests/golden/pp/copy/payrec.cpy:3:5: number   05
+tests/golden/pp/copy/payrec.cpy:3:9: word     PAY-ID
+tests/golden/pp/copy/payrec.cpy:3:21: word     PIC
+tests/golden/pp/copy/payrec.cpy:3:25: picture  9(6)
+tests/golden/pp/copy/payrec.cpy:3:29: period   .
+tests/golden/pp/copy/payrec.cpy:4:5: number   05
+tests/golden/pp/copy/payrec.cpy:4:9: word     PAY-AMOUNT
+tests/golden/pp/copy/payrec.cpy:4:21: word     PIC
+tests/golden/pp/copy/payrec.cpy:4:25: picture  S9(7)V99
+tests/golden/pp/copy/payrec.cpy:4:34: word     COMP-3
+tests/golden/pp/copy/payrec.cpy:4:40: period   .
+tests/golden/pp/copy/dates.cpy:1:1: number   01
+tests/golden/pp/copy/dates.cpy:1:5: word     RUN-DATE
+tests/golden/pp/copy/dates.cpy:1:21: word     PIC
+tests/golden/pp/copy/dates.cpy:1:25: picture  9(8)
+tests/golden/pp/copy/dates.cpy:1:29: period   .
+tests/golden/pp/copy/lib/shared.cpy:1:1: number   01
+tests/golden/pp/copy/lib/shared.cpy:1:5: word     SHARED-FIELD
+tests/golden/pp/copy/lib/shared.cpy:1:18: word     PIC
+tests/golden/pp/copy/lib/shared.cpy:1:22: picture  X
+tests/golden/pp/copy/lib/shared.cpy:1:23: period   .
+tests/golden/pp/basic.cob:8:1: number   01
+tests/golden/pp/basic.cob:8:5: word     AFTER-COPIES
+tests/golden/pp/basic.cob:8:18: word     PIC
+tests/golden/pp/basic.cob:8:22: picture  X
+tests/golden/pp/basic.cob:8:23: period   .
+tests/golden/pp/basic.cob:8:23: eof
+inclusion 1: tests/golden/pp/copy/payrec.cpy from tests/golden/pp/basic.cob:5:1
+inclusion 2: tests/golden/pp/copy/dates.cpy from tests/golden/pp/basic.cob:6:1
+inclusion 3: tests/golden/pp/copy/lib/shared.cpy from tests/golden/pp/basic.cob:7:1

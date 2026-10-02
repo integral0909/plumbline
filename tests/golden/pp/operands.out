@@ -1,0 +1,43 @@
+tests/golden/pp/operands.cob:3:1: word     PROCEDURE
+tests/golden/pp/operands.cob:3:11: word     DIVISION
+tests/golden/pp/operands.cob:3:19: period   .
+tests/golden/pp/copy/stmts.cpy:1:5: word     MOVE
+tests/golden/pp/operands.cob:5:32: alnum    "CUSTOM"
+tests/golden/pp/copy/stmts.cpy:1:20: word     TO
+tests/golden/pp/copy/stmts.cpy:1:23: word     WS-MODE
+tests/golden/pp/copy/stmts.cpy:2:5: word     MOVE
+tests/golden/pp/operands.cob:6:26: number   250
+tests/golden/pp/copy/stmts.cpy:2:14: word     TO
+tests/golden/pp/copy/stmts.cpy:2:17: word     WS-LIMIT
+tests/golden/pp/copy/stmts.cpy:3:5: word     DISPLAY
+tests/golden/pp/copy/stmts.cpy:3:13: word     WS-MODE
+tests/golden/pp/copy/stmts.cpy:4:5: word     PERFORM
+tests/golden/pp/operands.cob:8:56: word     VALIDATE
+tests/golden/pp/copy/stmts.cpy:1:5: word     MOVE
+tests/golden/pp/copy/stmts.cpy:1:10: alnum    "DEFAULT"
+tests/golden/pp/copy/stmts.cpy:1:20: word     TO
+tests/golden/pp/copy/stmts.cpy:1:23: word     WS-MODE
+tests/golden/pp/copy/stmts.cpy:2:5: word     MOVE
+tests/golden/pp/copy/stmts.cpy:2:10: number   100
+tests/golden/pp/copy/stmts.cpy:2:14: word     TO
+tests/golden/pp/copy/stmts.cpy:2:17: word     WS-LIMIT
+tests/golden/pp/copy/stmts.cpy:3:5: word     DISPLAY
+tests/golden/pp/copy/stmts.cpy:3:13: word     WS-MODE
+tests/golden/pp/copy/stmts.cpy:3:21: word     UPON
+tests/golden/pp/copy/stmts.cpy:3:26: word     CONSOLE
+tests/golden/pp/copy/stmts.cpy:4:5: word     PERFORM
+tests/golden/pp/copy/stmts.cpy:4:13: word     CHECK-IT
+tests/golden/pp/copy/stmts.cpy:4:22: word     THRU
+tests/golden/pp/copy/stmts.cpy:4:27: word     CHECK-IT-EXIT
+tests/golden/pp/operands.cob:10:34: word     INITIALIZE
+tests/golden/pp/operands.cob:10:45: word     X
+tests/golden/pp/operands.cob:12:5: word     MOVE
+tests/golden/pp/operands.cob:12:10: number   1
+tests/golden/pp/operands.cob:12:12: word     TO
+tests/golden/pp/operands.cob:12:15: word     Y
+tests/golden/pp/operands.cob:14:5: word     STOP
+tests/golden/pp/operands.cob:14:10: word     RUN
+tests/golden/pp/operands.cob:14:13: period   .
+tests/golden/pp/operands.cob:14:13: eof
+inclusion 1: tests/golden/pp/copy/stmts.cpy from tests/golden/pp/operands.cob:4:5
+inclusion 2: tests/golden/pp/copy/stmts.cpy from tests/golden/pp/operands.cob:9:5

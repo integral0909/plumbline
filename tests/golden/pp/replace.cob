@@ -1,0 +1,17 @@
+*> REPLACE applies to the text that follows it, including copied text.
+REPLACE LEADING ==PAY== BY ==WS-PAY==.
+COPY PAYREC.
+REPLACE ALSO ==RUN-DATE== BY ==TODAY==.
+COPY DATES.
+01  PAY-TOTAL PIC X.
+REPLACE LAST OFF.
+01  RUN-DATE PIC X.
+01  PAY-AFTER-LAST-OFF PIC X.
+REPLACE OFF.
+01  PAY-ID PIC X.
+*> Whole text-words only: PAY-ID is not the word PAY.
+REPLACE ==PAY== BY ==WAGE==.
+01  PAY-ID PIC X.
+01  PAY PIC X.
+REPLACE ==X== BY.
+01  AFTER-BAD PIC X.

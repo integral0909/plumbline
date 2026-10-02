@@ -1,0 +1,30 @@
+tests/golden/pp/copy/template.cpy:1:1: number   01
+tests/golden/pp/copy/template.cpy:1:5: word     WS-RECORD
+tests/golden/pp/copy/template.cpy:1:17: period   .
+tests/golden/pp/copy/template.cpy:2:5: number   05
+tests/golden/pp/copy/template.cpy:2:9: word     WS-KEY
+tests/golden/pp/copy/template.cpy:2:25: word     PIC
+tests/golden/pp/copy/template.cpy:2:29: picture  X(10)
+tests/golden/pp/copy/template.cpy:2:34: period   .
+tests/golden/pp/copy/template.cpy:3:5: number   05
+tests/golden/pp/replacing.cob:3:36: word     Y-FIELD
+tests/golden/pp/copy/template.cpy:3:25: word     PIC
+tests/golden/pp/copy/template.cpy:3:29: picture  9(4)
+tests/golden/pp/copy/template.cpy:3:33: period   .
+tests/golden/pp/copy/template.cpy:4:5: number   05
+tests/golden/pp/copy/template.cpy:4:9: word     NEW-NAME-PART
+tests/golden/pp/copy/template.cpy:4:25: word     PIC
+tests/golden/pp/copy/template.cpy:4:29: picture  X
+tests/golden/pp/copy/template.cpy:4:30: period   .
+tests/golden/pp/copy/template.cpy:5:5: number   05
+tests/golden/pp/copy/template.cpy:5:9: word     PART-SUFFIX-NEW
+tests/golden/pp/copy/template.cpy:5:25: word     PIC
+tests/golden/pp/copy/template.cpy:5:29: picture  X
+tests/golden/pp/copy/template.cpy:5:30: period   .
+tests/golden/pp/replacing.cob:7:1: number   01
+tests/golden/pp/replacing.cob:7:5: word     X-FIELD
+tests/golden/pp/replacing.cob:7:13: word     PIC
+tests/golden/pp/replacing.cob:7:17: picture  X
+tests/golden/pp/replacing.cob:7:18: period   .
+tests/golden/pp/replacing.cob:7:18: eof
+inclusion 1: tests/golden/pp/copy/template.cpy from tests/golden/pp/replacing.cob:2:1

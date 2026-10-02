@@ -1,0 +1,11 @@
+tests/golden/pp/copy/outer.cpy:1:1: number   01
+tests/golden/pp/copy/outer.cpy:1:5: word     OUTER-GROUP
+tests/golden/pp/copy/outer.cpy:1:16: period   .
+tests/golden/pp/copy/inner.cpy:1:5: number   05
+tests/golden/pp/copy/inner.cpy:1:9: word     INNER-FIELD
+tests/golden/pp/copy/inner.cpy:1:21: word     PIC
+tests/golden/pp/copy/inner.cpy:1:25: picture  X
+tests/golden/pp/copy/inner.cpy:1:26: period   .
+tests/golden/pp/nested.cob:2:11: eof
+inclusion 1: tests/golden/pp/copy/outer.cpy from tests/golden/pp/nested.cob:2:1
+inclusion 2: tests/golden/pp/copy/inner.cpy from tests/golden/pp/copy/outer.cpy:2:5 in inclusion 1

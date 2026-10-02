@@ -1,0 +1,1 @@
+    05  INNER-FIELD PIC X.

@@ -25,3 +25,9 @@ uses [Semantic Versioning](https://semver.org/).
   stream that joins continuation lines.
 - `plumbline dump tokens [--debug] FILE...` prints the token stream.
 - Golden-file test suites (`tests/golden`, `make golden-update`).
+- Preprocessor: COPY with OF/IN, SUPPRESS, and REPLACING (pseudo-text,
+  words, literals, LEADING/TRAILING, and :TAG: substitution), REPLACE
+  with ALSO / LAST OFF / OFF, recursion and depth checks, and safe
+  copybook resolution against `-I` search paths.
+- `plumbline dump expanded [-I DIR]... FILE...` prints the expanded
+  tokens and where each copybook was included from.

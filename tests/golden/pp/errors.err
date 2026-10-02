@@ -1,0 +1,6 @@
+tests/golden/pp/errors.cob:2:1: error: copybook 'NOSUCH' not found [PP001]
+tests/golden/pp/errors.cob:3:1: error: copybook name '../secret.cpy' must be a relative path without '..' [PP004]
+tests/golden/pp/errors.cob:4:1: error: copybook name '/etc/passwd' must be a relative path without '..' [PP004]
+tests/golden/pp/errors.cob:5:1: error: COPY must be followed by a copybook name [PP003]
+tests/golden/pp/errors.cob:6:1: error: malformed REPLACING phrase in COPY statement [PP003]
+tests/golden/pp/errors.cob:7:1: error: COPY statement must end with a period [PP003]
