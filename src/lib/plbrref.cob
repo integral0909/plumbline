@@ -426,3 +426,156 @@ REPORT-FINDING.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-T LS-MESSAGE.
 END PROGRAM PLB-RULE-C008.
+
+*> PLB-C041 write-from-truncation: WRITE record FROM item and REWRITE
+*> record FROM item move the item to the record, as MOVE does, and an
+*> item longer than the record loses its last bytes in the file.
+*>
+*> READ ... INTO a shorter item is not reported: reading only the start
+*> of a record (the first columns of a control card) is common and
+*> meant. Reference-modified items, items of unknown size, and items
+*> whose size changes at run time (OCCURS DEPENDING ON) are not
+*> checked.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-C041.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+*> Reference starting at each token (0: none), for the tokens of the
+*> current file.
+01  WS-TOKEN-REF            PIC 9(9) COMP-5 OCCURS 500000 TIMES.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
+01  LS-NODE                 PIC 9(9) COMP-5.
+01  LS-DEPTH                PIC S9(9) COMP-5.
+01  LS-R                    PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-LEVEL                PIC S9(4) COMP-5.
+01  LS-VERB                 PIC X(12).
+01  LS-WORD                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-JOIN                 PIC 9(9) COMP-5.
+01  LS-SENDER-SIZE          PIC 9(9) COMP-5.
+01  LS-RECEIVER-SIZE        PIC 9(9) COMP-5.
+01  LS-SENDER-NAME          PIC X(31).
+01  LS-RECEIVER-NAME        PIC X(31).
+01  LS-ITEM                 PIC 9(9) COMP-5.
+01  LS-FILE-NAME            PIC X(31).
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-A-TEXT               PIC X(20).
+01  LS-A-LEN                PIC 9(9) COMP-5.
+01  LS-B-TEXT               PIC X(20).
+01  LS-B-LEN                PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbsym.cpy".
+COPY "plbref.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
+        PLB-REFS PLB-RULES PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C041" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        MOVE LS-R TO WS-TOKEN-REF(RF-TOKEN(LS-R))
+    END-PERFORM
+    MOVE 1 TO LS-NODE
+    MOVE 0 TO LS-DEPTH
+    PERFORM UNTIL LS-NODE = 0
+        IF ND-KIND(LS-NODE) = "STMT"
+            MOVE ND-DETAIL(LS-NODE) TO LS-VERB
+            EVALUATE LS-VERB
+                WHEN "WRITE" WHEN "REWRITE"
+                    MOVE "FROM" TO LS-WORD
+                    PERFORM FIND-JOIN
+                    IF LS-JOIN > 0
+                        PERFORM CHECK-FROM
+                    END-IF
+            END-EVALUATE
+        END-IF
+        CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
+    END-PERFORM
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        MOVE 0 TO WS-TOKEN-REF(RF-TOKEN(LS-R))
+    END-PERFORM
+    GOBACK.
+
+*> LS-JOIN: the token of FROM (LS-WORD) outside parentheses, or 0.
+FIND-JOIN.
+    MOVE 0 TO LS-JOIN LS-LEVEL
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
+            UNTIL LS-T >= ND-TOK-LAST(LS-NODE)
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-T)
+                ADD 1 TO LS-LEVEL
+            WHEN TK-IS-RPAREN(LS-T)
+                SUBTRACT 1 FROM LS-LEVEL
+            WHEN LS-LEVEL = 0 AND TK-IS-WORD(LS-T)
+             AND WS-TOKEN-REF(LS-T) = 0
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-FILE-NAME
+                    LS-LEN
+                IF FUNCTION UPPER-CASE(LS-FILE-NAME) = LS-WORD
+                    MOVE LS-T TO LS-JOIN
+                    EXIT PERFORM
+                END-IF
+        END-EVALUATE
+    END-PERFORM.
+
+*> LS-ITEM: the data item whose reference starts at token LS-T, or 0.
+ITEM-AT.
+    MOVE 0 TO LS-ITEM
+    IF WS-TOKEN-REF(LS-T) > 0
+        MOVE WS-TOKEN-REF(LS-T) TO LS-R
+        IF RF-KIND(LS-R) = "D" AND RF-REFMOD(LS-R) = "N"
+            MOVE RF-SYMBOL(LS-R) TO LS-ITEM
+            IF SY-SIZE(LS-ITEM) = 0 OR SY-VARIABLE(LS-ITEM) = "Y"
+                MOVE 0 TO LS-ITEM
+            END-IF
+        END-IF
+    END-IF.
+
+*> WRITE record FROM item.
+CHECK-FROM.
+    COMPUTE LS-T = ND-TOK-FIRST(LS-NODE) + 1
+    PERFORM ITEM-AT
+    IF LS-ITEM = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SY-SIZE(LS-ITEM) TO LS-RECEIVER-SIZE
+    MOVE SY-NAME(LS-ITEM) TO LS-RECEIVER-NAME
+    COMPUTE LS-T = LS-JOIN + 1
+    PERFORM ITEM-AT
+    IF LS-ITEM = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SY-SIZE(LS-ITEM) TO LS-SENDER-SIZE
+    MOVE SY-NAME(LS-ITEM) TO LS-SENDER-NAME
+    IF LS-SENDER-SIZE > LS-RECEIVER-SIZE
+        PERFORM REPORT-LOSS
+    END-IF.
+
+REPORT-LOSS.
+    MOVE LS-SENDER-SIZE TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-A-TEXT LS-A-LEN
+    MOVE LS-RECEIVER-SIZE TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-B-TEXT LS-B-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING FUNCTION TRIM(LS-VERB) DELIMITED BY SIZE
+           " moves " DELIMITED BY SIZE
+           FUNCTION TRIM(LS-SENDER-NAME) DELIMITED BY SIZE
+           " (" LS-A-TEXT(1:LS-A-LEN) " bytes) to " DELIMITED BY SIZE
+           LS-RECEIVER-NAME DELIMITED BY SPACE
+           " (" LS-B-TEXT(1:LS-B-LEN) " bytes), which loses its end"
+           DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-JOIN LS-MESSAGE.
+END PROGRAM PLB-RULE-C041.

@@ -1,0 +1,1 @@
+tests/golden/rules/c041-write-from-truncation.cob:23:19: warning: WRITE moves WS-LONG-LINE (100 bytes) to OUT-REC (80 bytes), which loses its end [PLB-C041]
