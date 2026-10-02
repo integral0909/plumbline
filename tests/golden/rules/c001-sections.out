@@ -1,0 +1,1 @@
+tests/golden/rules/c001-sections.cob:10:1: warning: section UNUSED-SECTION is never executed [PLB-C001]

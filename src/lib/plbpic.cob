@@ -60,7 +60,7 @@ COPY "plbpic.cpy".
 PROCEDURE DIVISION USING LK-PICTURE PLB-PIC-INFO.
     MOVE "?" TO PI-CATEGORY
     MOVE 0 TO PI-SIZE PI-DIGITS PI-SCALE
-    MOVE "N" TO PI-SIGNED
+    MOVE "N" TO PI-SIGNED PI-SYMBOLIC
     MOVE SPACES TO PI-ERROR
     INITIALIZE LS-N-A LS-N-X LS-N-9 LS-N-NAT LS-N-BOOL LS-N-P
         LS-N-INSERT LS-N-NUM-EDIT LS-N-S LS-N-V LS-N-POINT LS-N-PLUS
@@ -120,6 +120,11 @@ READ-SYMBOL.
                 MOVE "unbalanced parenthesis" TO PI-ERROR
             WHEN LS-CLOSE = LS-POS + 1
                 MOVE "empty repetition count" TO PI-ERROR
+            WHEN LS-PIC(LS-POS + 1:1) >= "A"
+                 AND LS-PIC(LS-POS + 1:1) <= "Z"
+                *> A constant name (level 78) as the count.
+                MOVE "Y" TO PI-SYMBOLIC
+                COMPUTE LS-POS = LS-CLOSE + 1
             WHEN LS-CLOSE - LS-POS - 1 > 9
                 MOVE "repetition count too large" TO PI-ERROR
             WHEN FUNCTION TEST-NUMVAL(LS-PIC(LS-POS + 1:

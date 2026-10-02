@@ -7,10 +7,10 @@ control-flow and data-flow models of each program, and reports defects such
 as unreachable paragraphs, PERFORM fall-through, truncating MOVEs, and
 uninitialized fields. Findings can be emitted as text, JSON, or SARIF.
 
-> **Status:** early development. The build, test, and coverage
-> infrastructure is in place; the analyzer itself is being built. See
-> [docs/architecture.md](docs/architecture.md) for the design and what
-> exists so far.
+> **Status:** early development. The front end (reader, preprocessor,
+> lexer, parser), the symbol table, the procedure graph, and the rule
+> engine work; the rule set is still small. See
+> [docs/architecture.md](docs/architecture.md) for the design.
 
 ## Building
 
@@ -25,23 +25,32 @@ build/bin/plumbline --help
 
 ## Usage
 
-The analyzer is not ready yet. For now, `dump lines` shows how Plumbline
-reads a source file, which helps when checking format detection:
-
 ```console
-$ plumbline dump lines tests/fixtures/reader/fixed-basic.cbl
-tests/fixtures/reader/fixed-basic.cbl:1: code      fixed A IDENTIFICATION DIVISION.
-tests/fixtures/reader/fixed-basic.cbl:3: comment   fixed -
-tests/fixtures/reader/fixed-basic.cbl:8: cont      fixed - "THE CURRENT PERIOD".
-...
+$ plumbline check -I copybooks src/*.cbl
+src/payroll.cbl:118:8: warning: paragraph CALC-OVERTIME is never executed [PLB-C001]
 ```
 
-Each line shows the line kind (code, comment, blank, page, debug, cont,
-directive), the reference format it was read in, whether it starts in
-area A, and its significant text.
+Findings go to standard output as `file:line:column: severity: message
+[rule]`, and problems reading the input go to standard error. The exit
+code is 1 when there are findings at or above the `--fail-on` level
+(`warning` by default), so `plumbline check` can gate a build.
+
+| Option | Meaning |
+|--------|---------|
+| `-I DIR` | search `DIR` for copybooks (repeatable) |
+| `--format fixed\|free\|auto` | reference format of the sources (default `auto`) |
+| `--enable RULE`, `--disable RULE` | turn a rule on or off, by id or name |
+| `--fail-on error\|warning\|note\|never` | the lowest severity that fails the run |
+
+See the [rule reference](docs/rules.md) for what each rule looks for.
+
+The `dump` commands show Plumbline's view of a program at each stage,
+which helps when a result is surprising: `dump lines`, `dump tokens`,
+`dump expanded`, `dump ast`, `dump symbols`, and `dump flow`.
 
 ## Documentation
 
+- [Rule reference](docs/rules.md)
 - [Architecture](docs/architecture.md)
 - [Testing](docs/testing.md)
 - [Contributing](CONTRIBUTING.md)

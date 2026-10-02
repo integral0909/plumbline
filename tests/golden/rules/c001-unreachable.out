@@ -1,0 +1,2 @@
+tests/golden/rules/c001-unreachable.cob:18:1: warning: paragraph AFTER-RANGE is never executed [PLB-C001]
+tests/golden/rules/c001-unreachable.cob:23:1: warning: paragraph NEVER-CALLED is never executed [PLB-C001]

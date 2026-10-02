@@ -37,7 +37,7 @@ all: $(BIN)
 tests: $(TEST_BIN)
 
 # Golden suites: directory and the plumbline command it exercises.
-GOLDEN_SUITES := lexer:dump+tokens pp:dump+expanded+-I+tests/golden/pp/copy parser:dump+ast symbols:dump+symbols flow:dump+flow
+GOLDEN_SUITES := lexer:dump+tokens pp:dump+expanded+-I+tests/golden/pp/copy parser:dump+ast symbols:dump+symbols flow:dump+flow rules:check+--fail-on+never
 
 # The plumbline command the tests run; make coverage substitutes a
 # wrapper that collects traces.

@@ -95,6 +95,15 @@ check "dump flow shows reachability"      0 '^paragraph AFTER-RANGE unreachable 
 check "dump flow shows edges"             0 '^  perform STEP-1 thru STEP-EXIT$' -- dump flow $fw/paths.cob
 check "dump flow reports bad targets"     1 'NO-SUCH-PARAGRAPH is not a paragraph or section of this program \[FL001\]' \
     -- dump flow $fw/sections.cob
+rx=tests/golden/rules
+check "help lists check"                  0 'check            analyze programs' -- --help
+check "check reports findings"            1 'c001-unreachable.cob:23:1: warning: paragraph NEVER-CALLED is never executed \[PLB-C001\]' \
+    -- check $rx/c001-unreachable.cob
+check "--fail-on error ignores warnings"  0 'NEVER-CALLED' -- check --fail-on error $rx/c001-unreachable.cob
+check "--disable by rule name"            0 '^$' -- check --disable unreachable-code $rx/c001-unreachable.cob
+check "--disable by rule id"              0 '^$' -- check --disable PLB-C001 $rx/c001-unreachable.cob
+check "unknown rule is a usage error"     2 "unknown rule 'PLB-X999'" -- check --disable PLB-X999 $rx/c001-unreachable.cob
+check "invalid --fail-on level"           2 "invalid --fail-on level 'sometimes'" -- check --fail-on sometimes $rx/c001-unreachable.cob
 check "--debug includes debugging lines"  0 'continuation.cbl:5:20: alnum    "DEBUG ONLY"' \
     -- dump tokens --debug $gx/continuation.cbl
 check "dump lines needs files"            2 'no input files' -- dump lines

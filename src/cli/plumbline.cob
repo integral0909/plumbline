@@ -2,6 +2,9 @@
 *> plumbline: command-line entry point.
 *>
 *>   plumbline --help | --version
+*>   plumbline check [-I DIR]... [--format ...] [--debug]
+*>                   [--enable RULE]... [--disable RULE]...
+*>                   [--fail-on error|warning|note|never] FILE...
 *>   plumbline dump lines  [--format fixed|free|auto] FILE...
 *>   plumbline dump tokens [--format fixed|free|auto] [--debug] FILE...
 *>   plumbline dump expanded [-I DIR]... [--format ...] [--debug] FILE...
@@ -11,7 +14,8 @@
 *>
 *> Exit codes:
 *>   0  success
-*>   1  the input had errors (e.g. a file could not be read)
+*>   1  findings at or above the --fail-on level (check), or errors
+*>      in the input such as a file that could not be read
 *>   2  usage error (unknown option or command, missing argument)
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
@@ -29,6 +33,8 @@ COPY "plbastc.cpy".
 COPY "plbast.cpy".
 COPY "plbsym.cpy".
 COPY "plbflow.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
 78  MAX-INPUTS                  VALUE 256.
 01  WS-ARG-COUNT            PIC 9(4).
 01  WS-ARG-INDEX            PIC 9(4).
@@ -70,6 +76,9 @@ COPY "plbflow.cpy".
 01  WS-P                    PIC 9(9) COMP-5.
 01  WS-U                    PIC 9(9) COMP-5.
 01  WS-E                    PIC 9(9) COMP-5.
+01  WS-RULE                 PIC 9(4) COMP-5.
+01  WS-FAIL-ON              PIC X VALUE "W".
+01  WS-FAILING              PIC 9(9) COMP-5.
 
 PROCEDURE DIVISION.
 MAIN-LOGIC.
@@ -89,6 +98,8 @@ MAIN-LOGIC.
                 PERFORM SHOW-USAGE
             WHEN "dump"
                 PERFORM DUMP-COMMAND
+            WHEN "check"
+                PERFORM CHECK-COMMAND
             WHEN OTHER
                 IF WS-ARG(1:1) = "-"
                     PERFORM UNKNOWN-OPTION
@@ -124,6 +135,7 @@ SUGGEST-HELP.
 
 SHOW-USAGE.
     DISPLAY "Usage: plumbline [OPTION]..."
+    DISPLAY "       plumbline check [OPTION]... FILE..."
     DISPLAY "       plumbline dump lines [--format FORMAT] FILE..."
     DISPLAY "       plumbline dump tokens [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump expanded [-I DIR]... [--format FORMAT] [--debug] FILE..."
@@ -137,6 +149,7 @@ SHOW-USAGE.
     DISPLAY "  -V, --version    show version information and exit"
     DISPLAY " "
     DISPLAY "Commands:"
+    DISPLAY "  check            analyze programs and report findings"
     DISPLAY "  dump lines       show how each source line was read"
     DISPLAY "  dump tokens      show the tokens of each source file"
     DISPLAY "  dump expanded    show the tokens after COPY and REPLACE"
@@ -148,7 +161,71 @@ SHOW-USAGE.
     DISPLAY "  --format FORMAT  reference format: fixed, free, or auto"
     DISPLAY "                   (default auto)"
     DISPLAY "  --debug          treat debugging lines as code"
-    DISPLAY "  -I DIR           search DIR for copybooks (repeatable)".
+    DISPLAY "  -I DIR           search DIR for copybooks (repeatable)"
+    DISPLAY " "
+    DISPLAY "Check options:"
+    DISPLAY "  --enable RULE    enable a rule (id or name; repeatable)"
+    DISPLAY "  --disable RULE   disable a rule (id or name; repeatable)"
+    DISPLAY "  --fail-on LEVEL  exit 1 on findings at or above LEVEL:"
+    DISPLAY "                   error, warning (default), note, never".
+
+*> check --------------------------------------------------------
+
+CHECK-COMMAND.
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM LOAD-INPUTS
+    CALL "PLB-FIND-INIT" USING PLB-FINDINGS
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
+    MOVE WS-MODE TO PO-FORMAT
+    MOVE WS-DEBUG TO PO-DEBUG
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        PERFORM ANALYZE-FILE
+        CALL "PLB-CHECK-RUN" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
+            PLB-SYMBOLS PLB-FLOW PLB-RULES PLB-FINDINGS
+    END-PERFORM
+    CALL "PLB-FIND-SORT" USING PLB-FINDINGS
+    MOVE 0 TO WS-FAILING
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > FN-COUNT
+        IF FN-SUPPRESSED(WS-I) = "N"
+            PERFORM PRINT-FINDING
+        END-IF
+    END-PERFORM
+    PERFORM REPORT-DIAGNOSTICS
+    IF WS-FAILING > 0
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+*> Expand, parse, and model file WS-FILE-ID.
+ANALYZE-FILE.
+    CALL "PLB-PP-RUN" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+        PLB-PP-OPTIONS PLB-TOKENS PLB-INCLUSIONS WS-FILE-ID
+    CALL "PLB-PARSE" USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
+        PLB-AST
+    CALL "PLB-SYM-BUILD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+        PLB-TOKENS PLB-AST PLB-SYMBOLS
+    CALL "PLB-FLOW-BUILD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+        PLB-TOKENS PLB-AST PLB-FLOW.
+
+PRINT-FINDING.
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET FN-FILE-ID(WS-I)
+        WS-PATH
+    CALL "PLB-FIND-FORMAT" USING PLB-RULES PLB-FINDINGS WS-I WS-PATH
+        WS-OUT WS-OUT-LEN
+    DISPLAY WS-OUT(1:WS-OUT-LEN)
+    EVALUATE TRUE
+        WHEN WS-FAIL-ON = "-"
+            CONTINUE
+        WHEN FN-SEVERITY(WS-I) = "E"
+            ADD 1 TO WS-FAILING
+        WHEN FN-SEVERITY(WS-I) = "W" AND WS-FAIL-ON NOT = "E"
+            ADD 1 TO WS-FAILING
+        WHEN FN-SEVERITY(WS-I) = "N" AND WS-FAIL-ON = "N"
+            ADD 1 TO WS-FAILING
+    END-EVALUATE.
 
 *> dump ---------------------------------------------------------
 
@@ -526,6 +603,7 @@ DUMP-ONE-INCLUSION.
 *> Collect options and file operands up to the end of the arguments.
 PARSE-INPUT-ARGS.
     CALL "PLB-PP-INIT-OPTIONS" USING PLB-PP-OPTIONS
+    CALL "PLB-RULES-INIT" USING PLB-RULES
     PERFORM UNTIL WS-ARG-INDEX > WS-ARG-COUNT OR WS-EXIT-CODE NOT = 0
         PERFORM NEXT-ARG
         EVALUATE TRUE
@@ -534,6 +612,13 @@ PARSE-INPUT-ARGS.
                 PERFORM SET-MODE
             WHEN WS-ARG = "--debug"
                 MOVE "Y" TO WS-DEBUG
+            WHEN WS-ARG = "--enable" OR WS-ARG = "--disable"
+                MOVE WS-ARG TO WS-CONTENT
+                PERFORM NEXT-ARG
+                PERFORM SET-RULE-ENABLED
+            WHEN WS-ARG = "--fail-on"
+                PERFORM NEXT-ARG
+                PERFORM SET-FAIL-ON
             WHEN WS-ARG = "-I"
                 IF WS-ARG-INDEX > WS-ARG-COUNT
                     DISPLAY PLB-NAME ": -I needs a directory" UPON SYSERR
@@ -566,6 +651,36 @@ PARSE-INPUT-ARGS.
         DISPLAY PLB-NAME ": no input files" UPON SYSERR
         PERFORM SUGGEST-HELP
     END-IF.
+
+*> WS-CONTENT holds the option (--enable or --disable), WS-ARG the
+*> rule id or name.
+SET-RULE-ENABLED.
+    CALL "PLB-RULE-FIND" USING PLB-RULES WS-ARG WS-RULE
+    IF WS-RULE = 0
+        DISPLAY PLB-NAME ": unknown rule '" WS-ARG(1:WS-ARG-LEN) "'"
+            UPON SYSERR
+        MOVE 2 TO WS-EXIT-CODE
+    ELSE
+        IF WS-CONTENT = "--enable"
+            MOVE "Y" TO RL-ENABLED(WS-RULE)
+        ELSE
+            MOVE "N" TO RL-ENABLED(WS-RULE)
+        END-IF
+    END-IF.
+
+SET-FAIL-ON.
+    EVALUATE WS-ARG
+        WHEN "error"    MOVE "E" TO WS-FAIL-ON
+        WHEN "warning"  MOVE "W" TO WS-FAIL-ON
+        WHEN "note"     MOVE "N" TO WS-FAIL-ON
+        WHEN "never"    MOVE "-" TO WS-FAIL-ON
+        WHEN OTHER
+            DISPLAY PLB-NAME ": invalid --fail-on level '"
+                WS-ARG(1:WS-ARG-LEN)
+                "' (expected error, warning, note, or never)"
+                UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+    END-EVALUATE.
 
 ADD-COPY-PATH.
     CALL "PLB-PP-ADD-PATH" USING PLB-PP-OPTIONS WS-ARG WS-PATH-STATUS
