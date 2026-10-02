@@ -27,3 +27,8 @@ $ code --install-extension plumbline-0.1.0.vsix
 The server starts in the first folder of the workspace and reads its
 `plumbline.conf`. `Plumbline: Restart the language server` restarts it,
 which a change of the settings also does.
+
+`Plumbline: Document this program` runs `plumbline doc` on the open
+file, with the same `plumbline.arguments`, and shows the page in the
+Markdown preview: how the program starts, what it uses, its paragraphs,
+and its records.
