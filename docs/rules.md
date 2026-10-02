@@ -60,6 +60,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J003](#plb-j003-program-not-in-run) | program-not-in-run | note, off | Step runs a program that is not among those checked |
 | [PLB-J004](#plb-j004-dd-cannot-be-read) | dd-cannot-be-read | error | A file the program only reads has a DD that gives it no data |
 | [PLB-J005](#plb-j005-temp-not-created) | temp-not-created | error | Temporary data set read before any step creates it |
+| [PLB-J006](#plb-j006-lrecl-mismatch) | lrecl-mismatch | error | DD record length differs from the program's records |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
@@ -1265,6 +1266,30 @@ A job that runs a procedure before the step is not checked, since the
 procedure's steps may create the data set, nor is a `DD` that a job adds
 to a step of a procedure (`PSTEP.DDNAME`). Every data set of a
 concatenation is checked.
+
+## PLB-J006 lrecl-mismatch
+
+A DD whose record length is not that of the records of the file the
+step's program assigns to it:
+
+```jcl
+//UPDATE   EXEC PGM=PAYUPD
+//RATES    DD DSN=PAY.RATES,DISP=SHR,DCB=(RECFM=FB,LRECL=81)   <- reported
+```
+
+when `PAYUPD`'s `FD` for the file `RATES` has 80-byte records. On z/OS
+the `OPEN` then fails with file status 39, a conflict between the data
+set's attributes and the program's. The record length is
+the largest `01` record under the file's `FD`. With a fixed format
+(`RECFM=F`, `FB`), `LRECL` must equal it; with a variable one (`V`,
+`VB`), `LRECL` must be at least that and 4 bytes for the record
+descriptor. With ASA control characters (`FBA`, `VBA`), one more byte
+for the character is right too, as a program writing with `ADVANCING`
+needs it under the `ADV` compiler option.
+
+`LRECL` and `RECFM` are read as keywords of the DD or from `DCB=( )`.
+A DD without `RECFM`, with `RECFM=U`, or with a symbol for `LRECL` is
+not checked, nor is a sort file.
 
 ## PLB-K001 cics-resource-undefined
 

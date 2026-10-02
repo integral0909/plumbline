@@ -152,6 +152,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C038 condition-value-unfit.
 - Rules PLB-Q002 cursor-not-closed and PLB-Q003 cursor-not-opened.
 - Rule PLB-C040 odo-object-too-small.
+- Rule PLB-J006 lrecl-mismatch. `dump jcl` shows `LRECL` and `RECFM`,
+  and `dump calls` the record length of each file.
 - Rule PLB-K002 read-update-not-released.
 - Rules PLB-C039 decimal-to-alphanumeric and PLB-M016
   signed-to-alphanumeric (off by default).

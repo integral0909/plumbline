@@ -85,6 +85,12 @@ LOCAL-STORAGE SECTION.
 01  OP-POSITION             PIC 9(4) COMP-5.
 01  OP-EQ                   PIC 9(4) COMP-5.
 01  OP-ITEM-LEN             PIC 9(4) COMP-5.
+*> The parameters of DCB=( ).
+01  LS-DCB-START            PIC 9(4) COMP-5.
+01  LS-DCB-ITEM             PIC X(80).
+01  LS-DCB-KEY              PIC X(8).
+01  LS-DCB-VALUE            PIC X(40).
+01  LS-DCB-LEN              PIC 9(9) COMP-5.
 01  LS-DOT                  PIC 9(4) COMP-5.
 01  LS-PARM                 PIC X(100) VALUE SPACES.
 01  LS-FIELD-1              PIC X(100).
@@ -389,6 +395,8 @@ ADD-DD.
     MOVE SPACES TO JD-QUALIFIER(LS-D) JD-NAME(LS-D) JD-DSN(LS-D)
         JD-DISP(LS-D)
     MOVE "N" TO JD-CONCAT(LS-D)
+    MOVE 0 TO JD-LRECL(LS-D)
+    MOVE SPACES TO JD-RECFM(LS-D)
     MOVE 0 TO LS-DOT
     INSPECT ST-NAME TALLYING LS-DOT FOR CHARACTERS BEFORE "."
     EVALUATE TRUE
@@ -417,6 +425,12 @@ ADD-DD.
                 MOVE "S" TO JD-KIND(LS-D)
             WHEN OP-KEY = "DISP"
                 PERFORM READ-DISP
+            WHEN OP-KEY = "LRECL" OR OP-KEY = "RECFM"
+                MOVE OP-KEY TO LS-DCB-KEY
+                MOVE OP-VALUE TO LS-DCB-VALUE
+                PERFORM DCB-PARAMETER
+            WHEN OP-KEY = "DCB" AND OP-VALUE(1:1) = "("
+                PERFORM READ-DCB
             WHEN OP-KEY = SPACES AND OP-VALUE = "DUMMY"
                 MOVE "M" TO JD-KIND(LS-D)
             WHEN OP-KEY = SPACES
@@ -451,6 +465,40 @@ SCAN-DD-DATA.
     END-IF.
 
 *> DISP=SHR or DISP=(NEW,CATLG,DELETE): the first subparameter.
+*> DCB=(RECFM=FB,LRECL=80,BLKSIZE=0): each KEY=VALUE of the list.
+READ-DCB.
+    MOVE 2 TO LS-DCB-START
+    PERFORM UNTIL LS-DCB-START > 4000
+        MOVE SPACES TO LS-DCB-ITEM
+        UNSTRING OP-VALUE DELIMITED BY "," OR ")"
+            INTO LS-DCB-ITEM WITH POINTER LS-DCB-START
+        END-UNSTRING
+        IF LS-DCB-ITEM = SPACES
+            EXIT PERFORM
+        END-IF
+        MOVE SPACES TO LS-DCB-KEY LS-DCB-VALUE
+        UNSTRING LS-DCB-ITEM DELIMITED BY "="
+            INTO LS-DCB-KEY LS-DCB-VALUE
+        END-UNSTRING
+        PERFORM DCB-PARAMETER
+    END-PERFORM.
+
+*> LRECL=n (a number) and RECFM=x, of the DD or of its DCB.
+DCB-PARAMETER.
+    EVALUATE LS-DCB-KEY
+        WHEN "LRECL"
+            MOVE FUNCTION TRIM(LS-DCB-VALUE) TO LS-DCB-VALUE
+            CALL "PLB-STR-LENGTH" USING LS-DCB-VALUE LS-DCB-LEN
+            IF LS-DCB-LEN > 0 AND LS-DCB-LEN < 10
+                IF LS-DCB-VALUE(1:LS-DCB-LEN) IS NUMERIC
+                    COMPUTE JD-LRECL(LS-D) =
+                        FUNCTION NUMVAL(LS-DCB-VALUE(1:LS-DCB-LEN))
+                END-IF
+            END-IF
+        WHEN "RECFM"
+            MOVE FUNCTION TRIM(LS-DCB-VALUE) TO JD-RECFM(LS-D)
+    END-EVALUATE.
+
 READ-DISP.
     IF OP-VALUE(1:1) = "("
         UNSTRING OP-VALUE(2:) DELIMITED BY "," OR ")"
