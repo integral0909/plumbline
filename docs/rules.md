@@ -85,6 +85,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q001](#plb-q001-sql-table-undeclared) | sql-table-undeclared | note | Embedded SQL uses a table the program does not declare |
 | [PLB-Q002](#plb-q002-cursor-not-closed) | cursor-not-closed | warning | SQL cursor is opened but never closed |
 | [PLB-Q003](#plb-q003-cursor-not-opened) | cursor-not-opened | error | SQL cursor is fetched or closed but never opened |
+| [PLB-Q004](#plb-q004-sql-no-where) | sql-no-where | warning | SQL UPDATE or DELETE without WHERE changes every row |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -1677,6 +1678,20 @@ The `FETCH` fails with SQLCODE -501 (cursor not open). Cursors are
 those declared in the file (`EXEC SQL DECLARE name ... CURSOR`, in any
 division), and their `OPEN`, `FETCH`, and `CLOSE` statements are found
 anywhere in the file, in the order of the source or not.
+
+## PLB-Q004 sql-no-where
+
+An embedded `UPDATE` or `DELETE` without `WHERE`:
+
+```cobol
+    EXEC SQL UPDATE ORDERS SET STATUS = 'C' END-EXEC     *> reported
+```
+
+It changes every row of the table. That is sometimes meant, a reset
+of a work table, and then suppressing the finding says so; more often
+the `WHERE` was lost in an edit. A `WHERE` inside parentheses, in a
+subquery, does not count: `UPDATE ORDERS SET STATUS = (SELECT ...
+WHERE ...)` still changes every row. `WHERE CURRENT OF cursor` counts.
 
 ## PLB-S001 dynamic-sql
 
