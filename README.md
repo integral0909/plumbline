@@ -52,7 +52,7 @@ $ find src -name '*.cbl' | plumbline check -I copybooks --files-from -
 | `--format fixed\|free\|auto` | reference format of the sources (default `auto`) |
 | `--enable RULE`, `--disable RULE` | turn a rule on or off, by id or name |
 | `--fail-on error\|warning\|note\|never` | the lowest severity that fails the run |
-| `--report text\|json\|sarif\|html` | output format (default `text`) |
+| `--report text\|json\|sarif\|html\|md` | output format (default `text`) |
 | `--baseline FILE` | do not report the findings listed in `FILE` |
 | `--write-baseline FILE` | write the findings to `FILE` instead of reporting them |
 | `--config FILE`, `--no-config` | read settings from `FILE`, or from no file |
@@ -61,8 +61,16 @@ $ find src -name '*.cbl' | plumbline check -I copybooks --files-from -
 many editors read directly; `--report json` writes a simpler document
 with one finding per line; `--report html` writes one self-contained
 page with each finding's source lines, to open in a browser or keep as
-a build artifact. In both, input diagnostics are part of the
-report rather than printed to standard error.
+a build artifact; `--report md` writes Markdown, a summary with tables
+of the findings by rule and of the findings themselves, for a CI job
+summary or a pull request comment:
+
+```console
+$ plumbline check --report md --fail-on never src/*.cbl >> "$GITHUB_STEP_SUMMARY"
+```
+
+In all of them, input diagnostics are part of the report rather than
+printed to standard error.
 
 See the [rule reference](docs/rules.md) for what each rule looks for.
 `plumbline rules` lists the rules with their severity and whether they

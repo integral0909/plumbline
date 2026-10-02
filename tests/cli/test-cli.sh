@@ -568,6 +568,14 @@ check "--no-config skips plumbline.conf"  1 'GO TO makes' -- check --no-config .
 run_dir=.
 
 mx=tests/golden/metrics
+check "check as Markdown summarizes"     0 '^\*\*9 findings\*\* in 1 file: 0 errors, 8 warnings, 1 note.$' \
+    -- check --no-config --report md --fail-on never tests/golden/rules/c036-arithmetic-overflow.cob
+check "check as Markdown counts by rule"  0 '^| PLB-C036 | arithmetic-overflow | warning | 7 |$' \
+    -- check --no-config --report md --fail-on never tests/golden/rules/c036-arithmetic-overflow.cob
+check "check as Markdown escapes cells"   0 '| SELECT \\\* depends on every column of the table and their order; name the columns |$' \
+    -- check --no-config --report md --fail-on never tests/golden/rules/q001-sql-tables.cob
+check "check as Markdown with no findings" 0 '^No findings.$' \
+    -- check --no-config --report md tests/fixtures/case/usecase.cob
 check "metrics csv has a header"          0 '^file,program,kind,name,line,lines,statements,complexity,nesting$' \
     -- metrics --report csv $mx/complexity.cob
 check "metrics csv quotes paths"          0 '^"tests/golden/metrics/complexity.cob",METRICS,paragraph,DECIDE,15,' \
@@ -576,7 +584,7 @@ check "metrics start ends at the first paragraph" 0 '^"tests/fixtures/metrics/st
     -- metrics --report csv tests/fixtures/metrics/start.cob
 check "metrics refuses sarif"             2 "invalid --report format 'sarif' (expected text, json, or csv)" \
     -- metrics --report sarif $mx/complexity.cob
-check "check refuses csv"                 2 "invalid --report format 'csv' (expected text, json, sarif, or html)" \
+check "check refuses csv"                 2 "invalid --report format 'csv' (expected text, json, sarif, html, or md)" \
     -- check --report csv $mx/complexity.cob
 n=$((n + 1))
 if "$bin" metrics --report json $mx/complexity.cob $rx/c001-unreachable.cob | python3 -m json.tool >/dev/null 2>&1; then

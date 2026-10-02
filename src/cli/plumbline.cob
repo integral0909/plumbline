@@ -5,7 +5,7 @@
 *>   plumbline check [-I DIR]... [--format ...] [--debug]
 *>                   [--enable RULE]... [--disable RULE]...
 *>                   [--fail-on error|warning|note|never]
-*>                   [--report text|json|sarif|html]
+*>                   [--report text|json|sarif|html|md]
 *>                   [--baseline FILE | --write-baseline FILE] FILE...
 *>
 *> Every command first reads the settings in plumbline.conf in the
@@ -445,7 +445,8 @@ SHOW-USAGE.
     DISPLAY "  --disable RULE   disable a rule (id or name; repeatable)"
     DISPLAY "  --fail-on LEVEL  exit 1 on findings at or above LEVEL:"
     DISPLAY "                   error, warning (default), note, never"
-    DISPLAY "  --report FORMAT  text (default), json, sarif, or html; for"
+    DISPLAY "  --report FORMAT  text (default), json, sarif, html, or md;"
+    DISPLAY "                   for"
     DISPLAY "                   metrics: text, json, or csv; for"
     DISPLAY "                   graph: dot (default) or json"
     DISPLAY "  --baseline FILE  do not report the findings listed in FILE"
@@ -550,6 +551,9 @@ CHECK-COMMAND.
                 PLB-DIAGNOSTICS PLB-RULES PLB-FINDINGS
         WHEN "html"
             CALL "PLB-REPORT-HTML" USING PLB-SOURCE-SET
+                PLB-DIAGNOSTICS PLB-RULES PLB-FINDINGS
+        WHEN "md"
+            CALL "PLB-REPORT-MD" USING PLB-SOURCE-SET
                 PLB-DIAGNOSTICS PLB-RULES PLB-FINDINGS
         WHEN OTHER
             PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > FN-COUNT
@@ -4409,7 +4413,7 @@ SET-REPORT.
              AND WS-COMMAND NOT = "fields"
              AND WS-COMMAND NOT = "layout"
             MOVE WS-ARG TO WS-REPORT
-        WHEN WS-ARG = "html" AND WS-COMMAND = "check"
+        WHEN (WS-ARG = "html" OR WS-ARG = "md") AND WS-COMMAND = "check"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "csv"
              AND (WS-COMMAND = "metrics" OR WS-COMMAND = "layout")
@@ -4442,7 +4446,7 @@ SET-REPORT.
         WHEN OTHER
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
-                "' (expected text, json, sarif, or html)" UPON SYSERR
+                "' (expected text, json, sarif, html, or md)" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
     END-EVALUATE.
 
