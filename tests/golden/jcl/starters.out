@@ -1,0 +1,7 @@
+tests/golden/jcl/starters.jcl:1: job STARTERS
+tests/golden/jcl/starters.jcl:4:   step IMSSTEP pgm DFSRRC00 runs PAYIMS
+tests/golden/jcl/starters.jcl:5:     dd IMS dsn IMS.PSBLIB disp SHR
+tests/golden/jcl/starters.jcl:6:   step DB2STEP pgm IKJEFT01 runs PAYDB2
+tests/golden/jcl/starters.jcl:7:     dd SYSTSPRT sysout
+tests/golden/jcl/starters.jcl:8:     dd SYSTSIN in-stream data
+tests/golden/jcl/starters.jcl:14:     dd SYSIN in-stream data

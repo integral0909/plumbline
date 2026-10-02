@@ -146,6 +146,24 @@ in area A, long lines are split at spaces, long literals are continued
 with `-` in column 7, and inline comments that do not fit move to a
 line of their own.
 
+## Inventory
+
+`plumbline inventory` describes an application: each program with what
+starts it (job steps, CICS transactions, callers, menus that name it)
+and what it uses (calls, files and their DD names, maps, CICS
+resources), then the jobs, transactions, and maps. Give it the
+programs with their JCL, BMS maps, and CICS definitions; `--report
+json` gives the same as JSON.
+
+```console
+$ plumbline inventory app/cbl/*.cbl app/jcl/*.jcl app/bms/*.bms app/csd/*.csd
+programs: 44
+program CBTRN02C batch app/cbl/CBTRN02C.cbl:23
+  run by step STEP15 of job POSTTRAN
+  file DALYTRAN-FILE dd DALYTRAN input
+...
+```
+
 ## Editors
 
 `plumbline lsp` is a language server, so editors that speak the Language

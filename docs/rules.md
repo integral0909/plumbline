@@ -6,6 +6,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 
 | Id | Name | Default | Summary |
 |----|------|---------|---------|
+| [PLB-A001](#plb-a001-unused-program) | unused-program | note | Program is not called, run by a job, or started by a transaction |
 | [PLB-B001](#plb-b001-map-fields-overlap) | map-fields-overlap | error | Two fields of a BMS map share screen positions |
 | [PLB-B002](#plb-b002-field-outside-map) | field-outside-map | error | A BMS field ends past the end of its map |
 | [PLB-B003](#plb-b003-map-not-in-mapset) | map-not-in-mapset | error | Program sends or receives a map its mapset does not define |
@@ -99,6 +100,24 @@ after `--`, and it is good practice to give one:
 Case does not matter.
 A suppression names the rules it silences, so the reason for it stays
 reviewable.
+
+## PLB-A001 unused-program
+
+A program of the run that nothing in the run reaches:
+
+```
+program CBTRN01C is not called, run by a job step, or started by a transaction of the run
+```
+
+A program is reached when another program of the run calls it (`CALL`,
+or `EXEC CICS XCTL`, `LINK`, or `LOAD` with a constant name), a JCL step
+runs it (also as the program IMS's `DFSRRC00` or a DB2 `RUN PROGRAM`
+starts), a CICS transaction definition names it as its program, or
+another program names it in a literal, as menus do that keep the
+programs they start in a table. The rule runs only when the run says
+how programs start: with JCL or CICS resource definitions among its
+inputs. Give the run all of the application's programs, jobs, and
+definitions, or the programs started from the rest are reported.
 
 ## PLB-B001 map-fields-overlap
 

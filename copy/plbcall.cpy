@@ -8,8 +8,9 @@
 *> (CA), its PROCEDURE DIVISION USING or ENTRY ... USING items. Calls
 *> (CC) each have a list of arguments (CG). The files of each program
 *> (PF) say which DD name the job step must provide, and the maps of
-*> each program (PM) which BMS maps it sends and receives, and the
-*> CICS resources (PU) its commands name.
+*> each program (PM) which BMS maps it sends and receives, the CICS
+*> resources (PU) its commands name, and the short literals (PL) that
+*> may name programs.
 *>
 *> Names are compared without regard to case: CP-NAME and CC-TARGET
 *> are upper-cased.
@@ -35,6 +36,8 @@
         *> "Y" for IS COMMON and IS RECURSIVE programs.
         10  CP-COMMON           PIC X.
         10  CP-RECURSIVE        PIC X.
+        *> "Y" when the program has EXEC CICS commands.
+        10  CP-CICS             PIC X.
         10  CP-PARAM-FIRST      PIC 9(9) COMP-5.
         10  CP-PARAM-COUNT      PIC 9(4) COMP-5.
         *> Where the program's first STOP RUN is (CP-STOP-LINE 0:
@@ -135,3 +138,9 @@
         10  PU-FILE-ID          PIC 9(4) COMP-5.
         10  PU-LINE             PIC 9(9) COMP-5.
         10  PU-COLUMN           PIC 9(4) COMP-5.
+    *> Literals of 1 to 8 letters and digits, which a program may use
+    *> to name another one (menu tables, XCTL through a data item).
+    05  PL-COUNT                PIC 9(9) COMP-5.
+    05  PL-ENTRY                OCCURS PL-MAX TIMES.
+        10  PL-PROGRAM          PIC 9(9) COMP-5.
+        10  PL-NAME             PIC X(8).

@@ -39,6 +39,7 @@
 *>   plumbline dump flow [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump refs [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump calls [-I DIR]... [--format ...] [--debug] FILE...
+*>   plumbline inventory [--report text|json] [OPTION]... FILE...
 *>   plumbline dump jcl FILE...
 *>   plumbline dump bms FILE...
 *>   plumbline dump csd FILE...
@@ -149,7 +150,7 @@ COPY "plbinput.cpy".
 01  WS-BASELINE             PIC X(512) VALUE SPACES.
 01  WS-WRITE-BASELINE       PIC X(512) VALUE SPACES.
 01  WS-BASELINE-COUNT       PIC 9(9) COMP-5.
-01  WS-COMMAND              PIC X(8).
+01  WS-COMMAND              PIC X(12).
 01  WS-FIRST                PIC X.
 01  WS-GRAPH-KIND           PIC X(10) VALUE "performs".
 01  WS-IMPACT-NAME          PIC X(512).
@@ -269,6 +270,9 @@ MAIN-LOGIC.
             WHEN "rules"
                 MOVE "rules" TO WS-COMMAND
                 PERFORM RULES-COMMAND
+            WHEN "inventory"
+                MOVE "inventory" TO WS-COMMAND
+                PERFORM INVENTORY-COMMAND
             WHEN OTHER
                 IF WS-ARG(1:1) = "-"
                     PERFORM UNKNOWN-OPTION
@@ -308,6 +312,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline metrics [OPTION]... FILE..."
     DISPLAY "       plumbline graph [--kind KIND] [OPTION]... FILE..."
     DISPLAY "       plumbline impact NAME [OPTION]... FILE..."
+    DISPLAY "       plumbline inventory [--report text|json] [OPTION]... FILE..."
     DISPLAY "       plumbline format --to fixed|free [--check] FILE..."
     DISPLAY "       plumbline lsp [OPTION]..."
     DISPLAY "       plumbline rules [--report text|json] [OPTION]..."
@@ -337,6 +342,8 @@ SHOW-USAGE.
     DISPLAY "                   (calls), the copybook graph"
     DISPLAY "                   (copybooks), or what JCL jobs run"
     DISPLAY "                   (jobs), as DOT or JSON"
+    DISPLAY "  inventory        list the programs, jobs, transactions, and"
+    DISPLAY "                   maps of the input, and how they fit together"
     DISPLAY "  impact NAME      list what includes copybook NAME or"
     DISPLAY "                   calls program NAME, directly or not"
     DISPLAY "  format           rewrite a file in fixed or free format"
@@ -452,6 +459,8 @@ CHECK-COMMAND.
         PLB-CALL-GRAPH
     CALL "PLB-RULE-CICS" USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH
         PLB-CSD
+    CALL "PLB-RULE-APPLICATION" USING PLB-RULES PLB-FINDINGS
+        PLB-CALL-GRAPH PLB-JCL PLB-CSD
     PERFORM SUPPRESS-LATE-FINDINGS
     *> Programs against the JCL that runs them. JCL has no suppression
     *> comments.
@@ -703,6 +712,22 @@ GRAPH-COMMAND.
             CALL "PLB-GRAPH-JOBS" USING PLB-CALL-GRAPH PLB-JCL WS-REPORT
     END-EVALUATE
     CALL "PLB-GRAPH-END" USING WS-REPORT
+    PERFORM REPORT-DIAGNOSTICS
+    IF DG-ERRORS > 0
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+*> inventory: the programs, jobs, transactions, and maps of the run,
+*> and how they fit together.
+INVENTORY-COMMAND.
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM ADD-INPUTS
+    PERFORM ANALYZE-RUN
+    CALL "PLB-INVENTORY" USING PLB-SOURCE-SET PLB-CALL-GRAPH PLB-JCL
+        PLB-CSD PLB-BMS WS-REPORT
     PERFORM REPORT-DIAGNOSTICS
     IF DG-ERRORS > 0
         MOVE 1 TO WS-EXIT-CODE
@@ -2447,6 +2472,11 @@ DUMP-JCL-STEP.
                    JS-TARGET(WS-P) DELIMITED BY SPACE
                 INTO WS-OUT WITH POINTER WS-PTR
     END-EVALUATE
+    IF JS-INNER(WS-P) NOT = SPACES
+        STRING " runs " DELIMITED BY SIZE
+               JS-INNER(WS-P) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
     DISPLAY WS-OUT(1:WS-PTR - 1)
     PERFORM VARYING WS-C FROM JS-DD-FIRST(WS-P) BY 1
             UNTIL WS-C >= JS-DD-FIRST(WS-P) + JS-DD-COUNT(WS-P)
@@ -3482,7 +3512,7 @@ SET-REPORT.
         WHEN WS-ARG = "text" AND WS-COMMAND NOT = "graph"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "sarif" AND WS-COMMAND NOT = "metrics"
-             AND WS-COMMAND NOT = "rules"
+             AND WS-COMMAND NOT = "rules" AND WS-COMMAND NOT = "inventory"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "html" AND WS-COMMAND = "check"
             MOVE WS-ARG TO WS-REPORT
@@ -3500,7 +3530,7 @@ SET-REPORT.
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected text, json, or csv)" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
-        WHEN WS-COMMAND = "rules"
+        WHEN WS-COMMAND = "rules" OR WS-COMMAND = "inventory"
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected text or json)" UPON SYSERR

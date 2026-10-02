@@ -1,0 +1,16 @@
+//STARTERS JOB CLASS=A
+//* Programs that start the COBOL program: IMS names it in PARM, and
+//* the TSO batch program runs a DB2 program named in SYSTSIN.
+//IMSSTEP  EXEC PGM=DFSRRC00,PARM='BMP,PAYIMS,PAYPSB'
+//IMS      DD DSN=IMS.PSBLIB,DISP=SHR
+//DB2STEP  EXEC PGM=IKJEFT01
+//SYSTSPRT DD SYSOUT=*
+//SYSTSIN  DD *
+  DSN SYSTEM(DB2P)
+  RUN PROGRAM(PAYDB2) PLAN(PAYPLAN) -
+      LIB('PAY.LOADLIB')
+  END
+/*
+//SYSIN    DD *
+  RUN PROGRAM(NOTTHIS)
+/*
