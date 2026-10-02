@@ -131,6 +131,24 @@ class LanguageServerTest(unittest.TestCase):
                  for d in self.server.receive()["params"]["diagnostics"]}
         self.assertNotIn("PLB-M001", codes)
 
+    def test_text_with_unicode_escapes(self):
+        # JSON escapes non-ASCII as \\uXXXX, a character outside the
+        # basic plane as a surrogate pair; the server reads them as UTF-8:
+        # 2 bytes for e-acute, 3 for the euro sign, 4 for the face.
+        changed = self.text.replace(
+            "WORKING-STORAGE SECTION.\n",
+            "WORKING-STORAGE SECTION.\n01  TINY PIC XX.\n").replace(
+            "MAIN-LINE.\n",
+            "MAIN-LINE.\n    MOVE \"\u00e9\u20ac\U0001f600\" TO TINY\n")
+        self.server.notify("textDocument/didChange", {
+            "textDocument": {"uri": URI, "version": 2},
+            "contentChanges": [{"text": changed}]})
+        messages = [d["message"]
+                    for d in self.server.receive()["params"]["diagnostics"]
+                    if d["code"] == "PLB-C008"]
+        self.assertIn("MOVE truncates a 9-character literal to fit TINY "
+                      "(2 characters)", messages)
+
     def test_document_symbols(self):
         reply = self.server.request("textDocument/documentSymbol",
                                     {"textDocument": {"uri": URI}})
