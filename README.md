@@ -212,6 +212,32 @@ copybook app/cpy/CVTRA06Y.cpy: 14 items, 1 named by no program; copied by 2
 ...
 ```
 
+## Cross-reference
+
+`plumbline xref` lists, for each program, its data items and its
+paragraphs and sections, each with the line that defines it and every
+line that names it, as a compiler's cross-reference listing does. An
+`M` marks a statement that changes the item; procedure references are
+marked `P` (PERFORM), `T` (the end of a PERFORM THRU range), `G` (GO
+TO), or `A` (ALTER). Definitions and references in a copybook name the
+copybook. `--report json` gives each reference with its file, line,
+column, and use.
+
+```console
+$ plumbline xref -I app/cpy app/cbl/CBACT02C.cbl
+CBACT02C (app/cbl/CBACT02C.cbl:23)
+  Data items
+...
+    01 IO-STATUS (50)
+        111M 130M 148M 162 171
+    05 IO-STAT1 (51)
+        163 164
+...
+```
+
+The references are those of the procedure division: an item named only
+in a data division clause, such as `FILE STATUS`, shows none.
+
 ## Inventory
 
 `plumbline inventory` describes an application: each program with what

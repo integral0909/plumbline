@@ -1,0 +1,36 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. ACCTUPD.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+           COPY ACCTREC.
+       01  WS-AMOUNT               PIC S9(7)V99 VALUE 10.
+       01  WS-COUNT                PIC 9(4) VALUE 0.
+       01  FILLER                  PIC X(4).
+       PROCEDURE DIVISION.
+       MAIN SECTION.
+       START-UP.
+           MOVE 1 TO ACCT-ID
+           PERFORM POST-AMOUNT THRU POST-EXIT
+           ALTER NEXT-STEP TO PROCEED TO FINISH
+           GO TO NEXT-STEP.
+       POST-AMOUNT.
+           ADD WS-AMOUNT TO ACCT-BALANCE
+           ADD 1 TO WS-COUNT.
+       POST-EXIT.
+           EXIT.
+       NEXT-STEP.
+           GO TO START-UP.
+       FINISH.
+           DISPLAY ACCT-ID ACCT-BALANCE WS-COUNT
+           CALL "ACCTLOG" USING ACCT-REC
+           STOP RUN.
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. ACCTLOG.
+       DATA DIVISION.
+       LINKAGE SECTION.
+       01  LOG-REC                 PIC X(15).
+       PROCEDURE DIVISION USING LOG-REC.
+           DISPLAY LOG-REC
+           GOBACK.
+       END PROGRAM ACCTLOG.
+       END PROGRAM ACCTUPD.

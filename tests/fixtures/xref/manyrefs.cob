@@ -1,0 +1,37 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. MANYREFS.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  TALLY-COUNT             PIC 9(4) VALUE 0.
+       PROCEDURE DIVISION.
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           ADD 1 TO TALLY-COUNT
+           STOP RUN.

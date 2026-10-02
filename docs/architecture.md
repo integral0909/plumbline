@@ -422,6 +422,21 @@ copybook to a run-wide table, keyed by the copybook and the line of the
 name, with a chain of entries per copybook. Each file counts once per
 item, both as a program that copies it and as one that names it.
 
+### Cross-reference
+
+`src/lib/plbxref.cob`.
+
+`plumbline xref` reads each program once and lists it right after it
+is analyzed. `PLB-XREF-FILE` threads two sets of chains through
+existing tables, built backwards so each comes out in source order: one
+per symbol through the reference table, and two per procedure unit
+through the edge table of the procedure graph, one for the edges that
+target the unit and one for the edges that end a THRU range at it or
+ALTER its GO TO. The two unit chains are merged by edge number when
+they are written. Nothing is kept from one file to the next except
+whether a program has been written, which the caller holds so that
+programs are separated in text and in JSON.
+
 ### Program documentation
 
 `src/lib/plbdoc.cob`.
