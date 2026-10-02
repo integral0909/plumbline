@@ -201,6 +201,10 @@ The findings were checked by rule:
   in NIST, and in CardDemo the 80-byte date parameter card read into a
   21-byte area, which is meant.
 
+- **PLB-C042 inspect-count-not-reset.** None. Reading only the
+  `INSPECT`'s own paragraph reported 72: the suite sets each count to
+  zero in an `-INIT` paragraph that falls into the test paragraph, and
+  the rule follows that step, as PLB-C037 does.
 ## Limits
 
 - **Report Writer** is parsed and its `SOURCE`, `SUM`, and `CONTROL`

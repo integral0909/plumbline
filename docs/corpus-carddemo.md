@@ -172,6 +172,10 @@ Some findings that were read and are true:
   length for a file of a CardDemo program matches the program's
   records, `CBIMPORT`'s five outputs and the variable-length `VBRCFILE`
   of `READACCT` (80-byte records, `LRECL=84`) among them.
+- **PLB-C042 inspect-count-not-reset.** `COCRDLIC` counts the selected
+  rows with `INSPECT ... TALLYING I`, where `I` is a loop index that
+  nothing sets to zero first. The transaction type list, `COTRTLIC`,
+  sets its counts to zero at the top of the same kind of paragraph.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)

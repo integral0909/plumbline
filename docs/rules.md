@@ -52,6 +52,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C039](#plb-c039-decimal-to-alphanumeric) | decimal-to-alphanumeric | warning | MOVE of a number with decimal places to an alphanumeric item |
 | [PLB-C040](#plb-c040-odo-object-too-small) | odo-object-too-small | warning | OCCURS DEPENDING ON object cannot hold the table's largest count |
 | [PLB-C041](#plb-c041-write-from-truncation) | write-from-truncation | warning | WRITE or REWRITE FROM an item longer than the record |
+| [PLB-C042](#plb-c042-inspect-count-not-reset) | inspect-count-not-reset | warning | INSPECT TALLYING adds to a count the paragraph does not reset |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1141,6 +1142,29 @@ field added to the working-storage layout but not to the file's.
 the start of a record, such as the first columns of a control card, is
 common and meant. Items whose size changes at run time (`OCCURS
 DEPENDING ON`) and reference-modified items are not checked.
+
+## PLB-C042 inspect-count-not-reset
+
+An `INSPECT ... TALLYING` whose count nothing sets before it:
+
+```cobol
+2250-EDIT-ARRAY.
+    INSPECT WS-EDIT-SELECT-FLAGS
+        TALLYING I FOR ALL 'S' ALL 'U'      *> reported
+    IF I > +1 ...
+```
+
+`TALLYING` adds to its count; it does not start it at zero. A count
+that is not set first carries whatever it held: the total of an
+earlier `INSPECT`, or, as here, the last value of a loop index. Set it
+to zero just before.
+
+The count counts as set when the `INSPECT`'s paragraph stores into it,
+or into a group around it, before the `INSPECT` (`MOVE ZERO TO`,
+`INITIALIZE`), or when a paragraph that leads into this one (falls into
+it, goes to it, or performs it) does so anywhere. `ADD 1 TO count` adds
+as `INSPECT` does and does not count, and a `VALUE` clause sets the
+count only for the first time the paragraph runs.
 
 ## PLB-I001 pcb-dbd-unknown
 
