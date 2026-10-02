@@ -5,6 +5,9 @@
 set -u
 
 bin=${1:?usage: test-cli.sh path/to/plumbline}
+# Absolute, so that checks can run in another directory (run_dir).
+bin_abs=$(cd "$(dirname "$bin")" && pwd)/$(basename "$bin")
+run_dir=.
 n=0
 failed=0
 
@@ -13,7 +16,7 @@ check() {
     label=$1 want_rc=$2 pattern=$3
     shift 4
     n=$((n + 1))
-    out=$("$bin" "$@" 2>&1)
+    out=$(cd "$run_dir" && "$bin_abs" "$@" 2>&1)
     rc=$?
     if [ "$rc" -eq "$want_rc" ] && printf '%s\n' "$out" | grep -q -- "$pattern"; then
         echo "ok $n - $label"
@@ -126,6 +129,39 @@ check "dump lines needs files"            2 'no input files' -- dump lines
 check "invalid --format value"            2 "invalid format 'variable'" \
     -- dump lines --format variable $fx/fixed-basic.cbl
 check "unknown dump option"               2 "unknown option '--frob'" -- dump lines --frob $fx/fixed-basic.cbl
+bx=tests/fixtures/baseline
+check "--baseline hides the findings it lists" 0 '^$' -- check --baseline $bx/c001.baseline $rx/c001-unreachable.cob
+check "findings not in the baseline are reported" 1 'NEVER-CALLED is never executed' \
+    -- check --baseline $bx/c001-partial.baseline $rx/c001-unreachable.cob
+check "a missing baseline is an error"    1 'cannot open baseline nope.baseline' \
+    -- check --baseline nope.baseline $rx/c001-unreachable.cob
+check "a file that is not a baseline"     1 'is not a Plumbline baseline' \
+    -- check --baseline $rx/c001-unreachable.cob $rx/c001-unreachable.cob
+check "--baseline needs a file"           2 '--baseline needs a file' -- check $rx/c001-unreachable.cob --baseline
+check "each baseline line matches one finding" 0 'twice.cob:7:5: note: GO TO' \
+    -- check --disable unreachable-code --baseline $bx/twice-once.baseline $bx/twice.cob
+tmp_baseline=$(mktemp)
+check "--write-baseline writes findings"  0 "wrote 3 findings to $tmp_baseline" \
+    -- check --write-baseline "$tmp_baseline" $rx/c001-unreachable.cob
+check "a written baseline hides its findings" 0 '^$' -- check --baseline "$tmp_baseline" $rx/c001-unreachable.cob
+rm -f "$tmp_baseline"
+check "--write-baseline to a bad path"    1 'cannot write baseline' \
+    -- check --write-baseline no/such/dir/b.txt $rx/c001-unreachable.cob
+
+cfx=tests/fixtures/config
+check "--config applies settings"         1 'c001-unreachable.cob:11:9: error: GO TO makes' \
+    -- check --config $cfx/strict.conf $rx/c001-unreachable.cob
+check "options override the config"       1 'never executed' \
+    -- check --config $cfx/strict.conf --enable unreachable-code $rx/c001-unreachable.cob
+check "config can name a baseline"        0 '^$' -- check --config $cfx/baseline.conf $rx/c001-unreachable.cob
+check "unknown settings are errors"       2 "in $cfx/unknown.conf line 1" -- check --config $cfx/unknown.conf $rx/c001-unreachable.cob
+check "invalid severity"                  2 "invalid severity 'fatal'" -- check --config $cfx/bad-severity.conf $rx/c001-unreachable.cob
+check "--config with a missing file"      2 'cannot read configuration file nope.conf' -- check --config nope.conf $rx/c001-unreachable.cob
+run_dir=$cfx/project
+check "plumbline.conf in the current directory is read" 0 '^$' -- check ../../../golden/rules/c001-unreachable.cob
+check "--no-config skips plumbline.conf"  1 'GO TO makes' -- check --no-config ../../../golden/rules/c001-unreachable.cob
+run_dir=.
+
 # check_report LABEL FORMAT EXPECTED-COUNT -- ARGS...
 # Run plumbline and validate its report with tests/tools/check_report.py.
 check_report() {

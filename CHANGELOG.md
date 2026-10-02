@@ -67,6 +67,10 @@ uses [Semantic Versioning](https://semver.org/).
   `plumbline dump calls` prints it.
 - Rules PLB-C013 call-argument-count, PLB-C014 call-argument-mismatch,
   PLB-C015 recursive-call, and PLB-M006 dynamic-call (off by default).
+- Baselines: `--write-baseline FILE` records the current findings and
+  `--baseline FILE` reports only findings that are not in it.
+- Settings in `plumbline.conf` or `--config FILE`, including rule
+  severities; `--no-config` skips the file.
 
 ### Fixed
 
