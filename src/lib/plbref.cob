@@ -25,6 +25,12 @@ PROGRAM-ID. PLB-REF-BUILD.
 DATA DIVISION.
 WORKING-STORAGE SECTION.
 78  ON-MAX                      VALUE 20000.
+*> The data items by name: a hash of the name picks a bucket, which
+*> chains the items of that name (and others of the same hash) in
+*> symbol order, so that resolving a name does not read every item.
+78  NH-BUCKETS                  VALUE 8191.
+01  WS-NAME-HEAD            PIC 9(9) COMP-5 OCCURS NH-BUCKETS TIMES.
+01  WS-NAME-NEXT            PIC 9(9) COMP-5 OCCURS 100000 TIMES.
 *> Innermost statement of each token, and tokens that are not
 *> identifiers even though they are user-defined words.
 01  WS-TOKEN-STMT           PIC 9(9) COMP-5 OCCURS 500000 TIMES.
@@ -111,6 +117,10 @@ WORKING-STORAGE SECTION.
         10  DV-NODE         PIC 9(9) COMP-5.
         10  DV-PROGRAM      PIC 9(9) COMP-5.
 LOCAL-STORAGE SECTION.
+01  LS-HASH                 PIC 9(9) COMP-5.
+01  LS-HASH-SUM             PIC 9(9) COMP-5.
+01  LS-HASH-I               PIC 9(4) COMP-5.
+01  LS-HASH-NAME            PIC X(31).
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-DEPTH                PIC S9(9) COMP-5.
@@ -176,6 +186,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
     IF AS-COUNT = 0 OR TK-COUNT = 0
         GOBACK
     END-IF
+    PERFORM BUILD-NAME-INDEX
     PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T > TK-COUNT
         MOVE 0 TO WS-TOKEN-STMT(LS-T)
         MOVE "N" TO WS-TOKEN-SKIP(LS-T)
@@ -623,20 +634,25 @@ MATCH-PARENTHESIS.
 
 RESOLVE.
     MOVE 0 TO LS-MATCHES LS-FIRST-MATCH
-    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
+    MOVE LS-NAME TO LS-HASH-NAME
+    PERFORM NAME-HASH
+    MOVE WS-NAME-HEAD(LS-HASH) TO LS-S
+    PERFORM UNTIL LS-S = 0
         IF SY-NAME(LS-S) = LS-NAME AND SY-PROGRAM(LS-S) = LS-PROGRAM
             PERFORM CHECK-QUALIFIERS
             IF LS-OK = "Y"
                 PERFORM COUNT-MATCH
             END-IF
         END-IF
+        MOVE WS-NAME-NEXT(LS-S) TO LS-S
     END-PERFORM
     *> GLOBAL items of the programs this one is nested in.
     IF LS-MATCHES = 0
         MOVE ND-PARENT(LS-PROGRAM) TO LS-ANCESTOR
         PERFORM UNTIL LS-ANCESTOR = 0 OR LS-MATCHES > 0
             IF ND-KIND(LS-ANCESTOR) = "PROG"
-                PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
+                MOVE WS-NAME-HEAD(LS-HASH) TO LS-S
+                PERFORM UNTIL LS-S = 0
                     IF SY-NAME(LS-S) = LS-NAME
                        AND SY-PROGRAM(LS-S) = LS-ANCESTOR
                         PERFORM CHECK-GLOBAL
@@ -647,6 +663,7 @@ RESOLVE.
                             END-IF
                         END-IF
                     END-IF
+                    MOVE WS-NAME-NEXT(LS-S) TO LS-S
                 END-PERFORM
             END-IF
             MOVE ND-PARENT(LS-ANCESTOR) TO LS-ANCESTOR
@@ -662,6 +679,31 @@ RESOLVE.
         WHEN OTHER
             PERFORM RESOLVE-OTHER
     END-EVALUATE.
+
+*> The name index: each bucket chains its items in symbol order, so
+*> they are added from the last to the first.
+BUILD-NAME-INDEX.
+    PERFORM VARYING LS-HASH FROM 1 BY 1 UNTIL LS-HASH > NH-BUCKETS
+        MOVE 0 TO WS-NAME-HEAD(LS-HASH)
+    END-PERFORM
+    PERFORM VARYING LS-S FROM SY-COUNT BY -1 UNTIL LS-S = 0
+        MOVE SY-NAME(LS-S) TO LS-HASH-NAME
+        PERFORM NAME-HASH
+        MOVE WS-NAME-HEAD(LS-HASH) TO WS-NAME-NEXT(LS-S)
+        MOVE LS-S TO WS-NAME-HEAD(LS-HASH)
+    END-PERFORM.
+
+*> LS-HASH: the bucket of LS-HASH-NAME, 1 to NH-BUCKETS.
+NAME-HASH.
+    MOVE 0 TO LS-HASH-SUM
+    PERFORM VARYING LS-HASH-I FROM 1 BY 1 UNTIL LS-HASH-I > 31
+        IF LS-HASH-NAME(LS-HASH-I:1) = SPACE
+            EXIT PERFORM
+        END-IF
+        COMPUTE LS-HASH-SUM = FUNCTION MOD(LS-HASH-SUM * 31
+            + FUNCTION ORD(LS-HASH-NAME(LS-HASH-I:1)), NH-BUCKETS)
+    END-PERFORM
+    COMPUTE LS-HASH = LS-HASH-SUM + 1.
 
 COUNT-MATCH.
     ADD 1 TO LS-MATCHES
