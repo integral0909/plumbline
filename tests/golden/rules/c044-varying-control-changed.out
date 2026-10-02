@@ -1,0 +1,4 @@
+tests/golden/rules/c044-varying-control-changed.cob:15:12: warning: LINE-ENTRY is read but never given a value [PLB-C011]
+tests/golden/rules/c044-varying-control-changed.cob:16:22: warning: IX is the control of the PERFORM VARYING on line 14, and this statement changes it inside the loop [PLB-C044]
+tests/golden/rules/c044-varying-control-changed.cob:28:23: warning: JX is the control of the PERFORM VARYING on line 25, and this statement changes it inside the loop [PLB-C044]
+tests/golden/rules/c044-varying-control-changed.cob:35:20: warning: JX is the control of the PERFORM VARYING on line 20, and this statement changes it inside the loop [PLB-C044]

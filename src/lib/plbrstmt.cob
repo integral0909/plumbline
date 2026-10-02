@@ -200,6 +200,7 @@ CHECK-DIVIDE-BY-ZERO.
             UNTIL LS-T >= ND-TOK-LAST(LS-NODE)
         IF LS-T = LS-NEXT-CHILD-TOK
             *> Skip the statements and phrases under this one.
+            *> plumbline: ignore varying-control-changed -- skips the statements under this one
             MOVE ND-TOK-LAST(LS-CHILD) TO LS-T
             MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
             PERFORM NEXT-OWN-CHILD

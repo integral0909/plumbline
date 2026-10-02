@@ -503,3 +503,182 @@ REPORT-COMPARISON.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE-COMPARE LS-VALUE-TOKEN LS-MESSAGE.
 END PROGRAM PLB-RULE-LOOPS.
+
+*> PLB-C044 varying-control-changed: a statement inside a PERFORM
+*> VARYING loop that stores into the loop's control item (the item
+*> after VARYING or AFTER). The loop then steps from the changed value:
+*> it skips or repeats iterations, or never ends. The body is the
+*> inline loop's statements, or, for PERFORM procedure VARYING, the
+*> paragraphs from the procedure through its THRU; procedures they
+*> perform in turn are not followed.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-C044.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+*> Reference starting at each token (0: none), for the tokens of the
+*> current file.
+01  WS-TOKEN-REF            PIC 9(9) COMP-5 OCCURS 500000 TIMES.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
+01  LS-NODE                 PIC 9(9) COMP-5.
+01  LS-DEPTH                PIC S9(9) COMP-5.
+01  LS-LOOP                 PIC 9(9) COMP-5.
+01  LS-BODY                 PIC 9(9) COMP-5.
+01  LS-CHILD                PIC 9(9) COMP-5.
+01  LS-R                    PIC 9(9) COMP-5.
+01  LS-Q                    PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-PHRASE-FROM          PIC 9(9) COMP-5.
+01  LS-PHRASE-TO            PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-U                    PIC 9(9) COMP-5.
+01  LS-LAST                 PIC 9(9) COMP-5.
+01  LS-UP                   PIC 9(9) COMP-5.
+01  LS-CONTROL              PIC 9(9) COMP-5.
+01  LS-FROM                 PIC 9(9) COMP-5.
+01  LS-TO                   PIC 9(9) COMP-5.
+01  LS-WORD                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbsym.cpy".
+COPY "plbflow.cpy".
+COPY "plbref.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
+        PLB-FLOW PLB-REFS PLB-RULES PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C044" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        MOVE LS-R TO WS-TOKEN-REF(RF-TOKEN(LS-R))
+    END-PERFORM
+    MOVE 1 TO LS-NODE
+    MOVE 0 TO LS-DEPTH
+    PERFORM UNTIL LS-NODE = 0
+        IF ND-KIND(LS-NODE) = "STMT" AND ND-DETAIL(LS-NODE) = "PERFORM"
+            PERFORM CHECK-PERFORM
+        END-IF
+        CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
+    END-PERFORM
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        MOVE 0 TO WS-TOKEN-REF(RF-TOKEN(LS-R))
+    END-PERFORM
+    GOBACK.
+
+*> The loop phrase and the inline body of PERFORM statement LS-NODE.
+CHECK-PERFORM.
+    MOVE 0 TO LS-LOOP LS-BODY
+    MOVE ND-FIRST(LS-NODE) TO LS-CHILD
+    PERFORM UNTIL LS-CHILD = 0
+        EVALUATE TRUE
+            WHEN ND-KIND(LS-CHILD) = "COND" AND ND-DETAIL(LS-CHILD) = "LOOP"
+                MOVE LS-CHILD TO LS-LOOP
+            WHEN ND-KIND(LS-CHILD) = "BLCK" AND ND-DETAIL(LS-CHILD) = "BODY"
+                MOVE LS-CHILD TO LS-BODY
+        END-EVALUATE
+        MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+    END-PERFORM
+    *> PERFORM procedure VARYING ... has no loop node: its VARYING
+    *> phrase is in the statement's own tokens.
+    IF LS-LOOP = 0
+        IF LS-BODY > 0
+            EXIT PARAGRAPH
+        END-IF
+        MOVE ND-TOK-FIRST(LS-NODE) TO LS-PHRASE-FROM
+        MOVE ND-TOK-LAST(LS-NODE) TO LS-PHRASE-TO
+    ELSE
+        MOVE ND-TOK-FIRST(LS-LOOP) TO LS-PHRASE-FROM
+        MOVE ND-TOK-LAST(LS-LOOP) TO LS-PHRASE-TO
+    END-IF
+    *> Each control item: the data item after VARYING or AFTER.
+    PERFORM VARYING LS-T FROM LS-PHRASE-FROM BY 1
+            UNTIL LS-T >= LS-PHRASE-TO
+        IF TK-IS-WORD(LS-T) AND WS-TOKEN-REF(LS-T) = 0
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            IF FUNCTION UPPER-CASE(LS-WORD) = "VARYING"
+               OR FUNCTION UPPER-CASE(LS-WORD) = "AFTER"
+                COMPUTE LS-Q = LS-T + 1
+                IF WS-TOKEN-REF(LS-Q) > 0
+                    MOVE WS-TOKEN-REF(LS-Q) TO LS-R
+                    IF RF-KIND(LS-R) = "D"
+                        MOVE RF-SYMBOL(LS-R) TO LS-CONTROL
+                        PERFORM CHECK-BODY
+                    END-IF
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
+
+CHECK-BODY.
+    IF LS-BODY > 0
+        MOVE ND-TOK-FIRST(LS-BODY) TO LS-FROM
+        MOVE ND-TOK-LAST(LS-BODY) TO LS-TO
+        PERFORM FIND-STORES
+        EXIT PARAGRAPH
+    END-IF
+    *> PERFORM procedure [THRU last] VARYING: the units of the range.
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > FE-COUNT
+        IF FE-STMT(LS-E) = LS-NODE AND FE-KIND(LS-E) = "P"
+           AND FE-TO(LS-E) > 0
+            MOVE FE-THRU(LS-E) TO LS-LAST
+            IF LS-LAST < FE-TO(LS-E)
+                MOVE FE-TO(LS-E) TO LS-LAST
+            END-IF
+            PERFORM VARYING LS-U FROM FE-TO(LS-E) BY 1
+                    UNTIL LS-U > LS-LAST
+                MOVE ND-TOK-FIRST(FU-NODE(LS-U)) TO LS-FROM
+                MOVE ND-TOK-LAST(FU-NODE(LS-U)) TO LS-TO
+                PERFORM FIND-STORES
+            END-PERFORM
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+*> Each reference from LS-FROM to LS-TO that stores into the control
+*> item or a group around it (role D, or B as in ADD 1 TO it).
+FIND-STORES.
+    PERFORM VARYING LS-S FROM LS-FROM BY 1 UNTIL LS-S > LS-TO
+        IF WS-TOKEN-REF(LS-S) > 0
+            MOVE WS-TOKEN-REF(LS-S) TO LS-R
+            IF RF-KIND(LS-R) = "D"
+               AND (RF-ROLE(LS-R) = "D" OR RF-ROLE(LS-R) = "B")
+                MOVE LS-CONTROL TO LS-UP
+                PERFORM UNTIL LS-UP = 0
+                    IF RF-SYMBOL(LS-R) = LS-UP
+                        PERFORM REPORT-STORE
+                        EXIT PERFORM
+                    END-IF
+                    MOVE SY-PARENT(LS-UP) TO LS-UP
+                END-PERFORM
+            END-IF
+        END-IF
+    END-PERFORM.
+
+REPORT-STORE.
+    MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-FIRST(LS-NODE))) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING SY-NAME(LS-CONTROL) DELIMITED BY SPACE
+           " is the control of the PERFORM VARYING on line "
+           DELIMITED BY SIZE
+           LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           ", and this statement changes it inside the loop"
+           DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-S LS-MESSAGE.
+END PROGRAM PLB-RULE-C044.

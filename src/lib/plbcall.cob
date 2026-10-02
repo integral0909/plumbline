@@ -430,14 +430,17 @@ ADD-FILE.
             END-IF
             IF LS-WORD = "ASSIGN" AND PF-DDNAME(PF-COUNT) = SPACES
                 MOVE LS-T TO LS-C
+                *> plumbline: ignore varying-control-changed -- steps past the tokens just read
                 ADD 1 TO LS-T
                 CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
                 IF TK-IS-WORD(LS-T)
                    AND (LS-WORD = "TO" OR LS-WORD = "USING")
+                    *> plumbline: ignore varying-control-changed -- steps past the tokens just read
                     ADD 1 TO LS-T
                 END-IF
                 MOVE LS-T TO LS-R
                 PERFORM ASSIGNED-DD-NAME
+                *> plumbline: ignore varying-control-changed -- steps past the tokens just read
                 MOVE LS-R TO LS-T
             END-IF
         END-IF

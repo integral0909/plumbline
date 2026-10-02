@@ -205,6 +205,9 @@ The findings were checked by rule:
   `INSPECT`'s own paragraph reported 72: the suite sets each count to
   zero in an `-INIT` paragraph that falls into the test paragraph, and
   the rule follows that step, as PLB-C037 does.
+- **PLB-C044 varying-control-changed.** Two, both in NC201A's test of
+  a `PERFORM VARYING` whose body divides and subtracts its own control
+  on purpose.
 ## Limits
 
 - **Report Writer** is parsed and its `SOURCE`, `SUM`, and `CONTROL`

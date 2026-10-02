@@ -166,6 +166,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C041 write-from-truncation.
 - Rule PLB-C042 inspect-count-not-reset.
 - Rule PLB-C043 pointer-not-reset.
+- Rule PLB-C044 varying-control-changed.
 - Rule PLB-J006 lrecl-mismatch. `dump jcl` shows `LRECL` and `RECFM`,
   and `dump calls` the record length of each file.
 - Rule PLB-K002 read-update-not-released.

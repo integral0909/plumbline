@@ -54,6 +54,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C041](#plb-c041-write-from-truncation) | write-from-truncation | warning | WRITE or REWRITE FROM an item longer than the record |
 | [PLB-C042](#plb-c042-inspect-count-not-reset) | inspect-count-not-reset | warning | INSPECT TALLYING adds to a count the paragraph does not reset |
 | [PLB-C043](#plb-c043-pointer-not-reset) | pointer-not-reset | warning | STRING or UNSTRING POINTER that no statement sets |
+| [PLB-C044](#plb-c044-varying-control-changed) | varying-control-changed | warning | Statement in a PERFORM VARYING loop changes the loop's control |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1192,6 +1193,32 @@ with just a `VALUE` clause, or nothing. A paragraph that appends to a
 line through a pointer its callers set (`MOVE 1 TO PTR`, then `PERFORM
 APPEND-FIELD` several times) is the usual way to build text, and is
 fine.
+
+## PLB-C044 varying-control-changed
+
+A statement inside a `PERFORM VARYING` loop that changes the loop's
+control item:
+
+```cobol
+    PERFORM VARYING IX FROM 1 BY 1 UNTIL IX > 20
+        IF LINE-ENTRY(IX) = SPACES
+            ADD 1 TO IX                     *> reported
+        END-IF
+        ...
+    END-PERFORM
+```
+
+The loop steps from the changed value, so it skips or repeats entries,
+and a change that keeps the control below the limit never ends it. The
+control items are those after `VARYING` and `AFTER`; the loop's body is
+its inline statements, or for `PERFORM procedure VARYING`, the
+procedures it performs (not those they perform in turn). A store into a
+group around the control counts.
+
+Moving past items a loop has handled on purpose, as a scanner does when
+it reads two tokens at once, is clearer written as `PERFORM UNTIL` with
+its own `ADD`; where the `VARYING` form stays, suppress the finding and
+say why.
 
 ## PLB-I001 pcb-dbd-unknown
 
