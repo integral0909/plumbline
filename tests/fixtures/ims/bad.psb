@@ -1,0 +1,9 @@
+* A PSB with mistakes: an unknown database, a segment the database
+* does not have, and one under another parent.
+BADPCB   PCB   TYPE=DB,DBDNAME=NOSUCHDB,PROCOPT=G                       
+         SENSEG NAME=ANYSEG,PARENT=0                                    
+ORDPCB   PCB   TYPE=DB,DBDNAME=ORDERDB,PROCOPT=G                        
+         SENSEG NAME=ORDER,PARENT=0                                     
+         SENSEG NAME=ORDITEM,PARENT=ORDER                               
+         SENSEG NAME=ORDNOTE,PARENT=ORDLINE                             
+         PSBGEN LANG=COBOL,PSBNAME=BADPSB                               

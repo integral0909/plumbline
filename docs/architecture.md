@@ -353,6 +353,16 @@ file can be checked against the program it calls in another:
   `ANY LENGTH` items, whole tables, numeric literals, `ADDRESS OF`,
   `LENGTH OF`, and functions.
 
+The call graph also gathers what a program needs from the rest of
+the application, for the rules that check it against JCL, maps, and
+resource definitions: its files (the DD name of each `SELECT ...
+ASSIGN`, its open modes, `OPTIONAL`, sort files), the maps of its `EXEC
+CICS SEND MAP` and `RECEIVE MAP`, the resources its other CICS commands
+name, its SQL tables and how it uses them, its `EXEC DLI` calls, and
+short literals that may name other programs. A name counts when it is
+a literal, or a data item whose `VALUE` is a literal and that no
+statement changes.
+
 Once every file is collected, `PLB-CALL-RESOLVE` matches literal names
 the way COBOL scopes program names. It looks first at programs the
 caller contains, then at `COMMON` programs of the programs containing
@@ -361,6 +371,44 @@ A name that matches several outermost programs is left unresolved.
 Names are compared without regard to case.
 
 `plumbline dump calls FILE...` prints the programs and calls.
+
+### Beyond COBOL: JCL, maps, and definitions
+
+An application is more than its programs: JCL runs the batch programs
+and gives them their files, BMS maps are the screens of the online
+programs, CICS resource definitions name the transactions, files, and
+programs of a region, and IMS DBDs and PSBs describe the databases and
+what each program may see of them. `check` reads them with the
+programs, by the extension of each input, before the programs:
+
+| Input | Reader | Model |
+|---|---|---|
+| `*.jcl`, `*.prc` | `src/lib/plbjcl.cob` | jobs, procedures, steps, DD statements (`copy/plbjcl.cpy`) |
+| `*.bms` | `src/lib/plbbms.cob` | mapsets, maps, fields (`copy/plbbms.cpy`) |
+| `*.csd` | `src/lib/plbcsd.cob` | CICS resources (`copy/plbcsd.cpy`) |
+| `*.dbd`, `*.psb` | `src/lib/plbims.cob` | databases, segments, fields; PSBs, PCBs, sensitive segments (`copy/plbims.cpy`) |
+
+BMS and IMS sources are assembler macros; `src/lib/plbasm.cob` reads
+their statements (names, operations, operands continued by column 72)
+for both. Each reader has a `dump` command of its own.
+
+The rules that bring the models together run once per run, after the
+call graph is resolved: J rules (`src/lib/plbrjcl.cob`) check job steps
+against the files of the programs they run, B rules
+(`src/lib/plbrbms.cob`) check maps and the programs' use of them, K
+rules (`src/lib/plbrcics.cob`) the resources CICS commands name, I rules
+(`src/lib/plbrims.cob`) PSBs and DL/I calls, and A rules
+(`src/lib/plbrapp.cob`) the application as a whole. One check runs per
+program while its tables are still there: the symbolic map a program
+copies against the BMS map it was generated from.
+
+### Inventory
+
+`src/lib/plbinv.cob`.
+
+`plumbline inventory` writes the models and the call graph out as a
+description of the application: each program with what starts it and
+what it uses, then the jobs, transactions, and maps, as text or JSON.
 
 ### Metrics
 
@@ -413,7 +461,10 @@ decodes its value. That is enough for the few fields the server reads,
 because a quote inside a JSON string is always escaped. On each change,
 the editor's text is written to a copy, and the copy goes through the
 same steps as `plumbline check`. Position requests look up the token at
-the position, then its reference or procedure name.
+the position, then its reference or procedure name: definitions,
+references, highlights, rename, and the call hierarchy all start there.
+Semantic tokens classify the document's tokens from the reference
+table, the symbol table, and the tree.
 
 ### Rules and reporting
 
@@ -448,7 +499,9 @@ applied by the command line program through the same code as its
 options.
 
 Rule ids are `PLB-<category><number>`, where the categories are
-correctness (C), maintainability (M), portability (P), and security (S).
+correctness (C), maintainability (M), portability (P), security (S),
+SQL (Q), the application as a whole (A), BMS maps (B), JCL (J), CICS
+resources (K), and IMS (I).
 See the [rule reference](rules.md).
 
 ## Design principles

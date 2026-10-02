@@ -28,7 +28,7 @@ COPY "plbcallc.cpy".
 COPY "plbcall.cpy".
 PROCEDURE DIVISION USING PLB-CALL-GRAPH.
     MOVE 0 TO CP-COUNT CA-COUNT CC-COUNT CG-COUNT CP-DROPPED PF-COUNT
-        PM-COUNT PU-COUNT PL-COUNT PQ-COUNT
+        PM-COUNT PU-COUNT PL-COUNT PQ-COUNT PD-COUNT
     GOBACK.
 END PROGRAM PLB-CALL-INIT.
 
@@ -79,6 +79,7 @@ LOCAL-STORAGE SECTION.
 01  LS-TABLE                PIC X(64).
 01  LS-TABLE-FULL           PIC X(64).
 01  LS-FOUND-COMMA          PIC X.
+01  LS-NAMING               PIC X.
 01  LS-START                PIC 9(9) COMP-5.
 01  LS-END                  PIC 9(9) COMP-5.
 01  LS-QUEUE-KIND           PIC X(31).
@@ -130,6 +131,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
                     WHEN "EXEC"
                         PERFORM NOTE-MAP
                         PERFORM NOTE-RESOURCES
+                        PERFORM NOTE-DLI
                 END-EVALUATE
         END-EVALUATE
     END-PERFORM
@@ -614,6 +616,29 @@ NOTE-MAP.
     MOVE LS-COLUMN TO PM-COLUMN(PM-COUNT)
     MOVE LS-SRC-LINE TO PM-SRC-LINE(PM-COUNT).
 
+*> LS-NAMING = "Y" when reference LS-I is the operand of an EXEC
+*> option that names a resource (PSB((X)), MAP(X), FILE(X), ...): the
+*> command only reads it, though the reference table cannot say so.
+TEST-NAMING-OPERAND.
+    MOVE "N" TO LS-NAMING
+    COMPUTE LS-K = RF-TOKEN(LS-I) - 1
+    IF LS-K < 2 OR NOT TK-IS-LPAREN(LS-K)
+        EXIT PARAGRAPH
+    END-IF
+    SUBTRACT 1 FROM LS-K
+    IF TK-IS-LPAREN(LS-K)
+        SUBTRACT 1 FROM LS-K
+    END-IF
+    IF LS-K < 1 OR NOT TK-IS-WORD(LS-K)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-WORD LS-LEN
+    EVALUATE LS-WORD
+        WHEN "PSB" WHEN "MAP" WHEN "MAPSET" WHEN "FILE" WHEN "DATASET"
+        WHEN "PROGRAM" WHEN "TRANSID" WHEN "QUEUE" WHEN "SEGMENT"
+            MOVE "Y" TO LS-NAMING
+    END-EVALUATE.
+
 *> LS-TEXT = the constant at token LS-C, upper-cased: a literal, or a
 *> data item whose VALUE is a literal and that no statement gives a
 *> value; spaces when it is neither.
@@ -629,19 +654,41 @@ CONSTANT-TEXT.
         END-IF
         EXIT PARAGRAPH
     END-IF
-    IF WS-REF-AT(LS-C) = 0
-        EXIT PARAGRAPH
+    *> The data item: from the reference table, or, for names that
+    *> it does not hold (inside EXEC DLI), by name when only one item
+    *> has it.
+    MOVE 0 TO LS-S
+    IF WS-REF-AT(LS-C) > 0
+        MOVE WS-REF-AT(LS-C) TO LS-R
+        IF RF-KIND(LS-R) NOT = "D"
+            EXIT PARAGRAPH
+        END-IF
+        MOVE RF-SYMBOL(LS-R) TO LS-S
+    ELSE
+        IF NOT TK-IS-WORD(LS-C)
+            EXIT PARAGRAPH
+        END-IF
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C LS-WORD LS-LEN
+        PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > SY-COUNT
+            IF SY-NAME(LS-I) = LS-WORD
+                IF LS-S > 0
+                    EXIT PARAGRAPH
+                END-IF
+                MOVE LS-I TO LS-S
+            END-IF
+        END-PERFORM
+        IF LS-S = 0
+            EXIT PARAGRAPH
+        END-IF
     END-IF
-    MOVE WS-REF-AT(LS-C) TO LS-R
-    IF RF-KIND(LS-R) NOT = "D"
-        EXIT PARAGRAPH
-    END-IF
-    MOVE RF-SYMBOL(LS-R) TO LS-S
     PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > RF-COUNT
         IF RF-SYMBOL(LS-I) = LS-S AND RF-KIND(LS-I) = "D"
            AND (RF-ROLE(LS-I) = "D" OR RF-ROLE(LS-I) = "B"
                 OR RF-ROLE(LS-I) = "X")
-            EXIT PARAGRAPH
+            PERFORM TEST-NAMING-OPERAND
+            IF LS-NAMING = "N"
+                EXIT PARAGRAPH
+            END-IF
         END-IF
     END-PERFORM
     *> The literal of its VALUE clause.
@@ -736,6 +783,71 @@ ADD-RESOURCE-USE.
     MOVE LS-FILE-ID TO PU-FILE-ID(PU-COUNT)
     MOVE LS-LINE TO PU-LINE(PU-COUNT)
     MOVE LS-COLUMN TO PU-COLUMN(PU-COUNT).
+
+*> IMS DL/I --------------------------------------------------------
+
+*> EXEC DLI function ... SEGMENT(name) ... or SCHD PSB(name). A name
+*> in double parentheses is a data item holding it.
+NOTE-DLI.
+    COMPUTE LS-T = ND-TOK-FIRST(LS-N) + 1
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+    IF LS-WORD NOT = "DLI"
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-T
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-COMMAND LS-LEN
+    MOVE LS-N TO LS-UP
+    PERFORM PROGRAM-OF-NODE
+    IF LS-P = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-T FROM LS-T BY 1 UNTIL LS-T >= ND-TOK-LAST(LS-N)
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            MOVE SPACE TO LS-KIND
+            IF LS-WORD = "SEGMENT"
+                MOVE "S" TO LS-KIND
+            END-IF
+            IF LS-WORD = "PSB" AND LS-COMMAND = "SCHD"
+                MOVE "P" TO LS-KIND
+            END-IF
+            COMPUTE LS-C = LS-T + 1
+            IF LS-KIND NOT = SPACE AND TK-IS-LPAREN(LS-C)
+                ADD 1 TO LS-C
+                MOVE SPACES TO LS-TEXT
+                IF TK-IS-LPAREN(LS-C)
+                    ADD 1 TO LS-C
+                    PERFORM CONSTANT-TEXT
+                ELSE
+                    IF TK-IS-WORD(LS-C)
+                        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C
+                            LS-TEXT LS-LEN
+                    END-IF
+                END-IF
+                IF LS-TEXT NOT = SPACES
+                    PERFORM ADD-DLI-USE
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
+
+ADD-DLI-USE.
+    IF PD-COUNT >= PD-MAX
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO PD-COUNT
+    MOVE LS-P TO PD-PROGRAM(PD-COUNT)
+    MOVE LS-COMMAND TO PD-FUNCTION(PD-COUNT)
+    MOVE LS-KIND TO PD-KIND(PD-COUNT)
+    MOVE LS-TEXT TO PD-NAME(PD-COUNT)
+    MOVE LS-T TO LS-K
+    MOVE LS-C TO LS-T
+    PERFORM TOKEN-POSITION
+    MOVE LS-K TO LS-T
+    MOVE LS-FILE-ID TO PD-FILE-ID(PD-COUNT)
+    MOVE LS-LINE TO PD-LINE(PD-COUNT)
+    MOVE LS-COLUMN TO PD-COLUMN(PD-COUNT)
+    MOVE LS-SRC-LINE TO PD-SRC-LINE(PD-COUNT).
 
 *> Programs and parameters ----------------------------------------
 

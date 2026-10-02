@@ -91,7 +91,9 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C026 varying-limit-unreachable.
 - `plumbline dump ims` reads IMS DBD and PSB sources: databases with
   their segments and fields, PSBs with their PCBs and sensitive
-  segments (see docs/ims.md).
+  segments (see docs/ims.md). `check` reads `*.dbd` and `*.psb`
+  inputs and checks PSBs against databases and DL/I calls against
+  PSBs: rules PLB-I001 to PLB-I004.
 - `plumbline dump csd` reads CICS resource definitions, the DFHCSDUP
   input that defines transactions, programs, mapsets, and files (see
   docs/cics.md). `check` reads `*.csd` inputs and checks the resources

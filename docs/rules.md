@@ -44,6 +44,10 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C031](#plb-c031-string-overflow) | string-overflow | warning | STRING always sends more than its receiver holds |
 | [PLB-C032](#plb-c032-duplicate-when) | duplicate-when | warning | EVALUATE has a WHEN that repeats an earlier one |
 | [PLB-C033](#plb-c033-self-move) | self-move | warning | MOVE of an item to itself |
+| [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
+| [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
+| [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
+| [PLB-I004](#plb-i004-procopt-forbids-call) | procopt-forbids-call | error | DL/I call that no PCB of the segment allows |
 | [PLB-J001](#plb-j001-dd-missing) | dd-missing | error | A file the step's programs open has no DD in the step |
 | [PLB-J002](#plb-j002-dd-unused) | dd-unused | note | DD is not a file of the step's programs |
 | [PLB-J003](#plb-j003-program-not-in-run) | program-not-in-run | note, off | Step runs a program that is not among those checked |
@@ -927,6 +931,61 @@ The `MOVE` does nothing; usually another item was meant, here
 `WS-CICS-RESP2-CD-D`. The rule compares names that stand alone: a
 receiver with qualification, subscripts, or reference modification is
 not compared, nor are names inside a receiver's subscripts.
+
+## PLB-I001 pcb-dbd-unknown
+
+The I rules check IMS definitions, given to `check` as `*.dbd` and
+`*.psb` files, and the DL/I calls of the programs against them (see
+[IMS](ims.md)).
+
+A `PCB` of a PSB that names a database (`DBDNAME`) that no DBD of the run
+defines, when the run has DBDs:
+
+```
+BADPCB   PCB   TYPE=DB,DBDNAME=NOSUCHDB,PROCOPT=G
+```
+
+The PSB generation (PSBGEN) fails, or the PSB was generated against a
+DBD that is no longer among the sources.
+
+## PLB-I002 senseg-not-in-dbd
+
+A sensitive segment (`SENSEG`) that its PCB's database does not have, or
+that has another parent in it:
+
+```
+         SENSEG NAME=ORDNOTE,PARENT=ORDLINE
+```
+
+when `ORDNOTE` is a child of `ORDER` in the DBD. The PSB no longer
+matches the database it was written for.
+
+## PLB-I003 segment-not-sensitive
+
+An `EXEC DLI` call that names a segment (`SEGMENT(name)`) that none of
+the program's PSBs is sensitive to:
+
+```cobol
+    EXEC DLI GNP USING PCB(1) SEGMENT(ORDNOTE) INTO(NOTE-AREA) END-EXEC
+```
+
+IMS rejects the call (status code `AK` or `GE`). A program's PSB is the
+one it schedules (`EXEC DLI SCHD PSB(name)`, or `PSB((item))` with an
+item whose `VALUE` names it) or the one the JCL step that runs it gives
+(`EXEC PGM=DFSRRC00,PARM='BMP,program,psb'`). Calls through `CALL
+'CBLTDLI'` are not checked.
+
+## PLB-I004 procopt-forbids-call
+
+An `EXEC DLI` call that no PCB of the program's PSBs allows for the
+segment: `ISRT` needs `PROCOPT` with `I`, `REPL` with `R`, `DLET` with `D`,
+and the get calls with `G`; `A` allows all of them.
+
+```cobol
+    EXEC DLI REPL USING PCB(1) SEGMENT(ORDER) FROM(ORDER-AREA) END-EXEC
+```
+
+when the PCB has `PROCOPT=G`. IMS rejects the call (status code `AM`).
 
 ## PLB-J001 dd-missing
 

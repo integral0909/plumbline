@@ -314,6 +314,29 @@ check "inventory lists jobs"                0 '^  step NIGHTLY runs procedure PA
     -- inventory $ax
 check "inventory lists transactions"        0 '^transaction PAYM runs PAYMENU$' \
     -- inventory $ax
+vx="tests/fixtures/cics/ordmenu.cob tests/golden/csd/orders.csd tests/fixtures/bms/screens.cob tests/fixtures/bms/custmnt.cob tests/fixtures/bms/screens.bms tests/golden/rules/q001-sql-tables.cob tests/golden/jcl/starters.jcl tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/paylog.cob"
+check "inventory lists CICS resources"    0 '^  uses file ORDHIST (READ)$' -- inventory $vx
+check "inventory lists a program's maps"  0 '^  map HELPMAP of mapset SCRSET$' -- inventory $vx
+check "inventory lists a program's tables" 0 '^  table PAY.LEAVERS select delete$' -- inventory $vx
+check "inventory lists who uses a map"    0 '^  used by CUSTMNT$' -- inventory $vx
+check "inventory lists IMS and DB2 steps" 0 '^  step DB2STEP runs PAYDB2 through IKJEFT01$' -- inventory $vx
+n=$((n + 1))
+if "$bin" inventory --report json $vx | python3 -c '
+import json, sys
+doc = json.load(sys.stdin)
+programs = {p["name"]: p for p in doc["programs"]}
+assert programs["TABLES"]["tables"][0] == {"name": "PAY.EMPLOYEE", "uses": "declare select update"}
+assert {"map": "SCRMAP", "mapset": "SCRSET"} in programs["SCREENS"]["maps"]
+assert {"kind": "file", "name": "ORDHIST"} in programs["ORDMENU"]["resources"]
+assert programs["PAYLOG"]["calledBy"] == ["PAYUPD"]
+assert doc["transactions"][0] == {"name": "ORD1", "program": "ORDMENU"}
+assert doc["jobs"][0]["steps"][1]["runs"] == "PAYDB2"
+' 2>/dev/null; then
+    echo "ok $n - inventory json holds each part"
+else
+    failed=$((failed + 1))
+    echo "not ok $n - inventory json holds each part"
+fi
 check "inventory refuses sarif"             2 "invalid --report format 'sarif' (expected text or json)" \
     -- inventory --report sarif $jx/payupd.cob
 n=$((n + 1))
@@ -328,6 +351,21 @@ check "dump ims lists segments and PCBs"   0 'orders.psb:8:   pcb type DB dbd OR
     -- dump ims tests/golden/ims/orders.psb
 check "dump ims of a missing file"         2 'cannot read tests/golden/ims/missing.dbd' \
     -- dump ims tests/golden/ims/missing.dbd
+ix="tests/fixtures/ims/ordupd.cob tests/golden/ims/orderdb.dbd tests/golden/ims/orders.psb tests/fixtures/ims/bad.psb"
+check "a PCB for an unknown database"     1 'bad.psb:3:1: error: PCB names database NOSUCHDB, which no DBD of the run defines \[PLB-I001\]' \
+    -- check --no-config $ix
+check "a sensitive segment the database lacks" 1 'bad.psb:7:1: error: sensitive segment ORDITEM is not a segment of database ORDERDB \[PLB-I002\]' \
+    -- check --no-config $ix
+check "a sensitive segment under another parent" 1 'bad.psb:8:1: error: sensitive segment ORDNOTE has parent ORDLINE, but its parent in database ORDERDB is ORDER' \
+    -- check --no-config $ix
+check "a DL/I call on a segment the PSB lacks" 1 'ordupd.cob:16:39: error: EXEC DLI GNP names segment ORDNOTE, which PSB ORDREAD is not sensitive to \[PLB-I003\]' \
+    -- check --no-config $ix
+check "a DL/I call PROCOPT does not allow" 1 'ordupd.cob:15:40: error: EXEC DLI REPL on segment ORDER, but no PCB of PSB ORDREAD for it has PROCOPT R or A \[PLB-I004\]' \
+    -- check --no-config $ix
+check_absent "DL/I calls the PSB allows"  'ordupd.cob:1[34]:[0-9]*: error' \
+    -- check --no-config $ix
+check "dump calls lists DL/I calls"       0 '^dli SCHD psb ORDREAD tests/fixtures/ims/ordupd.cob:12:24 by ORDUPD$' \
+    -- dump calls tests/fixtures/ims/ordupd.cob
 check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
 check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
     -- rules --no-config --enable evaluate-without-other

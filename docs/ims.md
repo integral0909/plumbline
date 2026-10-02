@@ -40,3 +40,15 @@ column 1, the macro, and operands, continued by a character in column
 be positional (`SENSEG name,parent`), and the database of a `PCB` may be
 positional after `TYPE=DB`. A PSB that `PSBGEN` does not name takes the
 name of its file.
+
+## Checking
+
+Give `check` the DBDs and PSBs (`*.dbd`, `*.psb`, in either case) with
+the programs and their JCL, and they are checked against each other:
+PCBs against the databases
+([PLB-I001](rules.md#plb-i001-pcb-dbd-unknown),
+[PLB-I002](rules.md#plb-i002-senseg-not-in-dbd)), and the programs'
+`EXEC DLI` calls against their PSBs
+([PLB-I003](rules.md#plb-i003-segment-not-sensitive),
+[PLB-I004](rules.md#plb-i004-procopt-forbids-call)). `dump calls` lists
+each program's DL/I calls, and `dump jcl` the PSB of each IMS step.
