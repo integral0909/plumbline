@@ -98,6 +98,7 @@ class LanguageServerTest(unittest.TestCase):
         self.assertIn("codeLensProvider", self.capabilities)
         self.assertIn("documentLinkProvider", self.capabilities)
         self.assertTrue(self.capabilities["inlayHintProvider"])
+        self.assertIn("completionProvider", self.capabilities)
         self.assertTrue(self.capabilities["callHierarchyProvider"])
         legend = self.capabilities["semanticTokensProvider"]["legend"]
         self.assertIn("variable", legend["tokenTypes"])
@@ -381,6 +382,20 @@ class LanguageServerTest(unittest.TestCase):
         self.assertEqual(hints[(6, 29)], "3 bytes at offset 8")
         # Condition names have none.
         self.assertFalse(any(line == 7 for line, _ in hints))
+
+    def test_completion_offers_names_once(self):
+        reply = self.server.request("textDocument/completion", {
+            "textDocument": {"uri": URI},
+            "position": self.position("PERFORM INIT", len("PERFORM "))})
+        items = reply["result"]["items"]
+        labels = [item["label"] for item in items]
+        self.assertEqual(len(labels), len(set(labels)))
+        kinds = {item["label"]: item["kind"] for item in items}
+        self.assertEqual(kinds["ERRORS"], 6)
+        self.assertEqual(kinds["STEP-EXIT"], 3)
+        details = {item["label"]: item["detail"] for item in items}
+        self.assertEqual(details["COUNTER"], "PIC 9(4), 4 bytes")
+        self.assertEqual(details["NEVER-CALLED"], "paragraph")
 
     def code_actions(self, line):
         return self.server.request("textDocument/codeAction", {

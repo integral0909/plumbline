@@ -229,6 +229,17 @@ COPY "plbinput.cpy".
 01  WS-LSP-NEW-LEN          PIC 9(9) COMP-5.
 01  WS-LSP-OLD-NAME         PIC X(31).
 01  WS-LSP-UPPER-NAME       PIC X(31).
+*> textDocument/completion: the names offered so far, by hash.
+78  CS-BUCKETS                  VALUE 4093.
+78  CS-MAX                      VALUE 120000.
+01  WS-CS-HEAD              PIC 9(9) COMP-5 OCCURS CS-BUCKETS TIMES.
+01  WS-CS-COUNT             PIC 9(9) COMP-5.
+01  WS-CS-ENTRY             OCCURS CS-MAX TIMES.
+    05  WS-CS-NAME          PIC X(31).
+    05  WS-CS-NEXT          PIC 9(9) COMP-5.
+01  WS-LSP-SEEN-NAME        PIC X(31).
+01  WS-LSP-SEEN             PIC X.
+01  WS-LSP-HASH             PIC 9(9) COMP-5.
 *> textDocument/codeLens: PERFORM and GO TO statements naming a unit.
 01  WS-LSP-PERFORMS         PIC 9(9) COMP-5.
 01  WS-LSP-GOTOS            PIC 9(9) COMP-5.
@@ -1264,6 +1275,8 @@ LSP-MESSAGE.
             PERFORM LSP-DOCUMENT-LINKS
         WHEN "textDocument/inlayHint"
             PERFORM LSP-INLAY-HINTS
+        WHEN "textDocument/completion"
+            PERFORM LSP-COMPLETION
         WHEN "textDocument/prepareRename"
             PERFORM LSP-PREPARE-RENAME
         WHEN "textDocument/rename"
@@ -1302,6 +1315,8 @@ LSP-INITIALIZE.
            '"documentLinkProvider":{"resolveProvider":false},'
            DELIMITED BY SIZE
            '"inlayHintProvider":true,' DELIMITED BY SIZE
+           '"completionProvider":{"triggerCharacters":["-"]},'
+           DELIMITED BY SIZE
            '"callHierarchyProvider":true,' DELIMITED BY SIZE
            '"semanticTokensProvider":{"legend":{"tokenTypes":'
            DELIMITED BY SIZE
@@ -2333,6 +2348,156 @@ LSP-APPEND-FOLD.
     COMPUTE WS-NUM = SL-LINE-NO(TK-SRC-LINE(WS-TOK)) - 1
     PERFORM LSP-APPEND-NUM
     STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
+*> textDocument/completion: the names of the data items (also from
+*> copybooks), paragraphs, and sections of the document, each once.
+*> The editor filters them by what has been typed. A data item's
+*> detail is its picture (or group), usage, and size; a procedure's,
+*> paragraph or section.
+LSP-COMPLETION.
+    PERFORM LSP-FIND-DOCUMENT
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":{"isIncomplete":false,"items":[' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-DOC-INDEX > 0
+        PERFORM LSP-ANALYZE
+        MOVE "Y" TO WS-LSP-FIRST
+        MOVE 0 TO WS-CS-COUNT
+        PERFORM VARYING WS-K FROM 1 BY 1 UNTIL WS-K > CS-BUCKETS
+            MOVE 0 TO WS-CS-HEAD(WS-K)
+        END-PERFORM
+        PERFORM VARYING WS-S FROM 1 BY 1 UNTIL WS-S > SY-COUNT
+            IF SY-NAME-TOKEN(WS-S) > 0 AND SY-NAME(WS-S) NOT = "FILLER"
+               AND WS-LSP-PTR < LSP-SIZE - 1024
+                PERFORM LSP-COMPLETION-SYMBOL
+            END-IF
+        END-PERFORM
+        PERFORM VARYING WS-U FROM 1 BY 1 UNTIL WS-U > FU-COUNT
+            IF (FU-KIND(WS-U) = "P" OR FU-KIND(WS-U) = "S")
+               AND WS-LSP-PTR < LSP-SIZE - 1024
+                PERFORM LSP-COMPLETION-UNIT
+            END-IF
+        END-PERFORM
+    END-IF
+    STRING "]}}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> Data item WS-S, unless an item of the same name came before.
+LSP-COMPLETION-SYMBOL.
+    MOVE SY-NAME(WS-S) TO WS-LSP-SEEN-NAME
+    PERFORM LSP-COMPLETION-SEEN
+    IF WS-LSP-SEEN = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM LSP-COMPLETION-SEPARATOR
+    STRING '{"label":"' DELIMITED BY SIZE
+           SY-NAME(WS-S) DELIMITED BY SPACE
+           '","kind":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    *> 21 Constant for 78 and condition names, else 6 Variable.
+    IF SY-LEVEL(WS-S) = 88 OR SY-LEVEL(WS-S) = 78
+        STRING '21' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    ELSE
+        STRING '6' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    STRING ',"detail":"' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    *> PIC x [usage], or group, and the size.
+    MOVE SPACES TO WS-LSP-PIC
+    MOVE ND-FIRST(SY-NODE(WS-S)) TO WS-NODE
+    PERFORM UNTIL WS-NODE = 0
+        IF ND-KIND(WS-NODE) = "CLAU" AND ND-DETAIL(WS-NODE) = "PICTURE"
+           AND ND-NAME(WS-NODE) > 0
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(WS-NODE)
+                WS-LSP-PIC WS-TOKEN-LEN
+        END-IF
+        MOVE ND-NEXT(WS-NODE) TO WS-NODE
+    END-PERFORM
+    EVALUATE TRUE
+        WHEN WS-LSP-PIC NOT = SPACES
+            STRING "PIC " DELIMITED BY SIZE
+                   WS-LSP-PIC DELIMITED BY SPACE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        WHEN SY-CATEGORY(WS-S) = "G"
+            STRING "group" DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        WHEN SY-LEVEL(WS-S) = 88
+            STRING "condition" DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        WHEN OTHER
+            MOVE SY-LEVEL(WS-S) TO WS-NUM
+            STRING "level " DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+            PERFORM LSP-APPEND-NUM
+    END-EVALUATE
+    IF SY-USAGE(WS-S) NOT = SPACES
+        STRING " " DELIMITED BY SIZE
+               SY-USAGE(WS-S) DELIMITED BY SPACE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    IF SY-SIZE(WS-S) > 0 AND SY-LEVEL(WS-S) NOT = 88
+        STRING ", " DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        MOVE SY-SIZE(WS-S) TO WS-NUM
+        PERFORM LSP-APPEND-NUM
+        STRING " bytes" DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    STRING '"}' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
+*> Paragraph or section WS-U, unless a name like it came before.
+LSP-COMPLETION-UNIT.
+    MOVE FU-NAME(WS-U) TO WS-LSP-SEEN-NAME
+    PERFORM LSP-COMPLETION-SEEN
+    IF WS-LSP-SEEN = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM LSP-COMPLETION-SEPARATOR
+    STRING '{"label":"' DELIMITED BY SIZE
+           FU-NAME(WS-U) DELIMITED BY SPACE
+           '","kind":3,"detail":"' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF FU-KIND(WS-U) = "S"
+        STRING 'section"}' DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    ELSE
+        STRING 'paragraph"}' DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF.
+
+*> WS-LSP-SEEN = "Y" when WS-LSP-SEEN-NAME was offered already; else
+*> it is noted. The names offered are kept in buckets by a hash of the
+*> name.
+LSP-COMPLETION-SEEN.
+    MOVE "N" TO WS-LSP-SEEN
+    MOVE 0 TO WS-LSP-HASH
+    PERFORM VARYING WS-K FROM 1 BY 1 UNTIL WS-K > 31
+        IF WS-LSP-SEEN-NAME(WS-K:1) = SPACE
+            EXIT PERFORM
+        END-IF
+        COMPUTE WS-LSP-HASH = FUNCTION MOD(WS-LSP-HASH * 31
+            + FUNCTION ORD(WS-LSP-SEEN-NAME(WS-K:1)), CS-BUCKETS)
+    END-PERFORM
+    ADD 1 TO WS-LSP-HASH
+    MOVE WS-CS-HEAD(WS-LSP-HASH) TO WS-K
+    PERFORM UNTIL WS-K = 0
+        IF WS-CS-NAME(WS-K) = WS-LSP-SEEN-NAME
+            MOVE "Y" TO WS-LSP-SEEN
+            EXIT PARAGRAPH
+        END-IF
+        MOVE WS-CS-NEXT(WS-K) TO WS-K
+    END-PERFORM
+    IF WS-CS-COUNT < CS-MAX
+        ADD 1 TO WS-CS-COUNT
+        MOVE WS-LSP-SEEN-NAME TO WS-CS-NAME(WS-CS-COUNT)
+        MOVE WS-CS-HEAD(WS-LSP-HASH) TO WS-CS-NEXT(WS-CS-COUNT)
+        MOVE WS-CS-COUNT TO WS-CS-HEAD(WS-LSP-HASH)
+    END-IF.
+
+LSP-COMPLETION-SEPARATOR.
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST.
 
 *> textDocument/inlayHint: after each data description entry of the
 *> document, the item's size and offset in its record, as hover shows
