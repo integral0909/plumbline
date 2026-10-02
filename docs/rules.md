@@ -58,6 +58,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C045](#plb-c045-alnum-compared-to-number) | alnum-compared-to-number | warning | Alphanumeric item compared with a shorter numeric literal |
 | [PLB-C046](#plb-c046-overlapping-move) | overlapping-move | warning | MOVE between items that share storage |
 | [PLB-C047](#plb-c047-foreign-index) | foreign-index | warning | Index of one table subscripts a table with entries of another length |
+| [PLB-C048](#plb-c048-sort-procedure-no-record) | sort-procedure-no-record | warning | SORT procedure never RELEASEs or RETURNs a record |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1292,6 +1293,31 @@ subscript.
 Each subscript is matched with the table of its dimension, outermost
 first. A relative index (`RATE-IX + 1`) counts; subscripts that are
 expressions or data items are not checked.
+
+## PLB-C048 sort-procedure-no-record
+
+The `INPUT PROCEDURE` of a `SORT` that never `RELEASE`s a record, or
+the `OUTPUT PROCEDURE` of a `SORT` or `MERGE` that never `RETURN`s one:
+
+```cobol
+    SORT SORT-FILE ON ASCENDING KEY SORT-KEY
+        USING IN-A
+        OUTPUT PROCEDURE IS COUNT-ONLY      *> reported
+COUNT-ONLY SECTION.
+COUNT-START.
+    DISPLAY "SORTED".
+```
+
+An input procedure that releases nothing gives the sort an empty file,
+and the program goes on as if it had sorted its input; an output
+procedure that returns nothing drops every sorted record. Either is
+usually a procedure that was renamed, or a `RELEASE` or `RETURN` moved
+into a paragraph the procedure no longer reaches.
+
+The procedure is the range it names, with its `THRU` end, and every
+paragraph and section that range performs or goes to, and so on. A
+procedure that reaches a `GO TO` or `PERFORM` whose target could not be
+resolved is not reported.
 
 ## PLB-I001 pcb-dbd-unknown
 
