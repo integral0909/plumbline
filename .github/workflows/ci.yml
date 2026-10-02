@@ -68,6 +68,10 @@ jobs:
   macos:
     name: macOS (Homebrew GnuCOBOL)
     runs-on: macos-15
+    # macOS minutes cost ten times as much as Linux ones in a private
+    # repository: pull requests run the Linux jobs, and macOS runs when
+    # main changes.
+    if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: brew install gnucobol
