@@ -349,6 +349,7 @@ PROCEDURE DIVISION USING LK-TEXT LK-FORMAT.
         WHEN ">>SET"
             PERFORM VARYING LS-I FROM 2 BY 1 UNTIL LS-I >= LS-COUNT
                 IF LS-TOKEN(LS-I) = "SOURCEFORMAT"
+                    *> plumbline: ignore varying-control-changed -- steps past the tokens just read
                     ADD 1 TO LS-I
                     PERFORM DECODE-FORMAT
                     EXIT PERFORM

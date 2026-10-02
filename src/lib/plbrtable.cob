@@ -147,9 +147,11 @@ FIRST-INDEX.
             UNTIL LS-T >= ND-TOK-LAST(SY-NODE(LS-TABLE))
         CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
         IF FUNCTION UPPER-CASE(LS-WORD) = "INDEXED"
+            *> plumbline: ignore varying-control-changed -- steps past the tokens just read
             ADD 1 TO LS-T
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
             IF FUNCTION UPPER-CASE(LS-WORD) = "BY"
+                *> plumbline: ignore varying-control-changed -- steps past the tokens just read
                 ADD 1 TO LS-T
             END-IF
             IF LS-T <= ND-TOK-LAST(SY-NODE(LS-TABLE))

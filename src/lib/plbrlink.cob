@@ -186,9 +186,11 @@ MARK-ADDRESS-OF.
                 CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-WORD
                     LS-LEN
                 IF LS-WORD = "OF"
+                    *> plumbline: ignore varying-control-changed -- steps past the tokens just read
                     ADD 2 TO LS-T
                     PERFORM REFERENCE-AT-T
                     PERFORM MARK-REFERENCE
+                    *> plumbline: ignore varying-control-changed -- steps past the tokens just read
                     SUBTRACT 2 FROM LS-T
                 END-IF
             END-IF

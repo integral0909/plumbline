@@ -653,10 +653,12 @@ WHENEVER-TARGET.
                 ELSE
                     MOVE "GO" TO LS-DETAIL
                 END-IF
+                *> plumbline: ignore varying-control-changed -- steps past the tokens just read
                 ADD 1 TO LS-NEXT
                 IF LS-NEXT-TEXT = "GO"
                     PERFORM PREVIOUS-WORD
                     IF LS-NEXT-TEXT = "TO"
+                        *> plumbline: ignore varying-control-changed -- steps past the tokens just read
                         ADD 1 TO LS-NEXT
                     END-IF
                 END-IF
