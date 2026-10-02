@@ -217,6 +217,8 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- On a file system that ignores case (macOS), a copybook named in
+  upper case was reported under its lower-case spelling.
 - PLB-Q001 took the cursor of `FETCH ... FROM cursor` for a table.
 - The JCL reader kept only the first data set of a concatenation; the
   `DD` statements without a name that follow it are now read too.

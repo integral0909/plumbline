@@ -571,6 +571,8 @@ check "impact of a data item lists calls with it" 0 '^  used at tests/fixtures/i
     -- impact CUST-ID -I $ix $ix/custlook.cob $ix/billing.cob
 check "impact of an unknown name"         1 'no copybook, program, data item, or data set named NOPE in the input' \
     -- impact NOPE -I $ix $ix/menu.cob
+check "copybook paths keep the file's own case" 0 '^copybook tests/fixtures/case/UPPERBK.cpy$' \
+    -- impact UPPERBK tests/fixtures/case/usecase.cob
 check "impact needs a name"               2 'impact needs a copybook or program name' -- impact -I $ix
 check "graph of calls"                    0 '^  "MENU" -> "BILLING";$' \
     -- graph --kind calls -I $ix $ix/custlook.cob $ix/billing.cob $ix/menu.cob
