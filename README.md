@@ -239,7 +239,9 @@ Kind: **batch**. Source: `app/cbl/CBACT01C.cbl:23`.
 ```
 
 A nested program gets a page of its own, which names the program
-containing it and the calls into and out of it.
+containing it and the calls into and out of it. With more than one
+program, the output starts with an index of them, linked to their
+pages.
 
 ## Editors
 

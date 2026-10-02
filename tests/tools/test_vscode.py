@@ -34,6 +34,10 @@ class ExtensionTest(unittest.TestCase):
         self.assertIn('["lsp", ...settings.get("arguments", [])]',
                       self.source)
 
+    def test_documents_with_plumbline_doc(self):
+        self.assertIn('const args = ["doc", ...settings.get("arguments", [])',
+                      self.source)
+
     def test_version_matches_the_program(self):
         with open(os.path.join(EXTENSION, "..", "..", "copy",
                                "plbver.cpy")) as f:

@@ -409,6 +409,10 @@ check "doc lists the data sets of a batch program" 0 '^| PAYROLL.NIGHTLY | UPD.P
     -- doc tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/paylog.cob tests/fixtures/jcl/payroll.jcl tests/fixtures/jcl/payproc.prc
 check_absent "doc has no data sets without JCL" '^## Data sets$' \
     -- doc tests/fixtures/jcl/payupd.cob
+check "doc indexes several programs"      0 '^| \[INNER-A\](#inner-a) | nested | `tests/golden/calls/scopes.cob:23` |$' \
+    -- doc $dx/calls/scopes.cob
+check_absent "doc has no index for one program" '^# Programs$' \
+    -- doc $dx/metrics/complexity.cob
 check "doc refuses --report"              2 'doc writes Markdown only' \
     -- doc --report json $dx/metrics/complexity.cob
 n=$((n + 1))

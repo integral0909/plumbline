@@ -43,6 +43,10 @@
       {
         "command": "plumbline.restart",
         "title": "Plumbline: Restart the language server"
+      },
+      {
+        "command": "plumbline.document",
+        "title": "Plumbline: Document this program"
       }
     ]
   },

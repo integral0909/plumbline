@@ -64,6 +64,8 @@ COPY "plbbms.cpy".
 01  LK-FORMAT               PIC X(5).
 *> 0 for the whole inventory; a program of the call graph for that
 *> program only (plumbline doc), as Markdown when FORMAT is "md".
+*> FORMAT "mdidx" writes the index of plumbline doc: a Markdown table
+*> of the programs, each linked to its page.
 01  LK-ONLY                 PIC 9(9) COMP-5.
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-CALL-GRAPH PLB-JCL PLB-CSD
         PLB-BMS LK-FORMAT LK-ONLY.
@@ -81,12 +83,45 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-CALL-GRAPH PLB-JCL PLB-CSD
             ELSE
                 PERFORM TEXT-PROGRAM
             END-IF
+        WHEN LK-FORMAT = "mdidx"
+            PERFORM MD-INDEX
         WHEN LK-FORMAT = "json"
             PERFORM JSON-INVENTORY
         WHEN OTHER
             PERFORM TEXT-INVENTORY
     END-EVALUATE
     GOBACK.
+
+*> Markdown index ---------------------------------------------------
+
+*> | [NAME](#name) | kind | `path:line` |, for each program, nested
+*> ones too (kind "nested").
+MD-INDEX.
+    DISPLAY "| Program | Kind | Source |"
+    DISPLAY "|---|---|---|"
+    PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+        IF CP-KIND(LS-P) = "P"
+            IF CP-PARENT(LS-P) = 0
+                PERFORM PROGRAM-KIND
+            ELSE
+                MOVE "nested" TO LS-KIND
+            END-IF
+            PERFORM START-OUT
+            MOVE FUNCTION LOWER-CASE(CP-NAME(LS-P)) TO LS-NAME
+            STRING "| [" DELIMITED BY SIZE
+                   CP-NAME(LS-P) DELIMITED BY SPACE
+                   "](#" DELIMITED BY SIZE
+                   LS-NAME DELIMITED BY SPACE
+                   ") | " DELIMITED BY SIZE
+                   LS-KIND DELIMITED BY SPACE
+                   " | `" DELIMITED BY SIZE
+                INTO LS-OUT WITH POINTER LS-PTR
+            PERFORM APPEND-PROGRAM-PLACE
+            STRING "` |" DELIMITED BY SIZE
+                INTO LS-OUT WITH POINTER LS-PTR
+            PERFORM PRINT-OUT
+        END-IF
+    END-PERFORM.
 
 *> Text -------------------------------------------------------------
 
