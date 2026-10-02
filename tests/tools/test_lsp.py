@@ -434,6 +434,23 @@ class LanguageServerTest(unittest.TestCase):
         self.assertIn("PIC", value)
         self.assertIn("bytes", value)
 
+    def test_hover_on_a_paragraph(self):
+        reply = self.server.request("textDocument/hover", {
+            "textDocument": {"uri": URI},
+            "position": self.position("PERFORM INIT", len("PERFORM "))})
+        value = reply["result"]["contents"]["value"]
+        self.assertIn("paragraph INIT", value)
+        self.assertIn("statements, complexity 1", value)
+        self.assertIn("1 PERFORM, 0 GO TO.", value)
+        self.assertNotIn("never runs", value)
+
+    def test_hover_on_a_paragraph_that_never_runs(self):
+        reply = self.server.request("textDocument/hover", {
+            "textDocument": {"uri": URI},
+            "position": self.position("NEVER-CALLED.")})
+        value = reply["result"]["contents"]["value"]
+        self.assertIn("0 PERFORM, 0 GO TO. It never runs.", value)
+
     def test_hover_on_nothing(self):
         reply = self.server.request("textDocument/hover", {
             "textDocument": {"uri": URI},
