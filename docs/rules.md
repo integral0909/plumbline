@@ -12,8 +12,10 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C004](#plb-c004-next-sentence-in-scope) | next-sentence-in-scope | warning | NEXT SENTENCE inside a scope ended by an END- terminator |
 | [PLB-C005](#plb-c005-perform-thru-backwards) | perform-thru-backwards | error | PERFORM THRU range ends before it starts |
 | [PLB-C006](#plb-c006-recursive-perform) | recursive-perform | error | Paragraph performs a range that contains itself |
+| [PLB-C007](#plb-c007-redefines-larger) | redefines-larger | error | REDEFINES item is larger than the item it redefines |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
+| [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
 
 Categories: **C** correctness, **M** maintainability, **P** portability,
 **S** security.
@@ -111,6 +113,21 @@ recursive. The standard leaves the behavior undefined, and real
 implementations overwrite the return point, so the program loops or
 returns to the wrong place.
 
+## PLB-C007 redefines-larger
+
+An item below level 01 that is larger than the item it redefines:
+
+```cobol
+05  CODE-NUM        PIC 9(4).
+05  CODE-TEXT REDEFINES CODE-NUM PIC X(6).     *> reported: 6 > 4
+```
+
+The extra bytes overlay whatever follows the redefined item, so writing
+to `CODE-TEXT` silently changes the next field. The standard forbids it;
+some compilers accept it with a warning. Sizes come from the symbol
+table, so usages and `OCCURS` are taken into account. Level-01 records
+may be redefined by larger records and are not reported.
+
 ## PLB-M001 go-to
 
 Every `GO TO` statement, reported as a note. `GO TO` makes the flow of
@@ -126,3 +143,28 @@ by convention (for example `GO TO xxx-EXIT`).
 source no longer says where control goes. It was declared obsolete and
 then removed from the standard in 2002. Replace the altered `GO TO` with
 a flag and an `EVALUATE` or `IF`.
+
+## PLB-M003 unused-data-item
+
+A working-storage or local-storage item that the program never refers
+to. Unused items are clutter at best. At worst they are a sign that code
+meant to use them was lost.
+
+An item counts as used when:
+
+- its name, or the name of one of its condition names (level 88), appears
+  in the procedure division;
+- it is the object of an `OCCURS ... DEPENDING ON`;
+- one of its members is used (for a group), or the group it belongs to is
+  used by name (for a member);
+- an item that `REDEFINES` it is used. This is the common idiom of a table
+  of `VALUE` clauses read through a redefinition.
+
+Only the outermost unused item is reported: an unused group is one
+finding, not one per member. Items declared in copybooks are not
+reported, because programs commonly use part of a shared layout. Neither
+are `GLOBAL` or `EXTERNAL` items, which other programs may use, nor
+linkage items, constants (level 78), and `RENAMES` (level 66).
+
+References are matched by name within the program, so an item is treated
+as used if any item of the same name is referenced.

@@ -1,0 +1,5 @@
+tests/golden/rules/m003-unused.cob:5:5: warning: UNUSED-FIELD is never referenced [PLB-M003]
+tests/golden/rules/m003-unused.cob:8:9: warning: UNUSED-MEMBER is never referenced [PLB-M003]
+tests/golden/rules/m003-unused.cob:9:9: warning: UNUSED-GROUP is never referenced [PLB-M003]
+tests/golden/rules/m003-unused.cob:27:5: warning: UNUSED-VIEW is never referenced [PLB-M003]
+tests/golden/rules/m003-unused.cob:30:5: warning: UNUSED-LOCAL is never referenced [PLB-M003]

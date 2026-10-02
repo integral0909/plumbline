@@ -50,5 +50,6 @@ uses [Semantic Versioning](https://semver.org/).
 - Rules PLB-C002 perform-and-fall-through, PLB-C003 fall-off-end,
   PLB-C004 next-sentence-in-scope, PLB-C005 perform-thru-backwards,
   PLB-C006 recursive-perform, PLB-M001 go-to, and PLB-M002 alter.
+- Rules PLB-C007 redefines-larger and PLB-M003 unused-data-item.
 - Level-78 constants resolved in PICTURE and OCCURS; identical
   diagnostics reported once.

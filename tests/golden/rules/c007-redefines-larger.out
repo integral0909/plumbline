@@ -1,0 +1,1 @@
+tests/golden/rules/c007-redefines-larger.cob:6:9: error: CODE-TEXT (6 bytes) is larger than CODE-NUM (4 bytes), which it redefines [PLB-C007]

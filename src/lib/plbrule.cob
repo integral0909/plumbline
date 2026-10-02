@@ -29,12 +29,18 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C006"
         "recursive-perform" "E"
         "Paragraph performs a range that contains itself"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C007"
+        "redefines-larger" "E"
+        "REDEFINES item is larger than the item it redefines"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M001"
         "go-to" "N"
         "GO TO statement"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M002"
         "alter" "W"
         "ALTER statement (obsolete)"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M003"
+        "unused-data-item" "W"
+        "Data item is never referenced"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
