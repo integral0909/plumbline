@@ -82,6 +82,33 @@ PERFORM, a conditional phrase such as AT END, AND and OR in conditions,
 and the targets of GO TO DEPENDING ON). `--report json` and
 `--report csv` give the same figures for other tools and spreadsheets.
 
+## Graphs and impact
+
+`plumbline graph` draws how a program's paragraphs perform and jump to
+each other, which programs call which, or which files include which
+copybooks, as Graphviz DOT (or JSON with `--report json`):
+
+```console
+$ plumbline graph src/payroll.cbl | dot -Tsvg -o payroll.svg
+$ plumbline graph --kind calls src/*.cbl | dot -Tsvg -o calls.svg
+$ plumbline graph --kind copybooks -I copybooks src/*.cbl > copies.dot
+```
+
+`plumbline impact` answers the question before a change: what does it
+reach?
+
+```console
+$ plumbline impact CUSTREC -I copybooks src/*.cbl
+copybook copybooks/custrec.cpy
+  included by copybooks/custio.cpy directly
+  included by src/billing.cbl directly
+  included by src/custlook.cbl through copybooks/custio.cpy
+$ plumbline impact CUSTLOOK src/*.cbl
+program CUSTLOOK src/custlook.cbl:2
+  called by BILLING at src/billing.cbl:8 directly
+  called by MENU at src/menu.cbl:5 through BILLING
+```
+
 ## Configuration
 
 Settings that a project always uses go in `plumbline.conf` in the

@@ -339,6 +339,18 @@ Nesting is the number of statements a statement is inside, plus one.
 The text, JSON, and CSV writers are in the same file. The size rules
 PLB-M009 and PLB-M010 (`src/lib/plbrsize.cob`) use the same figures.
 
+### Graphs and impact
+
+`src/lib/plbgraph.cob`, with the include graph in `copy/plbigr.cpy`.
+
+The PERFORM graph comes from the procedure graph of each file. The call
+graph is the one the call rules use. The include graph collects, per
+run, an edge for each file that includes a copybook, from the
+preprocessor's inclusion table of each file. The writers produce DOT or
+JSON. `PLB-IMPACT` searches the include or call graph backwards from a
+copybook or program. For each file or program it reaches, it notes the
+one it was reached through.
+
 ### Rules and reporting
 
 `src/lib/plbrule.cob` (catalog and findings) and `src/lib/plbcheck.cob`

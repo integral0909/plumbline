@@ -1,0 +1,25 @@
+*> The PERFORM graph of a program with a section, a PERFORM THRU range,
+*> a GO TO, falling from one paragraph into the next, and a paragraph
+*> that nothing reaches (dashed).
+IDENTIFICATION DIVISION.
+PROGRAM-ID. ORDERS.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  ORDER-COUNT         PIC 9(4) VALUE 0.
+PROCEDURE DIVISION.
+MAIN SECTION.
+START-UP.
+    PERFORM READ-ORDERS THRU READ-EXIT
+    IF ORDER-COUNT = 0
+        GO TO FINISH
+    END-IF.
+REPORT-ORDERS.
+    DISPLAY ORDER-COUNT.
+FINISH.
+    STOP RUN.
+READ-ORDERS.
+    ADD 1 TO ORDER-COUNT.
+READ-EXIT.
+    EXIT.
+OLD-CODE.
+    DISPLAY "NOT USED".

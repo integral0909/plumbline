@@ -1,0 +1,20 @@
+digraph performs {
+  node [shape=box];
+  subgraph "cluster_ORDERS" {
+    label="ORDERS";
+    "ORDERS.MAIN" [label="MAIN", shape=box3d];
+    "ORDERS.START-UP" [label="START-UP"];
+    "ORDERS.REPORT-ORDERS" [label="REPORT-ORDERS"];
+    "ORDERS.FINISH" [label="FINISH"];
+    "ORDERS.READ-ORDERS" [label="READ-ORDERS"];
+    "ORDERS.READ-EXIT" [label="READ-EXIT"];
+    "ORDERS.OLD-CODE" [label="OLD-CODE", style=dashed];
+    "ORDERS.START-UP" -> "ORDERS.READ-ORDERS" [label="thru READ-EXIT"];
+    "ORDERS.START-UP" -> "ORDERS.FINISH" [style=dashed];
+    "ORDERS.MAIN" -> "ORDERS.START-UP" [color=gray];
+    "ORDERS.START-UP" -> "ORDERS.REPORT-ORDERS" [color=gray];
+    "ORDERS.REPORT-ORDERS" -> "ORDERS.FINISH" [color=gray];
+    "ORDERS.READ-ORDERS" -> "ORDERS.READ-EXIT" [color=gray];
+    "ORDERS.READ-EXIT" -> "ORDERS.OLD-CODE" [color=gray];
+  }
+}
