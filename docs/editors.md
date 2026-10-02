@@ -17,6 +17,7 @@ shows what it reports as you work.
 | Semantic highlighting | Reserved words, data names, paragraph and section names, literals, operators, and pictures, from the analysis; names where they are declared are marked as declarations |
 | Call hierarchy | For a paragraph or section, the paragraphs that PERFORM it or jump to it, and those it performs or jumps to |
 | Folding | Programs, divisions, sections, paragraphs, and statements with a body (`IF`, `EVALUATE`, inline `PERFORM`, ...) |
+| Completion | The names of the data items (also from copybooks), paragraphs, and sections of the file, each with its picture and size or its kind |
 | Inlay hints | After each data description entry, the item's size and its offset in the record ("3 bytes at offset 8") |
 | Document links | The name in each `COPY` statement, linked to the copybook it includes |
 | Code lens | Above each section and paragraph, how many `PERFORM` and `GO TO` statements name it, or "no PERFORM or GO TO" |
