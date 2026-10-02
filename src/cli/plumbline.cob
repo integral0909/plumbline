@@ -80,6 +80,7 @@ COPY "plbcsdc.cpy".
 COPY "plbcsd.cpy".
 COPY "plbimsc.cpy".
 COPY "plbims.cpy".
+COPY "plbduse.cpy".
 COPY "plbconf.cpy".
 COPY "plbmetrc.cpy".
 COPY "plbmetr.cpy".
@@ -699,6 +700,7 @@ METRICS-COMMAND.
 *> include graph and the call graph of the run.
 ANALYZE-RUN.
     CALL "PLB-CALL-INIT" USING PLB-CALL-GRAPH
+    MOVE 0 TO DU-COUNT DU-DROPPED
     MOVE 0 TO GI-COUNT
     MOVE SS-FILE-COUNT TO WS-MAIN-FILES GI-MAIN-FILES
     MOVE WS-MODE TO PO-FORMAT
@@ -717,6 +719,11 @@ ANALYZE-RUN.
                 PLB-INCLUDE-GRAPH
             CALL "PLB-CALL-COLLECT" USING PLB-SOURCE-SET PLB-TOKENS
                 PLB-AST PLB-SYMBOLS PLB-REFS PLB-CALL-GRAPH
+            IF WS-COMMAND = "impact"
+                CALL "PLB-DATA-IMPACT-COLLECT" USING PLB-SOURCE-SET
+                    PLB-TOKENS PLB-AST PLB-SYMBOLS PLB-REFS
+                    PLB-DATA-USES WS-IMPACT-NAME
+            END-IF
             IF WS-COMMAND = "graph" AND WS-GRAPH-KIND = "performs"
                 CALL "PLB-GRAPH-PERFORMS" USING PLB-SOURCE-SET
                     PLB-TOKENS PLB-AST PLB-FLOW WS-REPORT WS-FIRST
@@ -783,10 +790,15 @@ IMPACT-COMMAND.
     PERFORM ANALYZE-RUN
     CALL "PLB-IMPACT" USING PLB-SOURCE-SET PLB-CALL-GRAPH
         PLB-INCLUDE-GRAPH PLB-JCL WS-IMPACT-NAME WS-FOUND
+    CALL "PLB-DATA-IMPACT-PRINT" USING PLB-SOURCE-SET PLB-DATA-USES
+        WS-IMPACT-NAME
+    IF DU-COUNT > 0
+        MOVE "Y" TO WS-FOUND
+    END-IF
     PERFORM REPORT-DIAGNOSTICS
     IF WS-FOUND = "N"
         CALL "PLB-STR-LENGTH" USING WS-IMPACT-NAME WS-PATH-LEN
-        DISPLAY PLB-NAME ": no copybook or program named "
+        DISPLAY PLB-NAME ": no copybook, program, or data item named "
             WS-IMPACT-NAME(1:WS-PATH-LEN) " in the input" UPON SYSERR
         MOVE 1 TO WS-EXIT-CODE
     END-IF

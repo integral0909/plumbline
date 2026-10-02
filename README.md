@@ -128,7 +128,17 @@ $ plumbline impact CUSTLOOK src/*.cbl
 program CUSTLOOK src/custlook.cbl:2
   called by BILLING at src/billing.cbl:8 directly
   called by MENU at src/menu.cbl:5 through BILLING
+$ plumbline impact CUST-ID -I copybooks src/*.cbl
+data item CUST-ID
+  declared at copybooks/custrec.cpy:3:16 in CUSTLOOK, level 5
+  set at src/custlook.cbl:10:26 in CUSTLOOK, MOVE
+  ...
 ```
+
+For a program, the job steps that run it are listed too when the JCL is
+among the inputs. For a data item, every declaration of that name and
+every statement that reads it, sets it, or passes it on, in each
+program of the run.
 
 ## Formatting
 
