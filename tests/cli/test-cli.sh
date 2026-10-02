@@ -143,6 +143,41 @@ check "dump expanded with -IDIR"          0 'inclusion 1: tests/golden/pp/copy/p
     -- dump expanded -I$px/copy $px/basic.cob
 check "missing copybook is an error"      1 "copybook 'PAYREC' not found \[PP001\]" \
     -- dump expanded $px/basic.cob
+check "Markdown report lists input problems" 1 "^| error | \`tests/golden/pp/basic.cob:5:1\` | PP001 | copybook 'PAYREC' not found |\$" \
+    -- check --no-config --report md $px/basic.cob
+n=$((n + 1))
+if "$bin" check --no-config --report json $px/basic.cob | python3 -c '
+import json, sys
+first = json.load(sys.stdin)["diagnostics"][0]
+assert (first["code"], first["severity"], first["line"]) == ("PP001", "error", 5)
+'; then
+    echo "ok $n - json report lists input problems"
+else
+    echo "not ok $n - json report lists input problems"
+fi
+n=$((n + 1))
+if "$bin" check --no-config --report sarif $px/basic.cob | python3 -c '
+import json, sys
+note = json.load(sys.stdin)["runs"][0]["invocations"][0]["toolExecutionNotifications"][0]
+assert note["descriptor"]["id"] == "PP001" and note["level"] == "error"
+assert note["locations"][0]["physicalLocation"]["region"]["startLine"] == 5
+'; then
+    echo "ok $n - sarif report lists input problems"
+else
+    echo "not ok $n - sarif report lists input problems"
+fi
+many_dir=$(mktemp -d)
+python3 -c '
+import sys
+lines = ["IDENTIFICATION DIVISION.", "PROGRAM-ID. MANY.",
+         "PROCEDURE DIVISION.", "MAIN-LINE.", "    STOP RUN."]
+for i in range(1100):
+    lines += ["UNUSED-%d." % i, "    DISPLAY \"UNUSED\"."]
+open(sys.argv[1], "w").write("\n".join(lines) + "\n")
+' "$many_dir/many.cob"
+check "Markdown report stops after 1000 rows" 0 '^\.\.\. and 100 more\.$' \
+    -- check --no-config --format free --fail-on never --report md "$many_dir/many.cob"
+rm -rf "$many_dir"
 check "-I needs a directory"              2 '-I needs a directory' -- dump expanded $px/basic.cob -I
 ax=tests/golden/parser
 check "help lists dump ast"               0 'dump ast' -- --help
