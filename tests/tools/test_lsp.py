@@ -97,6 +97,7 @@ class LanguageServerTest(unittest.TestCase):
         self.assertTrue(self.capabilities["foldingRangeProvider"])
         self.assertIn("codeLensProvider", self.capabilities)
         self.assertIn("documentLinkProvider", self.capabilities)
+        self.assertTrue(self.capabilities["inlayHintProvider"])
         self.assertTrue(self.capabilities["callHierarchyProvider"])
         legend = self.capabilities["semanticTokensProvider"]["legend"]
         self.assertIn("variable", legend["tokenTypes"])
@@ -356,6 +357,30 @@ class LanguageServerTest(unittest.TestCase):
                              {"start": {"line": 4, "character": 9},
                               "end": {"line": 4, "character": 15}})
             self.assertTrue(link["target"].endswith("/totals.cpy"))
+
+    def test_inlay_hints_give_sizes_and_offsets(self):
+        text = ("IDENTIFICATION DIVISION.\nPROGRAM-ID. HINTS.\n"
+                "DATA DIVISION.\nWORKING-STORAGE SECTION.\n"
+                "01  ORDER-REC.\n"
+                "    05  ORDER-ID    PIC X(8).\n"
+                "    05  ORDER-QTY   PIC 9(3).\n"
+                "        88  NO-QTY  VALUE 0.\n"
+                "PROCEDURE DIVISION.\n    DISPLAY ORDER-REC\n    GOBACK.\n")
+        uri = "file:///tmp/plumbline-hints.cob"
+        self.server.notify("textDocument/didOpen", {"textDocument": {
+            "uri": uri, "languageId": "cobol", "version": 1,
+            "text": text}})
+        self.server.receive()
+        reply = self.server.request("textDocument/inlayHint", {
+            "textDocument": {"uri": uri},
+            "range": {"start": {"line": 0, "character": 0},
+                      "end": {"line": 11, "character": 0}}})
+        hints = {(h["position"]["line"], h["position"]["character"]):
+                 h["label"] for h in reply["result"]}
+        self.assertEqual(hints[(4, 14)], "11 bytes at offset 0")
+        self.assertEqual(hints[(6, 29)], "3 bytes at offset 8")
+        # Condition names have none.
+        self.assertFalse(any(line == 7 for line, _ in hints))
 
     def code_actions(self, line):
         return self.server.request("textDocument/codeAction", {

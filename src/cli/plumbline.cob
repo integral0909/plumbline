@@ -1262,6 +1262,8 @@ LSP-MESSAGE.
             PERFORM LSP-CODE-LENSES
         WHEN "textDocument/documentLink"
             PERFORM LSP-DOCUMENT-LINKS
+        WHEN "textDocument/inlayHint"
+            PERFORM LSP-INLAY-HINTS
         WHEN "textDocument/prepareRename"
             PERFORM LSP-PREPARE-RENAME
         WHEN "textDocument/rename"
@@ -1299,6 +1301,7 @@ LSP-INITIALIZE.
            DELIMITED BY SIZE
            '"documentLinkProvider":{"resolveProvider":false},'
            DELIMITED BY SIZE
+           '"inlayHintProvider":true,' DELIMITED BY SIZE
            '"callHierarchyProvider":true,' DELIMITED BY SIZE
            '"semanticTokensProvider":{"legend":{"tokenTypes":'
            DELIMITED BY SIZE
@@ -2330,6 +2333,76 @@ LSP-APPEND-FOLD.
     COMPUTE WS-NUM = SL-LINE-NO(TK-SRC-LINE(WS-TOK)) - 1
     PERFORM LSP-APPEND-NUM
     STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
+*> textDocument/inlayHint: after each data description entry of the
+*> document, the item's size and offset in its record, as hover shows
+*> them ("8 bytes at offset 17"; a table entry's size is that of one
+*> occurrence). Condition names, constants, and items of unknown size
+*> have none.
+LSP-INLAY-HINTS.
+    PERFORM LSP-FIND-DOCUMENT
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":[' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-DOC-INDEX > 0
+        PERFORM LSP-ANALYZE
+        MOVE "Y" TO WS-LSP-FIRST
+        PERFORM VARYING WS-S FROM 1 BY 1 UNTIL WS-S > SY-COUNT
+            IF SY-SIZE(WS-S) > 0 AND SY-NODE(WS-S) > 0
+               AND SY-LEVEL(WS-S) NOT = 88 AND SY-LEVEL(WS-S) NOT = 66
+               AND SY-LEVEL(WS-S) NOT = 78
+               AND WS-LSP-PTR < LSP-SIZE - 1024
+                PERFORM LSP-APPEND-INLAY
+            END-IF
+        END-PERFORM
+    END-IF
+    STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> The hint for item WS-S, after the period that ends its own entry
+*> (the node of a group, or of an item with condition names, also
+*> spans the entries under it), when that is in the document.
+LSP-APPEND-INLAY.
+    MOVE SY-NAME-TOKEN(WS-S) TO WS-TOK
+    IF WS-TOK = 0
+        MOVE ND-TOK-FIRST(SY-NODE(WS-S)) TO WS-TOK
+    END-IF
+    PERFORM UNTIL WS-TOK >= ND-TOK-LAST(SY-NODE(WS-S))
+                  OR TK-IS-PERIOD(WS-TOK)
+        ADD 1 TO WS-TOK
+    END-PERFORM
+    IF WS-TOK = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF TK-FILE-ID(WS-TOK) NOT = 1 OR TK-SRC-LINE(WS-TOK) = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST
+    STRING '{"position":{"line":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-NUM = SL-LINE-NO(TK-SRC-LINE(WS-TOK)) - 1
+    PERFORM LSP-APPEND-NUM
+    STRING ',"character":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-NUM = TK-COLUMN(WS-TOK) - 1 + TK-SPAN(WS-TOK)
+    PERFORM LSP-APPEND-NUM
+    STRING '},"label":"' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE SY-SIZE(WS-S) TO WS-NUM
+    PERFORM LSP-APPEND-NUM
+    IF SY-SIZE(WS-S) = 1
+        STRING " byte at offset " DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    ELSE
+        STRING " bytes at offset " DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE SY-OFFSET(WS-S) TO WS-NUM
+    PERFORM LSP-APPEND-NUM
+    STRING '","kind":1,"paddingLeft":true}' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
 
 *> textDocument/documentLink: the name of each copybook a COPY
 *> statement of the document includes, linked to the copybook. The name
