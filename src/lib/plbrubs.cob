@@ -29,8 +29,9 @@
 *>     point).
 *>   - What may be set on entry to a unit comes from the units that
 *>     fall into it, GO TO it, or PERFORM it, also to a fixed point.
-*>     A program starts with nothing set; declaratives are assumed to
-*>     start with everything set, and so does whatever follows a
+*>     A program starts with what its declarative procedures may set,
+*>     since they can run at almost any point; declaratives themselves
+*>     are assumed to start with everything set, and so does whatever follows a
 *>     PERFORM whose target is unknown.
 *>
 *> Programs with more than 4096 units, or files with more than 512
@@ -82,6 +83,8 @@ COPY "plbacc.cpy".
 01  WS-PENDING              PIC X(CD-MAX).
 01  WS-STATE                PIC X(CD-MAX).
 01  WS-ALL-SET              PIC X(CD-MAX).
+*> What the declarative procedures may set.
+01  WS-DECLARED             PIC X(CD-MAX).
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-S                    PIC 9(9) COMP-5.
@@ -227,6 +230,15 @@ BUILD-EVENTS.
             *> After the statement's own operands.
             MOVE ND-TOK-LAST(FE-STMT(LS-E)) TO EV-KEY(WS-EVENT-COUNT)
             MOVE 2 TO EV-RANK(WS-EVENT-COUNT)
+            *> An ALTER makes the GO TO of the altered unit, at its end,
+            *> go to the edge's target.
+            IF FE-KIND(LS-E) = "A"
+                MOVE FE-ALTERED(LS-E) TO EV-UNIT(WS-EVENT-COUNT)
+                IF FE-ALTERED(LS-E) > 0
+                    MOVE ND-TOK-LAST(FU-NODE(FE-ALTERED(LS-E)))
+                        TO EV-KEY(WS-EVENT-COUNT)
+                END-IF
+            END-IF
             IF FE-KIND(LS-E) = "P"
                 MOVE "P" TO EV-TYPE(WS-EVENT-COUNT)
             ELSE
@@ -377,8 +389,21 @@ RANGE-END.
 
 *> What may be set on entry to each unit, until nothing changes.
 ENTRY-SETS.
+    *> Declarative procedures run whenever their event happens (an I/O
+    *> error, a procedure being debugged), so what they may set may be
+    *> set anywhere.
+    MOVE ALL "0" TO WS-DECLARED
     PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > FU-COUNT
-        MOVE ALL "0" TO WS-IN(LS-U)
+        IF FU-DECLARATIVE(LS-U) = "Y"
+            PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > WS-CAND-COUNT
+                IF WS-SUM(LS-U)(LS-C:1) = "1"
+                    MOVE "1" TO WS-DECLARED(LS-C:1)
+                END-IF
+            END-PERFORM
+        END-IF
+    END-PERFORM
+    PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > FU-COUNT
+        MOVE WS-DECLARED TO WS-IN(LS-U)
         IF FU-DECLARATIVE(LS-U) = "Y"
             MOVE WS-ALL-SET TO WS-IN(LS-U)
         END-IF

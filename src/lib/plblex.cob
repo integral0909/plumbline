@@ -19,10 +19,16 @@
 *>   - Alphanumeric literals are quoted with " or ', may contain
 *>     doubled quotes, and may carry a prefix: X Z N NX G B BX U.
 *>   - After PIC or PICTURE (optionally followed by IS) the next token
-*>     is a picture string: everything up to the next space, less a
-*>     trailing period, comma, or semicolon.
+*>     is a picture string: everything up to the next space or ==,
+*>     less a trailing period, comma, or semicolon.
 *>   - "==" delimits pseudo-text; ( ) : . are tokens of their own.
 *>   - Operators: + - * / ** = < > <= >= <> &
+*>   - In the identification division, AUTHOR, INSTALLATION,
+*>     DATE-WRITTEN, DATE-COMPILED, SECURITY, and REMARKS take a
+*>     comment entry: free text, which may hold anything, up to the
+*>     next line that starts another paragraph (a paragraph name and
+*>     a period), a division (NAME DIVISION), or END PROGRAM. It
+*>     yields no tokens.
 *>
 *> Diagnostic codes raised here:
 *>   LX001  error    alphanumeric literal not terminated on its line
@@ -107,6 +113,12 @@ LOCAL-STORAGE SECTION.
 01  LS-MESSAGE              PIC X(200).
 01  LS-J                    PIC 9(9) COMP-5.
 01  LS-TAG-LEN              PIC 9(9) COMP-5.
+01  LS-IN-IDENTIFICATION    PIC X VALUE "N".
+*> "Y" after DECIMAL-POINT IS COMMA: 1,5 is a number.
+01  LS-DECIMAL-COMMA        PIC X VALUE "N".
+01  LS-WORD                 PIC X(31).
+01  LS-WORD-LEN             PIC 9(9) COMP-5.
+01  LS-AT                   PIC 9(9) COMP-5.
 LINKAGE SECTION.
 COPY "plbstrm.cpy".
 COPY "plbsrc.cpy".
@@ -127,6 +139,7 @@ PROCEDURE DIVISION USING PLB-STREAM PLB-SOURCE-SET PLB-DIAGNOSTICS
             ADD 1 TO LS-POS
         ELSE
             PERFORM SCAN-TOKEN
+            PERFORM CHECK-COMMENT-ENTRY
         END-IF
     END-PERFORM
 
@@ -165,6 +178,131 @@ INIT-CLASSES.
     MOVE "Q" TO WS-CLASS(FUNCTION ORD("'"))
     MOVE "Y" TO WS-CLASSES-READY.
 
+*> Follow which division the tokens are in, and after the period of a
+*> paragraph that takes a comment entry, skip the entry.
+CHECK-COMMENT-ENTRY.
+    IF TK-COUNT < 2
+        EXIT PARAGRAPH
+    END-IF
+    IF TK-FILE-ID(TK-COUNT - 1) NOT = ST-FILE-ID
+       OR NOT TK-IS-WORD(TK-COUNT - 1)
+       OR TK-TEXT-LEN(TK-COUNT - 1) > LENGTH OF LS-WORD
+        EXIT PARAGRAPH
+    END-IF
+    MOVE TK-TEXT(TK-TEXT-OFF(TK-COUNT - 1):TK-TEXT-LEN(TK-COUNT - 1))
+        TO LS-WORD
+    PERFORM CHECK-DECIMAL-COMMA
+    IF TK-IS-WORD(TK-COUNT)
+        IF TK-TEXT(TK-TEXT-OFF(TK-COUNT):TK-TEXT-LEN(TK-COUNT))
+           = "DIVISION"
+            IF LS-WORD = "IDENTIFICATION" OR LS-WORD = "ID"
+                MOVE "Y" TO LS-IN-IDENTIFICATION
+            ELSE
+                MOVE "N" TO LS-IN-IDENTIFICATION
+            END-IF
+        END-IF
+        EXIT PARAGRAPH
+    END-IF
+    IF TK-IS-PERIOD(TK-COUNT) AND LS-IN-IDENTIFICATION = "Y"
+        EVALUATE LS-WORD
+            WHEN "AUTHOR" WHEN "INSTALLATION" WHEN "DATE-WRITTEN"
+            WHEN "DATE-COMPILED" WHEN "SECURITY" WHEN "REMARKS"
+                PERFORM SKIP-COMMENT-ENTRY
+        END-EVALUATE
+    END-IF.
+
+*> DECIMAL-POINT [IS] COMMA: from here on, a comma between digits is
+*> a decimal point. LS-WORD holds the word before the last token.
+CHECK-DECIMAL-COMMA.
+    IF NOT TK-IS-WORD(TK-COUNT)
+        EXIT PARAGRAPH
+    END-IF
+    IF TK-TEXT(TK-TEXT-OFF(TK-COUNT):TK-TEXT-LEN(TK-COUNT)) NOT = "COMMA"
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-WORD = "DECIMAL-POINT"
+        MOVE "Y" TO LS-DECIMAL-COMMA
+    END-IF
+    IF LS-WORD = "IS" AND TK-COUNT > 2
+        IF TK-IS-WORD(TK-COUNT - 2)
+           AND TK-TEXT(TK-TEXT-OFF(TK-COUNT - 2):TK-TEXT-LEN(TK-COUNT - 2))
+               = "DECIMAL-POINT"
+            MOVE "Y" TO LS-DECIMAL-COMMA
+        END-IF
+    END-IF.
+
+*> Move LS-POS to the start of the next line that begins with a word
+*> ending the comment entry, or a directive; or past the stream.
+SKIP-COMMENT-ENTRY.
+    PERFORM UNTIL LS-POS > ST-LEN
+        IF ST-TEXT(LS-POS:1) = X"0A"
+            ADD 1 TO LS-POS
+            MOVE LS-POS TO LS-AT
+            PERFORM UNTIL LS-AT > ST-LEN
+                IF ST-TEXT(LS-AT:1) NOT = SPACE
+                    EXIT PERFORM
+                END-IF
+                ADD 1 TO LS-AT
+            END-PERFORM
+            IF LS-AT <= ST-LEN
+                IF ST-TEXT(LS-AT:1) = ">" OR ST-TEXT(LS-AT:1) = "$"
+                    EXIT PERFORM
+                END-IF
+                PERFORM WORD-AT
+                EVALUATE LS-WORD
+                    WHEN "AUTHOR" WHEN "INSTALLATION" WHEN "DATE-WRITTEN"
+                    WHEN "DATE-COMPILED" WHEN "SECURITY" WHEN "REMARKS"
+                    WHEN "PROGRAM-ID"
+                        PERFORM SKIP-SPACES-AT
+                        IF LS-AT <= ST-LEN
+                            IF ST-TEXT(LS-AT:1) = "."
+                                EXIT PERFORM
+                            END-IF
+                        END-IF
+                    WHEN "IDENTIFICATION" WHEN "ID" WHEN "ENVIRONMENT"
+                    WHEN "DATA" WHEN "PROCEDURE"
+                        PERFORM SKIP-SPACES-AT
+                        PERFORM WORD-AT
+                        IF LS-WORD = "DIVISION"
+                            EXIT PERFORM
+                        END-IF
+                    WHEN "END"
+                        PERFORM SKIP-SPACES-AT
+                        PERFORM WORD-AT
+                        IF LS-WORD = "PROGRAM"
+                            EXIT PERFORM
+                        END-IF
+                END-EVALUATE
+            END-IF
+        ELSE
+            ADD 1 TO LS-POS
+        END-IF
+    END-PERFORM.
+
+SKIP-SPACES-AT.
+    PERFORM UNTIL LS-AT > ST-LEN
+        IF ST-TEXT(LS-AT:1) NOT = SPACE
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-AT
+    END-PERFORM.
+
+*> LS-WORD = the upper-cased word at stream position LS-AT.
+WORD-AT.
+    MOVE SPACES TO LS-WORD
+    MOVE 0 TO LS-WORD-LEN
+    PERFORM UNTIL LS-AT > ST-LEN OR LS-WORD-LEN >= LENGTH OF LS-WORD
+        IF WS-CLASS(FUNCTION ORD(ST-TEXT(LS-AT:1))) NOT = "W"
+           AND WS-CLASS(FUNCTION ORD(ST-TEXT(LS-AT:1))) NOT = "D"
+           AND WS-CLASS(FUNCTION ORD(ST-TEXT(LS-AT:1))) NOT = "H"
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-WORD-LEN
+        MOVE FUNCTION UPPER-CASE(ST-TEXT(LS-AT:1))
+            TO LS-WORD(LS-WORD-LEN:1)
+        ADD 1 TO LS-AT
+    END-PERFORM.
+
 *> Scan one token starting at LS-POS (not a separator).
 SCAN-TOKEN.
     MOVE LS-POS TO LS-START
@@ -185,16 +323,25 @@ SCAN-TOKEN.
             ELSE
                 PERFORM SCAN-SPECIAL
             END-IF
+        *> A sign starts a number when digits, or a decimal point and
+        *> digits, follow it: +1, -.5.
         WHEN (LS-CH = "+" OR LS-CH = "-")
-             AND LS-NEXT-CLS = "D"
+             AND (LS-NEXT-CLS = "D"
+                  OR LS-POS + 2 <= ST-LEN
+                     AND ST-TEXT(LS-POS + 1:1) = "."
+                     AND WS-CLASS(FUNCTION ORD(ST-TEXT(LS-POS + 2:1)))
+                         = "D")
              AND (LS-POS = 1 OR ST-TEXT(LS-POS - 1:1) = SPACE
                   OR ST-TEXT(LS-POS - 1:1) = X"0A"
                   OR ST-TEXT(LS-POS - 1:1) = "(")
             ADD 1 TO LS-POS
             PERFORM SCAN-NUMBER-DIGITS
+        *> A decimal point followed by digits is a number (.5) unless it
+        *> ends something: a period separator is followed by a space.
         WHEN LS-CH = "." AND LS-NEXT-CLS = "D"
              AND (LS-POS = 1 OR ST-TEXT(LS-POS - 1:1) = SPACE
-                  OR ST-TEXT(LS-POS - 1:1) = X"0A")
+                  OR ST-TEXT(LS-POS - 1:1) = X"0A"
+                  OR ST-TEXT(LS-POS - 1:1) = "(")
             PERFORM SCAN-NUMBER-DIGITS
         WHEN OTHER
             PERFORM SCAN-SPECIAL
@@ -248,6 +395,11 @@ CHECK-PICTURE-CONTEXT.
 SCAN-PICTURE.
     PERFORM UNTIL LS-POS > ST-LEN
         IF ST-TEXT(LS-POS:1) = SPACE OR ST-TEXT(LS-POS:1) = X"0A"
+            EXIT PERFORM
+        END-IF
+        *> The end of pseudo-text, as in ==PIC X(5)==, is not part of
+        *> the picture.
+        IF LS-POS < ST-LEN AND ST-TEXT(LS-POS:2) = "=="
             EXIT PERFORM
         END-IF
         ADD 1 TO LS-POS
@@ -340,7 +492,8 @@ SCAN-NUMBER-DIGITS.
 
 *> Optional fraction and exponent after the integer digits.
 SCAN-NUMBER-TAIL.
-    IF LS-POS < ST-LEN AND ST-TEXT(LS-POS:1) = "."
+    IF LS-POS < ST-LEN AND (ST-TEXT(LS-POS:1) = "."
+       OR ST-TEXT(LS-POS:1) = "," AND LS-DECIMAL-COMMA = "Y")
         IF WS-CLASS(FUNCTION ORD(ST-TEXT(LS-POS + 1:1))) = "D"
             ADD 1 TO LS-POS
             PERFORM SKIP-DIGITS

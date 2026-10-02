@@ -32,3 +32,11 @@
     *> constants substitute their values before analysis.
     05  PI-SYMBOLIC             PIC X.
     05  PI-ERROR                PIC X(60).
+    *> Inputs, which the analysis reads but does not reset; set them
+    *> from the program's SPECIAL-NAMES before analysis:
+    *>   PI-DECIMAL-COMMA  "Y" for DECIMAL-POINT IS COMMA, which swaps
+    *>                     the roles of . and , in pictures
+    *>   PI-CURRENCY       the currency symbol of CURRENCY SIGN, or a
+    *>                     space for $ alone
+    05  PI-DECIMAL-COMMA        PIC X.
+    05  PI-CURRENCY             PIC X.

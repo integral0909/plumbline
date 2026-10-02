@@ -106,6 +106,7 @@ with the same paths each time.
 ## Documentation
 
 - [Rule reference](docs/rules.md)
+- [Running Plumbline on the NIST COBOL-85 suite](docs/corpus.md)
 - [Architecture](docs/architecture.md)
 - [Testing](docs/testing.md)
 - [Contributing](CONTRIBUTING.md)

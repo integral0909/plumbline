@@ -1,0 +1,9 @@
+1 TRAILING-SEP 9 size=6 offset=0 digits=5 signed section=W @8:1
+1 LEADING-SEP 9 size=6 offset=0 digits=5 scale=2 signed section=W @9:1
+1 EMBEDDED 9 size=5 offset=0 digits=5 signed section=W @10:1
+1 UNSIGNED-SEP 9 size=5 offset=0 digits=5 section=W @11:1
+1 BINARY-ITEM 9 size=2 offset=0 usage=COMP digits=4 signed section=W @12:1
+1 GROUP-SIGN G size=10 offset=0 section=W @13:1
+  5 FROM-GROUP 9 size=4 offset=0 digits=3 signed section=W @14:5
+  5 OWN-SIGN 9 size=3 offset=4 digits=3 signed section=W @15:5
+  5 TEXT-ITEM X size=3 offset=7 section=W @16:5

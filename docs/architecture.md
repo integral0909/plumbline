@@ -202,7 +202,11 @@ fall into it. A unit whose last statement is `STOP RUN`, `GOBACK`,
 section always falls into its first paragraph. Control never falls out of
 `DECLARATIVES`.
 
-Every `PERFORM` and `GO TO` target becomes an edge. Procedure names
+Every `PERFORM` and `GO TO` target becomes an edge. So do the
+procedures of `SORT` and `MERGE` (`INPUT PROCEDURE` and `OUTPUT
+PROCEDURE`), which run like a `PERFORM`. `ALTER X TO PROCEED TO Y`
+becomes an edge from the `GO TO` in `X` to `Y`, kept with the edges of
+the unit holding the `ALTER`. Procedure names
 resolve as the standard says: `P IN S` is a paragraph of section `S`; an
 unqualified name is a paragraph of the current section, then a paragraph
 unique in the program, then a section. Unknown names and ambiguous

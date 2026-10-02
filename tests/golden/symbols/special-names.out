@@ -1,0 +1,4 @@
+1 AMOUNT 9 size=9 offset=0 digits=9 scale=2 value section=W @12:1
+1 AMOUNT-OUT E size=12 offset=0 digits=9 scale=2 section=W @13:1
+1 PRICE-OUT E size=10 offset=0 digits=7 scale=2 section=W @14:1
+1 COUNTS X size=20 offset=0 section=W @15:1

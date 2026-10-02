@@ -1,0 +1,8 @@
+paragraph MAIN-LINE reached flowed ends @6
+  alter SWITCH to PARA-B
+  go SWITCH
+paragraph SWITCH reached flowed jumped-to ends @9
+  go PARA-A
+paragraph PARA-A reached flowed jumped-to ends @11
+paragraph PARA-B reached flowed jumped-to ends @14
+paragraph PARA-C unreachable ends @17

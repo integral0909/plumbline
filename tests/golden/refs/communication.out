@@ -1,0 +1,7 @@
+29:10 WS-QUEUE (MOVE) -> 1 WS-QUEUE @10 role=U
+29:22 MAIN-QUEUE (MOVE) -> other name
+30:12 MSG-COUNT (ACCEPT) -> other name
+30:27 IN-QUEUE (ACCEPT) -> other name
+31:8 IN-STATUS (IF) -> other name
+31:29 OUT-STATUS (IF) -> other name
+32:19 DEST-COUNT (MOVE) -> other name

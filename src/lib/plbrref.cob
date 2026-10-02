@@ -114,6 +114,10 @@ LOCAL-STORAGE SECTION.
 *>   -  nothing checkable
 01  LS-SEND-KIND            PIC X.
 01  LS-SEND-SIZE            PIC 9(9) COMP-5.
+01  LS-SEND-USED            PIC 9(9) COMP-5.
+01  LS-SEND-CHECK           PIC 9(9) COMP-5.
+01  LS-JUSTIFIED            PIC X.
+01  LS-CHILD                PIC 9(9) COMP-5.
 01  LS-SEND-INT             PIC S9(9) COMP-5.
 01  LS-SEND-SYM             PIC 9(9) COMP-5.
 01  LS-SEND-NAME            PIC X(40).
@@ -201,6 +205,16 @@ CLASSIFY-SENDER.
         WHEN TK-IS-ALNUM(LS-SENDER)
             MOVE "L" TO LS-SEND-KIND
             MOVE TK-TEXT-LEN(LS-SENDER) TO LS-SEND-SIZE
+            *> Characters other than trailing spaces, which a receiver
+            *> pads with anyway.
+            MOVE LS-SEND-SIZE TO LS-SEND-USED
+            PERFORM UNTIL LS-SEND-USED = 0
+                IF TK-TEXT(TK-TEXT-OFF(LS-SENDER) + LS-SEND-USED - 1:1)
+                   NOT = SPACE
+                    EXIT PERFORM
+                END-IF
+                SUBTRACT 1 FROM LS-SEND-USED
+            END-PERFORM
             EVALUATE TK-PREFIX(LS-SENDER)
                 WHEN "X "
                     DIVIDE 2 INTO LS-SEND-SIZE
@@ -267,7 +281,16 @@ CHECK-RECEIVER.
     EVALUATE TRUE
         *> Characters into an alphanumeric or group receiver.
         WHEN SY-CATEGORY(LS-RECV) = "X" OR "A" OR "D" OR "G"
-            IF LS-SEND-KIND = "L" AND LS-SEND-SIZE > SY-SIZE(LS-RECV)
+            *> Cutting off trailing spaces loses nothing, unless the
+            *> receiver is JUSTIFIED and loses characters on the left.
+            MOVE LS-SEND-SIZE TO LS-SEND-CHECK
+            IF LS-SEND-KIND = "L" AND TK-PREFIX(LS-SENDER) = SPACES
+                PERFORM CHECK-JUSTIFIED
+                IF LS-JUSTIFIED = "N"
+                    MOVE LS-SEND-USED TO LS-SEND-CHECK
+                END-IF
+            END-IF
+            IF LS-SEND-KIND = "L" AND LS-SEND-CHECK > SY-SIZE(LS-RECV)
                 PERFORM REPORT-LITERAL-CHARACTERS
             END-IF
             IF LS-SEND-KIND = "D"
@@ -290,6 +313,19 @@ CHECK-RECEIVER.
                 END-IF
             END-IF
     END-EVALUATE.
+
+*> LS-JUSTIFIED = "Y" when the receiver has a JUSTIFIED clause.
+CHECK-JUSTIFIED.
+    MOVE "N" TO LS-JUSTIFIED
+    MOVE ND-FIRST(SY-NODE(LS-RECV)) TO LS-CHILD
+    PERFORM UNTIL LS-CHILD = 0
+        IF ND-KIND(LS-CHILD) = "CLAU"
+           AND ND-DETAIL(LS-CHILD) = "JUSTIFIED"
+            MOVE "Y" TO LS-JUSTIFIED
+            EXIT PERFORM
+        END-IF
+        MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+    END-PERFORM.
 
 REPORT-LITERAL-CHARACTERS.
     MOVE LS-SEND-SIZE TO LS-NUM

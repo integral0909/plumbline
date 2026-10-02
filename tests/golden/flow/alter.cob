@@ -1,0 +1,19 @@
+*> ALTER changes where a GO TO goes: PARA-B is reached only through the
+*> altered GO TO in SWITCH, and PARA-C not at all.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. ALTERS.
+PROCEDURE DIVISION.
+MAIN-LINE.
+    ALTER SWITCH TO PROCEED TO PARA-B
+    GO TO SWITCH.
+SWITCH.
+    GO TO PARA-A.
+PARA-A.
+    DISPLAY "A"
+    STOP RUN.
+PARA-B.
+    DISPLAY "B"
+    STOP RUN.
+PARA-C.
+    DISPLAY "C"
+    STOP RUN.

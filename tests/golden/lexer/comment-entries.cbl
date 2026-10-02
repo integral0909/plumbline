@@ -1,0 +1,18 @@
+      *> Comment entries are free text: the quote in SECURITY and the
+      *> period-free lines are not tokens.
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. ENTRIES.
+       AUTHOR. A. N. OTHER, "LEAD PROGRAMMER.
+       INSTALLATION.
+           MAIN OFFICE; BUILDING 4 = THE ANNEX
+           DATA PROCESSING DEPARTMENT
+       DATE-WRITTEN. 1 APRIL 1992.
+       SECURITY.
+           THIS PROGRAM CHECKS THE COMPILER"S ABILITY TO COPE.
+       ENVIRONMENT DIVISION.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  AUTHOR-NAME     PIC X(10) VALUE "AUTHOR".
+       PROCEDURE DIVISION.
+           DISPLAY AUTHOR-NAME
+           STOP RUN.

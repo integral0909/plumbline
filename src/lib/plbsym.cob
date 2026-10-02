@@ -62,6 +62,9 @@ COPY "plbpic.cpy".
 01  LS-CONST-NAME           PIC X(31).
 01  LS-C                    PIC 9(4) COMP-5.
 01  LS-SUBSTITUTED          PIC X.
+*> From the SPECIAL-NAMES of the current program.
+01  LS-DECIMAL-COMMA        PIC X VALUE "N".
+01  LS-CURRENCY             PIC X VALUE SPACE.
 COPY "plbpic.cpy" REPLACING ==PLB-PIC-INFO== BY ==LS-SAVED-PIC==.
 LINKAGE SECTION.
 COPY "plbsrc.cpy".
@@ -83,6 +86,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
         EVALUATE ND-KIND(LS-NODE)
             WHEN "PROG"
                 MOVE LS-NODE TO LS-PROGRAM
+                PERFORM READ-SPECIAL-NAMES
             WHEN "SECT"
                 PERFORM NOTE-SECTION
             WHEN "DATA"
@@ -164,6 +168,7 @@ DESCRIBE-ITEM.
             IF NOT PI-IS-INVALID OF PLB-PIC-INFO
                 CALL "PLB-PIC-STORAGE" USING PLB-PIC-INFO SY-USAGE(LS-S)
                     SY-SIZE(LS-S)
+                PERFORM ADD-SEPARATE-SIGN
             END-IF
         WHEN OTHER
             PERFORM CATEGORY-WITHOUT-PICTURE
@@ -204,6 +209,8 @@ DESCRIBE-CLAUSE.
                 CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(LS-CHILD)
                     LS-TEXT LS-LEN
                 PERFORM SUBSTITUTE-CONSTANTS
+                MOVE LS-DECIMAL-COMMA TO PI-DECIMAL-COMMA OF PLB-PIC-INFO
+                MOVE LS-CURRENCY TO PI-CURRENCY OF PLB-PIC-INFO
                 CALL "PLB-PIC-ANALYZE" USING LS-TEXT PLB-PIC-INFO
                 MOVE PLB-PIC-INFO TO LS-SAVED-PIC
                 MOVE PI-CATEGORY OF PLB-PIC-INFO TO SY-CATEGORY(LS-S)
@@ -233,6 +240,125 @@ DESCRIBE-CLAUSE.
             *> A usage clause: USAGE IS COMP-3 or plain COMP-3.
             MOVE LS-DETAIL TO SY-USAGE(LS-S)
     END-EVALUATE.
+
+*> DECIMAL-POINT IS COMMA and CURRENCY [SIGN] [IS] "c" [WITH PICTURE
+*> SYMBOL "s"] in the environment division of program LS-NODE. A
+*> nested program without its own keeps those of the program it is
+*> in.
+READ-SPECIAL-NAMES.
+    IF ND-KIND(ND-PARENT(LS-NODE)) NOT = "PROG"
+        MOVE "N" TO LS-DECIMAL-COMMA
+        MOVE SPACE TO LS-CURRENCY
+    END-IF
+    MOVE ND-FIRST(LS-NODE) TO LS-CHILD
+    PERFORM UNTIL LS-CHILD = 0
+        IF ND-KIND(LS-CHILD) = "DIVN"
+           AND ND-DETAIL(LS-CHILD) = "ENVIRONMENT"
+            EXIT PERFORM
+        END-IF
+        MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+    END-PERFORM
+    IF LS-CHILD = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-TOKEN FROM ND-TOK-FIRST(LS-CHILD) BY 1
+            UNTIL LS-TOKEN > ND-TOK-LAST(LS-CHILD)
+        IF TK-IS-WORD(LS-TOKEN)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT LS-LEN
+            EVALUATE LS-TEXT
+                WHEN "DECIMAL-POINT"
+                    MOVE LS-TOKEN TO LS-R
+                    PERFORM NEXT-NON-NOISE-WORD
+                    IF LS-TEXT = "COMMA"
+                        MOVE "Y" TO LS-DECIMAL-COMMA
+                    END-IF
+                WHEN "CURRENCY"
+                    PERFORM READ-CURRENCY
+                WHEN "SYMBOL"
+                    *> WITH PICTURE SYMBOL "s": the picture character.
+                    COMPUTE LS-R = LS-TOKEN + 1
+                    IF LS-R <= ND-TOK-LAST(LS-CHILD)
+                        IF TK-IS-ALNUM(LS-R)
+                            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-R
+                                LS-TEXT LS-LEN
+                            MOVE LS-TEXT(1:1) TO LS-CURRENCY
+                        END-IF
+                    END-IF
+            END-EVALUATE
+        END-IF
+    END-PERFORM.
+
+*> CURRENCY [SIGN] [IS] "c": the first character of the literal.
+READ-CURRENCY.
+    COMPUTE LS-R = LS-TOKEN + 1
+    PERFORM UNTIL LS-R > ND-TOK-LAST(LS-CHILD)
+        IF TK-IS-ALNUM(LS-R)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-R LS-TEXT LS-LEN
+            IF LS-LEN = 1
+                MOVE LS-TEXT(1:1) TO LS-CURRENCY
+            END-IF
+            EXIT PERFORM
+        END-IF
+        IF NOT TK-IS-WORD(LS-R)
+            EXIT PERFORM
+        END-IF
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-R LS-TEXT LS-LEN
+        IF LS-TEXT NOT = "SIGN" AND LS-TEXT NOT = "IS"
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-R
+    END-PERFORM.
+
+*> LS-TEXT = the word after token LS-R, skipping IS.
+NEXT-NON-NOISE-WORD.
+    MOVE SPACES TO LS-TEXT
+    ADD 1 TO LS-R
+    IF LS-R <= ND-TOK-LAST(LS-CHILD) AND TK-IS-WORD(LS-R)
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-R LS-TEXT LS-LEN
+        IF LS-TEXT = "IS"
+            ADD 1 TO LS-R
+            MOVE SPACES TO LS-TEXT
+            IF LS-R <= ND-TOK-LAST(LS-CHILD) AND TK-IS-WORD(LS-R)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-R LS-TEXT LS-LEN
+            END-IF
+        END-IF
+    END-IF.
+
+*> SIGN ... SEPARATE [CHARACTER] gives a signed display item a
+*> character of its own for the sign. The nearest SIGN clause counts:
+*> the item's, or else that of the group it is in.
+ADD-SEPARATE-SIGN.
+    IF PI-SIGNED OF PLB-PIC-INFO NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    IF SY-USAGE(LS-S) NOT = SPACES AND SY-USAGE(LS-S) NOT = "DISPLAY"
+       AND SY-USAGE(LS-S) NOT = "NATIONAL"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-S TO LS-P
+    PERFORM UNTIL LS-P = 0
+        MOVE ND-FIRST(SY-NODE(LS-P)) TO LS-CHILD
+        PERFORM UNTIL LS-CHILD = 0
+            IF ND-KIND(LS-CHILD) = "CLAU" AND ND-DETAIL(LS-CHILD) = "SIGN"
+                PERFORM VARYING LS-TOKEN FROM ND-TOK-FIRST(LS-CHILD) BY 1
+                        UNTIL LS-TOKEN > ND-TOK-LAST(LS-CHILD)
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT
+                        LS-LEN
+                    IF LS-TEXT = "SEPARATE" AND TK-IS-WORD(LS-TOKEN)
+                        IF PI-IS-NATIONAL OF PLB-PIC-INFO
+                           OR SY-USAGE(LS-S) = "NATIONAL"
+                            ADD 2 TO SY-SIZE(LS-S)
+                        ELSE
+                            ADD 1 TO SY-SIZE(LS-S)
+                        END-IF
+                    END-IF
+                END-PERFORM
+                EXIT PARAGRAPH
+            END-IF
+            MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+        END-PERFORM
+        MOVE SY-PARENT(LS-P) TO LS-P
+    END-PERFORM.
 
 *> Replace each "(NAME)" in LS-TEXT whose NAME is a level-78 constant
 *> of the current program by "(value)".

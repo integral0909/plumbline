@@ -29,7 +29,7 @@ HARNESS_OBJ := $(patsubst tests/harness/%.cob,$(BUILD)/obj/harness/%.o,$(HARNESS
 TEST_SRC    := $(wildcard tests/unit/test-*.cob)
 TEST_BIN    := $(patsubst tests/unit/%.cob,$(BUILD)/tests/%,$(TEST_SRC))
 
-.PHONY: all clean test tests coverage golden-update
+.PHONY: all clean test tests coverage golden-update corpus
 .SECONDARY: $(HARNESS_OBJ) $(LIB_OBJ)
 
 all: $(BIN)
@@ -104,3 +104,8 @@ $(BUILD)/obj $(BUILD)/bin $(BUILD)/obj/harness $(BUILD)/tests:
 
 clean:
 	rm -rf $(BUILD)
+
+# Run plumbline over the NIST COBOL-85 suite (downloaded on first use;
+# needs network access, so it is not part of make test).
+corpus: $(BIN)
+	tools/corpus/run-nist.sh $(BIN) $(BUILD)/corpus/nist

@@ -32,6 +32,8 @@ LOCAL-STORAGE SECTION.
 01  LS-SYM                  PIC XX.
 01  LS-COUNT                PIC 9(9) COMP-5.
 01  LS-CLOSE                PIC 9(9) COMP-5.
+*> The position before the first significant digit of a count.
+01  LS-FIRST-DIGIT          PIC 9(9) COMP-5.
 01  LS-K                    PIC 9(9) COMP-5.
 01  LS-SYMBOLS              PIC 9(9) COMP-5.
 *> Positions by kind.
@@ -115,6 +117,16 @@ READ-SYMBOL.
                 EXIT PERFORM
             END-IF
         END-PERFORM
+        *> Leading zeros do not make a count larger: X(0020) is X(20).
+        MOVE LS-POS TO LS-FIRST-DIGIT
+        IF LS-CLOSE > LS-POS + 2
+            PERFORM UNTIL LS-FIRST-DIGIT + 2 >= LS-CLOSE
+                IF LS-PIC(LS-FIRST-DIGIT + 1:1) NOT = "0"
+                    EXIT PERFORM
+                END-IF
+                ADD 1 TO LS-FIRST-DIGIT
+            END-PERFORM
+        END-IF
         EVALUATE TRUE
             WHEN LS-CLOSE = 0
                 MOVE "unbalanced parenthesis" TO PI-ERROR
@@ -125,7 +137,7 @@ READ-SYMBOL.
                 *> A constant name (level 78) as the count.
                 MOVE "Y" TO PI-SYMBOLIC
                 COMPUTE LS-POS = LS-CLOSE + 1
-            WHEN LS-CLOSE - LS-POS - 1 > 9
+            WHEN LS-CLOSE - LS-FIRST-DIGIT - 1 > 9
                 MOVE "repetition count too large" TO PI-ERROR
             WHEN FUNCTION TEST-NUMVAL(LS-PIC(LS-POS + 1:
                                       LS-CLOSE - LS-POS - 1)) NOT = 0
@@ -143,6 +155,19 @@ READ-SYMBOL.
     ADD 1 TO LS-SYMBOLS.
 
 PROCESS-SYMBOL.
+    *> Symbols as the program's SPECIAL-NAMES define them.
+    IF PI-DECIMAL-COMMA = "Y"
+        EVALUATE LS-SYM
+            WHEN ". "
+                MOVE ", " TO LS-SYM
+            WHEN ", "
+                MOVE ". " TO LS-SYM
+        END-EVALUATE
+    END-IF
+    IF PI-CURRENCY NOT = SPACE AND PI-CURRENCY NOT = LOW-VALUE
+       AND LS-SYM(1:1) = PI-CURRENCY AND LS-SYM(2:1) = SPACE
+        MOVE "$ " TO LS-SYM
+    END-IF
     EVALUATE LS-SYM
         WHEN "A "
             ADD LS-COUNT TO LS-N-A
