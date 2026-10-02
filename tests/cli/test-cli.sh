@@ -37,7 +37,7 @@ check_stdin() {
     label=$1 want_rc=$2 pattern=$3 input=$4
     shift 5
     n=$((n + 1))
-    out=$(printf "$input" | "$bin_abs" "$@" 2>&1)
+    out=$(printf '%b' "$input" | "$bin_abs" "$@" 2>&1)
     rc=$?
     if [ "$rc" -eq "$want_rc" ] && printf '%s\n' "$out" | grep -q -- "$pattern"; then
         echo "ok $n - $label"
@@ -192,8 +192,8 @@ printf '       01  SHARED-REC PIC X(10).\n' > "$many/shared.cpy"
 printf '       IDENTIFICATION DIVISION.\n       PROGRAM-ID. LAST.\n       DATA DIVISION.\n       WORKING-STORAGE SECTION.\n       COPY SHARED.\n       PROCEDURE DIVISION.\n           GOBACK.\n' \
     > "$many/z-last.cob"
 check "impact over more than 256 files"   0 'included by .*z-last.cob directly' \
-    -- impact SHARED --no-config -I "$many" $(ls "$many"/*.cob)
-check "check over more than 256 files"    0 '^$' -- check --no-config -I "$many" $(ls "$many"/*.cob)
+    -- impact SHARED --no-config -I "$many" "$many"/*.cob
+check "check over more than 256 files"    0 '^$' -- check --no-config -I "$many" "$many"/*.cob
 rm -rf "$many"
 check "evaluate-without-other is off by default" 0 '^$' \
     -- check --no-config tests/fixtures/rules/evaluate.cob
