@@ -192,6 +192,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-RULES
     DISPLAY '        "driver": {'
     DISPLAY '          "name": "' PLB-NAME '",'
     DISPLAY '          "version": "' PLB-VERSION '",'
+    DISPLAY '          "informationUri": "' PLB-HOME '",'
     DISPLAY '          "rules": ['
     PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > RL-COUNT
         PERFORM WRITE-RULE
@@ -237,7 +238,15 @@ WRITE-RULE.
            '", "shortDescription": {"text": ' DELIMITED BY SIZE
         INTO WS-LINE WITH POINTER LS-PTR
     CALL "PLB-JSON-STRING" USING RL-TITLE(LS-I) WS-LINE LS-PTR
-    STRING '}, "defaultConfiguration": {"level": "' DELIMITED BY SIZE
+    *> The rule's section of the reference: #plb-c001-unreachable-code.
+    STRING '}, "helpUri": "' DELIMITED BY SIZE
+           PLB-RULES-URL DELIMITED BY SIZE
+           "#" FUNCTION LOWER-CASE(RL-ID(LS-I)) DELIMITED BY SPACE
+           "-" DELIMITED BY SIZE
+           RL-NAME(LS-I) DELIMITED BY SPACE
+           '"' DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    STRING ', "defaultConfiguration": {"level": "' DELIMITED BY SIZE
         INTO WS-LINE WITH POINTER LS-PTR
     MOVE RL-SEVERITY(LS-I) TO LS-LEVEL
     PERFORM LEVEL-NAME

@@ -72,6 +72,22 @@ class RulesDocTest(unittest.TestCase):
                 self.assertEqual(
                     row["anchor"], f"{rule_id.lower()}-{row['name']}")
 
+    def test_sarif_links_each_rule_to_its_section(self):
+        sample = os.path.join(ROOT, "tests", "golden", "rules",
+                              "c001-unreachable.cob")
+        out = subprocess.run(
+            [PLUMBLINE, "check", "--no-config", "--report", "sarif",
+             "--fail-on", "never", sample],
+            check=True, capture_output=True, text=True).stdout
+        driver = json.loads(out)["runs"][0]["tool"]["driver"]
+        anchors = {f"{rule_id.lower()}-{name}"
+                   for rule_id, name in self.headings}
+        for rule in driver["rules"]:
+            with self.subTest(rule=rule["id"]):
+                page, anchor = rule["helpUri"].split("#")
+                self.assertTrue(page.endswith("/docs/rules.md"))
+                self.assertIn(anchor, anchors)
+
 
 if __name__ == "__main__":
     unittest.main()
