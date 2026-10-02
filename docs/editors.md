@@ -17,6 +17,7 @@ shows what it reports as you work.
 | Semantic highlighting | Reserved words, data names, paragraph and section names, literals, operators, and pictures, from the analysis; names where they are declared are marked as declarations |
 | Call hierarchy | For a paragraph or section, the paragraphs that PERFORM it or jump to it, and those it performs or jumps to |
 | Folding | Programs, divisions, sections, paragraphs, and statements with a body (`IF`, `EVALUATE`, inline `PERFORM`, ...) |
+| Code lens | Above each section and paragraph, how many `PERFORM` and `GO TO` statements name it, or "no PERFORM or GO TO" |
 | Rename | A data item, paragraph, or section, at its declaration and every reference, in the open file and its copybooks. The new name must be a user-defined word. A name written in a `COPY ... REPLACING` phrase is not changed. |
 
 The server reads `plumbline.conf` in the directory the editor starts it

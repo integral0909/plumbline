@@ -95,6 +95,7 @@ class LanguageServerTest(unittest.TestCase):
         self.assertTrue(
             self.capabilities["renameProvider"]["prepareProvider"])
         self.assertTrue(self.capabilities["foldingRangeProvider"])
+        self.assertIn("codeLensProvider", self.capabilities)
         self.assertTrue(self.capabilities["callHierarchyProvider"])
         legend = self.capabilities["semanticTokensProvider"]["legend"]
         self.assertIn("variable", legend["tokenTypes"])
@@ -380,6 +381,22 @@ class LanguageServerTest(unittest.TestCase):
                                  "9(4)")], ("type", 0))
         self.assertIn(("string", 0), tokens.values())
         self.assertIn(("number", 0), tokens.values())
+
+    def test_code_lenses(self):
+        reply = self.server.request("textDocument/codeLens",
+                                    {"textDocument": {"uri": URI}})
+        lenses = {lens["range"]["start"]["line"]: lens["command"]["title"]
+                  for lens in reply["result"]}
+        self.assertEqual(lenses[self.position("INIT.")["line"]],
+                         "1 PERFORM")
+        # PERFORM STEP-1 THRU STEP-EXIT counts for STEP-1.
+        self.assertEqual(lenses[self.position("STEP-1.")["line"]],
+                         "1 PERFORM")
+        self.assertEqual(lenses[self.position("ABEND.")["line"]],
+                         "1 GO TO")
+        self.assertEqual(lenses[self.position("NEVER-CALLED.")["line"]],
+                         "no PERFORM or GO TO")
+        self.assertNotIn(self.position("MAIN-LINE.")["line"] - 1, lenses)
 
     def test_folding_ranges(self):
         reply = self.server.request("textDocument/foldingRange",
