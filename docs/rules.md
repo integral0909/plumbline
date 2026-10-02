@@ -57,6 +57,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C044](#plb-c044-varying-control-changed) | varying-control-changed | warning | Statement in a PERFORM VARYING loop changes the loop's control |
 | [PLB-C045](#plb-c045-alnum-compared-to-number) | alnum-compared-to-number | warning | Alphanumeric item compared with a shorter numeric literal |
 | [PLB-C046](#plb-c046-overlapping-move) | overlapping-move | warning | MOVE between items that share storage |
+| [PLB-C047](#plb-c047-foreign-index) | foreign-index | warning | Index of one table subscripts a table with entries of another length |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1264,6 +1265,33 @@ and smear its first characters across the receiver on another. Move
 through a work item of its own. A move of an item to itself is PLB-C033;
 subscripted items are not compared, since the subscripts decide whether
 they overlap.
+
+## PLB-C047 foreign-index
+
+An index of one table (a name from its `INDEXED BY`) used as the
+subscript of another table whose entries have a different length:
+
+```cobol
+01  RATE-TABLE.
+    05  RATE            PIC 9(3)V99 OCCURS 12 INDEXED BY RATE-IX.
+01  NAME-TABLE.
+    05  MONTH-NAME      PIC X(9) OCCURS 12 INDEXED BY NAME-IX.
+    DISPLAY MONTH-NAME(RATE-IX)             *> reported
+```
+
+IBM's compilers keep an index as the byte offset of its entry
+(occurrence number minus one, times the entry length), so `RATE-IX` on
+its third entry is 10, which in `MONTH-NAME` is the second byte of the
+second name. The standard allows an index of another table only when
+the entries have the same length. GnuCOBOL keeps the occurrence number,
+so the program runs as meant there and not after the move to the
+mainframe. Set the table's own index from the other
+(`SET NAME-IX TO RATE-IX` converts it), or use a data item as the
+subscript.
+
+Each subscript is matched with the table of its dimension, outermost
+first. A relative index (`RATE-IX + 1`) counts; subscripts that are
+expressions or data items are not checked.
 
 ## PLB-I001 pcb-dbd-unknown
 
