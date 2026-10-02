@@ -212,6 +212,9 @@ Some findings that were read and are true:
   GnuCOBOL corpora: the `AT END` phrases set end-of-file flags. A
   `DISPLAY` of the record added to the `END` phrase of a `READ` in a
   copy of NIST's `SQ103A` is reported.
+- **PLB-C051 duplicate-if-condition.** None, here or in the NIST and
+  GnuCOBOL corpora. In a copy of NIST's `CM202M` whose third test is
+  made the same as its second, the third is reported.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)

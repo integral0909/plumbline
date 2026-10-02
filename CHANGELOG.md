@@ -181,6 +181,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C048 sort-procedure-no-record.
 - Rule PLB-C049 loop-condition-unchanged.
 - Rule PLB-C050 record-read-at-end.
+- Rule PLB-C051 duplicate-if-condition.
 - `check --report codeclimate`: Code Climate issues for GitLab's code
   quality reports, with fingerprints that survive moved lines.
 - `plumbline xref`: the cross-reference of each program, its data

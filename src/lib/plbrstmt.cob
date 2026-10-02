@@ -5,6 +5,7 @@
 *>   PLB-C027  divide-by-zero
 *>   PLB-C032  duplicate-when
 *>   PLB-C033  self-move
+*>   PLB-C051  duplicate-if-condition
 *>   PLB-M001  go-to
 *>   PLB-M002  alter
 *>   PLB-M011  evaluate-without-other
@@ -23,6 +24,10 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE-DIVIDE-ZERO     PIC 9(4) COMP-5.
 01  LS-RULE-DUPLICATE-WHEN  PIC 9(4) COMP-5.
 01  LS-RULE-SELF-MOVE       PIC 9(4) COMP-5.
+01  LS-RULE-DUPLICATE-IF    PIC 9(4) COMP-5.
+*> The IF statement of an ELSE IF chain being followed.
+01  LS-IF                   PIC 9(9) COMP-5.
+01  LS-ELSE                 PIC 9(9) COMP-5.
 *> The WHEN conditions of one EVALUATE, as text.
 01  LS-WHEN-COUNT           PIC 9(4) COMP-5.
 01  LS-WHEN-TEXT            PIC X(200) OCCURS 200 TIMES.
@@ -69,6 +74,8 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-RULES
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C032"
         LS-RULE-DUPLICATE-WHEN
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C033" LS-RULE-SELF-MOVE
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C051"
+        LS-RULE-DUPLICATE-IF
     IF AS-COUNT = 0
         GOBACK
     END-IF
@@ -88,6 +95,8 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-RULES
                     PERFORM CHECK-DUPLICATE-WHEN
                 WHEN "MOVE"
                     PERFORM CHECK-SELF-MOVE
+                WHEN "IF"
+                    PERFORM CHECK-DUPLICATE-IF
             END-EVALUATE
             IF ND-DETAIL(LS-NODE) NOT = "EXEC"
                 PERFORM CHECK-DIVIDE-BY-ZERO
@@ -338,6 +347,104 @@ COMPARE-WHEN.
             MOVE ND-TOK-FIRST(LS-COND-NODE) TO LS-TOKEN
             CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
                 PLB-RULES PLB-FINDINGS LS-RULE-DUPLICATE-WHEN LS-TOKEN
+                LS-MESSAGE
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    IF LS-WHEN-COUNT < 200
+        ADD 1 TO LS-WHEN-COUNT
+        MOVE LS-COND-TEXT TO LS-WHEN-TEXT(LS-WHEN-COUNT)
+        MOVE ND-TOK-FIRST(LS-COND-NODE) TO LS-TOKEN
+        MOVE 0 TO LS-WHEN-LINE(LS-WHEN-COUNT)
+        IF TK-SRC-LINE(LS-TOKEN) > 0
+            MOVE SL-LINE-NO(TK-SRC-LINE(LS-TOKEN))
+                TO LS-WHEN-LINE(LS-WHEN-COUNT)
+        END-IF
+    END-IF.
+
+*> PLB-C051: an IF of an ELSE IF chain that tests the condition an
+*> earlier IF of the chain tests:
+*>     IF A = 1 ... ELSE IF A = 2 ... ELSE IF A = 1 ...
+*> The chain reaches the later IF only when the earlier test failed,
+*> and nothing runs in between, so its branch never runs. An IF is a
+*> link of the chain when it is the first statement of the ELSE of the
+*> one before. Conditions are compared as text, as in PLB-C032; one
+*> that calls a FUNCTION may give another answer the second time and
+*> is left out. The walk starts at the head of each chain.
+CHECK-DUPLICATE-IF.
+    IF RL-ENABLED(LS-RULE-DUPLICATE-IF) NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    *> Not the head: an earlier IF's walk covers it.
+    MOVE ND-PARENT(LS-NODE) TO LS-UP
+    IF LS-UP > 0
+        IF ND-KIND(LS-UP) = "BLCK" AND ND-DETAIL(LS-UP) = "ELSE"
+           AND ND-FIRST(LS-UP) = LS-NODE
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    MOVE 0 TO LS-WHEN-COUNT
+    MOVE LS-NODE TO LS-IF
+    PERFORM UNTIL LS-IF = 0
+        MOVE ND-FIRST(LS-IF) TO LS-COND-NODE
+        MOVE 0 TO LS-ELSE
+        IF LS-COND-NODE > 0
+            IF ND-KIND(LS-COND-NODE) = "COND"
+                PERFORM CONDITION-TEXT
+                PERFORM CHECK-FUNCTION
+                IF LS-COND-TEXT NOT = SPACES
+                    PERFORM COMPARE-IF
+                END-IF
+            END-IF
+        END-IF
+        *> The next link: the first statement of this IF's ELSE.
+        MOVE ND-FIRST(LS-IF) TO LS-CHILD
+        PERFORM UNTIL LS-CHILD = 0
+            IF ND-KIND(LS-CHILD) = "BLCK" AND ND-DETAIL(LS-CHILD) = "ELSE"
+                MOVE LS-CHILD TO LS-ELSE
+            END-IF
+            MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+        END-PERFORM
+        MOVE 0 TO LS-IF
+        IF LS-ELSE > 0
+            MOVE ND-FIRST(LS-ELSE) TO LS-CHILD
+            IF LS-CHILD > 0
+                IF ND-KIND(LS-CHILD) = "STMT" AND ND-DETAIL(LS-CHILD) = "IF"
+                    MOVE LS-CHILD TO LS-IF
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> A condition that calls a FUNCTION is not compared.
+CHECK-FUNCTION.
+    PERFORM VARYING LS-TOKEN FROM ND-TOK-FIRST(LS-COND-NODE) BY 1
+            UNTIL LS-TOKEN > ND-TOK-LAST(LS-COND-NODE)
+        IF TK-IS-WORD(LS-TOKEN)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT LS-LEN
+            IF FUNCTION UPPER-CASE(LS-TEXT) = "FUNCTION"
+                MOVE SPACES TO LS-COND-TEXT
+                EXIT PERFORM
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> Report LS-COND-TEXT when an earlier IF of the chain has it; keep it.
+COMPARE-IF.
+    PERFORM VARYING LS-W FROM 1 BY 1 UNTIL LS-W > LS-WHEN-COUNT
+        IF LS-WHEN-TEXT(LS-W) = LS-COND-TEXT
+            MOVE LS-WHEN-LINE(LS-W) TO LS-NUM
+            CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+            MOVE SPACES TO LS-MESSAGE
+            STRING "this IF tests the condition of the IF on line "
+                   DELIMITED BY SIZE
+                   LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+                   ", whose ELSE it is in; its branch never runs"
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            MOVE ND-TOK-FIRST(LS-COND-NODE) TO LS-TOKEN
+            CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-RULES PLB-FINDINGS LS-RULE-DUPLICATE-IF LS-TOKEN
                 LS-MESSAGE
             EXIT PARAGRAPH
         END-IF
