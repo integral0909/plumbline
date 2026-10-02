@@ -4,8 +4,9 @@
 # Emits TAP and exits non-zero on any failure.
 #
 # Variables such as $sm hold several file names, and are split into
-# arguments on purpose.
-# shellcheck disable=SC2086
+# arguments on purpose; expected Markdown output has backquotes, which
+# are literal in the single-quoted patterns.
+# shellcheck disable=SC2086,SC2016
 set -u
 
 bin=${1:?usage: test-cli.sh path/to/plumbline}
@@ -379,8 +380,33 @@ check "layout csv names what an item redefines" 0 '^ORDER-RECORD,5,ORDER-DATE-PA
     -- layout --report csv $lx/order.cpy
 check_absent "layout leaves out constants and condition names" 'MAX-ORDERS\|ORDER-OPEN' \
     -- layout $lx/orders.cob
-check "layout refuses sarif"              2 "invalid --report format 'sarif' (expected text, json, or csv)" \
+check "layout as Markdown"                 0 '^| 05 | ORDER-AMOUNT | `S9(9)V99` | COMP-3 | 12 | 6 |  |$' \
+    -- layout --report md $lx/order.cpy
+check "layout refuses sarif"              2 "invalid --report format 'sarif' (expected text, json, csv, or md)" \
     -- layout --report sarif $lx/order.cpy
+dx=tests/golden
+check "doc heads each program"            0 '^# CUSTMNT$' \
+    -- doc -I tests/fixtures/bms tests/fixtures/bms/custmnt.cob tests/fixtures/bms/screens.bms
+check "doc lists what a program uses"     0 '^- uses mapset SCRSET (RECEIVE)$' \
+    -- doc -I tests/fixtures/bms tests/fixtures/bms/custmnt.cob tests/fixtures/bms/screens.bms
+check "doc lists paragraphs"              0 '^| DECIDE | 17 | 13 | 13 | FINISH | DECIDE, FINISH | yes |$' \
+    -- doc $dx/metrics/complexity.cob
+check "doc marks paragraphs that never run" 0 '^| FIRST-PARA | 2 | 1 | 1 |  |  | \*\*never\*\* |$' \
+    -- doc $dx/rules/c001-sections.cob
+check "doc lists records"                 0 '^### ORDER-RECORD (59 bytes)$' \
+    -- doc $lx/orders.cob
+check "doc says when there are no records" 0 '^The program has no records.$' \
+    -- doc $dx/parser/nested.cob
+check "doc places nested programs"        0 '^Nested in \*\*OUTER\*\* (common). Source: `tests/golden/calls/scopes.cob:23`.$' \
+    -- doc $dx/calls/scopes.cob
+check "doc lists callers of nested programs" 0 '^- called by OUTER$' \
+    -- doc $dx/calls/scopes.cob
+check "doc writes a line of one statement" 0 '^9 lines, 1 statement, complexity 1.$' \
+    -- doc $dx/calls/scopes.cob
+check "doc writes the size of a one-byte record" 0 '^### COUNTER (1 byte)$' \
+    -- doc $dx/metrics/complexity.cob
+check "doc refuses --report"              2 'doc writes Markdown only' \
+    -- doc --report json $dx/metrics/complexity.cob
 n=$((n + 1))
 if "$bin" layout --report json $lx/order.cpy $lx/orders.cob | python3 -c '
 import json, sys
@@ -510,6 +536,8 @@ check "metrics csv has a header"          0 '^file,program,kind,name,line,lines,
     -- metrics --report csv $mx/complexity.cob
 check "metrics csv quotes paths"          0 '^"tests/golden/metrics/complexity.cob",METRICS,paragraph,DECIDE,15,' \
     -- metrics --report csv $mx/complexity.cob
+check "metrics start ends at the first paragraph" 0 '^"tests/fixtures/metrics/start.cob",START,start,,5,3,2,1,1$' \
+    -- metrics --report csv tests/fixtures/metrics/start.cob
 check "metrics refuses sarif"             2 "invalid --report format 'sarif' (expected text, json, or csv)" \
     -- metrics --report sarif $mx/complexity.cob
 check "check refuses csv"                 2 "invalid --report format 'csv' (expected text, json, sarif, or html)" \

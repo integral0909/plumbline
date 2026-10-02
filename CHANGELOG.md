@@ -114,11 +114,13 @@ uses [Semantic Versioning](https://semver.org/).
   (`IKJEFT01`, `RUN PROGRAM`) steps run, and the J rules check it.
 - `plumbline impact NAME` also takes a data item name and lists every
   declaration and use of it in the run, with what each use does.
-- `plumbline layout [--report text|json|csv]` lists the records of
+- `plumbline layout [--report text|json|csv|md]` lists the records of
   programs and copybooks with each item's start and length.
 - `plumbline inventory [--report text|json]` describes an application:
   its programs with what starts them and what they use, its jobs,
   transactions, and maps.
+- `plumbline doc` writes a Markdown page for each program: what starts
+  it, what it uses, its paragraphs, and its records.
 - The SQL tables each program uses, in `dump calls` and `inventory`,
   and rule PLB-Q001 sql-table-undeclared.
 - Rule PLB-A001 unused-program, for runs with JCL or CICS definitions.

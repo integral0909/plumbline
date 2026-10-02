@@ -47,6 +47,11 @@ LOCAL-STORAGE SECTION.
 *> JSON: whether an item of the current list was written yet.
 01  LS-FIRST                PIC X.
 01  LS-FIRST-PROGRAM        PIC X.
+*> The start of each line about a program ("  ", or "- " in Markdown),
+*> and the lines written under a Markdown heading.
+01  LS-INDENT               PIC XX.
+01  LS-MD                   PIC X.
+01  LS-LINES                PIC 9(9) COMP-5.
 01  LS-USES                 PIC X(6).
 01  LS-FIRST-USE            PIC X.
 LINKAGE SECTION.
@@ -57,13 +62,30 @@ COPY "plbjcl.cpy".
 COPY "plbcsd.cpy".
 COPY "plbbms.cpy".
 01  LK-FORMAT               PIC X(5).
+*> 0 for the whole inventory; a program of the call graph for that
+*> program only (plumbline doc), as Markdown when FORMAT is "md".
+01  LK-ONLY                 PIC 9(9) COMP-5.
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-CALL-GRAPH PLB-JCL PLB-CSD
-        PLB-BMS LK-FORMAT.
-    IF LK-FORMAT = "json"
-        PERFORM JSON-INVENTORY
-    ELSE
-        PERFORM TEXT-INVENTORY
-    END-IF
+        PLB-BMS LK-FORMAT LK-ONLY.
+    MOVE "  " TO LS-INDENT
+    MOVE "N" TO LS-MD
+    EVALUATE TRUE
+        WHEN LK-ONLY > 0
+            MOVE LK-ONLY TO LS-P
+            IF LK-FORMAT = "md"
+                MOVE "- " TO LS-INDENT
+                MOVE "Y" TO LS-MD
+            END-IF
+            IF CP-PARENT(LS-P) > 0
+                PERFORM NESTED-PROGRAM
+            ELSE
+                PERFORM TEXT-PROGRAM
+            END-IF
+        WHEN LK-FORMAT = "json"
+            PERFORM JSON-INVENTORY
+        WHEN OTHER
+            PERFORM TEXT-INVENTORY
+    END-EVALUATE
     GOBACK.
 
 *> Text -------------------------------------------------------------
@@ -133,20 +155,35 @@ TEXT-HEADING.
 TEXT-PROGRAM.
     PERFORM PROGRAM-KIND
     PERFORM START-OUT
-    STRING "program " DELIMITED BY SIZE
-           CP-NAME(LS-P) DELIMITED BY SPACE
-           " " DELIMITED BY SIZE
-           LS-KIND DELIMITED BY SPACE
-           " " DELIMITED BY SIZE
-        INTO LS-OUT WITH POINTER LS-PTR
-    PERFORM APPEND-PROGRAM-PLACE
-    PERFORM PRINT-OUT
+    IF LS-MD = "Y"
+        STRING "Kind: **" DELIMITED BY SIZE
+               LS-KIND DELIMITED BY SPACE
+               "**. Source: `" DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+        PERFORM APPEND-PROGRAM-PLACE
+        STRING "`." DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        PERFORM PRINT-OUT
+        DISPLAY " "
+        DISPLAY "## How it starts"
+        DISPLAY " "
+    ELSE
+        STRING "program " DELIMITED BY SIZE
+               CP-NAME(LS-P) DELIMITED BY SPACE
+               " " DELIMITED BY SIZE
+               LS-KIND DELIMITED BY SPACE
+               " " DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+        PERFORM APPEND-PROGRAM-PLACE
+        PERFORM PRINT-OUT
+    END-IF
+    MOVE 0 TO LS-LINES
     *> What starts it.
     PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > JS-COUNT
         PERFORM TEST-STEP-RUNS-PROGRAM
         IF LS-SEEN = "Y"
             PERFORM START-OUT
-            STRING "  run by step " DELIMITED BY SIZE
+            STRING LS-INDENT DELIMITED BY SIZE
+                   "run by step " DELIMITED BY SIZE
                 INTO LS-OUT WITH POINTER LS-PTR
             PERFORM APPEND-STEP
             PERFORM PRINT-OUT
@@ -156,7 +193,8 @@ TEXT-PROGRAM.
         IF CR-TYPE(LS-I) = "TRANSACTION"
            AND CR-TARGET(LS-I) = CP-NAME(LS-P)
             PERFORM START-OUT
-            STRING "  started by transaction " DELIMITED BY SIZE
+            STRING LS-INDENT DELIMITED BY SIZE
+                   "started by transaction " DELIMITED BY SIZE
                    CR-NAME(LS-I) DELIMITED BY SPACE
                 INTO LS-OUT WITH POINTER LS-PTR
             PERFORM PRINT-OUT
@@ -166,7 +204,8 @@ TEXT-PROGRAM.
         PERFORM TEST-CALLER
         IF LS-SEEN = "Y"
             PERFORM START-OUT
-            STRING "  called by " DELIMITED BY SIZE
+            STRING LS-INDENT DELIMITED BY SIZE
+                   "called by " DELIMITED BY SIZE
                    CP-NAME(LS-OWNER) DELIMITED BY SPACE
                 INTO LS-OUT WITH POINTER LS-PTR
             PERFORM PRINT-OUT
@@ -176,18 +215,29 @@ TEXT-PROGRAM.
         PERFORM TEST-NAMER
         IF LS-SEEN = "Y"
             PERFORM START-OUT
-            STRING "  named by " DELIMITED BY SIZE
+            STRING LS-INDENT DELIMITED BY SIZE
+                   "named by " DELIMITED BY SIZE
                    CP-NAME(LS-OWNER) DELIMITED BY SPACE
                 INTO LS-OUT WITH POINTER LS-PTR
             PERFORM PRINT-OUT
         END-IF
     END-PERFORM
+    IF LS-MD = "Y"
+        IF LS-LINES = 0
+            DISPLAY "Nothing in the run starts it."
+        END-IF
+        DISPLAY " "
+        DISPLAY "## What it uses"
+        DISPLAY " "
+        MOVE 0 TO LS-LINES
+    END-IF
     *> What it uses.
     PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > CC-COUNT
         PERFORM TEST-CALL
         IF LS-SEEN = "Y"
             PERFORM START-OUT
-            STRING "  calls " DELIMITED BY SIZE
+            STRING LS-INDENT DELIMITED BY SIZE
+                   "calls " DELIMITED BY SIZE
                    CC-TARGET(LS-I) DELIMITED BY SPACE
                 INTO LS-OUT WITH POINTER LS-PTR
             PERFORM PRINT-OUT
@@ -197,7 +247,8 @@ TEXT-PROGRAM.
         PERFORM TEST-RESOURCE
         IF LS-SEEN = "Y"
             PERFORM START-OUT
-            STRING "  uses " DELIMITED BY SIZE
+            STRING LS-INDENT DELIMITED BY SIZE
+                   "uses " DELIMITED BY SIZE
                 INTO LS-OUT WITH POINTER LS-PTR
             PERFORM APPEND-RESOURCE
             PERFORM PRINT-OUT
@@ -207,7 +258,8 @@ TEXT-PROGRAM.
         PERFORM TEST-FILE
         IF LS-SEEN = "Y"
             PERFORM START-OUT
-            STRING "  file " DELIMITED BY SIZE
+            STRING LS-INDENT DELIMITED BY SIZE
+                   "file " DELIMITED BY SIZE
                 INTO LS-OUT WITH POINTER LS-PTR
             PERFORM APPEND-FILE
             PERFORM PRINT-OUT
@@ -217,7 +269,8 @@ TEXT-PROGRAM.
         PERFORM TEST-TABLE
         IF LS-SEEN = "Y"
             PERFORM START-OUT
-            STRING "  table " DELIMITED BY SIZE
+            STRING LS-INDENT DELIMITED BY SIZE
+                   "table " DELIMITED BY SIZE
                    PQ-TABLE(LS-I) DELIMITED BY SPACE
                    " " DELIMITED BY SIZE
                 INTO LS-OUT WITH POINTER LS-PTR
@@ -229,14 +282,100 @@ TEXT-PROGRAM.
         PERFORM TEST-MAP-USE
         IF LS-SEEN = "Y"
             PERFORM START-OUT
-            STRING "  map " DELIMITED BY SIZE
+            STRING LS-INDENT DELIMITED BY SIZE
+                   "map " DELIMITED BY SIZE
                    PM-MAP(LS-I) DELIMITED BY SPACE
                    " of mapset " DELIMITED BY SIZE
                    PM-MAPSET(LS-I) DELIMITED BY SPACE
                 INTO LS-OUT WITH POINTER LS-PTR
             PERFORM PRINT-OUT
         END-IF
-    END-PERFORM.
+    END-PERFORM
+    IF LS-MD = "Y" AND LS-LINES = 0
+        DISPLAY "Nothing outside the program that the run shows."
+    END-IF
+    IF LS-MD = "Y"
+        DISPLAY " "
+    END-IF.
+
+*> A nested program, which the run sees as part of its outermost
+*> program: what contains it, and its own calls in and out.
+NESTED-PROGRAM.
+    PERFORM START-OUT
+    STRING "Nested in **" DELIMITED BY SIZE
+           CP-NAME(CP-PARENT(LS-P)) DELIMITED BY SPACE
+           "**" DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR
+    IF CP-COMMON(LS-P) = "Y"
+        STRING " (common)" DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    STRING ". Source: `" DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR
+    PERFORM APPEND-PROGRAM-PLACE
+    STRING "`." DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    PERFORM PRINT-OUT
+    DISPLAY " "
+    DISPLAY "## How it starts"
+    DISPLAY " "
+    MOVE 0 TO LS-LINES
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > CC-COUNT
+        IF CC-TO(LS-I) > 0 AND CP-OWNER(CC-TO(LS-I)) = LS-P
+            MOVE CP-OWNER(CC-FROM(LS-I)) TO LS-K
+            MOVE "called" TO LS-USES
+            PERFORM NESTED-CALL-LINE
+        END-IF
+    END-PERFORM
+    IF LS-LINES = 0
+        DISPLAY "Nothing in the run calls it."
+    END-IF
+    DISPLAY " "
+    DISPLAY "## What it uses"
+    DISPLAY " "
+    MOVE 0 TO LS-LINES
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > CC-COUNT
+        IF CP-OWNER(CC-FROM(LS-I)) = LS-P
+            MOVE "calls" TO LS-USES
+            PERFORM NESTED-CALL-LINE
+        END-IF
+    END-PERFORM
+    IF LS-LINES = 0
+        DISPLAY "It calls no programs."
+    END-IF
+    DISPLAY " ".
+
+*> One line for call LS-I: "called by" program LS-K, or "calls" its
+*> target, once for each.
+NESTED-CALL-LINE.
+    PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J >= LS-I
+        IF LS-USES = "called"
+            IF CC-TO(LS-J) > 0 AND CP-OWNER(CC-TO(LS-J)) = LS-P
+               AND CP-OWNER(CC-FROM(LS-J)) = LS-K
+                EXIT PARAGRAPH
+            END-IF
+        ELSE
+            IF CP-OWNER(CC-FROM(LS-J)) = LS-P
+               AND CC-TARGET(LS-J) = CC-TARGET(LS-I)
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+    END-PERFORM
+    PERFORM START-OUT
+    STRING LS-INDENT DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    IF LS-USES = "called"
+        STRING "called by " DELIMITED BY SIZE
+               CP-NAME(LS-K) DELIMITED BY SPACE
+            INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING "calls " DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        IF CC-DYNAMIC(LS-I) = "Y"
+            STRING "the program named in " DELIMITED BY SIZE
+                INTO LS-OUT WITH POINTER LS-PTR
+        END-IF
+        STRING CC-TARGET(LS-I) DELIMITED BY SPACE
+            INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    PERFORM PRINT-OUT.
 
 TEXT-JOB.
     PERFORM START-OUT
@@ -953,5 +1092,6 @@ PRINT-OUT.
     CALL "PLB-STR-LENGTH" USING LS-OUT LS-LEN
     IF LS-LEN > 0
         DISPLAY LS-OUT(1:LS-LEN)
+        ADD 1 TO LS-LINES
     END-IF.
 END PROGRAM PLB-INVENTORY.
