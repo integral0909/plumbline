@@ -366,6 +366,36 @@ check_absent "DL/I calls the PSB allows"  'ordupd.cob:1[34]:[0-9]*: error' \
     -- check --no-config $ix
 check "dump calls lists DL/I calls"       0 '^dli SCHD psb ORDREAD tests/fixtures/ims/ordupd.cob:12:24 by ORDUPD$' \
     -- dump calls tests/fixtures/ims/ordupd.cob
+lx=tests/fixtures/layout
+check "layout of a copybook"              0 '^record ORDER-RECORD tests/fixtures/layout/order.cpy:3, 59 bytes$' \
+    -- layout $lx/order.cpy
+check "layout shows packed items"         0 '^  05    ORDER-AMOUNT  *S9(9)V99  *COMP-3  *12  *6$' \
+    -- layout $lx/order.cpy
+check "layout shows OCCURS"               0 '^  05    ORDER-LINE  *26  *8  *3$' \
+    -- layout $lx/order.cpy
+check "layout of a program's records"     0 '^ORDER-RECORD,10,ORDER-YEAR,"9(4)",,18,4,,$' \
+    -- layout --report csv $lx/orders.cob
+check "layout csv names what an item redefines" 0 '^ORDER-RECORD,5,ORDER-DATE-PARTS,,,18,8,,ORDER-DATE$' \
+    -- layout --report csv $lx/order.cpy
+check_absent "layout leaves out constants and condition names" 'MAX-ORDERS\|ORDER-OPEN' \
+    -- layout $lx/orders.cob
+check "layout refuses sarif"              2 "invalid --report format 'sarif' (expected text, json, or csv)" \
+    -- layout --report sarif $lx/order.cpy
+n=$((n + 1))
+if "$bin" layout --report json $lx/order.cpy $lx/orders.cob | python3 -c '
+import json, sys
+records = {r["name"]: r for r in json.load(sys.stdin)["records"]}
+items = {i["name"]: i for i in records["ORDER-RECORD"]["items"]}
+assert records["ORDER-RECORD"]["length"] == 59
+assert items["ORDER-DATE-PARTS"]["redefines"] == "ORDER-DATE"
+assert items["ORDER-LINE"]["occurs"] == 3
+assert items["LINE-QTY"]["start"] == 32
+' 2>/dev/null; then
+    echo "ok $n - layout json is valid"
+else
+    failed=$((failed + 1))
+    echo "not ok $n - layout json is valid"
+fi
 check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
 check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
     -- rules --no-config --enable evaluate-without-other

@@ -157,6 +157,24 @@ in area A, long lines are split at spaces, long literals are continued
 with `-` in column 7, and inline comments that do not fit move to a
 line of their own.
 
+## Record layouts
+
+`plumbline layout` lists the records of programs and copybooks with
+each item's level, picture, usage, start position, length, and OCCURS
+count, as text, JSON, or CSV: the layout a file transfer or a program
+in another language needs.
+
+```console
+$ plumbline layout copybooks/order.cpy
+record ORDER-RECORD copybooks/order.cpy:3, 59 bytes
+  level name                            picture         usage           start  length  occurs
+  01    ORDER-RECORD                                                        1      59
+  05    ORDER-KEY                                                           1      10
+  10    ORDER-REGION                    X(2)                                1       2
+...
+  05    ORDER-AMOUNT                    S9(9)V99        COMP-3             12       6
+```
+
 ## Inventory
 
 `plumbline inventory` describes an application: each program with what

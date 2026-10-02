@@ -40,6 +40,7 @@
 *>   plumbline dump refs [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump calls [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline inventory [--report text|json] [OPTION]... FILE...
+*>   plumbline layout [--report text|json|csv] [OPTION]... FILE...
 *>   plumbline dump jcl FILE...
 *>   plumbline dump bms FILE...
 *>   plumbline dump csd FILE...
@@ -97,6 +98,8 @@ COPY "plbigr.cpy".
 *> check: whether the input is JCL, by its extension.
 01  WS-IS-JCL               PIC X VALUE "N".
 01  WS-EXTENSION            PIC X(4).
+*> layout: the program written to copy the copybooks given.
+01  WS-LAYOUT-WRAPPER       PIC X(512).
 COPY "plbinput.cpy".
 *> --define NAME: names for conditional compilation (>>IF NAME DEFINED).
 01  WS-DEFINE-COUNT         PIC 9(4) COMP-5 VALUE 0.
@@ -292,6 +295,9 @@ MAIN-LOGIC.
             WHEN "inventory"
                 MOVE "inventory" TO WS-COMMAND
                 PERFORM INVENTORY-COMMAND
+            WHEN "layout"
+                MOVE "layout" TO WS-COMMAND
+                PERFORM LAYOUT-COMMAND
             WHEN OTHER
                 IF WS-ARG(1:1) = "-"
                     PERFORM UNKNOWN-OPTION
@@ -332,6 +338,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline graph [--kind KIND] [OPTION]... FILE..."
     DISPLAY "       plumbline impact NAME [OPTION]... FILE..."
     DISPLAY "       plumbline inventory [--report text|json] [OPTION]... FILE..."
+    DISPLAY "       plumbline layout [--report text|json|csv] [OPTION]... FILE..."
     DISPLAY "       plumbline format --to fixed|free [--check] FILE..."
     DISPLAY "       plumbline lsp [OPTION]..."
     DISPLAY "       plumbline rules [--report text|json] [OPTION]..."
@@ -364,6 +371,8 @@ SHOW-USAGE.
     DISPLAY "                   (jobs), as DOT or JSON"
     DISPLAY "  inventory        list the programs, jobs, transactions, and"
     DISPLAY "                   maps of the input, and how they fit together"
+    DISPLAY "  layout           list the records of programs and copybooks"
+    DISPLAY "                   with the start and length of each item"
     DISPLAY "  impact NAME      list what includes copybook NAME or"
     DISPLAY "                   calls program NAME, directly or not"
     DISPLAY "  format           rewrite a file in fixed or free format"
@@ -772,6 +781,125 @@ INVENTORY-COMMAND.
     IF DG-ERRORS > 0
         MOVE 1 TO WS-EXIT-CODE
     END-IF.
+
+*> layout: the records of the programs and copybooks given. A copybook
+*> is read through a program written for it in the temporary
+*> directory, which copies it by name from its own directory.
+LAYOUT-COMMAND.
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM LAYOUT-WRAP-COPYBOOKS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM ADD-INPUTS
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
+    MOVE WS-MODE TO PO-FORMAT
+    MOVE WS-DEBUG TO PO-DEBUG
+    MOVE "Y" TO WS-FIRST
+    CALL "PLB-LAYOUT-START" USING WS-REPORT
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        PERFORM START-INPUT
+        IF SF-LOADED(WS-FILE-ID) = "Y"
+            PERFORM ANALYZE-FILE
+            CALL "PLB-LAYOUT-RECORDS" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-AST PLB-SYMBOLS WS-REPORT WS-FIRST
+            PERFORM END-INPUT
+        END-IF
+    END-PERFORM
+    CALL "PLB-LAYOUT-END" USING WS-REPORT
+    IF WS-LAYOUT-WRAPPER NOT = SPACES
+        CALL "CBL_DELETE_FILE" USING WS-LAYOUT-WRAPPER
+    END-IF
+    PERFORM REPORT-DIAGNOSTICS
+    IF DG-ERRORS > 0
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+*> The inputs named *.cpy (in either case) become COPY statements of a
+*> program in $TMPDIR, which takes their place among the inputs; their
+*> directories are searched for copybooks.
+LAYOUT-WRAP-COPYBOOKS.
+    MOVE SPACES TO WS-LAYOUT-WRAPPER WS-LSP-TEXT
+    MOVE 1 TO WS-LSP-TEXT-LEN
+    MOVE 0 TO WS-J
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > IP-COUNT
+        CALL "PLB-STR-LENGTH" USING IP-PATH(WS-I) WS-PATH-LEN
+        MOVE SPACES TO WS-EXTENSION
+        IF WS-PATH-LEN > 4
+            MOVE FUNCTION UPPER-CASE(IP-PATH(WS-I)(WS-PATH-LEN - 3:4))
+                TO WS-EXTENSION
+        END-IF
+        IF WS-EXTENSION = ".CPY"
+            PERFORM LAYOUT-COPY-STATEMENT
+        ELSE
+            ADD 1 TO WS-J
+            MOVE IP-PATH(WS-I) TO IP-PATH(WS-J)
+        END-IF
+    END-PERFORM
+    IF WS-LSP-TEXT-LEN = 1
+        EXIT PARAGRAPH
+    END-IF
+    ACCEPT WS-LSP-TMP FROM ENVIRONMENT "TMPDIR"
+    IF WS-LSP-TMP = SPACES
+        MOVE "/tmp" TO WS-LSP-TMP
+    END-IF
+    MOVE FUNCTION CURRENT-DATE TO WS-LSP-STAMP
+    STRING FUNCTION TRIM(WS-LSP-TMP TRAILING) DELIMITED BY SIZE
+           "/plumbline-layout-" DELIMITED BY SIZE
+           WS-LSP-STAMP(1:16) DELIMITED BY SIZE
+           ".cob" DELIMITED BY SIZE
+        INTO WS-LAYOUT-WRAPPER
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    STRING "       IDENTIFICATION DIVISION." X"0A"
+           "       PROGRAM-ID. LAYOUT." X"0A"
+           "       DATA DIVISION." X"0A"
+           "       WORKING-STORAGE SECTION." X"0A"
+           DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    STRING WS-OUT(1:WS-PTR - 1) DELIMITED BY SIZE
+           WS-LSP-TEXT(1:WS-LSP-TEXT-LEN - 1) DELIMITED BY SIZE
+        INTO WS-LSP-OUT
+    COMPUTE WS-LEN = WS-PTR - 1 + WS-LSP-TEXT-LEN - 1
+    CALL "PLB-LSP-WRITE-FILE" USING WS-LAYOUT-WRAPPER WS-LSP-OUT WS-LEN
+        WS-STATUS
+    IF WS-STATUS NOT = 0
+        DISPLAY PLB-NAME ": cannot write " FUNCTION TRIM(WS-LAYOUT-WRAPPER)
+            UPON SYSERR
+        MOVE 2 TO WS-EXIT-CODE
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO WS-J
+    MOVE WS-LAYOUT-WRAPPER TO IP-PATH(WS-J)
+    *> plumbline: ignore move-truncation -- at most the inputs there were
+    MOVE WS-J TO IP-COUNT.
+
+*> COPY name. for copybook IP-PATH(WS-I), its directory on the path.
+LAYOUT-COPY-STATEMENT.
+    MOVE 0 TO WS-K WS-C
+    PERFORM VARYING WS-P FROM 1 BY 1 UNTIL WS-P > WS-PATH-LEN
+        IF IP-PATH(WS-I)(WS-P:1) = "/"
+            MOVE WS-P TO WS-K
+        END-IF
+    END-PERFORM
+    IF WS-K > 1
+        MOVE IP-PATH(WS-I)(1:WS-K - 1) TO WS-ARG
+    ELSE
+        IF WS-K = 1
+            MOVE "/" TO WS-ARG
+        ELSE
+            MOVE "." TO WS-ARG
+        END-IF
+    END-IF
+    PERFORM ADD-COPY-PATH
+    COMPUTE WS-C = WS-PATH-LEN - WS-K - 4
+    STRING "       COPY " DELIMITED BY SIZE
+           IP-PATH(WS-I)(WS-K + 1:WS-C) DELIMITED BY SIZE
+           "." X"0A" DELIMITED BY SIZE
+        INTO WS-LSP-TEXT WITH POINTER WS-LSP-TEXT-LEN.
 
 IMPACT-COMMAND.
     PERFORM NEXT-ARG
@@ -4091,10 +4219,12 @@ SET-REPORT.
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "sarif" AND WS-COMMAND NOT = "metrics"
              AND WS-COMMAND NOT = "rules" AND WS-COMMAND NOT = "inventory"
+             AND WS-COMMAND NOT = "layout"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "html" AND WS-COMMAND = "check"
             MOVE WS-ARG TO WS-REPORT
-        WHEN WS-ARG = "csv" AND WS-COMMAND = "metrics"
+        WHEN WS-ARG = "csv"
+             AND (WS-COMMAND = "metrics" OR WS-COMMAND = "layout")
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "dot" AND WS-COMMAND = "graph"
             MOVE WS-ARG TO WS-REPORT
@@ -4103,7 +4233,7 @@ SET-REPORT.
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected dot or json)" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
-        WHEN WS-COMMAND = "metrics"
+        WHEN WS-COMMAND = "metrics" OR WS-COMMAND = "layout"
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected text, json, or csv)" UPON SYSERR
