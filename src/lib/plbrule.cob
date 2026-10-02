@@ -56,6 +56,12 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C015"
         "recursive-call" "E"
         "Program that is not RECURSIVE can be called while it is running"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C016"
+        "report-not-initiated" "W"
+        "Report is generated or terminated but never initiated"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C017"
+        "report-not-terminated" "W"
+        "Report is initiated but never terminated"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M001"
         "go-to" "N"
         "GO TO statement"
@@ -78,6 +84,9 @@ PROCEDURE DIVISION USING PLB-RULES.
         "dynamic-call" "N"
         "CALL of a program named by a data item"
     MOVE "N" TO RL-ENABLED(RL-COUNT)
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M007"
+        "detail-never-generated" "N"
+        "Report detail group is never generated"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

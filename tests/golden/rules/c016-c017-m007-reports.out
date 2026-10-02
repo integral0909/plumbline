@@ -1,0 +1,4 @@
+tests/golden/rules/c016-c017-m007-reports.cob:17:5: warning: report DAILY-REPORT is initiated but never terminated, so its final footings are not printed [PLB-C017]
+tests/golden/rules/c016-c017-m007-reports.cob:20:5: note: detail group ERROR-LINE is never generated [PLB-M007]
+tests/golden/rules/c016-c017-m007-reports.cob:29:14: warning: report MONTHLY-REPORT is used by GENERATE, but no INITIATE starts it [PLB-C016]
+tests/golden/rules/c016-c017-m007-reports.cob:30:15: warning: report MONTHLY-REPORT is used by TERMINATE, but no INITIATE starts it [PLB-C016]

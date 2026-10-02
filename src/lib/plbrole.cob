@@ -31,6 +31,8 @@
 *>
 *> Identifiers inside subscripts and reference modifiers are always
 *> read. LENGTH OF a uses only the size of a, not its value (-).
+*> Names in report clauses (SOURCE, SUM, CONTROL, ...) are read when
+*> the report is produced (U).
 *> PROCEDURE DIVISION USING items are set by the caller (D).
 *> Anything not covered is X: Plumbline does not know whether it is
 *> read or set, and rules treat it as possibly both.
@@ -85,6 +87,11 @@ DECIDE-ROLE.
     IF LS-STMT = 0
         *> PROCEDURE DIVISION USING: the caller supplies the value.
         MOVE "D" TO LS-ROLE
+        EXIT PARAGRAPH
+    END-IF
+    *> A report clause (SOURCE, SUM, ...) reads what it names.
+    IF ND-KIND(LS-STMT) = "CLAU"
+        MOVE "U" TO LS-ROLE
         EXIT PARAGRAPH
     END-IF
     MOVE ND-DETAIL(LS-STMT) TO LS-VERB
