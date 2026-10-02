@@ -8,6 +8,7 @@
 #   make check-bounds  build with subscript checking and run the tests
 #                   on that build: an index past the end of a table
 #                   stops the program instead of overwriting memory
+#   make bench      time check on generated programs of growing size
 #   make golden-update  rewrite golden test expectations from current
 #                   output (review the diff before committing)
 #   make clean      remove build output
@@ -32,7 +33,7 @@ HARNESS_OBJ := $(patsubst tests/harness/%.cob,$(BUILD)/obj/harness/%.o,$(HARNESS
 TEST_SRC    := $(wildcard tests/unit/test-*.cob)
 TEST_BIN    := $(patsubst tests/unit/%.cob,$(BUILD)/tests/%,$(TEST_SRC))
 
-.PHONY: all clean test tests coverage golden-update corpus corpus-gnucobol corpus-carddemo check-bounds
+.PHONY: all clean test tests coverage golden-update corpus corpus-gnucobol corpus-carddemo check-bounds bench
 .SECONDARY: $(HARNESS_OBJ) $(LIB_OBJ)
 
 all: $(BIN)
@@ -131,3 +132,8 @@ corpus-gnucobol: $(BIN)
 # AWS CardDemo, a CICS, VSAM, DB2, IMS, and MQ sample application.
 corpus-carddemo: $(BIN)
 	tools/corpus/run-carddemo.sh $(BIN) $(BUILD)/corpus/carddemo
+
+# Time check on generated programs of 25,000 to 100,000 lines, to see
+# how the time grows with the size of a program (docs/performance.md).
+bench: $(BIN)
+	python3 tools/bench.py $(BIN)
