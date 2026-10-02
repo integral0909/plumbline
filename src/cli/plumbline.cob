@@ -43,6 +43,7 @@
 *>   plumbline layout [--report text|json|csv|md] [OPTION]... FILE...
 *>   plumbline doc [OPTION]... FILE...
 *>   plumbline fields [--report text|json] [--unused] [OPTION]... FILE...
+*>   plumbline xref [--report text|json] [OPTION]... FILE...
 *>   plumbline dump jcl FILE...
 *>   plumbline dump bms FILE...
 *>   plumbline dump csd FILE...
@@ -146,6 +147,8 @@ COPY "plbinput.cpy".
 01  WS-DOC-FIRST            PIC X.
 *> plumbline fields --unused: only the items no program names.
 01  WS-FIELDS-UNUSED        PIC X VALUE "N".
+*> plumbline xref: "Y" once a program has been listed.
+01  WS-XREF-ANY             PIC X.
 01  WS-U                    PIC 9(9) COMP-5.
 01  WS-E                    PIC 9(9) COMP-5.
 01  WS-RULE                 PIC 9(4) COMP-5.
@@ -329,6 +332,9 @@ MAIN-LOGIC.
             WHEN "fields"
                 MOVE "fields" TO WS-COMMAND
                 PERFORM FIELDS-COMMAND
+            WHEN "xref"
+                MOVE "xref" TO WS-COMMAND
+                PERFORM XREF-COMMAND
             WHEN OTHER
                 IF WS-ARG(1:1) = "-"
                     PERFORM UNKNOWN-OPTION
@@ -372,6 +378,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline layout [--report text|json|csv|md] [OPTION]... FILE..."
     DISPLAY "       plumbline doc [OPTION]... FILE..."
     DISPLAY "       plumbline fields [--report text|json] [--unused] [OPTION]... FILE..."
+    DISPLAY "       plumbline xref [--report text|json] [OPTION]... FILE..."
     DISPLAY "       plumbline format --to fixed|free [--check] FILE..."
     DISPLAY "       plumbline lsp [OPTION]..."
     DISPLAY "       plumbline rules [--report text|json] [OPTION]..."
@@ -415,6 +422,8 @@ SHOW-USAGE.
     DISPLAY "  fields           list the items of each copybook and how"
     DISPLAY "                   many programs name them (--unused: only"
     DISPLAY "                   those no program names)"
+    DISPLAY "  xref             list the data items and paragraphs of each"
+    DISPLAY "                   program with the lines that name them"
     DISPLAY "  impact NAME      list what includes copybook NAME or"
     DISPLAY "                   calls program NAME, directly or not,"
     DISPLAY "                   where data item NAME is used, or which"
@@ -871,6 +880,34 @@ LAYOUT-COMMAND.
     IF WS-LAYOUT-WRAPPER NOT = SPACES
         CALL "CBL_DELETE_FILE" USING WS-LAYOUT-WRAPPER
     END-IF
+    PERFORM REPORT-DIAGNOSTICS
+    IF DG-ERRORS > 0
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+*> xref: the cross-reference of each program.
+XREF-COMMAND.
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM ADD-INPUTS
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
+    MOVE WS-MODE TO PO-FORMAT
+    MOVE WS-DEBUG TO PO-DEBUG
+    CALL "PLB-XREF-BEGIN" USING WS-REPORT WS-XREF-ANY
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        PERFORM START-INPUT
+        IF SF-LOADED(WS-FILE-ID) = "Y"
+            PERFORM ANALYZE-FILE
+            CALL "PLB-XREF-FILE" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-AST PLB-SYMBOLS PLB-REFS PLB-FLOW WS-REPORT
+                WS-XREF-ANY
+            PERFORM END-INPUT
+        END-IF
+    END-PERFORM
+    CALL "PLB-XREF-END" USING WS-REPORT WS-XREF-ANY
     PERFORM REPORT-DIAGNOSTICS
     IF DG-ERRORS > 0
         MOVE 1 TO WS-EXIT-CODE
@@ -4944,7 +4981,7 @@ SET-REPORT.
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "sarif" AND WS-COMMAND NOT = "metrics"
              AND WS-COMMAND NOT = "rules" AND WS-COMMAND NOT = "inventory"
-             AND WS-COMMAND NOT = "fields"
+             AND WS-COMMAND NOT = "fields" AND WS-COMMAND NOT = "xref"
              AND WS-COMMAND NOT = "layout"
             MOVE WS-ARG TO WS-REPORT
         WHEN (WS-ARG = "html" OR WS-ARG = "md") AND WS-COMMAND = "check"
@@ -4972,7 +5009,7 @@ SET-REPORT.
                 "' (expected text, json, csv, or md)" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
         WHEN WS-COMMAND = "rules" OR WS-COMMAND = "inventory"
-             OR WS-COMMAND = "fields"
+             OR WS-COMMAND = "fields" OR WS-COMMAND = "xref"
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected text or json)" UPON SYSERR

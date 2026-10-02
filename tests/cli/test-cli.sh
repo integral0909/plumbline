@@ -478,6 +478,42 @@ assert items["CUST-ORDERS"]["namedBy"] == 2
 else
     echo "not ok $n - fields json"
 fi
+xx="-I tests/fixtures/xref tests/fixtures/xref/acctupd.cob"
+check "xref heads each program"           0 '^ACCTUPD (tests/fixtures/xref/acctupd.cob:2)$' \
+    -- xref $xx
+check "xref places copybook items"        0 '^    05 ACCT-BALANCE (acctrec.cpy:3)$' \
+    -- xref $xx
+check "xref marks the lines that change an item" 0 '^        18M 24$' \
+    -- xref $xx
+check "xref lists performs and THRU ends" 0 '^        13T$' \
+    -- xref $xx
+check "xref lists both paragraphs of an ALTER" 0 '^        14A 15G$' \
+    -- xref $xx
+check "xref lists nested programs"        0 '^ACCTLOG (tests/fixtures/xref/acctupd.cob:28)$' \
+    -- xref $xx
+check_absent "xref leaves out FILLER"     'FILLER' \
+    -- xref $xx
+check "xref wraps references at 79 columns" 0 '^        25M 26M .* 36M$' \
+    -- xref tests/fixtures/xref/manyrefs.cob
+check "xref refuses sarif"                2 "invalid --report format 'sarif' (expected text or json)" \
+    -- xref --report sarif $xx
+n=$((n + 1))
+if "$bin" xref --report json $xx | python3 -c '
+import json, sys
+programs = {p["name"]: p for p in json.load(sys.stdin)["programs"]}
+assert sorted(programs) == ["ACCTLOG", "ACCTUPD"]
+data = {d["name"]: d for d in programs["ACCTUPD"]["data"]}
+assert data["ACCT-ID"]["file"] == "tests/fixtures/xref/acctrec.cpy"
+assert [(r["line"], r["use"]) for r in data["WS-COUNT"]["references"]] == [(18, "modify"), (24, "read")]
+procs = {p["name"]: p for p in programs["ACCTUPD"]["procedures"]}
+assert procs["MAIN"]["kind"] == "section"
+assert [(r["line"], r["use"]) for r in procs["NEXT-STEP"]["references"]] == [(14, "alter"), (15, "go-to")]
+assert procs["POST-EXIT"]["references"][0]["use"] == "thru"
+'; then
+    echo "ok $n - xref json"
+else
+    echo "not ok $n - xref json"
+fi
 n=$((n + 1))
 if "$bin" layout --report json $lx/order.cpy $lx/orders.cob | python3 -c '
 import json, sys

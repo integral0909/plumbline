@@ -177,6 +177,9 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-K002 read-update-not-released.
 - Rule PLB-Q004 sql-no-where.
 - Rule PLB-C046 overlapping-move.
+- `plumbline xref`: the cross-reference of each program, its data
+  items and procedures with the lines that define and name them, as
+  text or JSON.
 - SARIF reports link each rule to its section of the rule reference
   (`helpUri`), and the tool to the project (`informationUri`).
 - Rules PLB-C039 decimal-to-alphanumeric and PLB-M016
