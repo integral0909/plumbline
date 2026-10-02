@@ -154,7 +154,9 @@ COPY "plbinput.cpy".
 01  WS-RULE                 PIC 9(4) COMP-5.
 01  WS-FAIL-ON              PIC X VALUE "W".
 01  WS-FAILING              PIC 9(9) COMP-5.
-01  WS-REPORT               PIC X(5) VALUE "text".
+*> The libraries see its first five characters; codeclimate is only
+*> for check.
+01  WS-REPORT               PIC X(11) VALUE "text".
 01  WS-C                    PIC 9(9) COMP-5.
 01  WS-K                    PIC 9(9) COMP-5.
 01  WS-POS-FILE             PIC 9(4) COMP-5.
@@ -469,8 +471,8 @@ SHOW-USAGE.
     DISPLAY "  --disable RULE   disable a rule (id or name; repeatable)"
     DISPLAY "  --fail-on LEVEL  exit 1 on findings at or above LEVEL:"
     DISPLAY "                   error, warning (default), note, never"
-    DISPLAY "  --report FORMAT  text (default), json, sarif, html, or md;"
-    DISPLAY "                   for"
+    DISPLAY "  --report FORMAT  text (default), json, sarif, html, md,"
+    DISPLAY "                   or codeclimate; for"
     DISPLAY "                   metrics: text, json, or csv; for"
     DISPLAY "                   graph: dot (default) or json"
     DISPLAY "  --baseline FILE  do not report the findings listed in FILE"
@@ -578,6 +580,9 @@ CHECK-COMMAND.
                 PLB-DIAGNOSTICS PLB-RULES PLB-FINDINGS
         WHEN "md"
             CALL "PLB-REPORT-MD" USING PLB-SOURCE-SET
+                PLB-DIAGNOSTICS PLB-RULES PLB-FINDINGS
+        WHEN "codeclimate"
+            CALL "PLB-REPORT-CODECLIMATE" USING PLB-SOURCE-SET
                 PLB-DIAGNOSTICS PLB-RULES PLB-FINDINGS
         WHEN OTHER
             PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > FN-COUNT
@@ -4984,7 +4989,8 @@ SET-REPORT.
              AND WS-COMMAND NOT = "fields" AND WS-COMMAND NOT = "xref"
              AND WS-COMMAND NOT = "layout"
             MOVE WS-ARG TO WS-REPORT
-        WHEN (WS-ARG = "html" OR WS-ARG = "md") AND WS-COMMAND = "check"
+        WHEN (WS-ARG = "html" OR WS-ARG = "md" OR WS-ARG = "codeclimate")
+             AND WS-COMMAND = "check"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "csv"
              AND (WS-COMMAND = "metrics" OR WS-COMMAND = "layout")
@@ -5017,7 +5023,8 @@ SET-REPORT.
         WHEN OTHER
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
-                "' (expected text, json, sarif, html, or md)" UPON SYSERR
+                "' (expected text, json, sarif, html, md, or codeclimate)"
+                UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
     END-EVALUATE.
 

@@ -3,9 +3,10 @@
 *>
 *> PLB-REPORT-JSON writes a simple JSON document; PLB-REPORT-SARIF
 *> writes SARIF 2.1.0, the format read by code-scanning services and
-*> many editors. Both write to standard output, list findings in the
-*> order of the findings table (callers sort it first), and leave out
-*> suppressed findings.
+*> many editors; PLB-REPORT-CODECLIMATE writes the Code Climate issues
+*> GitLab shows in merge requests. All write to standard output, list
+*> findings in the order of the findings table (callers sort it
+*> first), and leave out suppressed findings.
 *> ---------------------------------------------------------------
 
 *> PLB-REPORT-JSON:
@@ -359,3 +360,243 @@ APPEND-NUM.
     STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
         INTO WS-LINE WITH POINTER LS-PTR.
 END PROGRAM PLB-REPORT-SARIF.
+
+*> PLB-REPORT-CODECLIMATE: a JSON array of Code Climate issues, the
+*> format of GitLab's code quality reports:
+*>   [
+*>     {"type": "issue", "check_name": RULE, "description": MESSAGE,
+*>      "categories": [...], "severity": ..., "fingerprint": ...,
+*>      "location": {"path": FILE, "lines": {"begin": LINE}}},
+*>     ...
+*>   ]
+*> one issue per line, findings first, then diagnostics.
+*>
+*> GitLab tells new issues from old ones by the fingerprint, so it
+*> must stay the same while the finding does. It is a hash of the
+*> finding's baseline line (rule, file, message, and the reported
+*> source line, without its number: see plbbase), and of how many
+*> findings before it in the same file have that line, so that two
+*> alike findings differ. A diagnostic's fingerprint hashes its code,
+*> file, message, and line number.
+*>
+*> Severities: error is critical, warning major, note minor. The
+*> category follows the rule's family: S rules are Security, P rules
+*> Compatibility, M rules Clarity, and the others Bug Risk.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-REPORT-CODECLIMATE.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-LINE                 PIC X(4096).
+01  WS-KEY                  PIC X(1400).
+*> The hash of each finding's key, to count earlier alike findings.
+01  WS-HASH-1               PIC S9(18) COMP-5 OCCURS 100000 TIMES.
+01  WS-HASH-2               PIC S9(18) COMP-5 OCCURS 100000 TIMES.
+01  WS-HEX                  PIC X(16) VALUE "0123456789abcdef".
+LOCAL-STORAGE SECTION.
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-J                    PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-ANY                  PIC X.
+01  LS-PATH                 PIC X(512).
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-SEVERITY             PIC X.
+01  LS-CHECK                PIC X(31).
+01  LS-H1                   PIC S9(18) COMP-5.
+01  LS-H2                   PIC S9(18) COMP-5.
+01  LS-V                    PIC S9(18) COMP-5.
+01  LS-DIGIT                PIC 9(4) COMP-5.
+01  LS-SEEN                 PIC 9(9) COMP-5.
+01  LS-FINGERPRINT          PIC X(16).
+01  LS-KEY-PTR              PIC 9(9) COMP-5.
+01  LS-PENDING-LEN          PIC 9(9) COMP-5.
+*> Two hashes of 31 bits each, modulo two primes below 2**31, with
+*> different multipliers: 62 bits of fingerprint.
+78  LS-PRIME-1              VALUE 2147483647.
+78  LS-PRIME-2              VALUE 2147483629.
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbdiag.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-RULES
+        PLB-FINDINGS.
+    DISPLAY "["
+    MOVE "N" TO LS-ANY
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > FN-COUNT
+        IF FN-SUPPRESSED(LS-I) = "N"
+            PERFORM WRITE-FINDING
+        END-IF
+    END-PERFORM
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > DG-COUNT
+        PERFORM WRITE-DIAGNOSTIC
+    END-PERFORM
+    IF LS-ANY = "Y"
+        PERFORM END-ISSUE
+    END-IF
+    DISPLAY "]"
+    GOBACK.
+
+WRITE-FINDING.
+    CALL "PLB-BASELINE-KEY" USING PLB-SOURCE-SET PLB-RULES PLB-FINDINGS
+        LS-I WS-KEY
+    PERFORM HASH-KEY
+    MOVE LS-H1 TO WS-HASH-1(LS-I)
+    MOVE LS-H2 TO WS-HASH-2(LS-I)
+    *> Alike findings before this one: the findings of a file are
+    *> together, since the table is sorted by file.
+    MOVE 0 TO LS-SEEN
+    PERFORM VARYING LS-J FROM LS-I BY -1 UNTIL LS-J <= 1
+        COMPUTE LS-K = LS-J - 1
+        IF FN-FILE-ID(LS-K) NOT = FN-FILE-ID(LS-I)
+            EXIT PERFORM
+        END-IF
+        IF FN-SUPPRESSED(LS-K) = "N"
+           AND WS-HASH-1(LS-K) = LS-H1 AND WS-HASH-2(LS-K) = LS-H2
+            ADD 1 TO LS-SEEN
+        END-IF
+    END-PERFORM
+    PERFORM ADD-SEEN
+    MOVE RL-ID(FN-RULE(LS-I)) TO LS-CHECK
+    MOVE FN-SEVERITY(LS-I) TO LS-SEVERITY
+    PERFORM START-ISSUE
+    CALL "PLB-JSON-STRING" USING FN-MESSAGE(LS-I) WS-LINE LS-PTR
+    PERFORM APPEND-CATEGORY
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET FN-FILE-ID(LS-I)
+        LS-PATH
+    MOVE FN-LINE(LS-I) TO LS-NUM
+    PERFORM FINISH-ISSUE.
+
+WRITE-DIAGNOSTIC.
+    MOVE SPACES TO WS-KEY
+    MOVE 1 TO LS-KEY-PTR
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET DG-FILE-ID(LS-I)
+        LS-PATH
+    MOVE DG-LINE(LS-I) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING DG-CODE(LS-I) DELIMITED BY SPACE
+           " | " DELIMITED BY SIZE
+           LS-PATH DELIMITED BY SPACE
+           " | " DELIMITED BY SIZE
+           DG-MESSAGE(LS-I) DELIMITED BY SIZE
+           " | " LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+        INTO WS-KEY WITH POINTER LS-KEY-PTR
+    PERFORM HASH-KEY
+    MOVE 0 TO LS-SEEN
+    PERFORM ADD-SEEN
+    MOVE DG-CODE(LS-I) TO LS-CHECK
+    MOVE DG-SEVERITY(LS-I) TO LS-SEVERITY
+    PERFORM START-ISSUE
+    CALL "PLB-JSON-STRING" USING DG-MESSAGE(LS-I) WS-LINE LS-PTR
+    STRING ', "categories": ["Bug Risk"]' DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    MOVE DG-LINE(LS-I) TO LS-NUM
+    PERFORM FINISH-ISSUE.
+
+*> The issue before this one is written here, with its comma, so that
+*> the last one has none.
+START-ISSUE.
+    IF LS-ANY = "Y"
+        PERFORM END-ISSUE-COMMA
+    END-IF
+    MOVE "Y" TO LS-ANY
+    MOVE SPACES TO WS-LINE
+    MOVE 1 TO LS-PTR
+    STRING '  {"type": "issue", "check_name": ' DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    CALL "PLB-JSON-STRING" USING LS-CHECK WS-LINE LS-PTR
+    STRING ', "description": ' DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR.
+
+APPEND-CATEGORY.
+    EVALUATE LS-CHECK(5:1)
+        WHEN "S"
+            STRING ', "categories": ["Security"]' DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        WHEN "P"
+            STRING ', "categories": ["Compatibility"]' DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        WHEN "M"
+            STRING ', "categories": ["Clarity"]' DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        WHEN OTHER
+            STRING ', "categories": ["Bug Risk"]' DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+    END-EVALUATE.
+
+*> Severity, fingerprint, and location (LS-PATH, line LS-NUM); the
+*> line is kept until the next issue or the end tells whether a comma
+*> follows it.
+FINISH-ISSUE.
+    STRING ', "severity": "' DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    EVALUATE LS-SEVERITY
+        WHEN "E"
+            STRING "critical" DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        WHEN "N"
+            STRING "minor" DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        WHEN OTHER
+            STRING "major" DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+    END-EVALUATE
+    PERFORM FORMAT-FINGERPRINT
+    STRING '", "fingerprint": "' LS-FINGERPRINT
+           '", "location": {"path": ' DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    CALL "PLB-JSON-STRING" USING LS-PATH WS-LINE LS-PTR
+    STRING ', "lines": {"begin": ' DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    *> Line 0 is a whole-file diagnostic: GitLab wants a line.
+    IF LS-NUM < 1
+        MOVE 1 TO LS-NUM
+    END-IF
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING LS-NUM-TEXT(1:LS-NUM-LEN) "}}}" DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    COMPUTE LS-PENDING-LEN = LS-PTR - 1.
+
+*> The pending issue, with a comma when another follows.
+END-ISSUE.
+    DISPLAY WS-LINE(1:LS-PENDING-LEN).
+
+END-ISSUE-COMMA.
+    DISPLAY WS-LINE(1:LS-PENDING-LEN) ",".
+
+*> LS-H1 and LS-H2 over WS-KEY up to its last non-space character.
+HASH-KEY.
+    MOVE 0 TO LS-H1 LS-H2
+    CALL "PLB-STR-LENGTH" USING WS-KEY LS-LEN
+    PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J > LS-LEN
+        COMPUTE LS-V = FUNCTION ORD(WS-KEY(LS-J:1))
+        COMPUTE LS-H1 = FUNCTION MOD(LS-H1 * 131 + LS-V, LS-PRIME-1)
+        COMPUTE LS-H2 = FUNCTION MOD(LS-H2 * 257 + LS-V, LS-PRIME-2)
+    END-PERFORM.
+
+*> Fold the count of alike findings before this one into the hashes.
+ADD-SEEN.
+    COMPUTE LS-H1 = FUNCTION MOD(LS-H1 * 131 + 1000 + LS-SEEN,
+        LS-PRIME-1)
+    COMPUTE LS-H2 = FUNCTION MOD(LS-H2 * 257 + 1000 + LS-SEEN,
+        LS-PRIME-2).
+
+*> Sixteen hexadecimal digits: eight of each hash.
+FORMAT-FINGERPRINT.
+    MOVE LS-H1 TO LS-V
+    PERFORM VARYING LS-J FROM 8 BY -1 UNTIL LS-J < 1
+        COMPUTE LS-DIGIT = FUNCTION MOD(LS-V, 16)
+        MOVE WS-HEX(LS-DIGIT + 1:1) TO LS-FINGERPRINT(LS-J:1)
+        COMPUTE LS-V = LS-V / 16
+    END-PERFORM
+    MOVE LS-H2 TO LS-V
+    PERFORM VARYING LS-J FROM 16 BY -1 UNTIL LS-J < 9
+        COMPUTE LS-DIGIT = FUNCTION MOD(LS-V, 16)
+        MOVE WS-HEX(LS-DIGIT + 1:1) TO LS-FINGERPRINT(LS-J:1)
+        COMPUTE LS-V = LS-V / 16
+    END-PERFORM.
+END PROGRAM PLB-REPORT-CODECLIMATE.

@@ -663,7 +663,7 @@ check "metrics start ends at the first paragraph" 0 '^"tests/fixtures/metrics/st
     -- metrics --report csv tests/fixtures/metrics/start.cob
 check "metrics refuses sarif"             2 "invalid --report format 'sarif' (expected text, json, or csv)" \
     -- metrics --report sarif $mx/complexity.cob
-check "check refuses csv"                 2 "invalid --report format 'csv' (expected text, json, sarif, html, or md)" \
+check "check refuses csv"                 2 "invalid --report format 'csv' (expected text, json, sarif, html, md, or codeclimate)" \
     -- check --report csv $mx/complexity.cob
 n=$((n + 1))
 if "$bin" metrics --report json $mx/complexity.cob $rx/c001-unreachable.cob | python3 -m json.tool >/dev/null 2>&1; then
@@ -802,6 +802,34 @@ if err=$("$bin" check --report html --baseline $bx/c001.baseline $rx/c001-unreac
 else
     failed=$((failed + 1)); echo "not ok $n - html report leaves out baselined findings"; echo "  # $err"
 fi
+check_report "codeclimate report is valid" codeclimate 3 -- check --report codeclimate $rx/c001-unreachable.cob
+check_report "empty codeclimate report is valid" codeclimate 0 -- check --report codeclimate --disable PLB-C001 --disable go-to $rx/c001-unreachable.cob
+check_report "codeclimate tells alike findings apart" codeclimate 5 -- check --report codeclimate tests/fixtures/report/alike.cob
+check "codeclimate maps severities"       1 '"check_name": "PLB-M001", .*"categories": \["Clarity"\], "severity": "minor"' \
+    -- check --report codeclimate $rx/c001-unreachable.cob
+check "codeclimate reports diagnostics"   1 '"check_name": "PP001", .*"severity": "critical"' \
+    -- check --report codeclimate tests/fixtures/report/alike.cob
+# A line added above the findings moves them, but leaves their
+# fingerprints as they were.
+tmp=$(mktemp -d)
+{ echo '*> a comment line added at the top'; cat $rx/c001-unreachable.cob; } > "$tmp/c001-unreachable.cob"
+abs_bin=$(cd "$(dirname "$bin")" && pwd)/$(basename "$bin")
+# Both runs have findings, so both exit 1.
+(cd "$tmp" && "$abs_bin" check --report codeclimate c001-unreachable.cob) > "$tmp/after.json"
+(cd $rx && "$abs_bin" check --report codeclimate c001-unreachable.cob) > "$tmp/before.json"
+n=$((n + 1))
+if python3 -c '
+import json, sys
+before = json.load(open(sys.argv[1]))
+after = json.load(open(sys.argv[2]))
+assert [i["fingerprint"] for i in before] == [i["fingerprint"] for i in after]
+assert [i["location"]["lines"]["begin"] + 1 for i in before] == [i["location"]["lines"]["begin"] for i in after]
+' "$tmp/before.json" "$tmp/after.json"; then
+    echo "ok $n - codeclimate fingerprints survive moved lines"
+else
+    failed=$((failed + 1)); echo "not ok $n - codeclimate fingerprints survive moved lines"
+fi
+rm -rf "$tmp"
 check "reports keep the exit code"        1 '"ruleId": "PLB-C001"' -- check --report sarif $rx/c001-unreachable.cob
 check "invalid --report format"           2 "invalid --report format 'xml'" -- check --report xml $rx/c001-unreachable.cob
 
