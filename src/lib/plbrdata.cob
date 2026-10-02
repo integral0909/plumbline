@@ -189,9 +189,9 @@ CHECK-PROGRAM.
         END-IF
     END-PERFORM.
 
-*> The sorted, searchable list of words in the program's procedure
-*> division, its report clauses, and the objects of OCCURS DEPENDING
-*> ON.
+*> The sorted, searchable list of words in the program's environment
+*> and procedure divisions, its report clauses, and the objects of
+*> OCCURS DEPENDING ON.
 COLLECT-NAMES.
     MOVE 0 TO WS-NAME-COUNT LS-DIVISION
     MOVE ND-FIRST(LS-PROGRAM) TO LS-CHILD
@@ -199,6 +199,19 @@ COLLECT-NAMES.
         IF ND-KIND(LS-CHILD) = "DIVN"
            AND ND-DETAIL(LS-CHILD) = "PROCEDURE"
             MOVE LS-CHILD TO LS-DIVISION
+        END-IF
+        *> Items the environment division names (FILE STATUS, RECORD
+        *> KEY, ...) are in use even if no statement names them.
+        IF ND-KIND(LS-CHILD) = "DIVN"
+           AND ND-DETAIL(LS-CHILD) = "ENVIRONMENT"
+            PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-CHILD) BY 1
+                    UNTIL LS-T > ND-TOK-LAST(LS-CHILD)
+                IF TK-IS-WORD(LS-T) AND TK-TEXT-LEN(LS-T) <= 31
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT
+                        LS-LEN
+                    PERFORM ADD-NAME
+                END-IF
+            END-PERFORM
         END-IF
         MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
     END-PERFORM

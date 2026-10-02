@@ -74,6 +74,9 @@ uses [Semantic Versioning](https://semver.org/).
 
 - `make corpus` runs Plumbline over the NIST COBOL-85 test suite
   (`tools/corpus/`); see `docs/corpus.md`.
+- File rules PLB-C020 file-status-not-checked, PLB-C021
+  file-not-opened, PLB-C022 open-mode-mismatch, and PLB-M008
+  file-not-closed.
 - Embedded SQL and CICS: host variables and command arguments are
   references with roles, EXEC SQL INCLUDE is expanded, the SQLCA and EIB
   fields are known, CICS RETURN/XCTL/ABEND end a paragraph, and WHENEVER
