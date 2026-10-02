@@ -41,6 +41,7 @@
 *>   plumbline dump calls [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump jcl FILE...
 *>   plumbline dump bms FILE...
+*>   plumbline dump csd FILE...
 *>
 *> Exit codes:
 *>   0  success
@@ -73,6 +74,8 @@ COPY "plbjclc.cpy".
 COPY "plbjcl.cpy".
 COPY "plbbmsc.cpy".
 COPY "plbbms.cpy".
+COPY "plbcsdc.cpy".
+COPY "plbcsd.cpy".
 COPY "plbconf.cpy".
 COPY "plbmetrc.cpy".
 COPY "plbmetr.cpy".
@@ -318,6 +321,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline dump calls [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump jcl FILE..."
     DISPLAY "       plumbline dump bms FILE..."
+    DISPLAY "       plumbline dump csd FILE..."
     DISPLAY "Static analysis for COBOL programs."
     DISPLAY " "
     DISPLAY "Options:"
@@ -352,6 +356,7 @@ SHOW-USAGE.
     DISPLAY "  dump calls       show programs, their parameters, and CALLs"
     DISPLAY "  dump jcl         show the jobs, steps, and DD statements of JCL"
     DISPLAY "  dump bms         show the maps and fields of CICS BMS sources"
+    DISPLAY "  dump csd         show the CICS resources DFHCSDUP input defines"
     DISPLAY " "
     DISPLAY "Command options:"
     DISPLAY "  --format FORMAT  reference format: fixed, free, or auto"
@@ -445,6 +450,8 @@ CHECK-COMMAND.
     *> Maps, and the programs that send and receive them.
     CALL "PLB-RULE-BMS" USING PLB-RULES PLB-FINDINGS PLB-BMS
         PLB-CALL-GRAPH
+    CALL "PLB-RULE-CICS" USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH
+        PLB-CSD
     PERFORM SUPPRESS-LATE-FINDINGS
     *> Programs against the JCL that runs them. JCL has no suppression
     *> comments.
@@ -487,7 +494,7 @@ CHECK-COMMAND.
 
 *> WS-IS-JCL = "Y" when input WS-FILE-ID is JCL: a file named
 *> *.jcl or *.prc, in either case; "B" when it is a BMS map source,
-*> *.bms.
+*> *.bms; "C" for CICS resource definitions, *.csd.
 TEST-JCL-INPUT.
     MOVE "N" TO WS-IS-JCL
     CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET WS-FILE-ID WS-PATH
@@ -501,12 +508,16 @@ TEST-JCL-INPUT.
         IF WS-EXTENSION = ".BMS"
             MOVE "B" TO WS-IS-JCL
         END-IF
+        IF WS-EXTENSION = ".CSD"
+            MOVE "C" TO WS-IS-JCL
+        END-IF
     END-IF.
 
 *> The JCL and BMS inputs of the run, into PLB-JCL and PLB-BMS.
 READ-OTHER-INPUTS.
     CALL "PLB-JCL-INIT" USING PLB-JCL
     CALL "PLB-BMS-INIT" USING PLB-BMS
+    CALL "PLB-CSD-INIT" USING PLB-CSD
     PERFORM VARYING WS-FILE-ID FROM 1 BY 1
             UNTIL WS-FILE-ID > WS-MAIN-FILES
         PERFORM TEST-JCL-INPUT
@@ -519,7 +530,12 @@ READ-JCL-INPUT.
     IF WS-IS-JCL = "B"
         CALL "PLB-BMS-READ" USING WS-PATH(1:WS-PATH-LEN) WS-FILE-ID
             PLB-BMS WS-STATUS
-    ELSE
+    END-IF
+    IF WS-IS-JCL = "C"
+        CALL "PLB-CSD-READ" USING WS-PATH(1:WS-PATH-LEN) WS-FILE-ID
+            PLB-CSD WS-STATUS
+    END-IF
+    IF WS-IS-JCL = "Y"
         CALL "PLB-JCL-READ" USING WS-PATH(1:WS-PATH-LEN) WS-FILE-ID
             PLB-JCL WS-STATUS
     END-IF
@@ -2013,6 +2029,7 @@ DUMP-COMMAND.
        AND WS-ARG NOT = "symbols" AND WS-ARG NOT = "flow"
        AND WS-ARG NOT = "refs" AND WS-ARG NOT = "calls"
        AND WS-ARG NOT = "jcl" AND WS-ARG NOT = "bms"
+       AND WS-ARG NOT = "csd"
         IF WS-ARG-LEN = 0
             DISPLAY PLB-NAME ": dump: missing what to dump"
                 UPON SYSERR
@@ -2034,6 +2051,10 @@ DUMP-COMMAND.
     END-IF
     IF WS-DUMP-TARGET = "bms"
         PERFORM DUMP-BMS
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-DUMP-TARGET = "csd"
+        PERFORM DUMP-CSD
         EXIT PARAGRAPH
     END-IF
     PERFORM LOAD-INPUTS
@@ -2585,6 +2606,52 @@ DUMP-BMS-FIELD.
     END-IF
     DISPLAY WS-OUT(1:WS-PTR - 1).
 
+*> path:line: TYPE NAME group GROUP [program P | dsname D]
+DUMP-CSD.
+    CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET
+    CALL "PLB-DIAG-INIT" USING PLB-DIAGNOSTICS
+    CALL "PLB-CSD-INIT" USING PLB-CSD
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > IP-COUNT
+        CALL "PLB-SRC-ADD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            IP-PATH(WS-I) WS-MODE WS-FILE-ID
+        CALL "PLB-CSD-READ" USING IP-PATH(WS-I) WS-FILE-ID PLB-CSD
+            WS-STATUS
+        IF WS-STATUS NOT = 0
+            CALL "PLB-STR-LENGTH" USING IP-PATH(WS-I) WS-PATH-LEN
+            DISPLAY PLB-NAME ": cannot read "
+                IP-PATH(WS-I)(1:WS-PATH-LEN) UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        END-IF
+    END-PERFORM
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > CR-COUNT
+        MOVE SPACES TO WS-OUT
+        MOVE 1 TO WS-PTR
+        MOVE CR-FILE-ID(WS-I) TO WS-POS-FILE
+        MOVE CR-LINE(WS-I) TO WS-POS-LINE
+        PERFORM APPEND-JCL-POSITION
+        STRING FUNCTION LOWER-CASE(CR-TYPE(WS-I)) DELIMITED BY SPACE
+               " " DELIMITED BY SIZE
+               CR-NAME(WS-I) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+        IF CR-GROUP(WS-I) NOT = SPACES
+            STRING " group " DELIMITED BY SIZE
+                   CR-GROUP(WS-I) DELIMITED BY SPACE
+                INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+        IF CR-TARGET(WS-I) NOT = SPACES
+            IF CR-TYPE(WS-I) = "FILE"
+                STRING " dsname " DELIMITED BY SIZE
+                    INTO WS-OUT WITH POINTER WS-PTR
+            ELSE
+                STRING " program " DELIMITED BY SIZE
+                    INTO WS-OUT WITH POINTER WS-PTR
+            END-IF
+            STRING CR-TARGET(WS-I) DELIMITED BY SPACE
+                INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+        DISPLAY WS-OUT(1:WS-PTR - 1)
+    END-PERFORM.
+
 DUMP-CALLS.
     CALL "PLB-CALL-INIT" USING PLB-CALL-GRAPH
     MOVE SS-FILE-COUNT TO WS-MAIN-FILES
@@ -2609,6 +2676,9 @@ DUMP-CALLS.
     PERFORM VARYING WS-C FROM 1 BY 1 UNTIL WS-C > PM-COUNT
         PERFORM DUMP-ONE-MAP
     END-PERFORM
+    PERFORM VARYING WS-C FROM 1 BY 1 UNTIL WS-C > PU-COUNT
+        PERFORM DUMP-ONE-RESOURCE
+    END-PERFORM
     IF CP-DROPPED > 0
         MOVE CP-DROPPED TO WS-NUM
         CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
@@ -2619,6 +2689,37 @@ DUMP-CALLS.
 *> file NAME path:line:col of PROGRAM dd DDNAME [optional] [sort]
 *> [opened MODES]
 *> map NAME of mapset SET path:line:col sent|received by PROGRAM
+*> resource KIND NAME path:line:col COMMAND by PROGRAM
+DUMP-ONE-RESOURCE.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    STRING "resource " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    EVALUATE PU-KIND(WS-C)
+        WHEN "F" STRING "file " DELIMITED BY SIZE
+                     INTO WS-OUT WITH POINTER WS-PTR
+        WHEN "T" STRING "transaction " DELIMITED BY SIZE
+                     INTO WS-OUT WITH POINTER WS-PTR
+        WHEN "P" STRING "program " DELIMITED BY SIZE
+                     INTO WS-OUT WITH POINTER WS-PTR
+        WHEN "M" STRING "mapset " DELIMITED BY SIZE
+                     INTO WS-OUT WITH POINTER WS-PTR
+        WHEN "Q" STRING "tdqueue " DELIMITED BY SIZE
+                     INTO WS-OUT WITH POINTER WS-PTR
+    END-EVALUATE
+    STRING PU-NAME(WS-C) DELIMITED BY SPACE
+           " " DELIMITED BY SIZE
+        INTO WS-OUT WITH POINTER WS-PTR
+    MOVE PU-FILE-ID(WS-C) TO WS-POS-FILE
+    MOVE PU-LINE(WS-C) TO WS-POS-LINE
+    MOVE PU-COLUMN(WS-C) TO WS-POS-COLUMN
+    PERFORM APPEND-POSITION
+    STRING " " DELIMITED BY SIZE
+           PU-COMMAND(WS-C) DELIMITED BY SPACE
+           " by " DELIMITED BY SIZE
+           CP-NAME(PU-PROGRAM(WS-C)) DELIMITED BY SPACE
+        INTO WS-OUT WITH POINTER WS-PTR
+    DISPLAY WS-OUT(1:WS-PTR - 1).
+
 DUMP-ONE-MAP.
     MOVE SPACES TO WS-OUT
     MOVE 1 TO WS-PTR

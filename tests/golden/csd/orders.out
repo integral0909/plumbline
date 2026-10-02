@@ -1,0 +1,7 @@
+tests/golden/csd/orders.csd:4: transaction ORD1 group ORDERS program ORDMENU
+tests/golden/csd/orders.csd:6: program ORDMENU group ORDERS
+tests/golden/csd/orders.csd:8: program ORDENTRY group ORDERS
+tests/golden/csd/orders.csd:9: mapset ORDSET group ORDERS
+tests/golden/csd/orders.csd:10: file ORDFILE group ORDERS dsname PROD.ORDERS.KSDS
+tests/golden/csd/orders.csd:12: tdqueue ORDQ group ORDERS
+tests/golden/csd/orders.csd:15: transaction ORD2 group ORDERS program ORDENTRY

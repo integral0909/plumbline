@@ -12,8 +12,8 @@ lines of IBM Enterprise COBOL, with their copybooks.
 (`59cc6c2fd7ebd7ef7925cad552a01a4b8b6e4d5e`) from GitHub, checks it
 against a known SHA-256, and checks all programs in one run, with every
 directory of copybooks and DB2 declarations on the copy path, together
-with the application's 48 JCL members and procedures and its 21 BMS
-map sources. None of
+with the application's 48 JCL members and procedures, its 21 BMS map
+sources, and its 4 files of CICS resource definitions. None of
 CardDemo is added to this repository.
 
 ## Results
@@ -25,6 +25,7 @@ The run on 2026-10-01 takes about a second:
 | Programs | 44 (30,175 lines, without copybooks) |
 | JCL members and procedures | 48 |
 | BMS map sources | 21 |
+| CICS resource definition files | 4 |
 | Programs with input errors | 24, all for copybooks of CICS and MQ |
 
 The copybooks it cannot find are those that come with the products, not
@@ -125,3 +126,9 @@ Some findings that were read and are true:
   on top of the first.
 - **PLB-B004 symbolic-map-stale.** None: the symbolic map copybooks in
   `cpy-bms` match the 21 maps field for field.
+- **PLB-K001 cics-resource-undefined.** None: every file, transaction,
+  program, mapset, and queue that the programs' CICS commands name by a
+  constant is defined, once the definitions of the extensions are read
+  with the application's. Without them, the 13 commands of the
+  extensions' programs that name their own transactions and mapsets
+  are reported.

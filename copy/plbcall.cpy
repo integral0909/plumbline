@@ -8,7 +8,8 @@
 *> (CA), its PROCEDURE DIVISION USING or ENTRY ... USING items. Calls
 *> (CC) each have a list of arguments (CG). The files of each program
 *> (PF) say which DD name the job step must provide, and the maps of
-*> each program (PM) which BMS maps it sends and receives.
+*> each program (PM) which BMS maps it sends and receives, and the
+*> CICS resources (PU) its commands name.
 *>
 *> Names are compared without regard to case: CP-NAME and CC-TARGET
 *> are upper-cased.
@@ -121,3 +122,16 @@
         10  PM-LINE             PIC 9(9) COMP-5.
         10  PM-COLUMN           PIC 9(4) COMP-5.
         10  PM-SRC-LINE         PIC 9(9) COMP-5.
+    05  PU-COUNT                PIC 9(9) COMP-5.
+    05  PU-ENTRY                OCCURS PU-MAX TIMES.
+        10  PU-PROGRAM          PIC 9(9) COMP-5.
+        *> The kind of resource: F file (FILE or DATASET), T
+        *> transaction (TRANSID), P program (XCTL, LINK, LOAD), M
+        *> mapset, Q transient data queue (WRITEQ TD, READQ TD).
+        10  PU-KIND             PIC X.
+        10  PU-NAME             PIC X(8).
+        *> The command: READ, XCTL, RETURN, ...
+        10  PU-COMMAND          PIC X(12).
+        10  PU-FILE-ID          PIC 9(4) COMP-5.
+        10  PU-LINE             PIC 9(9) COMP-5.
+        10  PU-COLUMN           PIC 9(4) COMP-5.
