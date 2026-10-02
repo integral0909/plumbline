@@ -1,7 +1,7 @@
 {
   "name": "plumbline",
   "displayName": "Plumbline",
-  "description": "COBOL static analysis: findings as you type, navigation, rename, and outline, from the Plumbline language server.",
+  "description": "COBOL static analysis: findings as you type, completion, navigation, rename, record offsets, and outline, from the Plumbline language server.",
   "version": "0.1.0",
   "publisher": "integral0909",
   "license": "Apache-2.0",

@@ -1,10 +1,12 @@
 # Plumbline for Visual Studio Code
 
 This extension runs the Plumbline language server (`plumbline lsp`) for
-COBOL files: findings as you type, outline, go to definition, hover,
-references, highlights, rename, folding, code lenses, call hierarchy, semantic
-highlighting, and quick fixes that suppress a finding. See [Using
-Plumbline in an editor](../../docs/editors.md) for what each does.
+COBOL files: findings as you type, outline, completion, go to
+definition (also from `COPY` to the copybook), hover, references,
+highlights, rename, folding, code lenses, inlay hints with record
+offsets, links to copybooks, call hierarchy, semantic highlighting, and
+quick fixes that suppress a finding. See [Using Plumbline in an
+editor](../../docs/editors.md) for what each does.
 
 ## Installing
 
