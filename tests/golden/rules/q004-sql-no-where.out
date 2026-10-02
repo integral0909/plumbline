@@ -1,0 +1,3 @@
+tests/golden/rules/q004-sql-no-where.cob:20:14: warning: EXEC SQL UPDATE has no WHERE: it changes every row of the table [PLB-Q004]
+tests/golden/rules/q004-sql-no-where.cob:25:27: warning: WS-ORDER-ID is used before it is given a value [PLB-C012]
+tests/golden/rules/q004-sql-no-where.cob:36:14: warning: EXEC SQL UPDATE has no WHERE: it changes every row of the table [PLB-Q004]
