@@ -342,6 +342,7 @@ with the same paths each time.
 - [Running Plumbline on GnuCOBOL's test suite](docs/corpus-gnucobol.md)
 - [Running Plumbline on AWS CardDemo](docs/corpus-carddemo.md)
 - [Architecture](docs/architecture.md)
+- [Performance](docs/performance.md)
 - [Testing](docs/testing.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
