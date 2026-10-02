@@ -202,7 +202,7 @@ check "check over more than 256 files"    0 '^$' -- check --no-config -I "$many"
 rm -rf "$many"
 check "evaluate-without-other is off by default" 0 '^$' \
     -- check --no-config tests/fixtures/rules/evaluate.cob
-check "evaluate-without-other finds the EVALUATE" 0 'evaluate.cob:12:12: note: EVALUATE has no WHEN OTHER' \
+check "evaluate-without-other finds the EVALUATE" 0 'evaluate.cob:12:12: note: EVALUATE has no WHEN OTHER.*\[PLB-M011\]$' \
     -- check --no-config --enable evaluate-without-other --fail-on error tests/fixtures/rules/evaluate.cob
 check_absent "an EVALUATE with WHEN OTHER is fine" 'evaluate.cob:8:' \
     -- check --no-config --enable PLB-M011 tests/fixtures/rules/evaluate.cob
@@ -557,6 +557,14 @@ check "unknown settings are errors"       2 "in $cfx/unknown.conf line 1" -- che
 check "invalid severity"                  2 "invalid severity 'fatal'" -- check --config $cfx/bad-severity.conf $rx/c001-unreachable.cob
 check "limit lowers a rule's threshold"   0 'paragraph DECIDE has complexity 13 (limit 10) \[PLB-M009\]' \
     -- check --config $cfx/limits.conf --fail-on never tests/golden/metrics/complexity.cob
+check "limit applies to long paragraphs"  0 'paragraph DECIDE has 13 statements (limit 10) \[PLB-M010\]' \
+    -- check --config $cfx/limits.conf --fail-on never tests/golden/metrics/complexity.cob
+check "dynamic-call when enabled"         0 'named by data item ROUTINE-NAME, so the call cannot be checked \[PLB-M006\]' \
+    -- check --no-config --enable dynamic-call --fail-on never $rx/c013-c015-calls.cob
+check "vendor-routine when enabled"       0 'CBL_DELETE_FILE is a library routine of some compilers, not standard COBOL; keep such calls in one place \[PLB-P001\]' \
+    -- check --no-config --enable vendor-routine --fail-on never $rx/p001-p002-portability.cob
+check "signed-to-alphanumeric when enabled" 0 'MOVE of signed BALANCE to alphanumeric TEXT-OUT drops its sign: -5 and 5 give the same text \[PLB-M016\]' \
+    -- check --no-config --enable signed-to-alphanumeric --fail-on never $rx/c039-decimal-to-alphanumeric.cob
 check "limit needs a measuring rule"      2 "rule 'go-to' has no limit" \
     -- check --config $cfx/no-limit.conf tests/golden/metrics/complexity.cob
 check "limit needs a number"              2 "invalid limit 'many'" \
