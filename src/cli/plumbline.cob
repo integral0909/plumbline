@@ -229,6 +229,9 @@ COPY "plbinput.cpy".
 01  WS-LSP-NEW-LEN          PIC 9(9) COMP-5.
 01  WS-LSP-OLD-NAME         PIC X(31).
 01  WS-LSP-UPPER-NAME       PIC X(31).
+*> textDocument/codeLens: PERFORM and GO TO statements naming a unit.
+01  WS-LSP-PERFORMS         PIC 9(9) COMP-5.
+01  WS-LSP-GOTOS            PIC 9(9) COMP-5.
 *> textDocument/codeAction: the rules already offered for the line.
 01  WS-LSP-OFFERED          PIC X(400).
 01  WS-LSP-INDENT           PIC 9(4) COMP-5.
@@ -1255,6 +1258,8 @@ LSP-MESSAGE.
             PERFORM LSP-CODE-ACTIONS
         WHEN "textDocument/foldingRange"
             PERFORM LSP-FOLDING-RANGES
+        WHEN "textDocument/codeLens"
+            PERFORM LSP-CODE-LENSES
         WHEN "textDocument/prepareRename"
             PERFORM LSP-PREPARE-RENAME
         WHEN "textDocument/rename"
@@ -1288,6 +1293,8 @@ LSP-INITIALIZE.
            '"referencesProvider":true,' DELIMITED BY SIZE
            '"documentHighlightProvider":true,' DELIMITED BY SIZE
            '"foldingRangeProvider":true,' DELIMITED BY SIZE
+           '"codeLensProvider":{"resolveProvider":false},'
+           DELIMITED BY SIZE
            '"callHierarchyProvider":true,' DELIMITED BY SIZE
            '"semanticTokensProvider":{"legend":{"tokenTypes":'
            DELIMITED BY SIZE
@@ -2286,6 +2293,83 @@ LSP-APPEND-FOLD.
     PERFORM LSP-APPEND-NUM
     STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
 
+*> textDocument/codeLens: above each section and paragraph of the
+*> document, how many PERFORM and GO TO statements name it (a PERFORM
+*> ... THRU counts for its first procedure), or that none does. The
+*> lenses are plain text: their command does nothing.
+LSP-CODE-LENSES.
+    PERFORM LSP-FIND-DOCUMENT
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":[' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-DOC-INDEX > 0
+        PERFORM LSP-ANALYZE
+        MOVE "Y" TO WS-LSP-FIRST
+        PERFORM VARYING WS-U FROM 1 BY 1 UNTIL WS-U > FU-COUNT
+            IF FU-KIND(WS-U) = "P" OR FU-KIND(WS-U) = "S"
+                PERFORM LSP-APPEND-LENS
+            END-IF
+        END-PERFORM
+    END-IF
+    STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> {"range":...,"command":{"title":"...","command":""}} for unit WS-U,
+*> when its name is in the document.
+LSP-APPEND-LENS.
+    MOVE ND-NAME(FU-NODE(WS-U)) TO WS-LSP-TOKEN
+    IF WS-LSP-TOKEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF TK-FILE-ID(WS-LSP-TOKEN) NOT = 1
+       OR TK-SRC-LINE(WS-LSP-TOKEN) = 0
+       OR WS-LSP-PTR > LSP-SIZE - 1024
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO WS-LSP-PERFORMS WS-LSP-GOTOS
+    PERFORM VARYING WS-J FROM 1 BY 1 UNTIL WS-J > FE-COUNT
+        IF FE-TO(WS-J) = WS-U
+            EVALUATE FE-KIND(WS-J)
+                WHEN "P" ADD 1 TO WS-LSP-PERFORMS
+                WHEN "G" ADD 1 TO WS-LSP-GOTOS
+            END-EVALUATE
+        END-IF
+    END-PERFORM
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST
+    MOVE SL-LINE-NO(TK-SRC-LINE(WS-LSP-TOKEN)) TO WS-LSP-LINE
+    MOVE TK-COLUMN(WS-LSP-TOKEN) TO WS-LSP-CHAR
+    STRING '{"range":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-APPEND-RANGE
+    STRING ',"command":{"title":"' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    EVALUATE TRUE
+        WHEN WS-LSP-PERFORMS = 0 AND WS-LSP-GOTOS = 0
+            STRING "no PERFORM or GO TO" DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        WHEN OTHER
+            IF WS-LSP-PERFORMS > 0
+                MOVE WS-LSP-PERFORMS TO WS-NUM
+                PERFORM LSP-APPEND-NUM
+                STRING " PERFORM" DELIMITED BY SIZE
+                    INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+            END-IF
+            IF WS-LSP-PERFORMS > 0 AND WS-LSP-GOTOS > 0
+                STRING ", " DELIMITED BY SIZE
+                    INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+            END-IF
+            IF WS-LSP-GOTOS > 0
+                MOVE WS-LSP-GOTOS TO WS-NUM
+                PERFORM LSP-APPEND-NUM
+                STRING " GO TO" DELIMITED BY SIZE
+                    INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+            END-IF
+    END-EVALUATE
+    STRING '","command":""}}' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
 *> Renaming ---------------------------------------------------------
 
 *> textDocument/prepareRename: the range of the name at the position
@@ -2470,6 +2554,10 @@ LSP-HOVER.
     PERFORM LSP-TARGET
     PERFORM LSP-START-RESPONSE
     STRING '"result":' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-SYMBOL = 0 AND WS-LSP-UNIT > 0
+        PERFORM LSP-HOVER-UNIT
+        EXIT PARAGRAPH
+    END-IF
     IF WS-LSP-SYMBOL = 0
         STRING "null}" DELIMITED BY SIZE
             INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
@@ -2537,6 +2625,76 @@ LSP-HOVER.
     STRING '{"contents":{"kind":"markdown","value":"' DELIMITED BY SIZE
         INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
     *> Already JSON-safe: names, pictures, numbers, and \n escapes.
+    COMPUTE WS-LEN = WS-PTR - 1
+    STRING WS-LSP-TEXT-PATH(1:WS-LEN) DELIMITED BY SIZE
+           '"}}}' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> Hover over a paragraph or section name (unit WS-LSP-UNIT): its
+*> size and complexity from the metrics, the PERFORM and GO TO
+*> statements naming it, and whether it can run at all.
+LSP-HOVER-UNIT.
+    CALL "PLB-METRICS-COMPUTE" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
+        PLB-SYMBOLS PLB-FLOW PLB-METRICS
+    MOVE 0 TO WS-M
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > MU-COUNT
+        IF MU-UNIT(WS-I) = WS-LSP-UNIT
+            MOVE WS-I TO WS-M
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    MOVE SPACES TO WS-LSP-TEXT-PATH
+    MOVE 1 TO WS-PTR
+    STRING "```cobol\n" DELIMITED BY SIZE
+        INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    IF FU-KIND(WS-LSP-UNIT) = "S"
+        STRING "section " DELIMITED BY SIZE
+            INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    ELSE
+        STRING "paragraph " DELIMITED BY SIZE
+            INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    END-IF
+    STRING FU-NAME(WS-LSP-UNIT) DELIMITED BY SPACE
+           "\n```\n" DELIMITED BY SIZE
+        INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    IF WS-M > 0
+        MOVE MU-LINES(WS-M) TO WS-NUM
+        CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+        STRING WS-NUM-TEXT(1:WS-NUM-LEN) " lines, " DELIMITED BY SIZE
+            INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+        MOVE MU-STATEMENTS(WS-M) TO WS-NUM
+        CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+        STRING WS-NUM-TEXT(1:WS-NUM-LEN) " statements, complexity "
+            DELIMITED BY SIZE INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+        MOVE MU-COMPLEXITY(WS-M) TO WS-NUM
+        CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+        STRING WS-NUM-TEXT(1:WS-NUM-LEN) ". " DELIMITED BY SIZE
+            INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    END-IF
+    MOVE 0 TO WS-LSP-PERFORMS WS-LSP-GOTOS
+    PERFORM VARYING WS-J FROM 1 BY 1 UNTIL WS-J > FE-COUNT
+        IF FE-TO(WS-J) = WS-LSP-UNIT
+            EVALUATE FE-KIND(WS-J)
+                WHEN "P" ADD 1 TO WS-LSP-PERFORMS
+                WHEN "G" ADD 1 TO WS-LSP-GOTOS
+            END-EVALUATE
+        END-IF
+    END-PERFORM
+    MOVE WS-LSP-PERFORMS TO WS-NUM
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    STRING WS-NUM-TEXT(1:WS-NUM-LEN) " PERFORM, " DELIMITED BY SIZE
+        INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    MOVE WS-LSP-GOTOS TO WS-NUM
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    STRING WS-NUM-TEXT(1:WS-NUM-LEN) " GO TO." DELIMITED BY SIZE
+        INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    IF FU-REACHED(WS-LSP-UNIT) NOT = "Y"
+        STRING " It never runs." DELIMITED BY SIZE
+            INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    END-IF
+    STRING '{"contents":{"kind":"markdown","value":"' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
     COMPUTE WS-LEN = WS-PTR - 1
     STRING WS-LSP-TEXT-PATH(1:WS-LEN) DELIMITED BY SIZE
            '"}}}' DELIMITED BY SIZE

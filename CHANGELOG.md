@@ -126,6 +126,10 @@ uses [Semantic Versioning](https://semver.org/).
   set.
 - The Visual Studio Code extension's `Plumbline: Document this
   program` shows the `plumbline doc` page of the open file.
+- The language server shows, above each section and paragraph, how many
+  `PERFORM` and `GO TO` statements name it (code lens).
+- Hover over a paragraph or section name shows its size, complexity,
+  callers, and whether it ever runs.
 - `plumbline check --report md` writes the findings as Markdown, for a
   CI job summary or a pull request comment.
 - `plumbline fields [--unused]` lists the items of each copybook and

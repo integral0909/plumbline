@@ -2,7 +2,7 @@
 
 This extension runs the Plumbline language server (`plumbline lsp`) for
 COBOL files: findings as you type, outline, go to definition, hover,
-references, highlights, rename, folding, call hierarchy, semantic
+references, highlights, rename, folding, code lenses, call hierarchy, semantic
 highlighting, and quick fixes that suppress a finding. See [Using
 Plumbline in an editor](../../docs/editors.md) for what each does.
 
