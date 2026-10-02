@@ -7,6 +7,7 @@
 *>   plumbline dump expanded [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump ast [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump symbols [-I DIR]... [--format ...] [--debug] FILE...
+*>   plumbline dump flow [-I DIR]... [--format ...] [--debug] FILE...
 *>
 *> Exit codes:
 *>   0  success
@@ -27,6 +28,7 @@ COPY "plbincl.cpy".
 COPY "plbastc.cpy".
 COPY "plbast.cpy".
 COPY "plbsym.cpy".
+COPY "plbflow.cpy".
 78  MAX-INPUTS                  VALUE 256.
 01  WS-ARG-COUNT            PIC 9(4).
 01  WS-ARG-INDEX            PIC 9(4).
@@ -66,6 +68,8 @@ COPY "plbsym.cpy".
 01  WS-TOK                  PIC 9(9) COMP-5.
 01  WS-S                    PIC 9(9) COMP-5.
 01  WS-P                    PIC 9(9) COMP-5.
+01  WS-U                    PIC 9(9) COMP-5.
+01  WS-E                    PIC 9(9) COMP-5.
 
 PROCEDURE DIVISION.
 MAIN-LOGIC.
@@ -125,6 +129,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline dump expanded [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump ast [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump symbols [-I DIR]... [--format FORMAT] [--debug] FILE..."
+    DISPLAY "       plumbline dump flow [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "Static analysis for COBOL programs."
     DISPLAY " "
     DISPLAY "Options:"
@@ -137,6 +142,7 @@ SHOW-USAGE.
     DISPLAY "  dump expanded    show the tokens after COPY and REPLACE"
     DISPLAY "  dump ast         show the syntax tree"
     DISPLAY "  dump symbols     show data items with sizes and offsets"
+    DISPLAY "  dump flow        show paragraphs, sections, and control flow"
     DISPLAY " "
     DISPLAY "Command options:"
     DISPLAY "  --format FORMAT  reference format: fixed, free, or auto"
@@ -151,7 +157,7 @@ DUMP-COMMAND.
     MOVE WS-ARG TO WS-DUMP-TARGET
     IF WS-ARG NOT = "lines" AND WS-ARG NOT = "tokens"
        AND WS-ARG NOT = "expanded" AND WS-ARG NOT = "ast"
-       AND WS-ARG NOT = "symbols"
+       AND WS-ARG NOT = "symbols" AND WS-ARG NOT = "flow"
         IF WS-ARG-LEN = 0
             DISPLAY PLB-NAME ": dump: missing what to dump"
                 UPON SYSERR
@@ -180,6 +186,8 @@ DUMP-COMMAND.
         PERFORM DUMP-AST
     WHEN "symbols"
         PERFORM DUMP-SYMBOLS
+    WHEN "flow"
+        PERFORM DUMP-FLOW
     WHEN OTHER
         CALL "PLB-LEX-INIT" USING PLB-TOKENS
         PERFORM VARYING WS-FILE-ID FROM 1 BY 1
@@ -322,6 +330,112 @@ DUMP-ONE-SYMBOL.
     STRING ":" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
     MOVE TK-COLUMN(WS-TOK) TO WS-NUM
     PERFORM APPEND-NUM
+    CALL "PLB-STR-LENGTH" USING WS-OUT WS-OUT-LEN
+    DISPLAY WS-OUT(1:WS-OUT-LEN).
+
+*> One line per unit, then one per edge leaving it:
+*>     KIND NAME [in SECTION] flags @line:column
+*>       perform|go NAME [thru NAME]
+DUMP-FLOW.
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
+    MOVE WS-MODE TO PO-FORMAT
+    MOVE WS-DEBUG TO PO-DEBUG
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        CALL "PLB-PP-RUN" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            PLB-PP-OPTIONS PLB-TOKENS PLB-INCLUSIONS WS-FILE-ID
+        CALL "PLB-PARSE" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            PLB-TOKENS PLB-AST
+        CALL "PLB-FLOW-BUILD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            PLB-TOKENS PLB-AST PLB-FLOW
+        MOVE 1 TO WS-E
+        PERFORM VARYING WS-U FROM 1 BY 1 UNTIL WS-U > FU-COUNT
+            PERFORM DUMP-ONE-UNIT
+        END-PERFORM
+    END-PERFORM.
+
+DUMP-ONE-UNIT.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    EVALUATE FU-KIND(WS-U)
+        WHEN "S"
+            STRING "section " DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN "P"
+            STRING "paragraph " DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN OTHER
+            STRING "start" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+    END-EVALUATE
+    STRING FU-NAME(WS-U) DELIMITED BY SPACE
+        INTO WS-OUT WITH POINTER WS-PTR
+    IF FU-SECTION(WS-U) > 0
+        STRING " in " DELIMITED BY SIZE
+               FU-NAME(FU-SECTION(WS-U)) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF FU-DECLARATIVE(WS-U) = "Y"
+        STRING " declarative" DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF FU-REACHED(WS-U) = "Y"
+        STRING " reached" DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    ELSE
+        STRING " unreachable" DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF FU-FLOWED(WS-U) = "Y"
+        STRING " flowed" DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF FU-PERFORMED(WS-U) = "Y"
+        STRING " performed" DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF FU-JUMPED-TO(WS-U) = "Y"
+        STRING " jumped-to" DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF FU-FALLS(WS-U) = "N"
+        STRING " ends" DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    MOVE ND-TOK-FIRST(FU-NODE(WS-U)) TO WS-TOK
+    MOVE SL-LINE-NO(TK-SRC-LINE(WS-TOK)) TO WS-NUM
+    STRING " @" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    PERFORM APPEND-NUM
+    CALL "PLB-STR-LENGTH" USING WS-OUT WS-OUT-LEN
+    DISPLAY WS-OUT(1:WS-OUT-LEN)
+    PERFORM UNTIL WS-E > FE-COUNT
+        IF FE-FROM(WS-E) NOT = WS-U
+            EXIT PERFORM
+        END-IF
+        PERFORM DUMP-ONE-EDGE
+        ADD 1 TO WS-E
+    END-PERFORM.
+
+DUMP-ONE-EDGE.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    IF FE-KIND(WS-E) = "G"
+        STRING "  go " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    ELSE
+        STRING "  perform " DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF FE-TO(WS-E) = 0
+        STRING "?" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    ELSE
+        STRING FU-NAME(FE-TO(WS-E)) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+        IF FE-THRU(WS-E) NOT = FE-TO(WS-E) AND FE-THRU(WS-E) > 0
+            STRING " thru " DELIMITED BY SIZE
+                   FU-NAME(FE-THRU(WS-E)) DELIMITED BY SPACE
+                INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+    END-IF
     CALL "PLB-STR-LENGTH" USING WS-OUT WS-OUT-LEN
     DISPLAY WS-OUT(1:WS-OUT-LEN).
 

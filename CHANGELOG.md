@@ -42,3 +42,6 @@ uses [Semantic Versioning](https://semver.org/).
   and storage size by USAGE.
 - Symbol table with group sizes, OCCURS, REDEFINES, and byte offsets;
   `plumbline dump symbols` prints it.
+- Procedure graph: sections and paragraphs, fall-through, PERFORM and
+  GO TO edges with qualified name resolution, and reachability that
+  respects PERFORM return semantics; `plumbline dump flow` prints it.

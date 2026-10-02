@@ -190,10 +190,40 @@ reason about truncation and overlap.
 
 `plumbline dump symbols FILE` prints the table.
 
+### Procedure graph
+
+`src/lib/plbflow.cob`, with tables in `copy/plbflow.cpy`.
+
+The units are the sections and paragraphs of each procedure division, in
+source order. Statements before the first section or paragraph form an
+unnamed start unit. Each unit knows the next one and whether control can
+fall into it. A unit whose last statement is `STOP RUN`, `GOBACK`,
+`EXIT PROGRAM`, or a `GO TO` without `DEPENDING ON` does not fall. A
+section always falls into its first paragraph. Control never falls out of
+`DECLARATIVES`.
+
+Every `PERFORM` and `GO TO` target becomes an edge. Procedure names
+resolve as the standard says: `P IN S` is a paragraph of section `S`; an
+unqualified name is a paragraph of the current section, then a paragraph
+unique in the program, then a section. Unknown names and ambiguous
+paragraph names are reported.
+
+Reachability tells apart two ways of arriving at a unit:
+
+- **flowed**: from the program entry, by falling through, or by `GO TO`.
+  Only a flowed unit carries control on into the next unit.
+- **performed**: as part of a `PERFORM` range, which returns at the end of
+  its range. A range that ends at a section includes that section's
+  paragraphs.
+
+So a paragraph that sits after the end of a performed range, and is
+neither fallen into nor jumped to, is correctly reported as unreachable.
+
+`plumbline dump flow FILE` prints the units, their reachability, and their
+edges.
+
 ### Analyses *(planned)*
-- **Control flow**: paragraphs and sections as nodes; `PERFORM`,
-  `PERFORM THRU`, `GO TO`, `GO TO DEPENDING`, fall-through, and
-  `STOP RUN`/`GOBACK` as edges. Yields reachability and PERFORM ranges.
+
 - **Data flow**: reaching definitions over the control-flow graph, used for
   uninitialized-use and dead-store checks.
 - **Call graph**: static `CALL` literals across programs in one run.

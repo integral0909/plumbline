@@ -1,0 +1,20 @@
+section IO-ERRORS declarative reached flowed @4
+paragraph LOG-IT in IO-ERRORS declarative reached flowed @6
+section MAIN reached flowed @9
+paragraph START-UP in MAIN reached flowed @10
+  perform LOAD
+  perform CLEANUP
+  perform REPORT-SECTION
+  go BRANCH-A
+  go BRANCH-B
+paragraph FALLS-HERE in MAIN reached flowed ends @15
+  perform ?
+  perform CLEANUP
+paragraph LOAD in MAIN reached performed @19
+section REPORT-SECTION reached performed @21
+paragraph BRANCH-A in REPORT-SECTION reached flowed jumped-to @23
+paragraph BRANCH-B in REPORT-SECTION reached flowed jumped-to @25
+section WRAP-UP reached flowed @27
+paragraph CLEANUP in WRAP-UP reached flowed performed @28
+section OTHER-SECTION reached flowed @30
+paragraph CLEANUP in OTHER-SECTION reached flowed @31
