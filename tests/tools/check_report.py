@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Validate a plumbline JSON or SARIF report read from standard input.
+"""Validate a plumbline JSON, SARIF, or Code Climate report read from
+standard input.
 
-Usage: check_report.py json|sarif [EXPECTED-FINDINGS]
+Usage: check_report.py json|sarif|codeclimate [EXPECTED-FINDINGS]
 
 Checks the structure the report promises (see src/lib/plbreport.cob),
 not just that it parses. With EXPECTED-FINDINGS, the number of findings
-(JSON) or results (SARIF) must match. Exits 1 with a message on the
+(JSON), results (SARIF), or issues (Code Climate) must match. Exits 1 with a message on the
 first problem.
 """
 
@@ -13,6 +14,9 @@ import json
 import sys
 
 LEVELS = {"error", "warning", "note"}
+SEVERITIES = {"info", "minor", "major", "critical", "blocker"}
+CATEGORIES = {"Bug Risk", "Clarity", "Compatibility", "Complexity",
+              "Duplication", "Performance", "Security", "Style"}
 
 
 class Invalid(Exception):
@@ -71,13 +75,41 @@ def check_sarif(doc):
     return len(results)
 
 
+def check_codeclimate(doc):
+    require(isinstance(doc, list), "the report must be a list of issues")
+    fingerprints = set()
+    for issue in doc:
+        require(issue.get("type") == "issue", "type must be issue")
+        require(issue["check_name"], "issue needs a check_name")
+        require(issue["description"], "issue needs a description")
+        require(issue["severity"] in SEVERITIES,
+                f"bad severity {issue['severity']}")
+        require(issue["categories"] and
+                set(issue["categories"]) <= CATEGORIES, "bad categories")
+        fingerprint = issue["fingerprint"]
+        require(len(fingerprint) == 16 and
+                all(c in "0123456789abcdef" for c in fingerprint),
+                f"bad fingerprint {fingerprint}")
+        require(fingerprint not in fingerprints,
+                f"fingerprint {fingerprint} is not unique")
+        fingerprints.add(fingerprint)
+        require(issue["location"]["path"], "issue needs a path")
+        require(issue["location"]["lines"]["begin"] >= 1,
+                "begin must be >= 1")
+    return len(doc)
+
+
+CHECKS = {"json": check_json, "sarif": check_sarif,
+          "codeclimate": check_codeclimate}
+
+
 def main(argv):
-    if len(argv) not in (2, 3) or argv[1] not in ("json", "sarif"):
+    if len(argv) not in (2, 3) or argv[1] not in CHECKS:
         print(__doc__, file=sys.stderr)
         return 2
     try:
         doc = json.load(sys.stdin)
-        count = check_json(doc) if argv[1] == "json" else check_sarif(doc)
+        count = CHECKS[argv[1]](doc)
         if len(argv) == 3:
             require(count == int(argv[2]),
                     f"expected {argv[2]} findings, found {count}")

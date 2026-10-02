@@ -5,7 +5,8 @@ Plumbline is a static analyzer for COBOL, written in COBOL.
 It reads COBOL source (fixed or free format, with COPY expansion), builds
 control-flow and data-flow models of each program, and reports defects such
 as unreachable paragraphs, PERFORM fall-through, truncating MOVEs, and
-uninitialized fields. Findings can be emitted as text, JSON, or SARIF.
+uninitialized fields. Findings can be emitted as text, JSON, SARIF, HTML,
+Markdown, or GitLab's code quality format.
 
 > **Status:** early development. The front end (reader, preprocessor,
 > lexer, parser), the symbol table, the procedure graph, and the rule
@@ -52,7 +53,7 @@ $ find src -name '*.cbl' | plumbline check -I copybooks --files-from -
 | `--format fixed\|free\|auto` | reference format of the sources (default `auto`) |
 | `--enable RULE`, `--disable RULE` | turn a rule on or off, by id or name |
 | `--fail-on error\|warning\|note\|never` | the lowest severity that fails the run |
-| `--report text\|json\|sarif\|html\|md` | output format (default `text`) |
+| `--report text\|json\|sarif\|html\|md\|codeclimate` | output format (default `text`) |
 | `--baseline FILE` | do not report the findings listed in `FILE` |
 | `--write-baseline FILE` | write the findings to `FILE` instead of reporting them |
 | `--config FILE`, `--no-config` | read settings from `FILE`, or from no file |
@@ -67,6 +68,22 @@ summary or a pull request comment:
 
 ```console
 $ plumbline check --report md --fail-on never src/*.cbl >> "$GITHUB_STEP_SUMMARY"
+```
+
+`--report codeclimate` writes the Code Climate issues that GitLab shows
+in a merge request's code quality widget. Each issue has a fingerprint
+from the rule, the file, the message, and the text of the reported
+line, not its number, so GitLab sees a finding as the same one after
+lines are added above it, and reports only the findings a change brings
+in or removes:
+
+```yaml
+plumbline:
+  script:
+    - plumbline check --report codeclimate --fail-on never src/*.cbl > gl-code-quality.json
+  artifacts:
+    reports:
+      codequality: gl-code-quality.json
 ```
 
 In all of them, input diagnostics are part of the report rather than

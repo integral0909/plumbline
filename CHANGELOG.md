@@ -179,6 +179,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C046 overlapping-move.
 - Rule PLB-C047 foreign-index.
 - Rule PLB-C048 sort-procedure-no-record.
+- `check --report codeclimate`: Code Climate issues for GitLab's code
+  quality reports, with fingerprints that survive moved lines.
 - `plumbline xref`: the cross-reference of each program, its data
   items and procedures with the lines that define and name them, as
   text or JSON.
