@@ -324,6 +324,10 @@ else
     failed=$((failed + 1))
     echo "not ok $n - inventory json is valid"
 fi
+check "dump ims lists segments and PCBs"   0 'orders.psb:8:   pcb type DB dbd ORDERDB procopt A' \
+    -- dump ims tests/golden/ims/orders.psb
+check "dump ims of a missing file"         2 'cannot read tests/golden/ims/missing.dbd' \
+    -- dump ims tests/golden/ims/missing.dbd
 check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
 check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
     -- rules --no-config --enable evaluate-without-other

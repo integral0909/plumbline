@@ -1,0 +1,7 @@
+tests/golden/ims/orderdb.dbd:2: dbd ORDERDB access HIDAM
+tests/golden/ims/orderdb.dbd:4:   segment ORDER bytes 120
+tests/golden/ims/orderdb.dbd:6:     field ORDNO start 1 bytes 8 sequence
+tests/golden/ims/orderdb.dbd:7:     field ORDDATE start 9 bytes 8
+tests/golden/ims/orderdb.dbd:8:   segment ORDLINE parent ORDER bytes 60
+tests/golden/ims/orderdb.dbd:9:     field LINENO start 1 bytes 3 sequence
+tests/golden/ims/orderdb.dbd:10:   segment ORDNOTE parent ORDER bytes 200

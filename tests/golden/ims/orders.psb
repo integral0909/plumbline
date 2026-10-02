@@ -1,0 +1,10 @@
+* Two PSBs in one source: one that reads, one that updates, and an
+* I/O PCB. The second has no PSBGEN name and takes the file's.
+ORDPCB   PCB   TYPE=DB,DBDNAME=ORDERDB,PROCOPT=G,KEYLEN=11              
+         SENSEG NAME=ORDER,PARENT=0                                     
+         SENSEG NAME=ORDLINE,PARENT=ORDER                               
+         PSBGEN LANG=COBOL,PSBNAME=ORDREAD                              
+         PCB   TYPE=TP,MODIFY=YES                                       
+         PCB   TYPE=DB,ORDERDB,PROCOPT=A,KEYLEN=11                      
+         SENSEG ORDER,0                                                 
+         SENSEG ORDNOTE,ORDER                                           
