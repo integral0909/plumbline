@@ -23,7 +23,7 @@
     05  AS-COUNT                PIC 9(9) COMP-5.
     05  AS-NODE                 OCCURS AS-MAX TIMES.
         10  ND-KIND             PIC X(4).
-        10  ND-DETAIL           PIC X(16).
+        10  ND-DETAIL           PIC X(20).
         10  ND-PARENT           PIC 9(9) COMP-5.
         10  ND-FIRST            PIC 9(9) COMP-5.
         10  ND-LAST             PIC 9(9) COMP-5.

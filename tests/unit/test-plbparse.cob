@@ -1,0 +1,210 @@
+*> Unit tests for the parser (plbparse, plbpdata, plbpproc). The tree
+*> shapes are covered by the golden suite in tests/golden/parser; these
+*> tests check token ranges and fields the dump does not print.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. TEST-PLBPARSE.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbsrc.cpy".
+COPY "plbdiag.cpy".
+COPY "plbppopt.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbincl.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+01  WS-MODE                 PIC X VALUE "A".
+01  WS-FILE-ID              PIC 9(4) COMP-5.
+01  WS-STATUS               PIC 9(4) COMP-5.
+01  WS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
+01  WS-NODE                 PIC 9(9) COMP-5.
+01  WS-DEPTH                PIC S9(9) COMP-5.
+01  WS-WANT-KIND            PIC X(4).
+01  WS-WANT-DETAIL          PIC X(20).
+01  WS-WANT-NTH             PIC 9(4) COMP-5.
+01  WS-SEEN                 PIC 9(4) COMP-5.
+01  WS-FOUND                PIC 9(9) COMP-5.
+01  WS-TEXT                 PIC X(80).
+01  WS-LEN                  PIC 9(9) COMP-5.
+01  WS-COUNT                PIC 9(9) COMP-5.
+01  WS-EXPECT-NUM           PIC S9(18) COMP-5.
+01  WS-ACTUAL-NUM           PIC S9(18) COMP-5.
+
+PROCEDURE DIVISION.
+    CALL "PLBT-BEGIN" USING "plbparse"
+    PERFORM TEST-STATEMENT-RANGES
+    PERFORM TEST-CONDITIONS
+    PERFORM TEST-DATA-FIELDS
+    PERFORM TEST-EMPTY-INPUT
+    CALL "PLBT-END"
+    STOP RUN.
+
+*> Helpers ------------------------------------------------------
+
+PARSE-FILE.
+    CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET
+    CALL "PLB-DIAG-INIT" USING PLB-DIAGNOSTICS
+    CALL "PLB-PP-INIT-OPTIONS" USING PLB-PP-OPTIONS
+    CALL "PLB-SRC-LOAD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+        WS-TEXT WS-MODE WS-FILE-ID WS-STATUS
+    CALL "PLB-PP-RUN" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+        PLB-PP-OPTIONS PLB-TOKENS PLB-INCLUSIONS WS-FILE-ID
+    CALL "PLB-PARSE" USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
+        PLB-AST.
+
+*> WS-FOUND = the WS-WANT-NTH node of kind WS-WANT-KIND and detail
+*> WS-WANT-DETAIL (any detail when it is spaces), in pre-order.
+FIND-NODE.
+    MOVE 0 TO WS-FOUND WS-SEEN WS-DEPTH
+    MOVE 1 TO WS-NODE
+    PERFORM UNTIL WS-NODE = 0
+        IF ND-KIND(WS-NODE) = WS-WANT-KIND
+           AND (WS-WANT-DETAIL = SPACES
+                OR ND-DETAIL(WS-NODE) = WS-WANT-DETAIL)
+            ADD 1 TO WS-SEEN
+            IF WS-SEEN = WS-WANT-NTH
+                MOVE WS-NODE TO WS-FOUND
+                EXIT PERFORM
+            END-IF
+        END-IF
+        CALL "PLB-AST-NEXT" USING PLB-AST WS-ROOT WS-NODE WS-DEPTH
+    END-PERFORM.
+
+LAST-TOKEN-TEXT.
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-TOK-LAST(WS-FOUND)
+        WS-TEXT WS-LEN.
+
+FIRST-TOKEN-TEXT.
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-TOK-FIRST(WS-FOUND)
+        WS-TEXT WS-LEN.
+
+*> Cases --------------------------------------------------------
+
+TEST-STATEMENT-RANGES.
+    CALL "PLBT-CASE" USING "statement token ranges"
+    MOVE "tests/golden/parser/statements.cob" TO WS-TEXT
+    PERFORM PARSE-FILE
+
+    MOVE "STMT" TO WS-WANT-KIND
+    MOVE "READ" TO WS-WANT-DETAIL
+    MOVE 1 TO WS-WANT-NTH
+    PERFORM FIND-NODE
+    PERFORM LAST-TOKEN-TEXT
+    CALL "PLBT-ASSERT-STR" USING "READ includes its END-READ"
+        "END-READ" WS-TEXT
+
+    MOVE "COMPUTE" TO WS-WANT-DETAIL
+    PERFORM FIND-NODE
+    PERFORM LAST-TOKEN-TEXT
+    CALL "PLBT-ASSERT-STR" USING "COMPUTE includes its END-COMPUTE"
+        "END-COMPUTE" WS-TEXT
+
+    MOVE "READ" TO WS-WANT-DETAIL
+    MOVE 2 TO WS-WANT-NTH
+    PERFORM FIND-NODE
+    PERFORM LAST-TOKEN-TEXT
+    CALL "PLBT-ASSERT-STR" USING "unterminated READ runs to the period"
+        "THIS BELONGS TO THE AT END PHRASE" WS-TEXT
+
+    MOVE "SENT" TO WS-WANT-KIND
+    MOVE SPACES TO WS-WANT-DETAIL
+    MOVE 1 TO WS-WANT-NTH
+    PERFORM FIND-NODE
+    CALL "PLBT-ASSERT-FLAG" USING "sentence ends with its period" "."
+        TK-KIND(ND-TOK-LAST(WS-FOUND))
+
+    MOVE "STMT" TO WS-WANT-KIND
+    MOVE "GO" TO WS-WANT-DETAIL
+    PERFORM FIND-NODE
+    CALL "PLB-AST-CHILD-COUNT" USING PLB-AST WS-FOUND WS-COUNT
+    MOVE 3 TO WS-EXPECT-NUM
+    MOVE WS-COUNT TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "GO TO has three targets"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+    PERFORM LAST-TOKEN-TEXT
+    CALL "PLBT-ASSERT-STR" USING "GO TO includes DEPENDING ON operand"
+        "SELECTOR" WS-TEXT
+
+    MOVE "EXEC" TO WS-WANT-DETAIL
+    PERFORM FIND-NODE
+    PERFORM LAST-TOKEN-TEXT
+    CALL "PLBT-ASSERT-STR" USING "EXEC runs to END-EXEC" "END-EXEC"
+        WS-TEXT
+
+    MOVE 0 TO WS-EXPECT-NUM
+    MOVE DG-COUNT TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "valid program has no diagnostics"
+        WS-EXPECT-NUM WS-ACTUAL-NUM.
+
+TEST-CONDITIONS.
+    CALL "PLBT-CASE" USING "condition ranges"
+    MOVE "COND" TO WS-WANT-KIND
+    MOVE "IF" TO WS-WANT-DETAIL
+    MOVE 1 TO WS-WANT-NTH
+    PERFORM FIND-NODE
+    PERFORM FIRST-TOKEN-TEXT
+    CALL "PLBT-ASSERT-STR" USING "IF condition starts after IF" "A"
+        WS-TEXT
+    PERFORM LAST-TOKEN-TEXT
+    CALL "PLBT-ASSERT-STR" USING "IF condition ends before the branch"
+        "1" WS-TEXT
+
+    MOVE "LOOP" TO WS-WANT-DETAIL
+    PERFORM FIND-NODE
+    PERFORM LAST-TOKEN-TEXT
+    CALL "PLBT-ASSERT-STR" USING "inline PERFORM header" "10" WS-TEXT
+
+    *> The first WHEN of the EVALUATE has no statements of its own.
+    MOVE "BLCK" TO WS-WANT-KIND
+    MOVE "WHEN" TO WS-WANT-DETAIL
+    PERFORM FIND-NODE
+    CALL "PLB-AST-CHILD-COUNT" USING PLB-AST WS-FOUND WS-COUNT
+    MOVE 1 TO WS-EXPECT-NUM
+    MOVE WS-COUNT TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "empty WHEN holds only its condition"
+        WS-EXPECT-NUM WS-ACTUAL-NUM.
+
+TEST-DATA-FIELDS.
+    CALL "PLBT-CASE" USING "data entries"
+    MOVE "tests/golden/parser/structure.cob" TO WS-TEXT
+    PERFORM PARSE-FILE
+    MOVE "DATA" TO WS-WANT-KIND
+    MOVE SPACES TO WS-WANT-DETAIL
+    MOVE 1 TO WS-WANT-NTH
+    PERFORM FIND-NODE
+    MOVE 1 TO WS-EXPECT-NUM
+    MOVE ND-NUM(WS-FOUND) TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "first entry is level 1"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-STR" USING "record sits under the FD" "FD"
+        ND-KIND(ND-PARENT(WS-FOUND))
+    *> The record ends with the period of its last subordinate item.
+    CALL "PLBT-ASSERT-FLAG" USING "record ends at a period" "."
+        TK-KIND(ND-TOK-LAST(WS-FOUND))
+    MOVE 15 TO WS-EXPECT-NUM
+    MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-LAST(WS-FOUND)))
+        TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "record covers its subordinates"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+
+    MOVE "CLAU" TO WS-WANT-KIND
+    MOVE "DEPENDING" TO WS-WANT-DETAIL
+    PERFORM FIND-NODE
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(WS-FOUND) WS-TEXT
+        WS-LEN
+    CALL "PLBT-ASSERT-STR" USING "DEPENDING names its object"
+        "WS-COUNT" WS-TEXT.
+
+TEST-EMPTY-INPUT.
+    CALL "PLBT-CASE" USING "empty input"
+    MOVE "tests/fixtures/reader/empty.cbl" TO WS-TEXT
+    PERFORM PARSE-FILE
+    MOVE 1 TO WS-EXPECT-NUM
+    MOVE AS-COUNT TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "only the unit node"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+    MOVE 0 TO WS-EXPECT-NUM
+    MOVE DG-COUNT TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "no diagnostics"
+        WS-EXPECT-NUM WS-ACTUAL-NUM.
+END PROGRAM TEST-PLBPARSE.

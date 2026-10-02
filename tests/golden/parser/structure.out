@@ -1,0 +1,65 @@
+UNIT @2:1
+  PROG PROGRAM PAYCALC @2:1
+    DIVN IDENTIFICATION @2:1
+      IDPA PROGRAM-ID PAYCALC @3:1
+      IDPA AUTHOR @4:1
+    DIVN ENVIRONMENT @5:1
+      SECT INPUT-OUTPUT @6:1
+        OTHR FILE-CONTROL @7:1
+          SELE PAY-FILE @8:5
+    DIVN DATA @10:1
+      SECT FILE @11:1
+        FD FD PAY-FILE @12:1
+          DATA 1 PAY-REC @13:1
+            DATA 5 PAY-ID @14:5
+              CLAU PICTURE 9(6) @14:21
+            DATA 5 PAY-AMT @15:5
+              CLAU PICTURE S9(7)V99 @15:21
+              CLAU COMP-3 @15:34
+      SECT WORKING-STORAGE @16:1
+        DATA 1 WS-FLAGS @17:1
+          DATA 5 WS-EOF @18:5
+            CLAU PICTURE X @18:21
+            CLAU VALUE @18:27
+            DATA 88 END-OF-FILE @19:9
+              CLAU VALUE @19:25
+          DATA 5 FILLER @20:5
+            CLAU PICTURE X(10) @20:21
+        DATA 1 WS-TABLE @21:1
+          DATA 5 WS-COUNT @22:5
+            CLAU PICTURE 9(4) @22:21
+            CLAU BINARY @22:30
+          DATA 5 WS-ROW @23:5
+            CLAU OCCURS @23:21
+              CLAU DEPENDING WS-COUNT @23:36
+            DATA 10 WS-CELL @25:9
+              CLAU PICTURE X(8) @25:21
+        DATA 1 WS-ALT @26:1
+          CLAU REDEFINES WS-TABLE @26:12
+          CLAU PICTURE X(404) @26:31
+        DATA 77 WS-TOTAL @27:1
+          CLAU PICTURE S9(9)V99 @27:21
+          CLAU VALUE @27:34
+      SECT LINKAGE @28:1
+        DATA 1 LK-PARM @29:1
+          CLAU PICTURE X(80) @29:21
+    DIVN PROCEDURE @30:1
+      USNG USING LK-PARM @30:26
+      SECT MAIN @31:1
+        PARA MAIN-PARA @32:1
+          SENT @33:5
+            STMT PERFORM @33:5
+              PROC PERFORM INIT-PARA @33:13
+            STMT PERFORM @34:5
+              PROC PERFORM PROCESS-PARA @34:13
+              PROC THRU PROCESS-EXIT @34:31
+            STMT STOP @35:5
+        PARA INIT-PARA @36:1
+          SENT @37:5
+            STMT MOVE @37:5
+        PARA PROCESS-PARA @38:1
+          SENT @39:5
+            STMT ADD @39:5
+        PARA PROCESS-EXIT @40:1
+          SENT @41:5
+            STMT EXIT @41:5

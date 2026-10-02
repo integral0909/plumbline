@@ -3,6 +3,8 @@
 #
 # Each test prints TAP to stdout and exits non-zero if any assertion
 # failed. Output is shown only for failing suites unless VERBOSE=1.
+# If TEST_RUNNER is set, each test is run through it (make coverage
+# uses this to collect traces).
 set -u
 
 passed=0
@@ -11,7 +13,7 @@ failed_names=""
 
 for test in "$@"; do
     name=$(basename "$test")
-    if out=$("$test" 2>&1); then
+    if out=$(${TEST_RUNNER:-} "$test" 2>&1); then
         passed=$((passed + 1))
         summary=$(printf '%s\n' "$out" | grep '^# .*assertions' | tail -n 1)
         printf 'PASS  %-32s %s\n' "$name" "${summary#\# }"

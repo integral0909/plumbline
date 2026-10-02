@@ -117,15 +117,51 @@ characters reports columns in bytes.
 
 `plumbline dump tokens FILE` prints the token stream.
 
-### Parser *(planned)*
+### Parser
 
-The parser is hand-written recursive descent over the four divisions. It
-recovers at sentence and paragraph boundaries, so one syntax error does
-not hide the rest of the program.
+`src/lib/plbparse.cob` (driver, identification and environment
+divisions), `src/lib/plbpdata.cob` (data division), and
+`src/lib/plbpproc.cob` (procedure division). The tree lives in
+`copy/plbast.cpy`, and reserved words are in `copy/plbkwtab.cpy`.
 
-The AST is stored in flat, indexed tables (node kind, parent, first child,
-next sibling, token span) rather than pointer structures. That fits COBOL's
-data model and keeps traversal cheap.
+The syntax tree is a flat table of nodes linked by index: parent, first
+and last child, and next sibling. Appending a child takes constant time,
+and `PLB-AST-NEXT` walks any subtree in pre-order without recursion or a
+stack. Every node records the range of expanded tokens it covers, so any
+node maps back to source lines, including lines inside copybooks.
+
+The parser is hand-written and non-recursive:
+
+- **Programs** are tracked on a stack. A program that starts before the
+  current one has ended is nested in it. `END PROGRAM` must name the
+  program it ends.
+- **Data entries** are placed by a level-number stack. 01, 77, and 78
+  start records; 02–49 go under the nearest item with a lower level; 88
+  goes under the item just described; 66 goes under the current record.
+  PICTURE, VALUE, REDEFINES, RENAMES, OCCURS (with DEPENDING ON), USAGE,
+  SIGN, JUSTIFIED, SYNCHRONIZED, BLANK WHEN ZERO, EXTERNAL, GLOBAL, and
+  BASED become clause nodes.
+- **Statements** are nested using a context stack of open constructs:
+  THEN and ELSE branches, EVALUATE and SEARCH heads and their WHEN
+  branches, inline PERFORM bodies, conditional phrases, and statements
+  still collecting operands. The COBOL scoping rules follow from how the
+  stack is popped. A period closes everything. `ELSE` pairs with the
+  innermost open IF. A scope terminator closes the innermost matching
+  construct. A phrase such as `NOT AT END` attaches to the innermost open
+  statement whose verb accepts it. Without an explicit terminator, every
+  statement up to the period belongs to the open phrase, a classic source
+  of COBOL bugs that the tree makes visible.
+
+Out-of-line `PERFORM` and `GO TO` targets become `PROC` nodes. Conditions
+of IF, EVALUATE, WHEN, and inline PERFORM become `COND` nodes. Other
+operands stay as the statement's token range for the analyses to read.
+`EXEC ... END-EXEC` is kept opaque.
+
+The parser is lenient. Clauses it does not model are kept in their
+entry's token range. Text it cannot parse becomes an `ERR` node with a
+diagnostic, and parsing resumes at the next period or statement.
+
+`plumbline dump ast FILE` prints the tree.
 
 ### Analyses *(planned)*
 

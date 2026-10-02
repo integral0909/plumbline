@@ -5,6 +5,7 @@
 *>   plumbline dump lines  [--format fixed|free|auto] FILE...
 *>   plumbline dump tokens [--format fixed|free|auto] [--debug] FILE...
 *>   plumbline dump expanded [-I DIR]... [--format ...] [--debug] FILE...
+*>   plumbline dump ast [-I DIR]... [--format ...] [--debug] FILE...
 *>
 *> Exit codes:
 *>   0  success
@@ -22,6 +23,8 @@ COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
 COPY "plbppopt.cpy".
 COPY "plbincl.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
 78  MAX-INPUTS                  VALUE 256.
 01  WS-ARG-COUNT            PIC 9(4).
 01  WS-ARG-INDEX            PIC 9(4).
@@ -55,6 +58,10 @@ COPY "plbincl.cpy".
 01  WS-J                    PIC 9(9) COMP-5.
 01  WS-MAIN-FILES           PIC 9(4) COMP-5.
 01  WS-PATH-STATUS          PIC 9(4) COMP-5.
+01  WS-ROOT                 PIC 9(9) COMP-5.
+01  WS-NODE                 PIC 9(9) COMP-5.
+01  WS-DEPTH                PIC S9(9) COMP-5.
+01  WS-TOK                  PIC 9(9) COMP-5.
 
 PROCEDURE DIVISION.
 MAIN-LOGIC.
@@ -112,6 +119,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline dump lines [--format FORMAT] FILE..."
     DISPLAY "       plumbline dump tokens [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump expanded [-I DIR]... [--format FORMAT] [--debug] FILE..."
+    DISPLAY "       plumbline dump ast [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "Static analysis for COBOL programs."
     DISPLAY " "
     DISPLAY "Options:"
@@ -122,6 +130,7 @@ SHOW-USAGE.
     DISPLAY "  dump lines       show how each source line was read"
     DISPLAY "  dump tokens      show the tokens of each source file"
     DISPLAY "  dump expanded    show the tokens after COPY and REPLACE"
+    DISPLAY "  dump ast         show the syntax tree"
     DISPLAY " "
     DISPLAY "Command options:"
     DISPLAY "  --format FORMAT  reference format: fixed, free, or auto"
@@ -135,7 +144,7 @@ DUMP-COMMAND.
     PERFORM NEXT-ARG
     MOVE WS-ARG TO WS-DUMP-TARGET
     IF WS-ARG NOT = "lines" AND WS-ARG NOT = "tokens"
-       AND WS-ARG NOT = "expanded"
+       AND WS-ARG NOT = "expanded" AND WS-ARG NOT = "ast"
         IF WS-ARG-LEN = 0
             DISPLAY PLB-NAME ": dump: missing what to dump"
                 UPON SYSERR
@@ -160,6 +169,8 @@ DUMP-COMMAND.
         END-PERFORM
     WHEN "expanded"
         PERFORM DUMP-EXPANDED
+    WHEN "ast"
+        PERFORM DUMP-AST
     WHEN OTHER
         CALL "PLB-LEX-INIT" USING PLB-TOKENS
         PERFORM VARYING WS-FILE-ID FROM 1 BY 1
@@ -191,6 +202,73 @@ DUMP-EXPANDED.
             PERFORM DUMP-ONE-INCLUSION
         END-PERFORM
     END-PERFORM.
+
+*> Expand and parse each input file and print its tree, one node per
+*> line, indented by depth:
+*>     KIND [detail] [level] [name] @line:column [in copybook-path]
+DUMP-AST.
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
+    MOVE WS-MODE TO PO-FORMAT
+    MOVE WS-DEBUG TO PO-DEBUG
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        CALL "PLB-PP-RUN" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            PLB-PP-OPTIONS PLB-TOKENS PLB-INCLUSIONS WS-FILE-ID
+        CALL "PLB-PARSE" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            PLB-TOKENS PLB-AST
+        MOVE 1 TO WS-ROOT WS-NODE
+        MOVE 0 TO WS-DEPTH
+        PERFORM UNTIL WS-NODE = 0
+            PERFORM DUMP-ONE-NODE
+            CALL "PLB-AST-NEXT" USING PLB-AST WS-ROOT WS-NODE WS-DEPTH
+        END-PERFORM
+    END-PERFORM.
+
+DUMP-ONE-NODE.
+    MOVE SPACES TO WS-OUT
+    COMPUTE WS-PTR = WS-DEPTH * 2 + 1
+    STRING ND-KIND(WS-NODE) DELIMITED BY SPACE
+        INTO WS-OUT WITH POINTER WS-PTR
+    IF ND-KIND(WS-NODE) = "DATA"
+        MOVE ND-NUM(WS-NODE) TO WS-NUM
+        CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+        STRING " " WS-NUM-TEXT(1:WS-NUM-LEN) DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF ND-DETAIL(WS-NODE) NOT = SPACES
+        STRING " " FUNCTION TRIM(ND-DETAIL(WS-NODE)) DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF ND-NAME(WS-NODE) > 0
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(WS-NODE)
+            WS-TOKEN-TEXT WS-TOKEN-LEN
+        IF WS-TOKEN-LEN > 0
+            STRING " " WS-TOKEN-TEXT(1:WS-TOKEN-LEN) DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+    END-IF
+    MOVE ND-TOK-FIRST(WS-NODE) TO WS-TOK
+    IF WS-TOK >= 1 AND WS-TOK <= TK-COUNT
+        MOVE 0 TO WS-NUM
+        IF TK-SRC-LINE(WS-TOK) > 0
+            MOVE SL-LINE-NO(TK-SRC-LINE(WS-TOK)) TO WS-NUM
+        END-IF
+        CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+        STRING " @" WS-NUM-TEXT(1:WS-NUM-LEN) ":" DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+        MOVE TK-COLUMN(WS-TOK) TO WS-NUM
+        CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+        STRING WS-NUM-TEXT(1:WS-NUM-LEN) DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+        IF TK-FILE-ID(WS-TOK) NOT = WS-FILE-ID
+            CALL "PLB-STR-LENGTH" USING SF-PATH(TK-FILE-ID(WS-TOK))
+                WS-PATH-LEN
+            STRING " in " SF-PATH(TK-FILE-ID(WS-TOK))(1:WS-PATH-LEN)
+                DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+    END-IF
+    CALL "PLB-STR-LENGTH" USING WS-OUT WS-OUT-LEN
+    DISPLAY WS-OUT(1:WS-OUT-LEN).
 
 *> One line per inclusion:
 *>     inclusion N: copybook-path from path:line:column [in inclusion P]

@@ -1,0 +1,80 @@
+UNIT @3:1
+  PROG PROGRAM @3:1
+    DIVN PROCEDURE @3:1
+      PARA NESTED-IF @4:1
+        SENT @5:5
+          STMT IF @5:5
+            COND IF @5:8
+            BLCK THEN @6:9
+              STMT IF @6:9
+                COND IF @6:12
+                BLCK THEN @7:13
+                  STMT MOVE @7:13
+                BLCK ELSE @8:9
+                  STMT MOVE @9:13
+            BLCK ELSE @10:5
+              STMT MOVE @11:9
+      PARA EXPLICIT-SCOPES @12:1
+        SENT @13:5
+          STMT IF @13:5
+            COND IF @13:8
+            BLCK THEN @14:9
+              STMT DISPLAY @14:9
+          STMT EVALUATE @16:5
+            COND SUBJECT @16:14
+            BLCK WHEN @17:9
+              COND WHEN @17:14
+            BLCK WHEN @18:9
+              COND WHEN @18:14
+              STMT DISPLAY @19:13
+            BLCK WHEN-OTHER @20:9
+              STMT DISPLAY @21:13
+          STMT PERFORM @23:5
+            COND LOOP @23:13
+            BLCK BODY @24:9
+              STMT ADD @24:9
+              STMT IF @25:9
+                COND IF @25:12
+                BLCK THEN @26:13
+                  STMT EXIT PERFORM @26:13
+          STMT PERFORM @29:5
+            COND LOOP @29:13
+            BLCK BODY @30:9
+              STMT DISPLAY @30:9
+      PARA PHRASES @32:1
+        SENT @33:5
+          STMT READ @33:5
+            BLCK AT-END @34:9
+              STMT SET @35:13
+            BLCK NOT-AT-END @36:9
+              STMT ADD @37:13
+          STMT COMPUTE @39:5
+            BLCK SIZE-ERROR @40:9
+              STMT MOVE @40:23
+          STMT READ @42:5
+            BLCK AT-END @42:18
+              STMT MOVE @42:25
+              STMT DISPLAY @43:9
+      PARA JUMPS @44:1
+        SENT @45:5
+          STMT GO @45:5
+            PROC GO P1 @45:11
+            PROC GO P2 @45:14
+            PROC GO P3 @45:17
+        SENT @46:5
+          STMT IF @46:5
+            COND IF @46:8
+            BLCK THEN @46:13
+              STMT NEXT SENTENCE @46:13
+            BLCK ELSE @46:27
+              STMT PERFORM @46:32
+                PROC PERFORM WORK @46:40
+        SENT @47:5
+          STMT SEARCH @47:5
+            BLCK AT-END @48:9
+              STMT DISPLAY @48:16
+            BLCK WHEN @49:9
+              COND WHEN @49:14
+              STMT DISPLAY @50:13
+          STMT EXEC @52:5
+          STMT STOP @53:5
