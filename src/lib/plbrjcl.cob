@@ -11,6 +11,8 @@
 *>                                  a DD that gives it no data
 *>   PLB-J005  temp-not-created     a step reads a temporary data set
 *>                                  no earlier step creates
+*>   PLB-J006  lrecl-mismatch       a DD's LRECL is not the length of
+*>                                  the program's records
 *>
 *> A step that runs a program of the run (EXEC PGM=name) gives that
 *> program, and the programs it calls by literal name, their files:
@@ -47,6 +49,14 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE-UNUSED          PIC 9(4) COMP-5.
 01  LS-RULE-UNKNOWN         PIC 9(4) COMP-5.
 01  LS-RULE-UNREADABLE      PIC 9(4) COMP-5.
+01  LS-RULE-LRECL           PIC 9(4) COMP-5.
+01  LS-ASA                  PIC 9(4) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-A-TEXT               PIC X(20).
+01  LS-A-LEN                PIC 9(9) COMP-5.
+01  LS-B-TEXT               PIC X(20).
+01  LS-B-LEN                PIC 9(9) COMP-5.
+01  LS-PTR                  PIC 9(9) COMP-5.
 01  LS-S                    PIC 9(9) COMP-5.
 01  LS-J                    PIC 9(9) COMP-5.
 01  LS-D                    PIC 9(9) COMP-5.
@@ -76,6 +86,7 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH PLB-JCL.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J002" LS-RULE-UNUSED
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J003" LS-RULE-UNKNOWN
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J004" LS-RULE-UNREADABLE
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J006" LS-RULE-LRECL
     CALL "PLB-RULE-JCL-TEMPS" USING PLB-RULES PLB-FINDINGS PLB-JCL
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
         IF JS-KIND(LS-S) = "P"
@@ -251,6 +262,7 @@ CHECK-FILE.
         IF WS-SD-NAME(LS-I) = PF-DDNAME(LS-F)
             MOVE "Y" TO WS-SD-USED(LS-I) LS-FOUND
             PERFORM CHECK-READABLE
+            PERFORM CHECK-LRECL
         END-IF
     END-PERFORM
     IF LS-FOUND = "Y" OR PF-OPTIONAL(LS-F) = "Y" OR PF-SORT(LS-F) = "Y"
@@ -273,6 +285,62 @@ CHECK-FILE.
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE-MISSING
         JS-FILE-ID(LS-S) JS-LINE(LS-S) LS-COLUMN LS-ZERO LS-MESSAGE.
+
+*> PLB-J006: the DD of file LS-F (WS-SD-ENTRY of LS-I) gives a record
+*> length the program's records do not have. With a fixed format
+*> (RECFM F, FB, ...), LRECL is the record's length; with a variable
+*> one (V, VB, ...), the longest record's length and 4 bytes for its
+*> descriptor at most. With ASA control characters (FBA, VBA), one
+*> more byte for the character is also right. A DD without RECFM, or
+*> with U, is not checked.
+CHECK-LRECL.
+    MOVE WS-SD-ENTRY(LS-I) TO LS-D
+    IF JD-LRECL(LS-D) = 0 OR PF-RECORD-SIZE(LS-F) = 0
+       OR JD-RECFM(LS-D) = SPACES OR JD-RECFM(LS-D)(1:1) = "U"
+       OR PF-SORT(LS-F) = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    *> With ASA control characters (RECFM FBA, VBA), a program that
+    *> writes with ADVANCING may have one more byte for the character.
+    MOVE 0 TO LS-ASA
+    INSPECT JD-RECFM(LS-D) TALLYING LS-ASA FOR ALL "A"
+    IF JD-RECFM(LS-D)(1:1) = "V"
+        IF PF-RECORD-SIZE(LS-F) + 4 + LS-ASA <= JD-LRECL(LS-D)
+           OR PF-RECORD-SIZE(LS-F) + 4 <= JD-LRECL(LS-D)
+            EXIT PARAGRAPH
+        END-IF
+    ELSE
+        IF PF-RECORD-SIZE(LS-F) = JD-LRECL(LS-D)
+           OR PF-RECORD-SIZE(LS-F) + LS-ASA = JD-LRECL(LS-D)
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    MOVE JD-LRECL(LS-D) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-A-TEXT LS-A-LEN
+    MOVE PF-RECORD-SIZE(LS-F) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-B-TEXT LS-B-LEN
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    STRING "DD " DELIMITED BY SIZE
+           JD-NAME(LS-D) DELIMITED BY SPACE
+           " has LRECL=" LS-A-TEXT(1:LS-A-LEN) " RECFM="
+           DELIMITED BY SIZE
+           JD-RECFM(LS-D) DELIMITED BY SPACE
+           ", but the records of " DELIMITED BY SIZE
+           PF-NAME(LS-F) DELIMITED BY SPACE
+           " in " DELIMITED BY SIZE
+           CP-NAME(PF-PROGRAM(LS-F)) DELIMITED BY SPACE
+           " are " LS-B-TEXT(1:LS-B-LEN) " bytes" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    IF JD-RECFM(LS-D)(1:1) = "V"
+        STRING " (" DELIMITED BY SIZE INTO LS-MESSAGE WITH POINTER LS-PTR
+        COMPUTE LS-NUM = PF-RECORD-SIZE(LS-F) + 4
+        CALL "PLB-STR-FROM-INT" USING LS-NUM LS-B-TEXT LS-B-LEN
+        STRING LS-B-TEXT(1:LS-B-LEN) " with the record descriptor)"
+            DELIMITED BY SIZE INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE-LRECL
+        JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
 
 *> PLB-J004: a file opened only for input, whose DD (WS-SD-ENTRY of
 *> LS-I) is a new data set, which is empty, or SYSOUT, which cannot be

@@ -280,6 +280,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J005"
         "temp-not-created" "E"
         "Temporary data set read before any step creates it"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J006"
+        "lrecl-mismatch" "E"
+        "DD record length differs from the program's records"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

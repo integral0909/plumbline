@@ -168,6 +168,10 @@ Some findings that were read and are true:
   account update for the account and the customer, and in the card
   update, user update, and user delete) are each paired with a
   `REWRITE` or `DELETE`.
+- **PLB-J006 lrecl-mismatch.** None: every DD that gives a record
+  length for a file of a CardDemo program matches the program's
+  records, `CBIMPORT`'s five outputs and the variable-length `VBRCFILE`
+  of `READACCT` (80-byte records, `LRECL=84`) among them.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)

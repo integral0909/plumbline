@@ -56,6 +56,13 @@ LOCAL-STORAGE SECTION.
 01  LS-C                    PIC 9(9) COMP-5.
 01  LS-OWNER                PIC 9(9) COMP-5.
 01  LS-UP                   PIC 9(9) COMP-5.
+*> RECORD-SIZE.
+01  LS-FD                   PIC 9(9) COMP-5.
+01  LS-FD-UP                PIC 9(9) COMP-5.
+01  LS-SEL-PROG             PIC 9(9) COMP-5.
+01  LS-REC                  PIC 9(9) COMP-5.
+01  LS-SYM                  PIC 9(9) COMP-5.
+01  LS-FD-NAME              PIC X(31).
 01  LS-LIMIT                PIC 9(9) COMP-5.
 01  LS-DEPTH                PIC 9(9) COMP-5.
 01  LS-SIZE                 PIC 9(9) COMP-5.
@@ -410,6 +417,7 @@ ADD-FILE.
     MOVE "N" TO PF-OPTIONAL(PF-COUNT) PF-SORT(PF-COUNT)
         PF-INPUT(PF-COUNT) PF-OUTPUT(PF-COUNT) PF-I-O(PF-COUNT)
         PF-EXTEND(PF-COUNT)
+    PERFORM RECORD-SIZE
     PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-N) BY 1
             UNTIL LS-T >= ND-TOK-LAST(LS-N)
         IF TK-IS-WORD(LS-T)
@@ -433,6 +441,54 @@ ADD-FILE.
                 MOVE LS-R TO LS-T
             END-IF
         END-IF
+    END-PERFORM.
+
+*> PF-RECORD-SIZE: the largest 01 record under the FD or SD of the
+*> same name in the program of the SELECT (node LS-N).
+RECORD-SIZE.
+    MOVE 0 TO PF-RECORD-SIZE(PF-COUNT)
+    MOVE LS-N TO LS-FD-UP
+    PERFORM PROG-ABOVE
+    MOVE LS-FD-UP TO LS-SEL-PROG
+    PERFORM VARYING LS-FD FROM 1 BY 1 UNTIL LS-FD > AS-COUNT
+        IF ND-KIND(LS-FD) = "FD" AND ND-NAME(LS-FD) > 0
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(LS-FD)
+                LS-FD-NAME LS-LEN
+            IF FUNCTION UPPER-CASE(LS-FD-NAME) = PF-NAME(PF-COUNT)
+                MOVE LS-FD TO LS-FD-UP
+                PERFORM PROG-ABOVE
+                IF LS-FD-UP = LS-SEL-PROG
+                    PERFORM FD-RECORDS
+                    EXIT PERFORM
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> The 01 records of FD node LS-FD, by their symbols.
+FD-RECORDS.
+    MOVE ND-FIRST(LS-FD) TO LS-REC
+    PERFORM UNTIL LS-REC = 0
+        IF ND-KIND(LS-REC) = "DATA"
+            PERFORM VARYING LS-SYM FROM 1 BY 1 UNTIL LS-SYM > SY-COUNT
+                IF SY-NODE(LS-SYM) = LS-REC
+                    IF SY-SIZE(LS-SYM) > PF-RECORD-SIZE(PF-COUNT)
+                        MOVE SY-SIZE(LS-SYM) TO PF-RECORD-SIZE(PF-COUNT)
+                    END-IF
+                    EXIT PERFORM
+                END-IF
+            END-PERFORM
+        END-IF
+        MOVE ND-NEXT(LS-REC) TO LS-REC
+    END-PERFORM.
+
+*> LS-FD-UP: the PROG node above node LS-FD-UP.
+PROG-ABOVE.
+    PERFORM UNTIL LS-FD-UP = 0
+        IF ND-KIND(LS-FD-UP) = "PROG"
+            EXIT PERFORM
+        END-IF
+        MOVE ND-PARENT(LS-FD-UP) TO LS-FD-UP
     END-PERFORM.
 
 *> PF-DDNAME from the assignment at LS-T: a name, or a literal, that

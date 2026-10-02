@@ -642,6 +642,17 @@ check "graph of data sets names temporaries with their job" 0 '^  "&&SORTED (SOR
     -- graph --kind datasets tests/fixtures/jcl/sortgdg.jcl
 check_absent "graph of data sets leaves out load libraries" 'LINKLIB' \
     -- graph --kind datasets tests/fixtures/jcl/sortgdg.jcl
+lx2="tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/paylog.cob tests/fixtures/jcl/lrecl.jcl"
+check "dump jcl shows LRECL and RECFM from DCB" 0 'dd PAYRPT dsn PAY.REPORT disp NEW recfm FBA lrecl 133$' \
+    -- dump jcl tests/fixtures/jcl/lrecl.jcl
+check "dump jcl shows LRECL and RECFM as keywords" 0 'dd PAYLOG dsn PAY.LOG disp MOD recfm VB lrecl 40$' \
+    -- dump jcl tests/fixtures/jcl/lrecl.jcl
+check "LRECL that is not the record length" 1 'DD RATES has LRECL=81 RECFM=FB, but the records of RATES in PAYUPD are 80 bytes \[PLB-J006\]' \
+    -- check --no-config $lx2
+check "LRECL of a variable format counts the descriptor" 1 'DD PAYLOG has LRECL=40 RECFM=VB, but the records of LOG-FILE in PAYLOG are 80 bytes (84 with the record descriptor) \[PLB-J006\]' \
+    -- check --no-config $lx2
+check_absent "LRECL with an ASA control character" 'DD PAYRPT has LRECL' \
+    -- check --no-config $lx2
 check "impact of a data set lists its writers" 0 '^  updated by PAYROLL.UPDATE through DD PAYMAST at tests/fixtures/jcl/payroll.jcl:5 (from OPEN; the step runs PAYUPD)$' \
     -- impact PAY.MASTER $jds
 check "impact of a data set names procedure overrides" 0 '^  written by PAYROLL.NIGHTLY through DD UPD.PAYLOG at tests/fixtures/jcl/payroll.jcl:17 (from OPEN; the step runs PAYUPD)$' \
