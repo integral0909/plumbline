@@ -1,0 +1,9 @@
+14:10 PI (MOVE) -> other name
+14:16 Z (MOVE) -> 1 Z @12 role=D
+15:10 SQRT(Z) (MOVE) -> other name subscripted
+15:16 Z (MOVE) -> 1 Z @12 role=U
+15:22 Z (MOVE) -> 1 Z @12 role=D
+28:10 PI (MOVE) -> other name
+28:16 Z (MOVE) -> 1 Z @26 role=D
+29:10 SQRT (MOVE) -> undefined
+29:18 Z (MOVE) -> 1 Z @26 role=D

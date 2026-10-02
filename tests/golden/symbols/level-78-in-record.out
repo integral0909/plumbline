@@ -1,0 +1,9 @@
+1 FILE-CONTROL-BLOCK G size=15 offset=0 section=W @7:1
+  5 FCB-STATUS X size=2 offset=0 section=W @8:5
+  5 FCB-OPEN-MODE 9 size=1 offset=2 digits=1 section=W @9:5
+  5 FCB-RECORD-LENGTH 9 size=4 offset=3 digits=4 section=W @12:5
+  5 FCB-NAME X size=8 offset=7 section=W @14:5
+78 FCB-INPUT K size=0 offset=0 value section=W @10:9
+78 FCB-OUTPUT K size=0 offset=0 value section=W @11:9
+78 FCB-MAX-LENGTH K size=0 offset=0 value section=W @13:5
+1 NEXT-RECORD X size=1 offset=0 section=W @15:1

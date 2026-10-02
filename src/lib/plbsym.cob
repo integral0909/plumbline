@@ -52,6 +52,7 @@ COPY "plbpic.cpy".
 01  LS-TEXT                 PIC X(256).
 01  LS-LEN                  PIC 9(9) COMP-5.
 01  LS-HAS-PICTURE          PIC X.
+01  LS-HAS-CONSTANT         PIC X.
 01  LS-FULL                 PIC X VALUE "N".
 01  LS-TIMES                PIC 9(9) COMP-5.
 01  LS-DETAIL               PIC X(20).
@@ -64,7 +65,9 @@ COPY "plbpic.cpy".
 01  LS-SUBSTITUTED          PIC X.
 *> From the SPECIAL-NAMES of the current program.
 01  LS-DECIMAL-COMMA        PIC X VALUE "N".
-01  LS-CURRENCY             PIC X VALUE SPACE.
+01  LS-CURRENCY             PIC X(8) VALUE SPACES.
+01  LS-SYMBOL               PIC X.
+01  LS-CI                   PIC 9(4) COMP-5.
 COPY "plbpic.cpy" REPLACING ==PLB-PIC-INFO== BY ==LS-SAVED-PIC==.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
@@ -97,6 +100,13 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
     END-PERFORM
     PERFORM COMPUTE-SIZES
     PERFORM COMPUTE-OFFSETS
+    *> A group with a variable item in it is variable: members come
+    *> after their groups, so go backward.
+    PERFORM VARYING LS-S FROM SY-COUNT BY -1 UNTIL LS-S = 0
+        IF SY-VARIABLE(LS-S) = "Y" AND SY-PARENT(LS-S) > 0
+            MOVE "Y" TO SY-VARIABLE(SY-PARENT(LS-S))
+        END-IF
+    END-PERFORM
     GOBACK.
 
 NOTE-SECTION.
@@ -137,12 +147,13 @@ DESCRIBE-ITEM.
     MOVE 0 TO SY-PARENT(LS-S) SY-DIGITS(LS-S) SY-SCALE(LS-S)
         SY-SIZE(LS-S) SY-OFFSET(LS-S) SY-OCCURS(LS-S)
         SY-ODO-TOKEN(LS-S) SY-REDEFINES(LS-S)
+    MOVE "N" TO SY-UNBOUNDED(LS-S) SY-VARIABLE(LS-S)
     MOVE "N" TO SY-SIGNED(LS-S) SY-HAS-VALUE(LS-S)
     IF ND-KIND(ND-PARENT(LS-NODE)) = "DATA"
         MOVE WS-NODE-SYMBOL(ND-PARENT(LS-NODE)) TO SY-PARENT(LS-S)
     END-IF
 
-    MOVE "N" TO LS-HAS-PICTURE
+    MOVE "N" TO LS-HAS-PICTURE LS-HAS-CONSTANT
     MOVE ND-FIRST(LS-NODE) TO LS-CHILD
     PERFORM UNTIL LS-CHILD = 0
         IF ND-KIND(LS-CHILD) = "CLAU"
@@ -161,7 +172,7 @@ DESCRIBE-ITEM.
             MOVE "C" TO SY-CATEGORY(LS-S)
         WHEN SY-LEVEL(LS-S) = 66
             MOVE "R" TO SY-CATEGORY(LS-S)
-        WHEN SY-LEVEL(LS-S) = 78
+        WHEN SY-LEVEL(LS-S) = 78 OR LS-HAS-CONSTANT = "Y"
             MOVE "K" TO SY-CATEGORY(LS-S)
         WHEN LS-HAS-PICTURE = "Y"
             MOVE LS-SAVED-PIC TO PLB-PIC-INFO
@@ -179,7 +190,7 @@ DESCRIBE-ITEM.
                     SY-USAGE(LS-S) SY-SIZE(LS-S)
             END-IF
     END-EVALUATE
-    IF SY-LEVEL(LS-S) = 78
+    IF SY-LEVEL(LS-S) = 78 OR LS-HAS-CONSTANT = "Y"
         PERFORM REMEMBER-CONSTANT
     END-IF
     *> PIC X ANY LENGTH (a linkage item that takes the caller's
@@ -226,6 +237,8 @@ DESCRIBE-CLAUSE.
             END-IF
         WHEN "VALUE"
             MOVE "Y" TO SY-HAS-VALUE(LS-S)
+        WHEN "CONSTANT"
+            MOVE "Y" TO LS-HAS-CONSTANT SY-HAS-VALUE(LS-S)
         WHEN "OCCURS"
             PERFORM DESCRIBE-OCCURS
         WHEN "REDEFINES"
@@ -282,10 +295,24 @@ READ-SPECIAL-NAMES.
                         IF TK-IS-ALNUM(LS-R)
                             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-R
                                 LS-TEXT LS-LEN
-                            MOVE LS-TEXT(1:1) TO LS-CURRENCY
+                            MOVE LS-TEXT(1:1) TO LS-SYMBOL
+                            PERFORM ADD-CURRENCY
                         END-IF
                     END-IF
             END-EVALUATE
+        END-IF
+    END-PERFORM.
+
+*> Add LS-SYMBOL to the currency symbols of the program's pictures.
+ADD-CURRENCY.
+    MOVE FUNCTION UPPER-CASE(LS-SYMBOL) TO LS-SYMBOL
+    PERFORM VARYING LS-CI FROM 1 BY 1 UNTIL LS-CI > 8
+        IF LS-CURRENCY(LS-CI:1) = LS-SYMBOL
+            EXIT PERFORM
+        END-IF
+        IF LS-CURRENCY(LS-CI:1) = SPACE
+            MOVE LS-SYMBOL TO LS-CURRENCY(LS-CI:1)
+            EXIT PERFORM
         END-IF
     END-PERFORM.
 
@@ -296,7 +323,8 @@ READ-CURRENCY.
         IF TK-IS-ALNUM(LS-R)
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-R LS-TEXT LS-LEN
             IF LS-LEN = 1
-                MOVE LS-TEXT(1:1) TO LS-CURRENCY
+                MOVE LS-TEXT(1:1) TO LS-SYMBOL
+                PERFORM ADD-CURRENCY
             END-IF
             EXIT PERFORM
         END-IF
@@ -422,7 +450,8 @@ FIND-CONSTANT.
         END-IF
     END-PERFORM.
 
-*> 78 NAME VALUE n: remember n when it is an unsigned integer.
+*> 78 NAME VALUE n, or 01 NAME CONSTANT [IS GLOBAL] [AS] n: remember
+*> n when it is an unsigned integer.
 REMEMBER-CONSTANT.
     IF SY-NAME(LS-S) = SPACES OR WS-CONSTANT-COUNT >= 1000
         EXIT PARAGRAPH
@@ -430,11 +459,17 @@ REMEMBER-CONSTANT.
     MOVE ND-FIRST(LS-NODE) TO LS-CHILD
     PERFORM UNTIL LS-CHILD = 0
         IF ND-DETAIL(LS-CHILD) = "VALUE"
+           OR ND-DETAIL(LS-CHILD) = "CONSTANT"
             COMPUTE LS-TOKEN = ND-TOK-FIRST(LS-CHILD) + 1
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT LS-LEN
-            IF LS-TEXT = "IS"
+            PERFORM UNTIL LS-TOKEN >= ND-TOK-LAST(LS-CHILD)
+                    OR NOT TK-IS-WORD(LS-TOKEN)
+                    OR (LS-TEXT NOT = "IS" AND LS-TEXT NOT = "GLOBAL"
+                        AND LS-TEXT NOT = "AS")
                 ADD 1 TO LS-TOKEN
-            END-IF
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT
+                    LS-LEN
+            END-PERFORM
             IF TK-IS-NUMBER(LS-TOKEN) AND TK-TEXT-LEN(LS-TOKEN) <= 10
                 CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT
                     LS-LEN
@@ -463,6 +498,8 @@ DESCRIBE-OCCURS.
                     TO SY-OCCURS(LS-S)
             WHEN LS-TEXT = "TO"
                 CONTINUE
+            WHEN LS-TEXT = "UNBOUNDED"
+                MOVE "Y" TO SY-UNBOUNDED(LS-S)
             WHEN OTHER
                 MOVE LS-TEXT TO LS-CONST-NAME
                 PERFORM FIND-CONSTANT
@@ -475,6 +512,7 @@ DESCRIBE-OCCURS.
     END-PERFORM
     IF ND-FIRST(LS-CHILD) > 0
         MOVE ND-NAME(ND-FIRST(LS-CHILD)) TO SY-ODO-TOKEN(LS-S)
+        MOVE "Y" TO SY-VARIABLE(LS-S)
     END-IF.
 
 *> The redefined item is the nearest earlier item of the same program

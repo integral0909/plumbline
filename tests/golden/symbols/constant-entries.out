@@ -1,0 +1,5 @@
+1 NAME-SIZE K size=0 offset=0 value section=W @7:1
+1 GREETING K size=0 offset=0 value section=W @8:1
+1 DOUBLED K size=0 offset=0 value section=W @9:1
+1 CUSTOMER-NAME X size=8 offset=0 section=W @10:1
+1 CODES 9 size=10 offset=0 digits=10 scale=2 section=W @11:1

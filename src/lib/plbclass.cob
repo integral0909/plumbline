@@ -131,6 +131,17 @@ PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
             MOVE ">" TO CL-KIND
             MOVE 7 TO LS-FROM
             PERFORM SCAN-CONTENT
+        *> A directive may start in the indicator column: ">> IF".
+        WHEN ">"
+            IF LK-LENGTH >= 8 AND LK-LINE(8:1) = ">"
+                MOVE ">" TO CL-KIND
+                MOVE 7 TO LS-FROM
+                PERFORM SCAN-CONTENT
+            ELSE
+                MOVE "I" TO CL-PROBLEM
+                MOVE "C" TO CL-KIND
+                PERFORM SCAN-CONTENT
+            END-IF
         WHEN "D"
         WHEN "d"
             MOVE "D" TO CL-KIND
@@ -146,6 +157,10 @@ PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
                 WHEN CL-CONTENT-LEN = 0
                     MOVE "B" TO CL-KIND
                 WHEN LK-LINE(CL-CONTENT-COL:2) = ">>"
+                    MOVE ">" TO CL-KIND
+                *> Micro Focus directives ($SET, $DISPLAY, $IF) may be
+                *> indented; no COBOL text starts with $.
+                WHEN LK-LINE(CL-CONTENT-COL:1) = "$"
                     MOVE ">" TO CL-KIND
                 WHEN OTHER
                     MOVE "C" TO CL-KIND
@@ -266,7 +281,8 @@ PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
             COMPUTE LS-FROM = LS-LEAD + 4
             PERFORM SCAN-CONTENT
         WHEN LS-WORD(1:2) = ">>"
-        WHEN LS-WORD = "$SET "
+        *> Micro Focus directives: $SET, $IF, $ELSE, $END, $DISPLAY.
+        WHEN LS-WORD(1:1) = "$"
             MOVE ">" TO CL-KIND
             MOVE LS-LEAD TO LS-FROM
             PERFORM SCAN-CONTENT
@@ -330,6 +346,7 @@ PROCEDURE DIVISION USING LK-TEXT LK-FORMAT.
             END-IF
             PERFORM DECODE-FORMAT
         WHEN "$SET"
+        WHEN ">>SET"
             PERFORM VARYING LS-I FROM 2 BY 1 UNTIL LS-I >= LS-COUNT
                 IF LS-TOKEN(LS-I) = "SOURCEFORMAT"
                     ADD 1 TO LS-I

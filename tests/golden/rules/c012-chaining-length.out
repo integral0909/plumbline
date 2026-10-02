@@ -1,0 +1,1 @@
+tests/golden/rules/c012-chaining-length.cob:19:14: warning: COUNTER is used before it is given a value [PLB-C012]

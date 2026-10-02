@@ -117,6 +117,8 @@ EXEC-ROLE.
             PERFORM SQL-ROLE
         WHEN "CICS"
             PERFORM CICS-ROLE
+        WHEN "DLI"
+            PERFORM DLI-ROLE
     END-EVALUATE.
 
 *> SQL: the nearest clause word before the host variable decides.
@@ -160,25 +162,7 @@ SQL-ROLE.
 CICS-ROLE.
     COMPUTE LS-T = ND-TOK-FIRST(LS-STMT) + 2
     CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-COMMAND LS-LEN
-    *> The option: the word before the "(" that encloses the argument.
-    MOVE 0 TO LS-OPTION-LEVEL
-    MOVE SPACES TO LS-KEYWORD
-    COMPUTE LS-T = RF-TOKEN(LS-R) - 1
-    PERFORM UNTIL LS-T <= ND-TOK-FIRST(LS-STMT)
-        IF TK-IS-RPAREN(LS-T)
-            ADD 1 TO LS-OPTION-LEVEL
-        END-IF
-        IF TK-IS-LPAREN(LS-T)
-            IF LS-OPTION-LEVEL = 0
-                SUBTRACT 1 FROM LS-T
-                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-KEYWORD
-                    LS-LEN
-                EXIT PERFORM
-            END-IF
-            SUBTRACT 1 FROM LS-OPTION-LEVEL
-        END-IF
-        SUBTRACT 1 FROM LS-T
-    END-PERFORM
+    PERFORM OPTION-KEYWORD
     EVALUATE TRUE
         WHEN LS-COMMAND = "FORMATTIME" AND LS-KEYWORD = "ABSTIME"
             MOVE "U" TO LS-ROLE
@@ -208,14 +192,71 @@ CICS-ROLE.
             END-EVALUATE
     END-EVALUATE.
 
+*> DL/I: INTO and KEYFEEDBACK return data, the other options (FROM,
+*> WHERE, PCB, the lengths) pass it in.
+DLI-ROLE.
+    PERFORM OPTION-KEYWORD
+    EVALUATE LS-KEYWORD
+        WHEN "INTO" WHEN "KEYFEEDBACK"
+            MOVE "D" TO LS-ROLE
+        WHEN "FROM" WHEN "WHERE" WHEN "PCB" WHEN "SEGLENGTH"
+        WHEN "FIELDLENGTH" WHEN "FEEDLEN" WHEN "OFFSET" WHEN "KEYS"
+        WHEN "PSB"
+            MOVE "U" TO LS-ROLE
+        WHEN OTHER
+            MOVE "X" TO LS-ROLE
+    END-EVALUATE.
+
+*> LS-KEYWORD = the option the argument at reference LS-R belongs to:
+*> the word before the "(" that encloses it.
+OPTION-KEYWORD.
+    MOVE 0 TO LS-OPTION-LEVEL
+    MOVE SPACES TO LS-KEYWORD
+    COMPUTE LS-T = RF-TOKEN(LS-R) - 1
+    PERFORM UNTIL LS-T <= ND-TOK-FIRST(LS-STMT)
+        IF TK-IS-RPAREN(LS-T)
+            ADD 1 TO LS-OPTION-LEVEL
+        END-IF
+        IF TK-IS-LPAREN(LS-T)
+            IF LS-OPTION-LEVEL = 0
+                SUBTRACT 1 FROM LS-T
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-KEYWORD
+                    LS-LEN
+                EXIT PERFORM
+            END-IF
+            SUBTRACT 1 FROM LS-OPTION-LEVEL
+        END-IF
+        SUBTRACT 1 FROM LS-T
+    END-PERFORM.
+
 *> LS-ROLE = "-" when the reference is the operand of LENGTH OF or
-*> BYTE-LENGTH OF, otherwise spaces.
+*> BYTE-LENGTH OF, or the whole argument of FUNCTION LENGTH or
+*> FUNCTION BYTE-LENGTH, otherwise spaces.
 CHECK-LENGTH-OF.
     MOVE SPACE TO LS-ROLE
     IF RF-TOKEN(LS-R) <= 2
         EXIT PARAGRAPH
     END-IF
     COMPUTE LS-T = RF-TOKEN(LS-R) - 1
+    *> FUNCTION LENGTH (item), FUNCTION BYTE-LENGTH (item): the item
+    *> is measured, not read, when it is the whole argument.
+    IF TK-IS-LPAREN(LS-T) AND LS-T > 2
+       AND RF-LAST(LS-R) < TK-COUNT
+        IF TK-IS-RPAREN(RF-LAST(LS-R) + 1)
+            SUBTRACT 1 FROM LS-T
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            IF (LS-TEXT = "LENGTH" OR LS-TEXT = "BYTE-LENGTH")
+               AND TK-IS-WORD(LS-T)
+                SUBTRACT 1 FROM LS-T
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT
+                    LS-LEN
+                IF LS-TEXT = "FUNCTION"
+                    MOVE "-" TO LS-ROLE
+                END-IF
+            END-IF
+        END-IF
+        EXIT PARAGRAPH
+    END-IF
     IF NOT TK-IS-WORD(LS-T)
         EXIT PARAGRAPH
     END-IF
@@ -318,6 +359,23 @@ ROLE-FOR-VERB.
         WHEN "DISPLAY"
             EVALUATE LS-KEYWORD
                 WHEN SPACES     MOVE "U" TO LS-ROLE
+            END-EVALUATE
+        *> XML GENERATE out FROM data [COUNT IN n], JSON GENERATE the
+        *> same; XML PARSE document reads it.
+        WHEN "XML"
+        WHEN "JSON"
+            EVALUATE LS-KEYWORD
+                WHEN SPACES
+                    COMPUTE LS-T = ND-TOK-FIRST(LS-STMT) + 1
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT
+                        LS-LEN
+                    IF LS-TEXT = "GENERATE"
+                        MOVE "D" TO LS-ROLE
+                    ELSE
+                        MOVE "U" TO LS-ROLE
+                    END-IF
+                WHEN "FROM"     MOVE "U" TO LS-ROLE
+                WHEN "COUNT"    MOVE "D" TO LS-ROLE
             END-EVALUATE
         WHEN "READ"
         WHEN "RETURN"

@@ -36,7 +36,8 @@
     *> from the program's SPECIAL-NAMES before analysis:
     *>   PI-DECIMAL-COMMA  "Y" for DECIMAL-POINT IS COMMA, which swaps
     *>                     the roles of . and , in pictures
-    *>   PI-CURRENCY       the currency symbol of CURRENCY SIGN, or a
-    *>                     space for $ alone
+    *>   PI-CURRENCY       the currency symbols of CURRENCY SIGN
+    *>                     clauses, in upper case (a program may have
+    *>                     several), or spaces for $ alone
     05  PI-DECIMAL-COMMA        PIC X.
-    05  PI-CURRENCY             PIC X.
+    05  PI-CURRENCY             PIC X(8).

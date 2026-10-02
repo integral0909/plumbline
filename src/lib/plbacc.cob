@@ -74,13 +74,23 @@ ADD-ACCESS.
     END-IF.
 
 *> Each data item named in an environment division may be set by the
-*> runtime (FILE STATUS, RECORD KEY, ...): an X access.
+*> runtime (FILE STATUS, RECORD KEY, ...), and each named in the
+*> procedure division header is given a value on entry: an X access.
 ENVIRONMENT-MENTIONS.
     MOVE 1 TO LS-NODE
     MOVE 0 TO LS-DEPTH
     PERFORM UNTIL LS-NODE = 0
         IF ND-KIND(LS-NODE) = "PROG"
             MOVE LS-NODE TO LS-PROGRAM
+        END-IF
+        *> PROCEDURE DIVISION CHAINING items get their values from the
+        *> command line, as USING items do from the caller.
+        IF ND-KIND(LS-NODE) = "USNG" AND ND-NAME(LS-NODE) > 0
+            IF TK-TEXT-LEN(ND-NAME(LS-NODE)) <= 31
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(LS-NODE)
+                    LS-TEXT LS-LEN
+                PERFORM MENTION-NAME
+            END-IF
         END-IF
         IF ND-KIND(LS-NODE) = "DIVN"
            AND ND-DETAIL(LS-NODE) = "ENVIRONMENT"

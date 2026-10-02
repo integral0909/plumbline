@@ -1,0 +1,2 @@
+tests/golden/lexer/radix-literals.cob:13:14: error: unexpected character '#' [LX002]
+tests/golden/lexer/radix-literals.cob:13:19: error: unexpected character '#' [LX002]

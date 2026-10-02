@@ -108,7 +108,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
     GOBACK.
 
 *> PROCEDURE DIVISION [USING [BY REFERENCE|VALUE|CONTENT] items...]
-*>                    [RETURNING item] .
+*>                    [CHAINING items...] [RETURNING item] .
 DIVISION-HEADER.
     ADD 2 TO PS-POS
     MOVE SPACES TO LS-DETAIL
@@ -120,6 +120,7 @@ DIVISION-HEADER.
         END-IF
         EVALUATE TRUE
             WHEN PX-TEXT = "USING" OR PX-TEXT = "RETURNING"
+                 OR PX-TEXT = "CHAINING"
                 MOVE PX-TEXT TO LS-DETAIL
             WHEN PX-KIND = "W" AND PX-KW = SPACE
                  AND LS-DETAIL NOT = SPACES
@@ -249,6 +250,12 @@ SENTENCE-TOKEN.
             MOVE "Y" TO LS-SENTENCE-DONE
         WHEN PX-KIND = "W" AND LS-TEXT = "ELSE"
             PERFORM HANDLE-ELSE
+        *> XML GENERATE ... SUPPRESS ... WHEN SPACES: an operand.
+        WHEN PX-KIND = "W" AND LS-TEXT = "WHEN" AND WS-CX-DEPTH > 0
+             AND CX-TYPE(WS-CX-DEPTH) = "S"
+             AND (CX-VERB(WS-CX-DEPTH) = "XML"
+                  OR CX-VERB(WS-CX-DEPTH) = "JSON")
+            ADD 1 TO PS-POS
         WHEN PX-KIND = "W" AND LS-TEXT = "WHEN"
             PERFORM HANDLE-WHEN
         WHEN PX-KW = "T"
@@ -262,6 +269,14 @@ SENTENCE-TOKEN.
             PERFORM BEGIN-STATEMENT
             ADD 2 TO PS-POS
             MOVE LS-NEXT TO ND-TOK-LAST(LS-STMT)
+        *> XML GENERATE ... SUPPRESS: Report Writer's verbs are words
+        *> of the XML and JSON statements.
+        WHEN PX-KW = "V" AND WS-CX-DEPTH > 0
+             AND CX-TYPE(WS-CX-DEPTH) = "S"
+             AND (CX-VERB(WS-CX-DEPTH) = "XML"
+                  OR CX-VERB(WS-CX-DEPTH) = "JSON")
+             AND (LS-TEXT = "GENERATE" OR LS-TEXT = "SUPPRESS")
+            ADD 1 TO PS-POS
         WHEN PX-KW = "V" OR (LS-TEXT = "USE" AND WS-CX-DEPTH = 0)
             MOVE LS-TEXT TO LS-VERB
             PERFORM HANDLE-VERB
@@ -273,9 +288,13 @@ SENTENCE-TOKEN.
 *> the statement being collected, or text that cannot be here.
 OPERAND-TOKEN.
     IF WS-CX-DEPTH > 0
+        *> SORT ... INPUT PROCEDURE p, XML PARSE ... PROCESSING
+        *> PROCEDURE p: the procedures run as a PERFORM's do.
         IF CX-TYPE(WS-CX-DEPTH) = "S"
            AND (CX-VERB(WS-CX-DEPTH) = "SORT"
-                OR CX-VERB(WS-CX-DEPTH) = "MERGE")
+                OR CX-VERB(WS-CX-DEPTH) = "MERGE"
+                OR CX-VERB(WS-CX-DEPTH) = "XML"
+                OR CX-VERB(WS-CX-DEPTH) = "JSON")
             PERFORM SORT-OPERAND
             EXIT PARAGRAPH
         END-IF
@@ -395,8 +414,10 @@ SEARCH-STATEMENT.
 PERFORM-STATEMENT.
     CALL "PLB-PX-TOKEN" USING PLB-TOKENS PS-POS PLB-PX-VIEW
     PERFORM TIMES-AFTER-COUNT
+    *> PERFORM FOREVER ... END-PERFORM (GnuCOBOL, Micro Focus) is an
+    *> inline loop, not a PERFORM of a paragraph named FOREVER.
     IF (PX-KIND = "W" AND PX-KW = SPACE OR PX-KIND = "N")
-       AND LS-NEXT-TEXT NOT = "TIMES"
+       AND LS-NEXT-TEXT NOT = "TIMES" AND PX-TEXT NOT = "FOREVER"
         MOVE "PERFORM" TO LS-DETAIL
         PERFORM PROCEDURE-NAME
         CALL "PLB-PX-TOKEN" USING PLB-TOKENS PS-POS PLB-PX-VIEW

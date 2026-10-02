@@ -41,6 +41,7 @@ WORKING-STORAGE SECTION.
 *> Names that embedded SQL and CICS declare for the program.
 01  WS-SQLCA-ADDED          PIC X.
 01  WS-EIB-ADDED            PIC X.
+01  WS-DIB-ADDED            PIC X.
 01  WS-SQLCA-NAMES.
     05  FILLER PIC X(31) VALUE "SQLCA".
     05  FILLER PIC X(31) VALUE "SQLCAID".
@@ -114,6 +115,13 @@ LOCAL-STORAGE SECTION.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-DEPTH                PIC S9(9) COMP-5.
 01  LS-PROGRAM              PIC 9(9) COMP-5.
+01  LS-INTRINSIC            PIC X.
+01  LS-FD-T                 PIC 9(9) COMP-5.
+01  LS-OPTION-T             PIC 9(9) COMP-5.
+01  LS-OPTION               PIC X(31).
+01  LS-IN-SEGMENT           PIC X.
+01  LS-IN-FUNCTION-LIST     PIC X.
+01  LS-LISTED               PIC X.
 01  LS-T                    PIC 9(9) COMP-5.
 01  LS-J                    PIC 9(9) COMP-5.
 01  LS-K                    PIC 9(9) COMP-5.
@@ -122,6 +130,12 @@ LOCAL-STORAGE SECTION.
 01  LS-A                    PIC 9(9) COMP-5.
 01  LS-ANCESTOR             PIC 9(9) COMP-5.
 01  LS-Q                    PIC 9(4) COMP-5.
+*> Directives that define constants: a line and its first words.
+01  LS-LINE-IX              PIC 9(9) COMP-5.
+01  LS-DIRECTIVE            PIC X(1024).
+01  LS-DIRECTIVE-REST       PIC X(1024).
+01  LS-DIRECTIVE-WORDS.
+    05  LS-DIRECTIVE-WORD   PIC X(40) OCCURS 3 TIMES.
 01  LS-U                    PIC 9(9) COMP-5.
 01  LS-TEXT                 PIC X(31).
 01  LS-NAME                 PIC X(31).
@@ -158,7 +172,7 @@ COPY "plbref.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
         PLB-AST PLB-SYMBOLS PLB-FLOW PLB-REFS.
     MOVE 0 TO RF-COUNT WS-OTHER-COUNT WS-DIV-COUNT
-    MOVE "N" TO WS-SQLCA-ADDED WS-EIB-ADDED
+    MOVE "N" TO WS-SQLCA-ADDED WS-EIB-ADDED WS-DIB-ADDED
     IF AS-COUNT = 0 OR TK-COUNT = 0
         GOBACK
     END-IF
@@ -172,6 +186,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
         PERFORM MARK-NODE
         CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
     END-PERFORM
+    PERFORM DIRECTIVE-CONSTANTS
     IF WS-OTHER-COUNT > 1
         SORT WS-OTHER ON ASCENDING KEY ON-TEXT
     END-IF
@@ -258,13 +273,16 @@ MARK-NODE.
             END-IF
     END-EVALUATE.
 
-*> EXEC SQL and EXEC CICS name COBOL data among their own words: the
-*> host variables of SQL (:NAME, :RECORD.FIELD) and the arguments of
-*> CICS options (INTO(NAME), RESP(NAME)). Every other token of an
-*> EXEC statement is skipped, and so is all of any other EXEC.
+*> EXEC SQL, EXEC CICS, and EXEC DLI name COBOL data among their own
+*> words: the host variables of SQL (:NAME, :RECORD.FIELD) and the
+*> arguments of CICS and DL/I options (INTO(NAME), RESP(NAME)), except
+*> the segment names of SEGMENT(...) and the segment fields of
+*> WHERE (FIELD = NAME). Every other token of an EXEC statement is
+*> skipped, and so is all of any other EXEC.
 MARK-EXEC-TOKENS.
     PERFORM EXEC-LANGUAGE
     MOVE 0 TO LS-LEVEL
+    MOVE "N" TO LS-IN-SEGMENT
     PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
             UNTIL LS-T > ND-TOK-LAST(LS-NODE)
         MOVE "Y" TO WS-TOKEN-SKIP(LS-T)
@@ -273,15 +291,35 @@ MARK-EXEC-TOKENS.
                 IF TK-IS-COLON(LS-T - 1) AND TK-IS-WORD(LS-T)
                     MOVE "N" TO WS-TOKEN-SKIP(LS-T)
                 END-IF
-            WHEN LS-EXEC-LANGUAGE = "CICS"
+            WHEN LS-EXEC-LANGUAGE = "CICS" OR LS-EXEC-LANGUAGE = "DLI"
                 IF TK-IS-LPAREN(LS-T)
                     ADD 1 TO LS-LEVEL
+                    *> EXEC DLI ... SEGMENT(name): a segment, not data.
+                    IF LS-LEVEL = 1 AND LS-EXEC-LANGUAGE = "DLI"
+                        COMPUTE LS-OPTION-T = LS-T - 1
+                        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-OPTION-T
+                            LS-OPTION LS-LEN
+                        IF LS-OPTION = "SEGMENT"
+                            MOVE "Y" TO LS-IN-SEGMENT
+                        END-IF
+                    END-IF
                 END-IF
                 IF TK-IS-RPAREN(LS-T) AND LS-LEVEL > 0
                     SUBTRACT 1 FROM LS-LEVEL
+                    IF LS-LEVEL = 0
+                        MOVE "N" TO LS-IN-SEGMENT
+                    END-IF
                 END-IF
                 IF LS-LEVEL > 0 AND TK-IS-WORD(LS-T)
+                   AND LS-IN-SEGMENT = "N"
                     MOVE "N" TO WS-TOKEN-SKIP(LS-T)
+                    *> WHERE (FIELD = item): a word before a relational
+                    *> operator is a field of the segment, not data.
+                    IF LS-EXEC-LANGUAGE = "DLI" AND LS-T < TK-COUNT
+                        IF TK-IS-OPERATOR(LS-T + 1)
+                            MOVE "Y" TO WS-TOKEN-SKIP(LS-T)
+                        END-IF
+                    END-IF
                 END-IF
         END-EVALUATE
     END-PERFORM
@@ -290,6 +328,8 @@ MARK-EXEC-TOKENS.
             PERFORM ADD-SQLCA-NAMES
         WHEN "CICS"
             PERFORM ADD-EIB-NAMES
+        WHEN "DLI"
+            PERFORM ADD-DIB-NAMES
     END-EVALUATE.
 
 *> LS-EXEC-LANGUAGE = the word after EXEC in node LS-NODE.
@@ -324,6 +364,65 @@ ADD-EIB-NAMES.
         PERFORM ADD-OTHER-NAME
     END-PERFORM.
 
+*> Compile-time constants that directives define, which the program
+*> may use like literals: $SET CONSTANT NAME "value" (Micro Focus),
+*> >>DEFINE [CONSTANT] NAME AS value (COBOL 2014).
+DIRECTIVE-CONSTANTS.
+    PERFORM VARYING LS-LINE-IX FROM 1 BY 1
+            UNTIL LS-LINE-IX > SS-LINE-COUNT
+        IF SL-IS-DIRECTIVE(LS-LINE-IX)
+            CALL "PLB-SRC-LINE-CONTENT" USING PLB-SOURCE-SET LS-LINE-IX
+                LS-DIRECTIVE LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-DIRECTIVE) TO LS-DIRECTIVE
+            *> ">> DEFINE" with a space reads as ">>DEFINE".
+            IF LS-DIRECTIVE(1:3) = ">> "
+                MOVE LS-DIRECTIVE(4:) TO LS-DIRECTIVE-REST
+                MOVE LS-DIRECTIVE-REST TO LS-DIRECTIVE(3:)
+            END-IF
+            MOVE SPACES TO LS-DIRECTIVE-WORD(1) LS-DIRECTIVE-WORD(2)
+                LS-DIRECTIVE-WORD(3)
+            UNSTRING LS-DIRECTIVE DELIMITED BY ALL SPACE
+                INTO LS-DIRECTIVE-WORD(1) LS-DIRECTIVE-WORD(2)
+                    LS-DIRECTIVE-WORD(3)
+            MOVE SPACES TO LS-TEXT
+            EVALUATE TRUE
+                WHEN (LS-DIRECTIVE-WORD(1) = "$SET"
+                      OR LS-DIRECTIVE-WORD(1) = ">>SET")
+                     AND LS-DIRECTIVE-WORD(2) = "CONSTANT"
+                WHEN LS-DIRECTIVE-WORD(1) = ">>DEFINE"
+                     AND LS-DIRECTIVE-WORD(2) = "CONSTANT"
+                    MOVE LS-DIRECTIVE-WORD(3) TO LS-TEXT
+                WHEN LS-DIRECTIVE-WORD(1) = ">>DEFINE"
+                    MOVE LS-DIRECTIVE-WORD(2) TO LS-TEXT
+            END-EVALUATE
+            IF LS-TEXT NOT = SPACES
+                PERFORM ADD-OTHER-NAME
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> The fields of the DL/I interface block, which the IMS translator
+*> declares for EXEC DLI (DIBSTAT, the status code, above all).
+ADD-DIB-NAMES.
+    IF WS-DIB-ADDED = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "Y" TO WS-DIB-ADDED
+    MOVE "DIBVER" TO LS-TEXT
+    PERFORM ADD-OTHER-NAME
+    MOVE "DIBSTAT" TO LS-TEXT
+    PERFORM ADD-OTHER-NAME
+    MOVE "DIBSEGM" TO LS-TEXT
+    PERFORM ADD-OTHER-NAME
+    MOVE "DIBSEGLV" TO LS-TEXT
+    PERFORM ADD-OTHER-NAME
+    MOVE "DIBKFBL" TO LS-TEXT
+    PERFORM ADD-OTHER-NAME
+    MOVE "DIBDBDNM" TO LS-TEXT
+    PERFORM ADD-OTHER-NAME
+    MOVE "DIBDBORG" TO LS-TEXT
+    PERFORM ADD-OTHER-NAME.
+
 ADD-OTHER-NAME.
     IF WS-OTHER-COUNT < ON-MAX
         ADD 1 TO WS-OTHER-COUNT
@@ -354,6 +453,13 @@ INDEX-NAMES.
             WHEN LS-TEXT = "INDEXED"
                 MOVE "Y" TO LS-IN-INDEXED
             WHEN LS-TEXT = "ASCENDING" OR LS-TEXT = "DESCENDING"
+                MOVE "N" TO LS-IN-INDEXED
+            *> Report Writer: OCCURS n TIMES VARYING counter FROM ...
+            *> declares the counter.
+            WHEN LS-TEXT = "VARYING"
+                MOVE "V" TO LS-IN-INDEXED
+            WHEN LS-IN-INDEXED = "V"
+                PERFORM ADD-OTHER-IF-USER-WORD
                 MOVE "N" TO LS-IN-INDEXED
             WHEN LS-IN-INDEXED = "Y"
                 PERFORM ADD-OTHER-IF-USER-WORD
@@ -396,6 +502,19 @@ CONSIDER-TOKEN.
     CALL "PLB-KW-LOOKUP" USING LS-NAME LS-KW
     IF LS-KW NOT = SPACE
         EXIT PARAGRAPH
+    END-IF
+    *> XML GENERATE ... NAME OF item IS literal, TYPE OF item IS ...:
+    *> the item after OF is the operand, not a qualifier.
+    IF (LS-NAME = "NAME" OR LS-NAME = "TYPE") AND LS-T < TK-COUNT
+       AND WS-TOKEN-STMT(LS-T) > 0
+        IF ND-DETAIL(WS-TOKEN-STMT(LS-T)) = "XML"
+           OR ND-DETAIL(WS-TOKEN-STMT(LS-T)) = "JSON"
+            COMPUTE LS-J = LS-T + 1
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-J LS-TEXT LS-LEN
+            IF LS-TEXT = "OF" AND TK-IS-WORD(LS-J)
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
     END-IF
     IF LS-T > 1
         COMPUTE LS-J = LS-T - 1
@@ -592,6 +711,13 @@ CHECK-FILE-QUALIFIER.
 *> LS-GLOBAL = "Y" when LS-S or its record has a GLOBAL clause.
 CHECK-GLOBAL.
     MOVE "N" TO LS-GLOBAL
+    *> The data of an object or factory definition is the instance or
+    *> class data that its methods work on.
+    IF ND-DETAIL(SY-PROGRAM(LS-S)) = "OBJECT"
+       OR ND-DETAIL(SY-PROGRAM(LS-S)) = "FACTORY"
+        MOVE "Y" TO LS-GLOBAL
+        EXIT PARAGRAPH
+    END-IF
     MOVE LS-S TO LS-A
     PERFORM UNTIL LS-A = 0 OR LS-GLOBAL = "Y"
         MOVE ND-FIRST(SY-NODE(LS-A)) TO LS-U
@@ -602,7 +728,33 @@ CHECK-GLOBAL.
             END-IF
             MOVE ND-NEXT(LS-U) TO LS-U
         END-PERFORM
+        *> The records of FD file GLOBAL are global too.
+        IF SY-PARENT(LS-A) = 0 AND LS-GLOBAL = "N"
+            MOVE ND-PARENT(SY-NODE(LS-A)) TO LS-U
+            IF LS-U > 0
+                IF ND-KIND(LS-U) = "FD"
+                    PERFORM FD-IS-GLOBAL
+                END-IF
+            END-IF
+        END-IF
         MOVE SY-PARENT(LS-A) TO LS-A
+    END-PERFORM.
+
+*> LS-GLOBAL = "Y" when the FD entry LS-U, up to its period, has the
+*> word GLOBAL.
+FD-IS-GLOBAL.
+    PERFORM VARYING LS-FD-T FROM ND-TOK-FIRST(LS-U) BY 1
+            UNTIL LS-FD-T > ND-TOK-LAST(LS-U)
+        IF TK-IS-PERIOD(LS-FD-T)
+            EXIT PERFORM
+        END-IF
+        IF TK-IS-WORD(LS-FD-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-FD-T LS-TEXT LS-LEN
+            IF LS-TEXT = "GLOBAL"
+                MOVE "Y" TO LS-GLOBAL
+                EXIT PERFORM
+            END-IF
+        END-IF
     END-PERFORM.
 
 *> Not a data item: a procedure of the program, another declared
@@ -627,6 +779,21 @@ RESOLVE-OTHER.
             EXIT PARAGRAPH
         END-IF
     END-PERFORM
+    PERFORM CONTEXT-WORD
+    IF RF-KIND(RF-COUNT) = "O"
+        EXIT PARAGRAPH
+    END-IF
+    *> IBM reserves names starting with DFH for CICS: in a program with
+    *> EXEC CICS, an undeclared one comes from a CICS copybook such as
+    *> DFHAID (DFHENTER, DFHPF3) or DFHBMSCA (DFHRED, DFHBMPRO).
+    IF LS-NAME(1:3) = "DFH" AND WS-EIB-ADDED = "Y"
+        MOVE "O" TO RF-KIND(RF-COUNT)
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM INTRINSIC-WITHOUT-FUNCTION
+    IF RF-KIND(RF-COUNT) = "O"
+        EXIT PARAGRAPH
+    END-IF
     IF WS-OTHER-COUNT > 0
         SEARCH ALL WS-OTHER
             AT END
@@ -635,4 +802,143 @@ RESOLVE-OTHER.
                 MOVE "O" TO RF-KIND(RF-COUNT)
         END-SEARCH
     END-IF.
+*> An intrinsic function named without FUNCTION, which the program's
+*> REPOSITORY allows: FUNCTION ALL INTRINSIC, or FUNCTION name ...
+*> INTRINSIC that lists it.
+INTRINSIC-WITHOUT-FUNCTION.
+    MOVE "N" TO LS-INTRINSIC
+    EVALUATE LS-NAME
+        WHEN "ABS" WHEN "ABSOLUTE-VALUE" WHEN "ACOS" WHEN "ANNUITY"
+        WHEN "ASIN" WHEN "ATAN" WHEN "BASECONVERT" WHEN "BIT-OF"
+        WHEN "BIT-TO-CHAR" WHEN "BOOLEAN-OF-INTEGER"
+        WHEN "BYTE-LENGTH" WHEN "CHAR" WHEN "CHAR-NATIONAL"
+        WHEN "COMBINED-DATETIME" WHEN "CONCAT" WHEN "CONCATENATE"
+        WHEN "CONTENT-LENGTH" WHEN "CONTENT-OF" WHEN "CONVERT"
+        WHEN "COS" WHEN "CURRENCY-SYMBOL" WHEN "CURRENT-DATE"
+        WHEN "DATE-OF-INTEGER" WHEN "DATE-TO-YYYYMMDD"
+        WHEN "DAY-OF-INTEGER" WHEN "DAY-TO-YYYYDDD" WHEN "DISPLAY-OF"
+        WHEN "E" WHEN "EXCEPTION-FILE" WHEN "EXCEPTION-FILE-N"
+        WHEN "EXCEPTION-LOCATION" WHEN "EXCEPTION-LOCATION-N"
+        WHEN "EXCEPTION-STATEMENT" WHEN "EXCEPTION-STATUS" WHEN "EXP"
+        WHEN "EXP10" WHEN "FACTORIAL" WHEN "FIND-STRING"
+        WHEN "FORMATTED-CURRENT-DATE" WHEN "FORMATTED-DATE"
+        WHEN "FORMATTED-DATETIME" WHEN "FORMATTED-TIME"
+        WHEN "FRACTION-PART" WHEN "HEX-OF" WHEN "HEX-TO-CHAR"
+        WHEN "HIGHEST-ALGEBRAIC" WHEN "INTEGER"
+        WHEN "INTEGER-OF-BOOLEAN" WHEN "INTEGER-OF-DATE"
+        WHEN "INTEGER-OF-DAY" WHEN "INTEGER-OF-FORMATTED-DATE"
+        WHEN "INTEGER-PART" WHEN "LENGTH" WHEN "LENGTH-AN"
+        WHEN "LOCALE-COMPARE" WHEN "LOCALE-DATE" WHEN "LOCALE-TIME"
+        WHEN "LOCALE-TIME-FROM-SECONDS" WHEN "LOG" WHEN "LOG10"
+        WHEN "LOWER-CASE" WHEN "LOWEST-ALGEBRAIC" WHEN "MAX"
+        WHEN "MEAN" WHEN "MEDIAN" WHEN "MIDRANGE" WHEN "MIN"
+        WHEN "MOD" WHEN "MODULE-CALLER-ID" WHEN "MODULE-DATE"
+        WHEN "MODULE-FORMATTED-DATE" WHEN "MODULE-ID"
+        WHEN "MODULE-NAME" WHEN "MODULE-PATH" WHEN "MODULE-SOURCE"
+        WHEN "MODULE-TIME" WHEN "MONETARY-DECIMAL-POINT"
+        WHEN "MONETARY-THOUSANDS-SEPARATOR" WHEN "NATIONAL-OF"
+        WHEN "NUMERIC-DECIMAL-POINT"
+        WHEN "NUMERIC-THOUSANDS-SEPARATOR" WHEN "NUMVAL"
+        WHEN "NUMVAL-C" WHEN "NUMVAL-F" WHEN "ORD" WHEN "ORD-MAX"
+        WHEN "ORD-MIN" WHEN "PI" WHEN "PRESENT-VALUE" WHEN "RANDOM"
+        WHEN "RANGE" WHEN "REM" WHEN "REVERSE"
+        WHEN "SECONDS-FROM-FORMATTED-TIME"
+        WHEN "SECONDS-PAST-MIDNIGHT" WHEN "SIGN" WHEN "SIN"
+        WHEN "SQRT" WHEN "STANDARD-COMPARE" WHEN "STANDARD-DEVIATION"
+        WHEN "STORED-CHAR-LENGTH" WHEN "SUBSTITUTE"
+        WHEN "SUBSTITUTE-CASE" WHEN "SUM" WHEN "TAN"
+        WHEN "TEST-DATE-YYYYMMDD" WHEN "TEST-DAY-YYYYDDD"
+        WHEN "TEST-FORMATTED-DATETIME" WHEN "TEST-NUMVAL"
+        WHEN "TEST-NUMVAL-C" WHEN "TEST-NUMVAL-F" WHEN "TRIM"
+        WHEN "UPPER-CASE" WHEN "VARIANCE" WHEN "WHEN-COMPILED"
+        WHEN "YEAR-TO-YYYY"
+            MOVE "Y" TO LS-INTRINSIC
+    END-EVALUATE
+    IF LS-INTRINSIC = "N" OR LS-PROGRAM = 0
+        EXIT PARAGRAPH
+    END-IF
+    *> The REPOSITORY is in the program's environment division.
+    MOVE ND-FIRST(LS-PROGRAM) TO LS-K
+    PERFORM UNTIL LS-K = 0
+        IF ND-KIND(LS-K) = "DIVN" AND ND-DETAIL(LS-K) = "ENVIRONMENT"
+            EXIT PERFORM
+        END-IF
+        MOVE ND-NEXT(LS-K) TO LS-K
+    END-PERFORM
+    IF LS-K = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "N" TO LS-IN-FUNCTION-LIST
+    PERFORM VARYING LS-J FROM ND-TOK-FIRST(LS-K) BY 1
+            UNTIL LS-J > ND-TOK-LAST(LS-K)
+        IF TK-IS-WORD(LS-J)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-J LS-TEXT LS-LEN
+            EVALUATE TRUE
+                WHEN LS-TEXT = "FUNCTION"
+                    MOVE "Y" TO LS-IN-FUNCTION-LIST
+                    MOVE "N" TO LS-LISTED
+                WHEN LS-TEXT = "INTRINSIC" AND LS-IN-FUNCTION-LIST = "Y"
+                    IF LS-LISTED = "Y"
+                        MOVE "O" TO RF-KIND(RF-COUNT)
+                        EXIT PERFORM
+                    END-IF
+                    MOVE "N" TO LS-IN-FUNCTION-LIST
+                WHEN LS-IN-FUNCTION-LIST = "Y"
+                     AND (LS-TEXT = "ALL" OR LS-TEXT = LS-NAME)
+                    MOVE "Y" TO LS-LISTED
+            END-EVALUATE
+        END-IF
+    END-PERFORM.
+
+*> A word that is a keyword only in some statements or clauses, so a
+*> program may also use it as a name: when no item of that name is
+*> declared, it is the keyword. Which statement it is in is not
+*> checked; an undeclared item that happens to have one of these
+*> names is not reported.
+CONTEXT-WORD.
+    EVALUATE LS-NAME
+        *> ROUNDED MODE IS ... (COBOL 2014)
+        WHEN "AWAY-FROM-ZERO" WHEN "NEAREST-AWAY-FROM-ZERO"
+        WHEN "NEAREST-EVEN" WHEN "NEAREST-TOWARD-ZERO" WHEN "PROHIBITED"
+        WHEN "TOWARD-GREATER" WHEN "TOWARD-LESSER" WHEN "TRUNCATION"
+        *> READ ... PREVIOUS, START ... WITH, OPEN ... SHARING
+        WHEN "PREVIOUS" WHEN "IGNORING" WHEN "WAIT" WHEN "UPDATE"
+        *> PERFORM FOREVER
+        WHEN "FOREVER"
+        *> STOP RUN [WITH] NORMAL|ERROR [STATUS]; EXHIBIT [CHANGED]
+        *> [NAMED]; ALLOCATE ... LOC n; PRESENT AFTER NEW name;
+        *> PROCEDURE DIVISION WITH C LINKAGE
+        WHEN "NORMAL" WHEN "CHANGED" WHEN "NAMED" WHEN "LOC" WHEN "NEW"
+        WHEN "C"
+        *> GnuCOBOL bit operators and the EQUALS of IF A EQUALS B
+        WHEN "B-AND" WHEN "B-OR" WHEN "B-XOR" WHEN "B-NOT" WHEN "B-LEFT"
+        WHEN "B-RIGHT" WHEN "B-SHIFT-L" WHEN "B-SHIFT-R" WHEN "B-SHIFT-LC"
+        WHEN "B-SHIFT-RC" WHEN "EQUALS"
+        *> FUNCTION FORMATTED-DATETIME (..., SYSTEM-OFFSET)
+        WHEN "SYSTEM-OFFSET"
+        *> The file control block GnuCOBOL keeps per file:
+        *> FH--FCD OF file, FH--KEYDEF OF file
+        WHEN "FH--FCD" WHEN "FH--KEYDEF"
+        *> PROCEDURE DIVISION CHAINING, CALL STATIC / STDCALL,
+        *> RETURNING NOTHING
+        WHEN "CHAINING" WHEN "STATIC" WHEN "STDCALL" WHEN "NOTHING"
+        *> ACCEPT ... FROM DATE YYYYMMDD, DAY YYYYDDD
+        WHEN "YYYYMMDD" WHEN "YYYYDDD" WHEN "MICROSECOND-TIME"
+        *> Screen attributes in ACCEPT and DISPLAY
+        WHEN "AUTO" WHEN "AUTO-SKIP" WHEN "AUTOTERMINATE" WHEN "BEEP"
+        WHEN "BELL" WHEN "BLINK" WHEN "COLOR" WHEN "CONVERSION"
+        WHEN "EOL" WHEN "EOS" WHEN "ERASE" WHEN "FULL" WHEN "HIGHLIGHT"
+        WHEN "LEFTLINE" WHEN "LOWLIGHT" WHEN "NO-ECHO" WHEN "OVERLINE"
+        WHEN "PROMPT" WHEN "REQUIRED" WHEN "REVERSE-VIDEO" WHEN "SECURE"
+        WHEN "TIME-OUT" WHEN "TIMEOUT" WHEN "UNDERLINE" WHEN "UPPER"
+        WHEN "LOWER" WHEN "SCROLL" WHEN "TAB" WHEN "UNSIGNED"
+        *> Devices of DISPLAY ... UPON
+        WHEN "STDOUT" WHEN "STDERR" WHEN "SYSLIST"
+        *> XML GENERATE ... SUPPRESS ... WHEN, TYPE OF ... IS
+        WHEN "NONNUMERIC" WHEN "EVERY" WHEN "ATTRIBUTE" WHEN "ELEMENT"
+        WHEN "XML-DECLARATION" WHEN "NAMESPACE" WHEN "NAMESPACE-PREFIX"
+        WHEN "ENCODING" WHEN "VALIDATING" WHEN "ATTRIBUTES" WHEN "PARSE"
+        WHEN "PROCESSING" WHEN "CONTENT"
+            MOVE "O" TO RF-KIND(RF-COUNT)
+    END-EVALUATE.
 END PROGRAM PLB-REF-BUILD.

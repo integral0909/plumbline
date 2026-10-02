@@ -1,0 +1,21 @@
+UNIT @3:1
+  PROG PROGRAM F @3:1
+    DIVN IDENTIFICATION @3:1
+      IDPA PROGRAM-ID F @4:1
+    DIVN DATA @5:1
+      SECT WORKING-STORAGE @6:1
+        DATA 1 N @7:1
+          CLAU PICTURE 9 @7:6
+          CLAU VALUE @7:12
+    DIVN PROCEDURE @8:1
+      SENT @9:5
+        STMT PERFORM @9:5
+          COND LOOP @9:13
+          BLCK BODY @10:9
+            STMT ADD @10:9
+            STMT IF @11:9
+              COND IF @11:12
+              BLCK THEN @12:13
+                STMT EXIT PERFORM @12:13
+        STMT DISPLAY @15:5
+        STMT STOP @16:5

@@ -48,6 +48,9 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-STREAM
     PERFORM VARYING LS-INDEX FROM SF-FIRST-LINE(LK-FILE-ID) BY 1
             UNTIL LS-INDEX > LS-LAST OR LS-FULL = "Y"
         EVALUATE TRUE
+            *> Left out by conditional compilation (>>IF, $IF).
+            WHEN SL-SKIPPED(LS-INDEX) = "Y"
+                CONTINUE
             WHEN SL-IS-CODE(LS-INDEX)
                 PERFORM ADD-LINE
             WHEN SL-IS-DEBUG(LS-INDEX) AND LK-DEBUG = "Y"

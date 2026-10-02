@@ -1,0 +1,1 @@
+tests/golden/parser/literal-program-names.cob:16:13: error: END PROGRAM does not name the program it ends [PS010]

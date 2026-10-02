@@ -9,7 +9,7 @@
 *> The list covers the reserved words of the 2014 standard that matter
 *> to analysis, plus common GnuCOBOL and IBM extensions. It must stay
 *> sorted: tests/unit/test-plbkw.cob checks the order.
-78  KW-COUNT                    VALUE 454.
+78  KW-COUNT                    VALUE 469.
 01  WS-KEYWORD-VALUES.
     05  FILLER PIC X(32) VALUE "ACCEPT                         V".
     05  FILLER PIC X(32) VALUE "ACCESS                         R".
@@ -70,6 +70,7 @@
     05  FILLER PIC X(32) VALUE "CLASS                          R".
     05  FILLER PIC X(32) VALUE "CLASS-ID                       R".
     05  FILLER PIC X(32) VALUE "CLOSE                          V".
+    05  FILLER PIC X(32) VALUE "COB-CRT-STATUS                 S".
     05  FILLER PIC X(32) VALUE "CODE                           R".
     05  FILLER PIC X(32) VALUE "CODE-SET                       R".
     05  FILLER PIC X(32) VALUE "COL                            R".
@@ -88,6 +89,7 @@
     05  FILLER PIC X(32) VALUE "COMP-3                         R".
     05  FILLER PIC X(32) VALUE "COMP-4                         R".
     05  FILLER PIC X(32) VALUE "COMP-5                         R".
+    05  FILLER PIC X(32) VALUE "COMP-6                         R".
     05  FILLER PIC X(32) VALUE "COMP-X                         R".
     05  FILLER PIC X(32) VALUE "COMPUTATIONAL                  R".
     05  FILLER PIC X(32) VALUE "COMPUTATIONAL-1                R".
@@ -95,6 +97,7 @@
     05  FILLER PIC X(32) VALUE "COMPUTATIONAL-3                R".
     05  FILLER PIC X(32) VALUE "COMPUTATIONAL-4                R".
     05  FILLER PIC X(32) VALUE "COMPUTATIONAL-5                R".
+    05  FILLER PIC X(32) VALUE "COMPUTATIONAL-6                R".
     05  FILLER PIC X(32) VALUE "COMPUTATIONAL-X                R".
     05  FILLER PIC X(32) VALUE "COMPUTE                        V".
     05  FILLER PIC X(32) VALUE "CONDITION                      R".
@@ -249,6 +252,8 @@
     05  FILLER PIC X(32) VALUE "INVOKE                         V".
     05  FILLER PIC X(32) VALUE "IS                             R".
     05  FILLER PIC X(32) VALUE "JSON                           V".
+    05  FILLER PIC X(32) VALUE "JSON-CODE                      S".
+    05  FILLER PIC X(32) VALUE "JSON-STATUS                    S".
     05  FILLER PIC X(32) VALUE "JUST                           R".
     05  FILLER PIC X(32) VALUE "JUSTIFIED                      R".
     05  FILLER PIC X(32) VALUE "KEY                            R".
@@ -290,6 +295,7 @@
     05  FILLER PIC X(32) VALUE "NULL                           F".
     05  FILLER PIC X(32) VALUE "NULLS                          F".
     05  FILLER PIC X(32) VALUE "NUMBER                         R".
+    05  FILLER PIC X(32) VALUE "NUMBER-OF-CALL-PARAMETERS      S".
     05  FILLER PIC X(32) VALUE "NUMERIC                        R".
     05  FILLER PIC X(32) VALUE "NUMERIC-EDITED                 R".
     05  FILLER PIC X(32) VALUE "OBJECT                         R".
@@ -462,6 +468,15 @@
     05  FILLER PIC X(32) VALUE "WORKING-STORAGE                R".
     05  FILLER PIC X(32) VALUE "WRITE                          V".
     05  FILLER PIC X(32) VALUE "XML                            V".
+    05  FILLER PIC X(32) VALUE "XML-CODE                       S".
+    05  FILLER PIC X(32) VALUE "XML-EVENT                      S".
+    05  FILLER PIC X(32) VALUE "XML-INFORMATION                S".
+    05  FILLER PIC X(32) VALUE "XML-NAMESPACE                  S".
+    05  FILLER PIC X(32) VALUE "XML-NAMESPACE-PREFIX           S".
+    05  FILLER PIC X(32) VALUE "XML-NNAMESPACE                 S".
+    05  FILLER PIC X(32) VALUE "XML-NNAMESPACE-PREFIX          S".
+    05  FILLER PIC X(32) VALUE "XML-NTEXT                      S".
+    05  FILLER PIC X(32) VALUE "XML-TEXT                       S".
     05  FILLER PIC X(32) VALUE "ZERO                           F".
     05  FILLER PIC X(32) VALUE "ZEROES                         F".
     05  FILLER PIC X(32) VALUE "ZEROS                          F".

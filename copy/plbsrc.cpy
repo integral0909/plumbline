@@ -26,6 +26,12 @@
     *> path hashes to the bucket, and SF-PATH-NEXT the one before it.
     05  SS-PATH-HEAD            PIC 9(4) COMP-5
                                 OCCURS SS-PATH-BUCKETS TIMES.
+    *> Names defined for conditional compilation (--define): a
+    *> >>IF NAME DEFINED in any file of the run is true for them.
+    *> Columns between tab stops (--tab-width; 8 unless set).
+    05  SS-TAB-WIDTH            PIC 9(4) COMP-5.
+    05  SS-DEFINE-COUNT         PIC 9(4) COMP-5.
+    05  SS-DEFINE               PIC X(31) OCCURS SS-MAX-DEFINES TIMES.
     05  SS-FILE                 OCCURS SS-MAX-FILES TIMES.
         10  SF-PATH             PIC X(SS-PATH-SIZE).
         10  SF-PATH-NEXT        PIC 9(4) COMP-5.
@@ -69,4 +75,8 @@
         10  SL-COMMENT-COL      PIC 9(4) COMP-5.
         10  SL-AREA-A           PIC X.
         10  SL-OPEN-QUOTE       PIC X.
+        *> "Y" for a line in a branch of >>IF (or $IF) that conditional
+        *> compilation leaves out; its kind is what it would be
+        *> otherwise.
+        10  SL-SKIPPED          PIC X.
     05  SS-HEAP                 PIC X(SS-HEAP-SIZE).

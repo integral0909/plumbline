@@ -5,3 +5,4 @@
 78  SS-HEAP-SIZE                VALUE 16000000.
 78  SS-MAX-WIDTH                VALUE 1024.
 78  SS-PATH-SIZE                VALUE 512.
+78  SS-MAX-DEFINES              VALUE 64.

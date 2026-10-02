@@ -32,7 +32,7 @@ HARNESS_OBJ := $(patsubst tests/harness/%.cob,$(BUILD)/obj/harness/%.o,$(HARNESS
 TEST_SRC    := $(wildcard tests/unit/test-*.cob)
 TEST_BIN    := $(patsubst tests/unit/%.cob,$(BUILD)/tests/%,$(TEST_SRC))
 
-.PHONY: all clean test tests coverage golden-update corpus check-bounds
+.PHONY: all clean test tests coverage golden-update corpus corpus-gnucobol corpus-carddemo check-bounds
 .SECONDARY: $(HARNESS_OBJ) $(LIB_OBJ)
 
 all: $(BIN)
@@ -122,3 +122,12 @@ clean:
 # needs network access, so it is not part of make test).
 corpus: $(BIN)
 	tools/corpus/run-nist.sh $(BIN) $(BUILD)/corpus/nist
+
+# The same for the programs of GnuCOBOL's own run-time tests, which all
+# compile: what Plumbline reports there it does not understand yet.
+corpus-gnucobol: $(BIN)
+	tools/corpus/run-gnucobol.sh $(BIN) $(BUILD)/corpus/gnucobol
+
+# AWS CardDemo, a CICS, VSAM, DB2, IMS, and MQ sample application.
+corpus-carddemo: $(BIN)
+	tools/corpus/run-carddemo.sh $(BIN) $(BUILD)/corpus/carddemo

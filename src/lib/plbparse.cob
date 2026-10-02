@@ -111,8 +111,11 @@ END PROGRAM PLB-PX-SKIP-PERIOD.
 
 *> PLB-PX-IS-HEADER: RESULT receives the division named at token
 *> INDEX when it starts "<name> DIVISION" (IDENTIFICATION, ID,
-*> ENVIRONMENT, DATA, PROCEDURE), "END" for "END PROGRAM" and similar
-*> ends of a compilation unit, or spaces.
+*> ENVIRONMENT, DATA, PROCEDURE), "PROGRAM-ID" for "PROGRAM-ID." or
+*> "FUNCTION-ID.", which start a program when the IDENTIFICATION
+*> DIVISION header is left out (COBOL 2002 made it optional), "END"
+*> for "END PROGRAM" and similar ends of a compilation unit, or
+*> spaces.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-PX-IS-HEADER.
 DATA DIVISION.
@@ -146,9 +149,19 @@ PROCEDURE DIVISION USING PLB-TOKENS LK-INDEX LK-RESULT.
             IF PX-TEXT = "DIVISION"
                 MOVE LS-FIRST TO LK-RESULT
             END-IF
+        WHEN "PROGRAM-ID"
+        WHEN "FUNCTION-ID"
+        WHEN "CLASS-ID"
+        WHEN "METHOD-ID"
+        WHEN "INTERFACE-ID"
+            IF PX-KIND = "."
+                MOVE "PROGRAM-ID" TO LK-RESULT
+            END-IF
         WHEN "END"
             IF PX-TEXT = "PROGRAM" OR PX-TEXT = "FUNCTION"
                OR PX-TEXT = "CLASS" OR PX-TEXT = "METHOD"
+               OR PX-TEXT = "OBJECT" OR PX-TEXT = "FACTORY"
+               OR PX-TEXT = "INTERFACE"
                 MOVE "END" TO LK-RESULT
             END-IF
     END-EVALUATE
@@ -175,6 +188,9 @@ COPY "plbptok.cpy".
 01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
 01  LS-I                    PIC 9(9) COMP-5.
 01  LS-SAME                 PIC X.
+01  LS-END-NAME             PIC X(64).
+01  LS-PROGRAM-NAME         PIC X(64).
+01  LS-NAME-LEN             PIC 9(9) COMP-5.
 01  LS-DETAIL               PIC X(16).
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
@@ -208,6 +224,8 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
                 CALL "PLB-PX-IDENT" USING PLB-SOURCE-SET
                     PLB-DIAGNOSTICS PLB-TOKENS PLB-AST PLB-PARSE-STATE
             WHEN PX-TEXT = "PROGRAM-ID" OR PX-TEXT = "FUNCTION-ID"
+                 OR PX-TEXT = "CLASS-ID" OR PX-TEXT = "METHOD-ID"
+                 OR PX-TEXT = "INTERFACE-ID"
                 *> A program may start without IDENTIFICATION DIVISION.
                 PERFORM START-PROGRAM
                 MOVE "IDENTIFICATION" TO LS-HEADER
@@ -325,8 +343,18 @@ END-PROGRAM.
     MOVE WS-PROG(WS-PROG-DEPTH) TO LS-NODE
     COMPUTE LS-I = PS-POS + 2
     IF LS-I < PS-END AND ND-NAME(LS-NODE) > 0
-        CALL "PLB-TOK-SAME" USING PLB-TOKENS LS-I ND-NAME(LS-NODE)
-            LS-SAME
+        *> A name may be written as a word or as a literal, here or in
+        *> PROGRAM-ID ("callee"); case and the spaces around a literal
+        *> name do not matter.
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-I LS-END-NAME LS-NAME-LEN
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(LS-NODE)
+            LS-PROGRAM-NAME LS-NAME-LEN
+        IF FUNCTION UPPER-CASE(FUNCTION TRIM(LS-END-NAME))
+           = FUNCTION UPPER-CASE(FUNCTION TRIM(LS-PROGRAM-NAME))
+            MOVE "Y" TO LS-SAME
+        ELSE
+            MOVE "N" TO LS-SAME
+        END-IF
         IF LS-SAME = "N"
             CALL "PLB-PX-DIAG" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
                 PLB-TOKENS LS-I "E" "PS010"
@@ -377,6 +405,9 @@ COPY "plbptok.cpy".
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-DETAIL               PIC X(16).
 01  LS-DONE                 PIC X VALUE "N".
+*> "Y" once the division's PROGRAM-ID is read: another one starts the
+*> next program.
+01  LS-HAS-ID               PIC X VALUE "N".
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -390,6 +421,10 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
         PLB-AST PLB-PARSE-STATE.
     PERFORM UNTIL PS-POS >= PS-END OR LS-DONE = "Y" OR PS-FULL = "Y"
         CALL "PLB-PX-IS-HEADER" USING PLB-TOKENS PS-POS LS-HEADER
+        IF LS-HEADER = "PROGRAM-ID" AND LS-HAS-ID = "N"
+            MOVE "Y" TO LS-HAS-ID
+            MOVE SPACES TO LS-HEADER
+        END-IF
         IF LS-HEADER NOT = SPACES
             EXIT PERFORM
         END-IF
@@ -397,6 +432,9 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
         EVALUATE PX-TEXT
             WHEN "PROGRAM-ID"
             WHEN "FUNCTION-ID"
+            WHEN "CLASS-ID"
+            WHEN "METHOD-ID"
+            WHEN "INTERFACE-ID"
                 PERFORM PROGRAM-ID-PARAGRAPH
             WHEN "AUTHOR"
             WHEN "INSTALLATION"
@@ -404,6 +442,16 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-TOKENS
             WHEN "DATE-COMPILED"
             WHEN "SECURITY"
             WHEN "REMARKS"
+            *> COBOL 2014: DEFAULT ROUNDED MODE, ENTRY-CONVENTION, ...
+            WHEN "OPTIONS"
+                PERFORM COMMENT-PARAGRAPH
+            *> The factory and object definitions of a class: units of
+            *> their own, ended by END FACTORY and END OBJECT.
+            WHEN "FACTORY"
+            WHEN "OBJECT"
+                IF PS-PROGRAM > 0
+                    MOVE PX-TEXT TO ND-DETAIL(PS-PROGRAM)
+                END-IF
                 PERFORM COMMENT-PARAGRAPH
             WHEN OTHER
                 CALL "PLB-AST-ADD" USING PLB-AST PS-DIVISION "ERR " " "
@@ -426,9 +474,16 @@ PROGRAM-ID-PARAGRAPH.
         MOVE "Y" TO PS-FULL
         EXIT PARAGRAPH
     END-IF
-    IF PX-TEXT = "FUNCTION-ID"
-        MOVE "FUNCTION" TO ND-DETAIL(PS-PROGRAM)
-    END-IF
+    EVALUATE PX-TEXT
+        WHEN "FUNCTION-ID"
+            MOVE "FUNCTION" TO ND-DETAIL(PS-PROGRAM)
+        WHEN "CLASS-ID"
+            MOVE "CLASS" TO ND-DETAIL(PS-PROGRAM)
+        WHEN "METHOD-ID"
+            MOVE "METHOD" TO ND-DETAIL(PS-PROGRAM)
+        WHEN "INTERFACE-ID"
+            MOVE "INTERFACE" TO ND-DETAIL(PS-PROGRAM)
+    END-EVALUATE
     ADD 1 TO PS-POS
     IF TK-IS-PERIOD(PS-POS)
         ADD 1 TO PS-POS
@@ -440,7 +495,8 @@ PROGRAM-ID-PARAGRAPH.
     PERFORM CLOSE-NODE.
 
 *> A comment entry is free text: it runs to the next identification
-*> paragraph or division header, whatever periods it contains.
+*> paragraph or division header, whatever periods it contains. The
+*> clauses of OPTIONS are kept the same way: no rule reads them yet.
 COMMENT-PARAGRAPH.
     MOVE PX-TEXT TO LS-DETAIL
     CALL "PLB-AST-ADD" USING PLB-AST PS-DIVISION "IDPA" LS-DETAIL
@@ -458,7 +514,9 @@ COMMENT-PARAGRAPH.
         CALL "PLB-PX-TOKEN" USING PLB-TOKENS PS-POS PLB-PX-VIEW
         IF PX-TEXT = "PROGRAM-ID" OR "FUNCTION-ID" OR "AUTHOR"
                 OR "INSTALLATION" OR "DATE-WRITTEN" OR "DATE-COMPILED"
-                OR "SECURITY" OR "REMARKS"
+                OR "SECURITY" OR "REMARKS" OR "OPTIONS"
+                OR "FACTORY" OR "OBJECT" OR "CLASS-ID" OR "METHOD-ID"
+                OR "INTERFACE-ID"
             EXIT PERFORM
         END-IF
         ADD 1 TO PS-POS

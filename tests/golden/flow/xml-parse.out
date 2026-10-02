@@ -1,0 +1,3 @@
+paragraph MAIN-PARA reached flowed ends @9
+  perform HANDLE-EVENT
+paragraph HANDLE-EVENT reached performed @14

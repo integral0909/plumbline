@@ -1,0 +1,38 @@
+*> Conditional compilation: >>IF NAME DEFINED and NAME SET are decided
+*> from >>DEFINE and --define (none here: P64 is not set), nested
+*> branches follow their outer one, and a condition Plumbline cannot
+*> decide (X = 1) keeps every branch.
+>>DEFINE WIDE
+IDENTIFICATION DIVISION.
+PROGRAM-ID. CC.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  PTR-NUM
+>>IF P64 SET
+        USAGE BINARY-DOUBLE UNSIGNED.
+>>ELSE
+        USAGE BINARY-LONG UNSIGNED.
+>>END-IF
+>>IF WIDE IS DEFINED
+01  BUF PIC X(200).
+>>ELSE
+01  BUF PIC X(80).
+>>END-IF
+>>IF X = 1
+01  KEPT-A PIC X.
+>>ELSE
+01  KEPT-B PIC X.
+>>END-IF
+>>IF WIDE NOT DEFINED
+01  NARROW-ONLY PIC X.
+>>ELIF P64 IS SET
+01  P64-ONLY PIC X.
+>>ELSE
+01  WIDE-ONLY PIC X.
+>> IF NESTED DEFINED
+01  NESTED-ITEM PIC X.
+>> END-IF
+>>END-IF
+PROCEDURE DIVISION.
+    DISPLAY BUF PTR-NUM KEPT-A KEPT-B WIDE-ONLY
+    STOP RUN.

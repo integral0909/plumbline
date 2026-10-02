@@ -30,6 +30,9 @@ LOCAL-STORAGE SECTION.
 01  LS-LEN                  PIC 9(9) COMP-5.
 01  LS-POS                  PIC 9(9) COMP-5.
 01  LS-SYM                  PIC XX.
+01  LS-CURRENCY-HITS        PIC 9(4) COMP-5.
+01  LS-PIC-REST             PIC X(256).
+01  LS-VARIABLE             PIC X.
 01  LS-COUNT                PIC 9(9) COMP-5.
 01  LS-CLOSE                PIC 9(9) COMP-5.
 *> The position before the first significant digit of a count.
@@ -67,7 +70,7 @@ PROCEDURE DIVISION USING LK-PICTURE PLB-PIC-INFO.
     INITIALIZE LS-N-A LS-N-X LS-N-9 LS-N-NAT LS-N-BOOL LS-N-P
         LS-N-INSERT LS-N-NUM-EDIT LS-N-S LS-N-V LS-N-POINT LS-N-PLUS
         LS-N-MINUS LS-N-CURRENCY LS-DIGITS LS-SCALE LS-SYMBOLS
-    MOVE "N" TO LS-AFTER-POINT LS-SEEN-DIGIT
+    MOVE "N" TO LS-AFTER-POINT LS-SEEN-DIGIT LS-VARIABLE
 
     CALL "PLB-STR-LENGTH" USING LK-PICTURE LS-LEN
     IF LS-LEN = 0
@@ -79,6 +82,15 @@ PROCEDURE DIVISION USING LK-PICTURE PLB-PIC-INFO.
         GOBACK
     END-IF
     MOVE FUNCTION UPPER-CASE(LK-PICTURE(1:LS-LEN)) TO LS-PIC
+    *> ACUCOBOL PICTURE L: a leading L makes an alphanumeric item
+    *> variable in length (with DEPENDING ON); the rest of the picture
+    *> gives its largest size.
+    IF LS-PIC(1:1) = "L" AND LS-LEN > 1
+        MOVE LS-PIC(2:) TO LS-PIC-REST
+        MOVE LS-PIC-REST TO LS-PIC
+        SUBTRACT 1 FROM LS-LEN
+        MOVE "Y" TO LS-VARIABLE
+    END-IF
 
     MOVE 1 TO LS-POS
     PERFORM UNTIL LS-POS > LS-LEN OR PI-ERROR NOT = SPACES
@@ -89,6 +101,10 @@ PROCEDURE DIVISION USING LK-PICTURE PLB-PIC-INFO.
     END-PERFORM
     IF PI-ERROR = SPACES
         PERFORM FINISH
+    END-IF
+    IF LS-VARIABLE = "Y" AND PI-ERROR = SPACES
+       AND PI-CATEGORY NOT = "X" AND PI-CATEGORY NOT = "A"
+        MOVE "PICTURE L needs an alphanumeric picture" TO PI-ERROR
     END-IF
     IF PI-ERROR NOT = SPACES
         MOVE "?" TO PI-CATEGORY
@@ -164,9 +180,14 @@ PROCESS-SYMBOL.
                 MOVE ". " TO LS-SYM
         END-EVALUATE
     END-IF
-    IF PI-CURRENCY NOT = SPACE AND PI-CURRENCY NOT = LOW-VALUE
-       AND LS-SYM(1:1) = PI-CURRENCY AND LS-SYM(2:1) = SPACE
-        MOVE "$ " TO LS-SYM
+    IF LS-SYM(2:1) = SPACE AND LS-SYM(1:1) NOT = SPACE
+       AND PI-CURRENCY NOT = SPACES AND PI-CURRENCY NOT = LOW-VALUES
+        MOVE 0 TO LS-CURRENCY-HITS
+        INSPECT PI-CURRENCY TALLYING LS-CURRENCY-HITS
+            FOR ALL LS-SYM(1:1)
+        IF LS-CURRENCY-HITS > 0
+            MOVE "$ " TO LS-SYM
+        END-IF
     END-IF
     EVALUATE LS-SYM
         WHEN "A "
@@ -395,9 +416,15 @@ PROCEDURE DIVISION USING PLB-PIC-INFO LK-USAGE LK-BYTES.
                 WHEN OTHER
                     MOVE 16 TO LK-BYTES
             END-EVALUATE
+        *> Unsigned packed decimal: two digits a byte, no sign nibble.
+        WHEN "COMP-6" WHEN "COMPUTATIONAL-6"
+            COMPUTE LK-BYTES = (PI-DIGITS + 1) / 2
         WHEN "COMP-X" WHEN "COMPUTATIONAL-X"
-            *> The fewest bytes whose range covers the digits.
+            *> PIC X(n) COMP-X (Micro Focus) is n bytes; with a numeric
+            *> picture, the fewest bytes whose range covers the digits.
             EVALUATE TRUE
+                WHEN PI-CATEGORY = "X" OR PI-CATEGORY = "A"
+                    MOVE PI-SIZE TO LK-BYTES
                 WHEN PI-DIGITS <= 2   MOVE 1 TO LK-BYTES
                 WHEN PI-DIGITS <= 4   MOVE 2 TO LK-BYTES
                 WHEN PI-DIGITS <= 7   MOVE 3 TO LK-BYTES

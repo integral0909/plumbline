@@ -130,7 +130,8 @@ CHECK-SUBSCRIPTS.
     PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > LS-SUB-COUNT
         IF LS-SUB-VALUE(LS-I) >= 0
             IF LS-SUB-VALUE(LS-I) < 1
-               OR LS-SUB-VALUE(LS-I) > LS-DIM-OCCURS(LS-I)
+               OR (LS-SUB-VALUE(LS-I) > LS-DIM-OCCURS(LS-I)
+                   AND LS-DIM-OCCURS(LS-I) > 0)
                 PERFORM REPORT-SUBSCRIPT
             END-IF
         END-IF
@@ -151,7 +152,12 @@ COLLECT-DIMENSIONS.
             PERFORM VARYING LS-I FROM LS-DIM-COUNT BY -1 UNTIL LS-I = 0
                 MOVE LS-DIM-OCCURS(LS-I) TO LS-DIM-OCCURS(LS-I + 1)
             END-PERFORM
-            MOVE SY-OCCURS(LS-UP) TO LS-DIM-OCCURS(1)
+            *> No largest count to check against: 0.
+            IF SY-UNBOUNDED(LS-UP) = "Y"
+                MOVE 0 TO LS-DIM-OCCURS(1)
+            ELSE
+                MOVE SY-OCCURS(LS-UP) TO LS-DIM-OCCURS(1)
+            END-IF
             ADD 1 TO LS-DIM-COUNT
         END-IF
         MOVE SY-PARENT(LS-UP) TO LS-UP
@@ -350,9 +356,9 @@ ITEM-CHARACTERS.
                 MOVE 0 TO LS-CHARS
             END-IF
     END-EVALUATE
-    *> A table with OCCURS DEPENDING ON somewhere inside has a size that
-    *> changes at run time.
-    IF SY-ODO-TOKEN(LS-S) > 0
+    *> An item with OCCURS DEPENDING ON in it, or on it, changes size
+    *> at run time.
+    IF SY-VARIABLE(LS-S) = "Y"
         MOVE 0 TO LS-CHARS
     END-IF.
 

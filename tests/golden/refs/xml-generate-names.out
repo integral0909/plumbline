@@ -1,0 +1,11 @@
+15:18 OUT-TEXT (XML) -> 1 OUT-TEXT @10 role=D
+15:32 REC (XML) -> 1 REC @11 role=U
+16:14 XML-DECLARATION (XML) -> other name
+16:35 ATTRIBUTES (XML) -> other name
+17:17 A (XML) -> 5 A @12 role=X
+18:17 B (XML) -> 5 B @13 role=X
+18:22 ATTRIBUTE (XML) -> other name
+23:21 OUT-TEXT (DISPLAY) -> 1 OUT-TEXT @10 role=U
+25:19 OUT-TEXT (JSON) -> 1 OUT-TEXT @10 role=D
+25:33 REC (JSON) -> 1 REC @11 role=U
+29:21 OUT-TEXT (DISPLAY) -> 1 OUT-TEXT @10 role=U

@@ -76,7 +76,7 @@ END PROGRAM PLB-RULE-C007.
 *>
 *> Items from copybooks are not reported (a program commonly uses
 *> part of a shared layout), nor are GLOBAL or EXTERNAL items, which
-*> other programs may use.
+*> other programs may use, nor constants (level 78 or CONSTANT).
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-M003.
 DATA DIVISION.
@@ -289,8 +289,10 @@ CONSIDER-ITEM.
     IF SY-SECTION(LS-S) NOT = "W" AND SY-SECTION(LS-S) NOT = "L"
         EXIT PARAGRAPH
     END-IF
+    *> Constants are left out: a program commonly declares a whole
+    *> set of codes (OP-OPEN-INPUT, OP-OPEN-OUTPUT, ...) and uses some.
     IF SY-LEVEL(LS-S) = 88 OR SY-LEVEL(LS-S) = 66
-       OR SY-LEVEL(LS-S) = 78
+       OR SY-CATEGORY(LS-S) = "K"
         EXIT PARAGRAPH
     END-IF
     MOVE SY-PARENT(LS-S) TO LS-P
@@ -318,6 +320,12 @@ CONSIDER-ITEM.
 *> LS-SKIP = "Y" when the item or its record is GLOBAL or EXTERNAL.
 CHECK-SHARED.
     MOVE "N" TO LS-SKIP
+    *> Object and factory data: the methods use it.
+    IF ND-DETAIL(SY-PROGRAM(LS-S)) = "OBJECT"
+       OR ND-DETAIL(SY-PROGRAM(LS-S)) = "FACTORY"
+        MOVE "Y" TO LS-SKIP
+        EXIT PARAGRAPH
+    END-IF
     MOVE LS-S TO LS-P
     PERFORM UNTIL LS-P = 0
         MOVE ND-FIRST(SY-NODE(LS-P)) TO LS-CHILD

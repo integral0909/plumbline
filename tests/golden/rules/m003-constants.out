@@ -1,0 +1,2 @@
+tests/golden/rules/m003-constants.cob:18:13: warning: CUSTOMER-NAME is read but never given a value [PLB-C011]
+tests/golden/rules/m003-constants.cob:18:27: warning: LONG-NAME is read but never given a value [PLB-C011]
