@@ -1,0 +1,4 @@
+tests/golden/rules/c032-c033-repeats.cob:25:14: warning: this WHEN repeats the one on line 19, which EVALUATE chooses first; it never runs [PLB-C032]
+tests/golden/rules/c032-c033-repeats.cob:35:14: warning: this WHEN repeats the one on line 31, which EVALUATE chooses first; it never runs [PLB-C032]
+tests/golden/rules/c032-c033-repeats.cob:39:10: warning: RESP-CD is used before it is given a value [PLB-C012]
+tests/golden/rules/c032-c033-repeats.cob:42:22: warning: MOVE KEY-CODE TO KEY-CODE does nothing [PLB-C033]

@@ -1,0 +1,44 @@
+*> WHENs that repeat an earlier one, and MOVEs of an item to itself.
+*> THRU ranges that overlap, names inside subscripts, and qualified
+*> receivers are not compared.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. REPEATS.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  KEY-CODE           PIC 9 VALUE 1.
+01  FIRST-PAGE-FLAG    PIC X VALUE "Y".
+    88  FIRST-PAGE     VALUE "Y".
+01  RESP-CD            PIC S9(8) COMP VALUE 0.
+01  RESP-CD-D          PIC -9(8).
+01  CODES.
+    05  CODE-ENTRY     PIC 9 OCCURS 9.
+01  OTHER-CODES.
+    05  RESP-CD        PIC S9(8) COMP.
+PROCEDURE DIVISION.
+    EVALUATE KEY-CODE
+        WHEN 1 WHEN 2
+            DISPLAY "ONE OR TWO"
+        WHEN 3 THRU 5
+            DISPLAY "THREE TO FIVE"
+        WHEN 4
+            DISPLAY "FOUR, IN THE RANGE BEFORE"
+        WHEN 2
+            DISPLAY "TWO AGAIN"
+        WHEN OTHER
+            CONTINUE
+    END-EVALUATE
+    EVALUATE TRUE
+        WHEN KEY-CODE = 7 AND FIRST-PAGE
+            DISPLAY "SEVEN ON THE FIRST PAGE"
+        WHEN KEY-CODE = 7
+            DISPLAY "SEVEN"
+        WHEN KEY-CODE = 7
+            AND FIRST-PAGE
+            DISPLAY "NEVER"
+    END-EVALUATE
+    MOVE RESP-CD OF OTHER-CODES TO RESP-CD-D
+    MOVE KEY-CODE TO CODE-ENTRY (KEY-CODE)
+    MOVE RESP-CD OF OTHER-CODES TO RESP-CD OF OTHER-CODES
+    MOVE KEY-CODE TO KEY-CODE
+    DISPLAY RESP-CD-D CODES
+    GOBACK.

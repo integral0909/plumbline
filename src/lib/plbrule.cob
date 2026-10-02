@@ -205,6 +205,12 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-B004"
         "symbolic-map-stale" "E"
         "Symbolic map copybook does not match its BMS map"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C032"
+        "duplicate-when" "W"
+        "EVALUATE has a WHEN that repeats an earlier one"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C033"
+        "self-move" "W"
+        "MOVE of an item to itself"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-K001"
         "cics-resource-undefined" "E"
         "EXEC CICS names a resource the CICS definitions do not define"
@@ -245,6 +251,14 @@ PROCEDURE DIVISION USING PLB-RULES LK-ID LK-NAME LK-SEVERITY LK-TITLE.
         MOVE "Y" TO RL-ENABLED(RL-COUNT)
         MOVE LK-TITLE TO RL-TITLE(RL-COUNT)
         MOVE 0 TO RL-LIMIT(RL-COUNT)
+    ELSE
+        *> A rule left out would change what the next MOVE to
+        *> RL-ENABLED(RL-COUNT) or RL-LIMIT(RL-COUNT) applies to.
+        DISPLAY "plumbline: internal error: the rule catalog is full ("
+            "raise RL-MAX in plbrules.cpy)" UPON SYSERR
+        MOVE 3 TO RETURN-CODE
+        *> plumbline: ignore stop-run-in-called-program -- nothing can go on
+        STOP RUN
     END-IF
     GOBACK.
 END PROGRAM PLB-RULE-DEFINE.

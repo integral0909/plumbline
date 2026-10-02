@@ -42,6 +42,8 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C029](#plb-c029-go-to-leaves-perform) | go-to-leaves-perform | warning | GO TO leaves the range of a PERFORM, which then does not return |
 | [PLB-C030](#plb-c030-value-never-used) | value-never-used | warning | Value is replaced before it is used |
 | [PLB-C031](#plb-c031-string-overflow) | string-overflow | warning | STRING always sends more than its receiver holds |
+| [PLB-C032](#plb-c032-duplicate-when) | duplicate-when | warning | EVALUATE has a WHEN that repeats an earlier one |
+| [PLB-C033](#plb-c033-self-move) | self-move | warning | MOVE of an item to itself |
 | [PLB-J001](#plb-j001-dd-missing) | dd-missing | error | A file the step's programs open has no DD in the step |
 | [PLB-J002](#plb-j002-dd-unused) | dd-unused | note | DD is not a file of the step's programs |
 | [PLB-J003](#plb-j003-program-not-in-run) | program-not-in-run | note, off | Step runs a program that is not among those checked |
@@ -894,6 +896,37 @@ with a prefix such as `X` or `N`). The sum is the least the statement
 sends. A `STRING` with `ON OVERFLOW` handles the case and is not
 reported, nor is a receiver with reference modification, of variable
 size, or of national usage.
+
+## PLB-C032 duplicate-when
+
+A `WHEN` of an `EVALUATE` that tests what an earlier `WHEN` of the same
+`EVALUATE` already tests:
+
+```cobol
+    EVALUATE TRUE
+        WHEN CCARD-AID-PFK07 AND CA-FIRST-PAGE
+            ...
+        WHEN CCARD-AID-PFK07 AND CA-FIRST-PAGE      *> reported
+```
+
+`EVALUATE` runs the first `WHEN` that matches, so the later one never
+runs. Usually one of them was meant to test something else. `WHEN`s are
+compared by their words and literals, `ALSO` parts included, whatever
+the line breaks; a value inside an earlier `THRU` range is not looked
+for.
+
+## PLB-C033 self-move
+
+A `MOVE` whose receiver is its sender:
+
+```cobol
+    MOVE WS-CICS-RESP2-CD TO WS-CICS-RESP2-CD       *> reported
+```
+
+The `MOVE` does nothing; usually another item was meant, here
+`WS-CICS-RESP2-CD-D`. The rule compares names that stand alone: a
+receiver with qualification, subscripts, or reference modification is
+not compared, nor are names inside a receiver's subscripts.
 
 ## PLB-J001 dd-missing
 
