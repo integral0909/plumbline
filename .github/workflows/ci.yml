@@ -57,6 +57,12 @@ jobs:
       - run: make test
       - run: make check-bounds
       - run: make coverage COV_MIN=90
+      - name: Plumbline on its own source, as the job summary
+        if: always()
+        run: >
+          build/bin/plumbline check --report md --fail-on never
+          -I copy -I tests/harness src/lib/*.cob src/cli/*.cob
+          tests/harness/*.cob tests/unit/*.cob >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload coverage report
         if: always()

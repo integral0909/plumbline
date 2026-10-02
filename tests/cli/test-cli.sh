@@ -202,7 +202,7 @@ check "check over more than 256 files"    0 '^$' -- check --no-config -I "$many"
 rm -rf "$many"
 check "evaluate-without-other is off by default" 0 '^$' \
     -- check --no-config tests/fixtures/rules/evaluate.cob
-check "evaluate-without-other finds the EVALUATE" 0 'evaluate.cob:12:12: note: EVALUATE has no WHEN OTHER' \
+check "evaluate-without-other finds the EVALUATE" 0 'evaluate.cob:12:12: note: EVALUATE has no WHEN OTHER.*\[PLB-M011\]$' \
     -- check --no-config --enable evaluate-without-other --fail-on error tests/fixtures/rules/evaluate.cob
 check_absent "an EVALUATE with WHEN OTHER is fine" 'evaluate.cob:8:' \
     -- check --no-config --enable PLB-M011 tests/fixtures/rules/evaluate.cob
@@ -557,6 +557,14 @@ check "unknown settings are errors"       2 "in $cfx/unknown.conf line 1" -- che
 check "invalid severity"                  2 "invalid severity 'fatal'" -- check --config $cfx/bad-severity.conf $rx/c001-unreachable.cob
 check "limit lowers a rule's threshold"   0 'paragraph DECIDE has complexity 13 (limit 10) \[PLB-M009\]' \
     -- check --config $cfx/limits.conf --fail-on never tests/golden/metrics/complexity.cob
+check "limit applies to long paragraphs"  0 'paragraph DECIDE has 13 statements (limit 10) \[PLB-M010\]' \
+    -- check --config $cfx/limits.conf --fail-on never tests/golden/metrics/complexity.cob
+check "dynamic-call when enabled"         0 'named by data item ROUTINE-NAME, so the call cannot be checked \[PLB-M006\]' \
+    -- check --no-config --enable dynamic-call --fail-on never $rx/c013-c015-calls.cob
+check "vendor-routine when enabled"       0 'CBL_DELETE_FILE is a library routine of some compilers, not standard COBOL; keep such calls in one place \[PLB-P001\]' \
+    -- check --no-config --enable vendor-routine --fail-on never $rx/p001-p002-portability.cob
+check "signed-to-alphanumeric when enabled" 0 'MOVE of signed BALANCE to alphanumeric TEXT-OUT drops its sign: -5 and 5 give the same text \[PLB-M016\]' \
+    -- check --no-config --enable signed-to-alphanumeric --fail-on never $rx/c039-decimal-to-alphanumeric.cob
 check "limit needs a measuring rule"      2 "rule 'go-to' has no limit" \
     -- check --config $cfx/no-limit.conf tests/golden/metrics/complexity.cob
 check "limit needs a number"              2 "invalid limit 'many'" \
@@ -568,6 +576,14 @@ check "--no-config skips plumbline.conf"  1 'GO TO makes' -- check --no-config .
 run_dir=.
 
 mx=tests/golden/metrics
+check "check as Markdown summarizes"     0 '^\*\*9 findings\*\* in 1 file: 0 errors, 8 warnings, 1 note.$' \
+    -- check --no-config --report md --fail-on never tests/golden/rules/c036-arithmetic-overflow.cob
+check "check as Markdown counts by rule"  0 '^| PLB-C036 | arithmetic-overflow | warning | 7 |$' \
+    -- check --no-config --report md --fail-on never tests/golden/rules/c036-arithmetic-overflow.cob
+check "check as Markdown escapes cells"   0 '| SELECT \\\* depends on every column of the table and their order; name the columns |$' \
+    -- check --no-config --report md --fail-on never tests/golden/rules/q001-sql-tables.cob
+check "check as Markdown with no findings" 0 '^No findings.$' \
+    -- check --no-config --report md tests/fixtures/case/usecase.cob
 check "metrics csv has a header"          0 '^file,program,kind,name,line,lines,statements,complexity,nesting$' \
     -- metrics --report csv $mx/complexity.cob
 check "metrics csv quotes paths"          0 '^"tests/golden/metrics/complexity.cob",METRICS,paragraph,DECIDE,15,' \
@@ -576,7 +592,7 @@ check "metrics start ends at the first paragraph" 0 '^"tests/fixtures/metrics/st
     -- metrics --report csv tests/fixtures/metrics/start.cob
 check "metrics refuses sarif"             2 "invalid --report format 'sarif' (expected text, json, or csv)" \
     -- metrics --report sarif $mx/complexity.cob
-check "check refuses csv"                 2 "invalid --report format 'csv' (expected text, json, sarif, or html)" \
+check "check refuses csv"                 2 "invalid --report format 'csv' (expected text, json, sarif, html, or md)" \
     -- check --report csv $mx/complexity.cob
 n=$((n + 1))
 if "$bin" metrics --report json $mx/complexity.cob $rx/c001-unreachable.cob | python3 -m json.tool >/dev/null 2>&1; then

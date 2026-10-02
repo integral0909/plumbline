@@ -103,6 +103,11 @@ with the name, default severity, default state, and title of the
 catalog. A rule cannot be added, renamed, or retuned without its
 documentation.
 
+`tests/tools/test_rules_tested.py` checks that every rule of that table
+reports in some test: a golden output, or a CLI test whose expected
+line ends in the rule's id. A rule that is off by default needs a test
+that enables it.
+
 ## Formatter round trip
 
 `make test` also runs `tests/tools/roundtrip_format.py` on every golden
