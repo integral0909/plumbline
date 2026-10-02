@@ -5,6 +5,7 @@
 *>   PLB-M003  unused-data-item
 *>   PLB-M013  unused-copybook
 *>   PLB-M015  packed-even-digits
+*>   PLB-C038  condition-value-unfit
 *> ---------------------------------------------------------------
 
 *> PLB-C007 redefines-larger: an item below level 01 that is larger
@@ -580,3 +581,261 @@ CHECK-SHARED.
         MOVE SY-PARENT(LS-P) TO LS-P
     END-PERFORM.
 END PROGRAM PLB-RULE-M003.
+
+*> PLB-C038 condition-value-unfit: a condition name (level 88) with a
+*> value its item cannot hold, so that the condition is never true and
+*> SET name TO TRUE stores something else:
+*>
+*>   - an alphanumeric literal longer than the item (trailing spaces
+*>     do not count);
+*>   - a numeric literal with more integer digits, or more decimal
+*>     places (trailing zeros do not count), than the numeric item;
+*>   - a negative literal for an unsigned item.
+*>
+*> In VALUE a THRU b only a is checked: a range that starts inside the
+*> item's values still has values the item can hold. Figurative
+*> constants, ALL literals, and items of unknown size are not checked.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-C038.
+DATA DIVISION.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-P                    PIC 9(9) COMP-5.
+01  LS-C                    PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-AFTER-THRU           PIC X.
+01  LS-AFTER-ALL            PIC X.
+01  LS-VALUES               PIC S9(9) COMP-5.
+01  LS-TEXT                 PIC X(200).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-USED                 PIC 9(9) COMP-5.
+01  LS-INT                  PIC 9(9) COMP-5.
+01  LS-DEC                  PIC 9(9) COMP-5.
+01  LS-DEC-USED             PIC 9(9) COMP-5.
+01  LS-NEGATIVE             PIC X.
+01  LS-IN-DECIMALS          PIC X.
+01  LS-DIGITS-SEEN          PIC X.
+01  LS-ITEM-INT             PIC S9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-A-TEXT               PIC X(20).
+01  LS-A-LEN                PIC 9(9) COMP-5.
+01  LS-B-TEXT               PIC X(20).
+01  LS-B-LEN                PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+01  LS-PTR                  PIC 9(9) COMP-5.
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbsym.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
+        PLB-RULES PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C038" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
+        IF SY-LEVEL(LS-S) = 88 AND SY-PARENT(LS-S) > 0
+           AND SY-NODE(LS-S) > 0
+            MOVE SY-PARENT(LS-S) TO LS-P
+            IF SY-SIZE(LS-P) > 0
+                PERFORM CHECK-CONDITION
+            END-IF
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> The literals of the VALUE clause of condition LS-S.
+CHECK-CONDITION.
+    MOVE ND-FIRST(SY-NODE(LS-S)) TO LS-C
+    PERFORM UNTIL LS-C = 0
+        IF ND-KIND(LS-C) = "CLAU" AND ND-DETAIL(LS-C) = "VALUE"
+            EXIT PERFORM
+        END-IF
+        MOVE ND-NEXT(LS-C) TO LS-C
+    END-PERFORM
+    IF LS-C = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM COUNT-VALUES
+    MOVE "N" TO LS-AFTER-THRU LS-AFTER-ALL
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-C) BY 1
+            UNTIL LS-T > ND-TOK-LAST(LS-C)
+        EVALUATE TRUE
+            WHEN TK-IS-WORD(LS-T)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+                EVALUATE FUNCTION UPPER-CASE(LS-TEXT)
+                    WHEN "THRU"
+                    WHEN "THROUGH"
+                        MOVE "Y" TO LS-AFTER-THRU
+                    WHEN "ALL"
+                        MOVE "Y" TO LS-AFTER-ALL
+                END-EVALUATE
+            WHEN TK-IS-ALNUM(LS-T) OR TK-IS-NUMBER(LS-T)
+                IF LS-AFTER-THRU = "N" AND LS-AFTER-ALL = "N"
+                    PERFORM CHECK-LITERAL
+                END-IF
+                MOVE "N" TO LS-AFTER-THRU LS-AFTER-ALL
+        END-EVALUATE
+    END-PERFORM.
+
+*> LS-VALUES: the values of the clause, a THRU range counting as one.
+COUNT-VALUES.
+    MOVE 0 TO LS-VALUES
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-C) BY 1
+            UNTIL LS-T > ND-TOK-LAST(LS-C)
+        EVALUATE TRUE
+            WHEN TK-IS-ALNUM(LS-T) OR TK-IS-NUMBER(LS-T)
+                ADD 1 TO LS-VALUES
+            WHEN TK-IS-WORD(LS-T)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+                EVALUATE FUNCTION UPPER-CASE(LS-TEXT)
+                    WHEN "VALUE" WHEN "VALUES" WHEN "IS" WHEN "ARE"
+                    WHEN "ALL"
+                        CONTINUE
+                    WHEN "THRU" WHEN "THROUGH"
+                        SUBTRACT 1 FROM LS-VALUES
+                    WHEN OTHER
+                        ADD 1 TO LS-VALUES
+                END-EVALUATE
+        END-EVALUATE
+    END-PERFORM.
+
+CHECK-LITERAL.
+    EVALUATE TRUE
+        WHEN TK-IS-ALNUM(LS-T)
+            IF SY-CATEGORY(LS-P) = "X" OR "A" OR "G"
+                PERFORM CHECK-CHARACTERS
+            END-IF
+        WHEN TK-IS-NUMBER(LS-T)
+            IF SY-CATEGORY(LS-P) = "9"
+                PERFORM CHECK-NUMBER
+            END-IF
+    END-EVALUATE.
+
+*> Characters other than trailing spaces; X"..." counts two hex digits
+*> a character. Other prefixes (N, G, B, ...) are not checked.
+CHECK-CHARACTERS.
+    MOVE TK-TEXT-LEN(LS-T) TO LS-USED
+    PERFORM UNTIL LS-USED = 0
+        IF TK-TEXT(TK-TEXT-OFF(LS-T) + LS-USED - 1:1) NOT = SPACE
+            EXIT PERFORM
+        END-IF
+        SUBTRACT 1 FROM LS-USED
+    END-PERFORM
+    EVALUATE TK-PREFIX(LS-T)
+        WHEN "  "
+            CONTINUE
+        WHEN "X "
+            MOVE TK-TEXT-LEN(LS-T) TO LS-USED
+            DIVIDE 2 INTO LS-USED
+        WHEN OTHER
+            EXIT PARAGRAPH
+    END-EVALUATE
+    IF LS-USED > SY-SIZE(LS-P)
+        MOVE LS-USED TO LS-NUM
+        CALL "PLB-STR-FROM-INT" USING LS-NUM LS-A-TEXT LS-A-LEN
+        MOVE SY-SIZE(LS-P) TO LS-NUM
+        CALL "PLB-STR-FROM-INT" USING LS-NUM LS-B-TEXT LS-B-LEN
+        PERFORM START-MESSAGE
+        STRING " (" LS-B-TEXT(1:LS-B-LEN) " character" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+        PERFORM APPEND-PLURAL
+        STRING ") cannot hold a " LS-A-TEXT(1:LS-A-LEN)
+               "-character value" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+        PERFORM END-MESSAGE
+    END-IF.
+
+*> Integer digits without leading zeros, decimal places without
+*> trailing zeros, and the sign.
+CHECK-NUMBER.
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+    MOVE 0 TO LS-INT LS-DEC LS-DEC-USED
+    MOVE "N" TO LS-NEGATIVE LS-IN-DECIMALS LS-DIGITS-SEEN
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > LS-LEN
+        EVALUATE TRUE
+            WHEN LS-TEXT(LS-I:1) = "-"
+                MOVE "Y" TO LS-NEGATIVE
+            WHEN LS-TEXT(LS-I:1) = "." OR LS-TEXT(LS-I:1) = ","
+                MOVE "Y" TO LS-IN-DECIMALS
+            WHEN LS-TEXT(LS-I:1) = "E" OR LS-TEXT(LS-I:1) = "e"
+                EXIT PARAGRAPH
+            WHEN LS-TEXT(LS-I:1) < "0" OR LS-TEXT(LS-I:1) > "9"
+                CONTINUE
+            WHEN LS-IN-DECIMALS = "Y"
+                ADD 1 TO LS-DEC
+                IF LS-TEXT(LS-I:1) NOT = "0"
+                    MOVE LS-DEC TO LS-DEC-USED
+                END-IF
+            WHEN LS-TEXT(LS-I:1) NOT = "0" OR LS-DIGITS-SEEN = "Y"
+                MOVE "Y" TO LS-DIGITS-SEEN
+                ADD 1 TO LS-INT
+        END-EVALUATE
+    END-PERFORM
+    COMPUTE LS-ITEM-INT = SY-DIGITS(LS-P) - SY-SCALE(LS-P)
+    PERFORM START-MESSAGE
+    EVALUATE TRUE
+        WHEN LS-INT > LS-ITEM-INT
+            MOVE LS-ITEM-INT TO LS-NUM
+            CALL "PLB-STR-FROM-INT" USING LS-NUM LS-B-TEXT LS-B-LEN
+            STRING " has " LS-B-TEXT(1:LS-B-LEN) " integer digit"
+                DELIMITED BY SIZE INTO LS-MESSAGE WITH POINTER LS-PTR
+            PERFORM APPEND-PLURAL
+            STRING " and cannot hold " DELIMITED BY SIZE
+                   LS-TEXT(1:LS-LEN) DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+        WHEN SY-SCALE(LS-P) >= 0 AND LS-DEC-USED > SY-SCALE(LS-P)
+            MOVE SY-SCALE(LS-P) TO LS-NUM
+            CALL "PLB-STR-FROM-INT" USING LS-NUM LS-B-TEXT LS-B-LEN
+            STRING " has " LS-B-TEXT(1:LS-B-LEN) " decimal place"
+                DELIMITED BY SIZE INTO LS-MESSAGE WITH POINTER LS-PTR
+            PERFORM APPEND-PLURAL
+            STRING " and cannot hold " DELIMITED BY SIZE
+                   LS-TEXT(1:LS-LEN) DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+        WHEN LS-NEGATIVE = "Y" AND SY-SIGNED(LS-P) NOT = "Y"
+            STRING " is unsigned and cannot hold " DELIMITED BY SIZE
+                   LS-TEXT(1:LS-LEN) DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+        WHEN OTHER
+            EXIT PARAGRAPH
+    END-EVALUATE
+    PERFORM END-MESSAGE.
+
+*> "s" unless the count in LS-NUM is 1.
+APPEND-PLURAL.
+    IF LS-NUM NOT = 1
+        STRING "s" DELIMITED BY SIZE INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF.
+
+START-MESSAGE.
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    STRING SY-NAME(LS-P) DELIMITED BY SPACE
+        INTO LS-MESSAGE WITH POINTER LS-PTR.
+
+*> A condition with one value is never true; with others, that value
+*> never matches.
+END-MESSAGE.
+    IF LS-VALUES > 1
+        STRING ", so this value of " DELIMITED BY SIZE
+               SY-NAME(LS-S) DELIMITED BY SPACE
+               " never matches" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    ELSE
+        STRING ", so " DELIMITED BY SIZE
+               SY-NAME(LS-S) DELIMITED BY SPACE
+               " is never true" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-T LS-MESSAGE.
+END PROGRAM PLB-RULE-C038.

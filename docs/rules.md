@@ -48,6 +48,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C035](#plb-c035-duplicate-paragraph) | duplicate-paragraph | warning | Paragraph or section name defined twice in the same scope |
 | [PLB-C036](#plb-c036-arithmetic-overflow) | arithmetic-overflow | warning | ADD, SUBTRACT, or MULTIPLY into a receiver narrower than an operand |
 | [PLB-C037](#plb-c037-search-index-not-set) | search-index-not-set | warning | Serial SEARCH whose index the paragraph does not set first |
+| [PLB-C038](#plb-c038-condition-value-unfit) | condition-value-unfit | warning | Condition name with a value its item cannot hold |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1045,6 +1046,34 @@ anywhere: one that falls into it, goes to it, or performs it. Longer
 paths are not followed, so an index set two paragraphs away is
 reported; move the `SET` next to the `SEARCH`, where a reader looks
 for it.
+
+## PLB-C038 condition-value-unfit
+
+A condition name (level 88) with a value its item cannot hold:
+
+```cobol
+01  STATUS-CODE         PIC 9.
+    88  DONE            VALUE 10.          *> reported: 2 digits into 1
+01  REGION              PIC XX.
+    88  NORTH           VALUE "NORTH".     *> reported: 5 characters into 2
+01  AMOUNT              PIC 9(3)V9.
+    88  CENTS           VALUE 1.25.        *> reported: 2 decimal places into 1
+    88  BELOW-ZERO      VALUE -1.          *> reported: the item is unsigned
+```
+
+The item never holds the value, so a condition with that one value is
+never true, and `SET DONE TO TRUE` stores something else (`0` for
+`DONE`). When the condition has other values, only that value never
+matches. Trailing spaces of an alphanumeric literal and trailing zeros
+of decimal places do not count.
+
+In `VALUE a THRU b` only `a` is checked, since a range that starts
+among the item's values still has values it can hold. Figurative
+constants and `ALL` literals are not checked.
+
+GnuCOBOL warns about some of these where the condition is used
+(`-Wconstant-expression`, `-Wtruncate`); this rule reports each value
+at its declaration, used or not, including decimal places and signs.
 
 ## PLB-I001 pcb-dbd-unknown
 
