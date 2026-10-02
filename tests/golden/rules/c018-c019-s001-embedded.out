@@ -1,0 +1,4 @@
+tests/golden/rules/c018-c019-s001-embedded.cob:17:5: warning: the result of EXEC SQL SELECT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/c018-c019-s001-embedded.cob:29:33: note: SQL text is built at run time from SQL-TEXT; make sure no outside input reaches it unchecked [PLB-S001]
+tests/golden/rules/c018-c019-s001-embedded.cob:38:15: warning: the response of EXEC CICS WRITE in WS-RESP is not tested before the next CICS command [PLB-C019]
+tests/golden/rules/c018-c019-s001-embedded.cob:39:5: warning: EXEC CICS DELETE has NOHANDLE but no RESP, so its errors are ignored [PLB-C019]

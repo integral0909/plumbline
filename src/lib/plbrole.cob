@@ -28,6 +28,9 @@
 *>                               i B, a b c U
 *>   SEARCH t VARYING i          t U, i B
 *>   IF, EVALUATE, DISPLAY, GO TO ... DEPENDING, conditions: U
+*>   EXEC SQL ... INTO :a ... WHERE x = :b    a D, b U (CALL: X)
+*>   EXEC CICS ... INTO(a) FROM(b) LENGTH(c)  a D, b U, c B
+*>                 (ASSIGN, INQUIRE, FORMATTIME options: D)
 *>
 *> Identifiers inside subscripts and reference modifiers are always
 *> read. LENGTH OF a uses only the size of a, not its value (-).
@@ -52,6 +55,8 @@ LOCAL-STORAGE SECTION.
 01  LS-OUTER-END            PIC 9(9) COMP-5 VALUE 0.
 01  LS-HAS-UP-DOWN          PIC X.
 01  LS-HAS-REPLACING        PIC X.
+01  LS-COMMAND              PIC X(31).
+01  LS-OPTION-LEVEL         PIC 9(4) COMP-5.
 LINKAGE SECTION.
 COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
@@ -95,8 +100,113 @@ DECIDE-ROLE.
         EXIT PARAGRAPH
     END-IF
     MOVE ND-DETAIL(LS-STMT) TO LS-VERB
+    IF LS-VERB = "EXEC"
+        PERFORM EXEC-ROLE
+        EXIT PARAGRAPH
+    END-IF
     PERFORM FIND-KEYWORD
     PERFORM ROLE-FOR-VERB.
+
+*> A host variable of EXEC SQL or an argument of EXEC CICS.
+EXEC-ROLE.
+    MOVE "X" TO LS-ROLE
+    COMPUTE LS-T = ND-TOK-FIRST(LS-STMT) + 1
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+    EVALUATE LS-TEXT
+        WHEN "SQL"
+            PERFORM SQL-ROLE
+        WHEN "CICS"
+            PERFORM CICS-ROLE
+    END-EVALUATE.
+
+*> SQL: the nearest clause word before the host variable decides.
+*> INTO (SELECT ... INTO, FETCH ... INTO) sets it, and so does SET
+*> :x = ... at the start of the statement; a CALL may do either; in
+*> every other place (VALUES, WHERE, SET col = :x, ...) it is read.
+SQL-ROLE.
+    MOVE "U" TO LS-ROLE
+    COMPUTE LS-T = ND-TOK-FIRST(LS-STMT) + 2
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+    IF LS-TEXT = "CALL"
+        MOVE "X" TO LS-ROLE
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-TEXT = "SET" AND RF-TOKEN(LS-R) = LS-T + 2
+        MOVE "D" TO LS-ROLE
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-T = RF-TOKEN(LS-R) - 1
+    PERFORM UNTIL LS-T <= ND-TOK-FIRST(LS-STMT)
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            EVALUATE LS-TEXT
+                WHEN "INTO"
+                    MOVE "D" TO LS-ROLE
+                    EXIT PERFORM
+                WHEN "VALUES" WHEN "WHERE" WHEN "SET" WHEN "FROM"
+                WHEN "USING" WHEN "HAVING" WHEN "ON" WHEN "BY"
+                WHEN "AND" WHEN "OR" WHEN "SELECT"
+                    EXIT PERFORM
+            END-EVALUATE
+        END-IF
+        SUBTRACT 1 FROM LS-T
+    END-PERFORM.
+
+*> CICS: the option whose parentheses hold the argument decides.
+*> Options that return data (INTO, SET, RESP, ...) set it, those that
+*> pass data in (FROM, RIDFLD, ...) read it, and LENGTH and ITEM do
+*> both. In ASSIGN, INQUIRE, and FORMATTIME every option returns a
+*> value (except the ABSTIME that FORMATTIME formats).
+CICS-ROLE.
+    COMPUTE LS-T = ND-TOK-FIRST(LS-STMT) + 2
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-COMMAND LS-LEN
+    *> The option: the word before the "(" that encloses the argument.
+    MOVE 0 TO LS-OPTION-LEVEL
+    MOVE SPACES TO LS-KEYWORD
+    COMPUTE LS-T = RF-TOKEN(LS-R) - 1
+    PERFORM UNTIL LS-T <= ND-TOK-FIRST(LS-STMT)
+        IF TK-IS-RPAREN(LS-T)
+            ADD 1 TO LS-OPTION-LEVEL
+        END-IF
+        IF TK-IS-LPAREN(LS-T)
+            IF LS-OPTION-LEVEL = 0
+                SUBTRACT 1 FROM LS-T
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-KEYWORD
+                    LS-LEN
+                EXIT PERFORM
+            END-IF
+            SUBTRACT 1 FROM LS-OPTION-LEVEL
+        END-IF
+        SUBTRACT 1 FROM LS-T
+    END-PERFORM
+    EVALUATE TRUE
+        WHEN LS-COMMAND = "FORMATTIME" AND LS-KEYWORD = "ABSTIME"
+            MOVE "U" TO LS-ROLE
+        WHEN LS-COMMAND = "ASSIGN" OR LS-COMMAND = "INQUIRE"
+             OR LS-COMMAND = "FORMATTIME"
+            MOVE "D" TO LS-ROLE
+        WHEN LS-KEYWORD = "RIDFLD"
+             AND (LS-COMMAND = "READNEXT" OR LS-COMMAND = "READPREV")
+            MOVE "B" TO LS-ROLE
+        WHEN OTHER
+            EVALUATE LS-KEYWORD
+                WHEN "INTO" WHEN "SET" WHEN "RESP" WHEN "RESP2"
+                WHEN "ABSTIME" WHEN "NUMITEMS" WHEN "TOKEN"
+                    MOVE "D" TO LS-ROLE
+                WHEN "LENGTH" WHEN "FLENGTH" WHEN "ITEM"
+                    MOVE "B" TO LS-ROLE
+                WHEN "FROM" WHEN "RIDFLD" WHEN "KEYLENGTH" WHEN "QUEUE"
+                WHEN "QNAME" WHEN "FILE" WHEN "DATASET" WHEN "MAP"
+                WHEN "MAPSET" WHEN "PROGRAM" WHEN "TRANSID"
+                WHEN "SYSID" WHEN "TERMID" WHEN "INTERVAL" WHEN "TIME"
+                WHEN "CHANNEL" WHEN "CONTAINER" WHEN "CURSOR"
+                WHEN "REQID" WHEN "ABCODE" WHEN "TEXT"
+                    MOVE "U" TO LS-ROLE
+                WHEN OTHER
+                    *> COMMAREA, and options Plumbline does not know.
+                    MOVE "X" TO LS-ROLE
+            END-EVALUATE
+    END-EVALUATE.
 
 *> LS-ROLE = "-" when the reference is the operand of LENGTH OF or
 *> BYTE-LENGTH OF, otherwise spaces.

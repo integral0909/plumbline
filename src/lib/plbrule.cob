@@ -62,6 +62,12 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C017"
         "report-not-terminated" "W"
         "Report is initiated but never terminated"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C018"
+        "sql-not-checked" "W"
+        "Result of an SQL statement is not checked"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C019"
+        "cics-response-not-checked" "W"
+        "Response of a CICS command is not checked"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M001"
         "go-to" "N"
         "GO TO statement"
@@ -87,6 +93,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M007"
         "detail-never-generated" "N"
         "Report detail group is never generated"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-S001"
+        "dynamic-sql" "N"
+        "SQL text is built at run time"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

@@ -1,0 +1,5 @@
+paragraph MAIN-LINE reached flowed ends @6
+  go DB-ERROR
+  perform NO-ROWS
+paragraph NO-ROWS reached performed @11
+paragraph DB-ERROR reached flowed jumped-to ends @13

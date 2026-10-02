@@ -269,6 +269,19 @@ DECIDE-FALL-THROUGH.
             IF LS-TEXT = "RUN"
                 MOVE "N" TO FU-FALLS(LS-U)
             END-IF
+        WHEN "EXEC"
+            *> EXEC CICS RETURN, XCTL, and ABEND do not come back.
+            COMPUTE LS-TOKEN = ND-TOK-FIRST(LS-STMT) + 1
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT LS-LEN
+            IF LS-TEXT = "CICS"
+                ADD 1 TO LS-TOKEN
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT
+                    LS-LEN
+                IF LS-TEXT = "RETURN" OR LS-TEXT = "XCTL"
+                   OR LS-TEXT = "ABEND"
+                    MOVE "N" TO FU-FALLS(LS-U)
+                END-IF
+            END-IF
         WHEN "GO"
             MOVE "N" TO FU-FALLS(LS-U)
             PERFORM VARYING LS-TOKEN FROM ND-TOK-FIRST(LS-STMT) BY 1

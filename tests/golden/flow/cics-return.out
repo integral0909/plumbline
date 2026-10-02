@@ -1,0 +1,4 @@
+paragraph MAIN-LINE reached flowed ends @6
+  perform FIRST-TIME
+paragraph FIRST-TIME reached performed ends @11
+paragraph FAILURE unreachable ends @14

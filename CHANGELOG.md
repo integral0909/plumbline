@@ -74,6 +74,11 @@ uses [Semantic Versioning](https://semver.org/).
 
 - `make corpus` runs Plumbline over the NIST COBOL-85 test suite
   (`tools/corpus/`); see `docs/corpus.md`.
+- Embedded SQL and CICS: host variables and command arguments are
+  references with roles, EXEC SQL INCLUDE is expanded, the SQLCA and EIB
+  fields are known, CICS RETURN/XCTL/ABEND end a paragraph, and WHENEVER
+  targets are reachable; rules PLB-C018 sql-not-checked, PLB-C019
+  cics-response-not-checked, and PLB-S001 dynamic-sql.
 - Report Writer: RD entries, report groups, and the data their SOURCE,
   SUM, and CONTROL clauses read; rules PLB-C016 report-not-initiated,
   PLB-C017 report-not-terminated, and PLB-M007 detail-never-generated.
