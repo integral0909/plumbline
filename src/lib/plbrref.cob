@@ -580,6 +580,13 @@ REPORT-LOSS.
         PLB-FINDINGS LS-RULE LS-JOIN LS-MESSAGE.
 END PROGRAM PLB-RULE-C041.
 
+*> PLB-C043 pointer-not-reset is checked here too: STRING ... WITH
+*> POINTER p and UNSTRING ... WITH POINTER p start at p and leave it past
+*> what they handled. A pointer that no statement of the program sets
+*> (only a VALUE clause, or nothing) is reported: the statement starts
+*> where the previous run left it. A pointer set by a caller, as in a
+*> paragraph that appends to a line being built, is fine.
+*>
 *> PLB-C042 inspect-count-not-reset: INSPECT ... TALLYING count FOR
 *> ... adds to count; it does not start it at zero. A count that the
 *> paragraph does not set before the INSPECT (MOVE ZERO TO count,
@@ -598,6 +605,7 @@ WORKING-STORAGE SECTION.
 01  WS-TOKEN-REF            PIC 9(9) COMP-5 OCCURS 500000 TIMES.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-RULE-POINTER         PIC 9(4) COMP-5.
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-DEPTH                PIC S9(9) COMP-5.
@@ -634,7 +642,9 @@ COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         PLB-FLOW PLB-REFS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C042" LS-RULE
-    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C043" LS-RULE-POINTER
+    IF (RL-ENABLED(LS-RULE) NOT = "Y"
+        AND RL-ENABLED(LS-RULE-POINTER) NOT = "Y") OR AS-COUNT = 0
         GOBACK
     END-IF
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
@@ -643,8 +653,13 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     MOVE 1 TO LS-NODE
     MOVE 0 TO LS-DEPTH
     PERFORM UNTIL LS-NODE = 0
-        IF ND-KIND(LS-NODE) = "STMT" AND ND-DETAIL(LS-NODE) = "INSPECT"
-            PERFORM CHECK-INSPECT
+        IF ND-KIND(LS-NODE) = "STMT"
+            EVALUATE ND-DETAIL(LS-NODE)
+                WHEN "INSPECT"
+                    PERFORM CHECK-INSPECT
+                WHEN "STRING" WHEN "UNSTRING"
+                    PERFORM CHECK-POINTER
+            END-EVALUATE
         END-IF
         CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
     END-PERFORM
@@ -652,6 +667,69 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         MOVE 0 TO WS-TOKEN-REF(RF-TOKEN(LS-R))
     END-PERFORM
     GOBACK.
+
+*> PLB-C043: the item after WITH POINTER (or POINTER), outside
+*> parentheses.
+CHECK-POINTER.
+    IF RL-ENABLED(LS-RULE-POINTER) NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-LEVEL
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
+            UNTIL LS-T >= ND-TOK-LAST(LS-NODE)
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-T)
+                ADD 1 TO LS-LEVEL
+            WHEN TK-IS-RPAREN(LS-T)
+                SUBTRACT 1 FROM LS-LEVEL
+            WHEN LS-LEVEL = 0 AND TK-IS-WORD(LS-T)
+             AND WS-TOKEN-REF(LS-T) = 0
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+                IF FUNCTION UPPER-CASE(LS-WORD) = "POINTER"
+                    ADD 1 TO LS-T
+                    IF WS-TOKEN-REF(LS-T) > 0
+                        MOVE WS-TOKEN-REF(LS-T) TO LS-R
+                        IF RF-KIND(LS-R) = "D"
+                            MOVE RF-SYMBOL(LS-R) TO LS-COUNT
+                            PERFORM FIND-SET-ANYWHERE
+                            IF LS-FOUND = "N"
+                                PERFORM REPORT-POINTER
+                            END-IF
+                        END-IF
+                    END-IF
+                    EXIT PERFORM
+                END-IF
+        END-EVALUATE
+    END-PERFORM.
+
+*> LS-FOUND = "Y" when a statement of the file stores into the pointer
+*> or a group around it (role D), or may (role X). The STRING and
+*> UNSTRING statements themselves only move it on (role B).
+FIND-SET-ANYWHERE.
+    MOVE 1 TO LS-START
+    MOVE TK-COUNT TO LS-END
+    PERFORM FIND-RESET.
+
+REPORT-POINTER.
+    MOVE SPACES TO LS-MESSAGE
+    STRING FUNCTION TRIM(ND-DETAIL(LS-NODE)) DELIMITED BY SIZE
+           " starts at the value of " DELIMITED BY SIZE
+           SY-NAME(LS-COUNT) DELIMITED BY SPACE
+           ", which no statement of the program sets: only its first"
+           " run starts where its VALUE says" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-POINTER LS-T LS-MESSAGE.
+
+*> LS-FOUND = "Y" when item LS-COUNT is set before statement LS-NODE
+*> in its paragraph, or in a paragraph leading into it.
+CHECK-SET-BEFORE.
+    PERFORM PARAGRAPH-START
+    MOVE ND-TOK-FIRST(LS-NODE) TO LS-END
+    PERFORM FIND-RESET
+    IF LS-FOUND = "N" AND LS-UNIT > 0
+        PERFORM FIND-RESET-BEFORE
+    END-IF.
 
 *> The counts of the TALLYING phrase: each data item followed by FOR.
 CHECK-INSPECT.
@@ -695,13 +773,8 @@ COUNT-AT-T.
         EXIT PARAGRAPH
     END-IF
     MOVE RF-SYMBOL(LS-R) TO LS-COUNT
-    PERFORM PARAGRAPH-START
-    MOVE ND-TOK-FIRST(LS-NODE) TO LS-END
-    PERFORM FIND-RESET
-    IF LS-FOUND = "N" AND LS-UNIT > 0
-        PERFORM FIND-RESET-BEFORE
-    END-IF
-    IF LS-FOUND = "N"
+    PERFORM CHECK-SET-BEFORE
+    IF LS-FOUND = "N" AND RL-ENABLED(LS-RULE) = "Y"
         MOVE SPACES TO LS-MESSAGE
         STRING "INSPECT adds to " DELIMITED BY SIZE
                SY-NAME(LS-COUNT) DELIMITED BY SPACE

@@ -176,6 +176,13 @@ Some findings that were read and are true:
   rows with `INSPECT ... TALLYING I`, where `I` is a loop index that
   nothing sets to zero first. The transaction type list, `COTRTLIC`,
   sets its counts to zero at the top of the same kind of paragraph.
+- **PLB-C043 pointer-not-reset.** The authorization program `COPAUA0C`
+  builds each reply with `STRING ... WITH POINTER WS-RESP-LENGTH`, a
+  pointer that starts at `VALUE 1` and is never set again, in a
+  paragraph that runs once for each message of its `PERFORM UNTIL
+  NO-MORE-MSG-AVAILABLE` loop. From the second message on, the reply is
+  written after the previous one and its length (`W02-BUFFLEN`) is
+  wrong.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)
