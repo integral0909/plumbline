@@ -19,6 +19,7 @@ GENERATED_C = """\
   /* Line: 16        : WHEN               : copy/demo.cpy */
   /* Line: 20        : last source line                  :src/demo.cob */
   /* Line: 3         : MOVE               : tests/unit/test-demo.cob */
+  /* Line: 0         : Paragraph Default Error Handler   : src/demo.cob */
 """
 
 TRACE = """\
@@ -47,7 +48,7 @@ class CobcovTest(unittest.TestCase):
             f.write(text)
         return path
 
-    def test_map_skips_entry_and_sentinel(self):
+    def test_map_skips_entry_sentinel_and_line_zero(self):
         lines = cobcov.read_maps([self.map])
         self.assertEqual(lines["src/demo.cob"], {10, 11, 12, 13, 15})
         self.assertEqual(lines["copy/demo.cpy"], {16})

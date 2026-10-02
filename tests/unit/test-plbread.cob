@@ -1,0 +1,428 @@
+*> Unit tests for src/lib/plbread.cob, using tests/fixtures/reader/.
+*> Paths are relative to the repository root, where make runs tests.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. TEST-PLBREAD.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbsrc.cpy".
+COPY "plbdiag.cpy".
+01  WS-DIR                  PIC X(40) VALUE "tests/fixtures/reader/".
+01  WS-PATH                 PIC X(200).
+01  WS-MODE                 PIC X.
+01  WS-FILE-ID              PIC 9(4) COMP-5.
+01  WS-STATUS               PIC 9(4) COMP-5.
+01  WS-LINE-NO              PIC 9(9) COMP-5.
+01  WS-INDEX                PIC 9(9) COMP-5.
+01  WS-TEXT                 PIC X(200).
+01  WS-LEN                  PIC 9(9) COMP-5.
+01  WS-DIAG-INDEX           PIC 9(9) COMP-5.
+01  WS-I                    PIC 9(9) COMP-5.
+01  WS-EXPECT-NUM           PIC S9(18) COMP-5.
+01  WS-ACTUAL-NUM           PIC S9(18) COMP-5.
+
+PROCEDURE DIVISION.
+    CALL "PLBT-BEGIN" USING "plbread"
+    PERFORM TEST-FIXED-FILE
+    PERFORM TEST-FREE-FILE
+    PERFORM TEST-FORMAT-SWITCH
+    PERFORM TEST-TABS
+    PERFORM TEST-LONG-LINE
+    PERFORM TEST-BAD-INDICATOR
+    PERFORM TEST-MF-DIRECTIVE
+    PERFORM TEST-EDGE-FILES
+    PERFORM TEST-MISSING-FILE
+    PERFORM TEST-MULTIPLE-FILES
+    PERFORM TEST-EXPLICIT-MODE
+    PERFORM TEST-FILE-LIMIT
+    CALL "PLBT-END"
+    STOP RUN.
+
+*> Helpers ------------------------------------------------------
+
+RESET-SET.
+    CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET
+    CALL "PLB-DIAG-INIT" USING PLB-DIAGNOSTICS.
+
+*> Load WS-PATH (a name inside WS-DIR) in mode WS-MODE.
+LOAD-FIXTURE.
+    MOVE SPACES TO WS-TEXT
+    STRING FUNCTION TRIM(WS-DIR) FUNCTION TRIM(WS-PATH)
+        DELIMITED BY SIZE INTO WS-TEXT
+    CALL "PLB-SRC-LOAD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+        WS-TEXT WS-MODE WS-FILE-ID WS-STATUS.
+
+*> Point WS-INDEX at physical line WS-LINE-NO of WS-FILE-ID and
+*> fetch its content into WS-TEXT.
+LINE-AT.
+    COMPUTE WS-INDEX = SF-FIRST-LINE(WS-FILE-ID) + WS-LINE-NO - 1
+    CALL "PLB-SRC-LINE-CONTENT" USING PLB-SOURCE-SET WS-INDEX
+        WS-TEXT WS-LEN.
+
+EXPECT-STATUS-OK.
+    MOVE 0 TO WS-EXPECT-NUM
+    MOVE WS-STATUS TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "load status is 0"
+        WS-EXPECT-NUM WS-ACTUAL-NUM.
+
+EXPECT-LINE-COUNT.
+    MOVE SF-LINE-COUNT(WS-FILE-ID) TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "line count"
+        WS-EXPECT-NUM WS-ACTUAL-NUM.
+
+EXPECT-DIAG-COUNT.
+    MOVE DG-COUNT TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "diagnostic count"
+        WS-EXPECT-NUM WS-ACTUAL-NUM.
+
+*> Cases --------------------------------------------------------
+
+TEST-FIXED-FILE.
+    CALL "PLBT-CASE" USING "fixed-basic.cbl"
+    PERFORM RESET-SET
+    MOVE "fixed-basic.cbl" TO WS-PATH
+    MOVE "A" TO WS-MODE
+    PERFORM LOAD-FIXTURE
+    PERFORM EXPECT-STATUS-OK
+    CALL "PLBT-ASSERT-FLAG" USING "detected as fixed" "X"
+        SF-FORMAT(WS-FILE-ID)
+    CALL "PLBT-ASSERT-FLAG" USING "format was detected" "Y"
+        SF-DETECTED(WS-FILE-ID)
+    MOVE 16 TO WS-EXPECT-NUM
+    PERFORM EXPECT-LINE-COUNT
+    MOVE 0 TO WS-EXPECT-NUM
+    PERFORM EXPECT-DIAG-COUNT
+
+    MOVE 1 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-STR" USING "identification area dropped"
+        "IDENTIFICATION DIVISION." WS-TEXT
+    CALL "PLBT-ASSERT-FLAG" USING "division header in area A" "Y"
+        SL-AREA-A(WS-INDEX)
+
+    MOVE 3 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-FLAG" USING "comment line" "*" SL-KIND(WS-INDEX)
+
+    MOVE 7 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-FLAG" USING "literal left open" '"'
+        SL-OPEN-QUOTE(WS-INDEX)
+
+    MOVE 8 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-FLAG" USING "continuation line" "-"
+        SL-KIND(WS-INDEX)
+    CALL "PLBT-ASSERT-STR" USING "continued literal resumes"
+        """THE CURRENT PERIOD""." WS-TEXT
+
+    MOVE 9 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-FLAG" USING "empty line is blank" "B"
+        SL-KIND(WS-INDEX)
+
+    MOVE 10 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-FLAG" USING "page eject" "/" SL-KIND(WS-INDEX)
+
+    MOVE 13 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-STR" USING "inline comment removed"
+        "MOVE 40 TO WS-HOURS" WS-TEXT
+
+    MOVE 14 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-FLAG" USING "debugging line" "D"
+        SL-KIND(WS-INDEX)
+    MOVE SL-LINE-NO(WS-INDEX) TO WS-ACTUAL-NUM
+    MOVE 14 TO WS-EXPECT-NUM
+    CALL "PLBT-ASSERT-NUM" USING "physical line number kept"
+        WS-EXPECT-NUM WS-ACTUAL-NUM.
+
+TEST-FREE-FILE.
+    CALL "PLBT-CASE" USING "free-basic.cob"
+    PERFORM RESET-SET
+    MOVE "free-basic.cob" TO WS-PATH
+    MOVE "A" TO WS-MODE
+    PERFORM LOAD-FIXTURE
+    PERFORM EXPECT-STATUS-OK
+    CALL "PLBT-ASSERT-FLAG" USING "detected as free" "F"
+        SF-FORMAT(WS-FILE-ID)
+    MOVE 12 TO WS-EXPECT-NUM
+    PERFORM EXPECT-LINE-COUNT
+
+    MOVE 3 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-FLAG" USING "comment line" "*" SL-KIND(WS-INDEX)
+
+    MOVE 7 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-FLAG" USING "blank line" "B" SL-KIND(WS-INDEX)
+
+    MOVE 9 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-STR" USING "inline comment removed"
+        "DISPLAY ""HELLO, "" WS-NAME" WS-TEXT
+
+    MOVE 10 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-FLAG" USING "debugging line" "D"
+        SL-KIND(WS-INDEX)
+    CALL "PLBT-ASSERT-STR" USING "debugging content"
+        "DISPLAY ""DEBUG""" WS-TEXT
+
+    MOVE 11 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-STR" USING "*> inside literal kept"
+        "DISPLAY ""*> literal, not a comment""" WS-TEXT.
+
+TEST-FORMAT-SWITCH.
+    CALL "PLBT-CASE" USING "switch-format.cbl"
+    PERFORM RESET-SET
+    MOVE "switch-format.cbl" TO WS-PATH
+    MOVE "X" TO WS-MODE
+    PERFORM LOAD-FIXTURE
+    PERFORM EXPECT-STATUS-OK
+
+    MOVE 3 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-FLAG" USING "directive line" ">"
+        SL-KIND(WS-INDEX)
+    CALL "PLBT-ASSERT-FLAG" USING "directive read in fixed" "X"
+        SL-FORMAT(WS-INDEX)
+
+    MOVE 4 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-FLAG" USING "next line read in free" "F"
+        SL-FORMAT(WS-INDEX)
+    CALL "PLBT-ASSERT-STR" USING "free line content"
+        "PROCEDURE DIVISION." WS-TEXT
+
+    MOVE 7 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-FLAG" USING "switched back to fixed" "X"
+        SL-FORMAT(WS-INDEX)
+    CALL "PLBT-ASSERT-STR" USING "fixed line content" "STOP RUN."
+        WS-TEXT
+
+    MOVE 1 TO WS-EXPECT-NUM
+    PERFORM EXPECT-DIAG-COUNT
+    CALL "PLBT-ASSERT-STR" USING "unsupported format warned" "RD004"
+        DG-CODE(1)
+    MOVE 8 TO WS-EXPECT-NUM
+    MOVE DG-LINE(1) TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "warning on the directive line"
+        WS-EXPECT-NUM WS-ACTUAL-NUM.
+
+TEST-TABS.
+    CALL "PLBT-CASE" USING "tabs.cbl"
+    PERFORM RESET-SET
+    MOVE "tabs.cbl" TO WS-PATH
+    MOVE "X" TO WS-MODE
+    PERFORM LOAD-FIXTURE
+    MOVE 1 TO WS-LINE-NO
+    PERFORM LINE-AT
+    MOVE 9 TO WS-EXPECT-NUM
+    MOVE SL-CONTENT-COL(WS-INDEX) TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "tab after sequence reaches column 9"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-STR" USING "content after tab"
+        "IDENTIFICATION DIVISION." WS-TEXT
+    MOVE 2 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-STR" USING "leading tab"
+        "PROGRAM-ID. TABBED." WS-TEXT.
+
+TEST-LONG-LINE.
+    CALL "PLBT-CASE" USING "long-line.cbl"
+    PERFORM RESET-SET
+    MOVE "long-line.cbl" TO WS-PATH
+    MOVE "X" TO WS-MODE
+    PERFORM LOAD-FIXTURE
+    PERFORM EXPECT-STATUS-OK
+    MOVE 3 TO WS-EXPECT-NUM
+    PERFORM EXPECT-LINE-COUNT
+    MOVE 1 TO WS-EXPECT-NUM
+    PERFORM EXPECT-DIAG-COUNT
+    CALL "PLBT-ASSERT-STR" USING "overlong line warned" "RD002"
+        DG-CODE(1)
+    MOVE 2 TO WS-EXPECT-NUM
+    MOVE DG-LINE(1) TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "warning on line 2"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+    MOVE 3 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-STR" USING "line after the long one intact"
+        "PROGRAM-ID. LONGLINE." WS-TEXT
+    MOVE 3 TO WS-EXPECT-NUM
+    MOVE SL-LINE-NO(WS-INDEX) TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "line numbers stay in step"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+
+    PERFORM RESET-SET
+    MOVE "long-last-line.cbl" TO WS-PATH
+    PERFORM LOAD-FIXTURE
+    PERFORM EXPECT-STATUS-OK
+    MOVE 2 TO WS-EXPECT-NUM
+    PERFORM EXPECT-LINE-COUNT
+    CALL "PLBT-ASSERT-STR" USING "overlong final line warned" "RD002"
+        DG-CODE(1).
+
+TEST-BAD-INDICATOR.
+    CALL "PLBT-CASE" USING "bad-indicator.cbl"
+    PERFORM RESET-SET
+    MOVE "bad-indicator.cbl" TO WS-PATH
+    MOVE "X" TO WS-MODE
+    PERFORM LOAD-FIXTURE
+    MOVE 1 TO WS-EXPECT-NUM
+    PERFORM EXPECT-DIAG-COUNT
+    CALL "PLBT-ASSERT-STR" USING "bad indicator reported" "RD003"
+        DG-CODE(1)
+    MOVE 1 TO WS-DIAG-INDEX
+    CALL "PLB-DIAG-FORMAT" USING PLB-DIAGNOSTICS WS-DIAG-INDEX
+        SF-PATH(DG-FILE-ID(1)) WS-TEXT WS-LEN
+    CALL "PLBT-ASSERT-STR" USING "formatted with path and position"
+        "tests/fixtures/reader/bad-indicator.cbl:2:7: error: "
+        & "invalid character in indicator column [RD003]" WS-TEXT.
+
+TEST-MF-DIRECTIVE.
+    CALL "PLBT-CASE" USING "mf-set.cbl"
+    PERFORM RESET-SET
+    MOVE "mf-set.cbl" TO WS-PATH
+    MOVE "A" TO WS-MODE
+    PERFORM LOAD-FIXTURE
+    CALL "PLBT-ASSERT-FLAG" USING "leading $SET decides format" "F"
+        SF-FORMAT(WS-FILE-ID)
+    MOVE 2 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-STR" USING "free code after $SET"
+        "IDENTIFICATION DIVISION." WS-TEXT.
+
+TEST-EDGE-FILES.
+    CALL "PLBT-CASE" USING "empty and unterminated files"
+    PERFORM RESET-SET
+    MOVE "empty.cbl" TO WS-PATH
+    MOVE "A" TO WS-MODE
+    PERFORM LOAD-FIXTURE
+    PERFORM EXPECT-STATUS-OK
+    MOVE 0 TO WS-EXPECT-NUM
+    PERFORM EXPECT-LINE-COUNT
+    CALL "PLBT-ASSERT-FLAG" USING "empty file defaults to fixed" "X"
+        SF-FORMAT(WS-FILE-ID)
+
+    MOVE "no-final-newline.cob" TO WS-PATH
+    PERFORM LOAD-FIXTURE
+    PERFORM EXPECT-STATUS-OK
+    MOVE 2 TO WS-EXPECT-NUM
+    PERFORM EXPECT-LINE-COUNT
+    MOVE 2 TO WS-LINE-NO
+    PERFORM LINE-AT
+    CALL "PLBT-ASSERT-STR" USING "last line without newline"
+        "PROGRAM-ID. NOEOL." WS-TEXT.
+
+TEST-MISSING-FILE.
+    CALL "PLBT-CASE" USING "missing file"
+    PERFORM RESET-SET
+    MOVE "does-not-exist.cbl" TO WS-PATH
+    MOVE "A" TO WS-MODE
+    PERFORM LOAD-FIXTURE
+    MOVE 1 TO WS-EXPECT-NUM
+    MOVE WS-STATUS TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "status is 1"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+    MOVE 0 TO WS-EXPECT-NUM
+    MOVE WS-FILE-ID TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "no file id"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+    MOVE SS-FILE-COUNT TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "no file registered"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-STR" USING "open error reported" "RD001"
+        DG-CODE(1)
+    CALL "PLBT-ASSERT-STR" USING "message names the file"
+        "cannot open tests/fixtures/reader/does-not-exist.cbl "
+        & "(file status 35)" DG-MESSAGE(1).
+
+TEST-MULTIPLE-FILES.
+    CALL "PLBT-CASE" USING "several files in one set"
+    PERFORM RESET-SET
+    MOVE "A" TO WS-MODE
+    MOVE "fixed-basic.cbl" TO WS-PATH
+    PERFORM LOAD-FIXTURE
+    MOVE "free-basic.cob" TO WS-PATH
+    PERFORM LOAD-FIXTURE
+    MOVE 2 TO WS-EXPECT-NUM
+    MOVE WS-FILE-ID TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "second file id"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+    MOVE 17 TO WS-EXPECT-NUM
+    MOVE SF-FIRST-LINE(2) TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "second file follows the first"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+    MOVE 28 TO WS-EXPECT-NUM
+    MOVE SS-LINE-COUNT TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "total lines"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+    MOVE 1 TO WS-LINE-NO
+    PERFORM LINE-AT
+    MOVE 2 TO WS-EXPECT-NUM
+    MOVE SL-FILE-ID(WS-INDEX) TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "line belongs to second file"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET WS-FILE-ID WS-TEXT
+    CALL "PLBT-ASSERT-STR" USING "path of second file"
+        "tests/fixtures/reader/free-basic.cob" WS-TEXT
+    MOVE 9 TO WS-FILE-ID
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET WS-FILE-ID WS-TEXT
+    CALL "PLBT-ASSERT-STR" USING "unknown file id gives spaces" " "
+        WS-TEXT
+
+    MOVE 1 TO WS-INDEX
+    CALL "PLB-SRC-LINE-TEXT" USING PLB-SOURCE-SET WS-INDEX
+        WS-TEXT WS-LEN
+    CALL "PLBT-ASSERT-STR" USING "full line text keeps all columns"
+        "000100 IDENTIFICATION DIVISION."
+        & "                                         PAYCALC" WS-TEXT
+    MOVE 0 TO WS-INDEX
+    CALL "PLB-SRC-LINE-TEXT" USING PLB-SOURCE-SET WS-INDEX
+        WS-TEXT WS-LEN
+    MOVE 0 TO WS-EXPECT-NUM
+    MOVE WS-LEN TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "index 0 has no text"
+        WS-EXPECT-NUM WS-ACTUAL-NUM.
+
+TEST-EXPLICIT-MODE.
+    CALL "PLBT-CASE" USING "explicit format overrides detection"
+    PERFORM RESET-SET
+    MOVE "free-basic.cob" TO WS-PATH
+    MOVE "X" TO WS-MODE
+    PERFORM LOAD-FIXTURE
+    CALL "PLBT-ASSERT-FLAG" USING "format as requested" "X"
+        SF-FORMAT(WS-FILE-ID)
+    CALL "PLBT-ASSERT-FLAG" USING "not detected" "N"
+        SF-DETECTED(WS-FILE-ID)
+    CALL "PLBT-ASSERT-STR" USING "free source read as fixed is flagged"
+        "RD003" DG-CODE(1).
+
+TEST-FILE-LIMIT.
+    CALL "PLBT-CASE" USING "file table limit"
+    PERFORM RESET-SET
+    MOVE "empty.cbl" TO WS-PATH
+    MOVE "X" TO WS-MODE
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > SS-MAX-FILES
+        PERFORM LOAD-FIXTURE
+    END-PERFORM
+    MOVE 0 TO WS-EXPECT-NUM
+    PERFORM EXPECT-DIAG-COUNT
+    PERFORM LOAD-FIXTURE
+    MOVE 1 TO WS-EXPECT-NUM
+    MOVE WS-STATUS TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "load beyond the limit fails"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-STR" USING "limit reported" "RD005" DG-CODE(1)
+    CALL "PLBT-ASSERT-STR" USING "limit message"
+        "too many source files (limit 256)" DG-MESSAGE(1)
+    MOVE SS-MAX-FILES TO WS-EXPECT-NUM
+    MOVE SS-FILE-COUNT TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "file count stays at the limit"
+        WS-EXPECT-NUM WS-ACTUAL-NUM.
+END PROGRAM TEST-PLBREAD.

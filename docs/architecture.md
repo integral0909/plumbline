@@ -16,17 +16,38 @@ Each stage is a separate module in `src/lib/` with its own unit suite. The
 stages communicate through tables defined in copybooks, not through global
 state, so each stage can be tested on hand-built input.
 
-### Reader *(planned)*
+### Reader
 
-Reads a source file line by line and normalizes it to a logical line:
+`src/lib/plbread.cob` and `src/lib/plbclass.cob`, with tables in
+`copy/plbsrc.cpy`.
+
+A file is loaded in two passes. The first pass reads each physical line,
+expands tabs (8-column stops, as cobc does), and appends the text to a
+shared heap. The second pass picks the starting format and classifies
+every line:
 
 - **fixed format**: sequence area (1–6), indicator (7), area A (8–11),
-  area B (12–72), identification area (73–80). Indicator `*` and `/` mark
-  comments, `-` a continuation, `D` a debugging line.
-- **free format**: `*>` starts a comment anywhere on the line.
+  area B (12–72), identification area (73–80, ignored). Indicator `*`
+  and `/` mark comments, `-` a continuation, `D`/`d` a debugging line,
+  and `$` a directive.
+- **free format**: `*>` starts a comment anywhere, `>>` a directive, and
+  `>>D` a debugging line.
 
-Every logical line keeps its origin (file, physical line, column) so that
-findings can point at the source the user wrote.
+In both formats the scanner tracks alphanumeric literals, including
+doubled quotes and literals continued from the previous line, so `*>`
+inside a literal is not taken as a comment.
+
+The starting format is given by the caller, or detected. Detection
+samples up to 100 lines and checks whether column 7 holds a valid
+indicator. `>>SOURCE FORMAT` and `$SET SOURCEFORMAT` directives switch
+the format for the lines that follow.
+
+Each line records its file, physical line number, kind, content columns,
+area-A flag, and any literal left open at its end. Findings can therefore
+point at the exact source the user wrote.
+
+Hard limits (files, lines, heap size, 1024-column lines) are enforced
+with diagnostics, never with silent truncation.
 
 ### Preprocessor *(planned)*
 

@@ -115,3 +115,59 @@ PROCEDURE DIVISION USING LK-VALUE LK-TEXT LK-LENGTH.
     END-IF
     GOBACK.
 END PROGRAM PLB-STR-FROM-INT.
+
+*> PLB-STR-EXPAND-TABS: copy the first IN-LENGTH characters of INPUT
+*> to OUTPUT, replacing each tab with spaces up to the next tab stop.
+*> Tab stops are every TAB-WIDTH columns (columns 1, 1+w, 1+2w, ...),
+*> which matches cobc's -ftab-width. OUT-LENGTH receives the expanded
+*> length. OVERFLOW is set to "Y" if OUTPUT was too small, in which
+*> case the result is cut at the size of OUTPUT.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-STR-EXPAND-TABS.
+DATA DIVISION.
+LOCAL-STORAGE SECTION.
+01  LS-IN-POS               PIC 9(9) COMP-5.
+01  LS-OUT-POS              PIC 9(9) COMP-5.
+01  LS-OUT-MAX              PIC 9(9) COMP-5.
+01  LS-WIDTH                PIC 9(9) COMP-5.
+01  LS-STOPS                PIC 9(9) COMP-5.
+LINKAGE SECTION.
+01  LK-INPUT                PIC X ANY LENGTH.
+01  LK-IN-LENGTH            PIC 9(9) COMP-5.
+01  LK-TAB-WIDTH            PIC 9(4) COMP-5.
+01  LK-OUTPUT               PIC X ANY LENGTH.
+01  LK-OUT-LENGTH           PIC 9(9) COMP-5.
+01  LK-OVERFLOW             PIC X.
+PROCEDURE DIVISION USING LK-INPUT LK-IN-LENGTH LK-TAB-WIDTH
+        LK-OUTPUT LK-OUT-LENGTH LK-OVERFLOW.
+    MOVE SPACES TO LK-OUTPUT
+    MOVE "N" TO LK-OVERFLOW
+    MOVE 0 TO LS-OUT-POS
+    MOVE FUNCTION LENGTH(LK-OUTPUT) TO LS-OUT-MAX
+    MOVE LK-TAB-WIDTH TO LS-WIDTH
+    IF LS-WIDTH = 0
+        MOVE 1 TO LS-WIDTH
+    END-IF
+    PERFORM VARYING LS-IN-POS FROM 1 BY 1
+            UNTIL LS-IN-POS > LK-IN-LENGTH
+               OR LS-IN-POS > FUNCTION LENGTH(LK-INPUT)
+        IF LK-INPUT(LS-IN-POS:1) = X"09"
+            *> Output is already spaces, so advancing is enough. A tab
+            *> always advances, even when it sits on a stop.
+            DIVIDE LS-OUT-POS BY LS-WIDTH GIVING LS-STOPS
+            COMPUTE LS-OUT-POS = (LS-STOPS + 1) * LS-WIDTH
+        ELSE
+            ADD 1 TO LS-OUT-POS
+            IF LS-OUT-POS <= LS-OUT-MAX
+                MOVE LK-INPUT(LS-IN-POS:1) TO LK-OUTPUT(LS-OUT-POS:1)
+            END-IF
+        END-IF
+        IF LS-OUT-POS > LS-OUT-MAX
+            MOVE "Y" TO LK-OVERFLOW
+            MOVE LS-OUT-MAX TO LS-OUT-POS
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    MOVE LS-OUT-POS TO LK-OUT-LENGTH
+    GOBACK.
+END PROGRAM PLB-STR-EXPAND-TABS.
