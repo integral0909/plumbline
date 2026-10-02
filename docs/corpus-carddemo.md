@@ -123,3 +123,5 @@ Some findings that were read and are true:
   after each card's selection field in the card list. In `COACTUP` and
   `COACTVW`, the last field of the map is placed at row 1, column 1,
   on top of the first.
+- **PLB-B004 symbolic-map-stale.** None: the symbolic map copybooks in
+  `cpy-bms` match the 21 maps field for field.

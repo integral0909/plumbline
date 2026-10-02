@@ -2,6 +2,10 @@
 # End-to-end checks of the plumbline executable: output and exit codes.
 # Usage: tests/cli/test-cli.sh path/to/plumbline
 # Emits TAP and exits non-zero on any failure.
+#
+# Variables such as $sm hold several file names, and are split into
+# arguments on purpose.
+# shellcheck disable=SC2086
 set -u
 
 bin=${1:?usage: test-cli.sh path/to/plumbline}
@@ -263,6 +267,15 @@ check_absent "maps named at run time and mapsets outside the run" 'screens.cob:\
     -- check --no-config tests/fixtures/bms/screens.cob $bx
 check "dump calls lists the maps a program uses" 0 '^map SCRMAP of mapset SCRSET tests/fixtures/bms/screens.cob:17:27 received by SCREENS$' \
     -- dump calls tests/fixtures/bms/screens.cob
+sm="tests/fixtures/bms/custmnt.cob $bx"
+check "a symbolic map without a field of the map" 1 'scrmap.cpy:3:5: error: symbolic map SCRMAPI has no item STOPPERI for field STOPPER of map SCRMAP \[PLB-B004\]' \
+    -- check --no-config $sm
+check "a symbolic map item of another length" 1 'scrmap.cpy:14:9: error: CUSTNMI has 25 characters, but field CUSTNM of map SCRMAP has LENGTH=30' \
+    -- check --no-config $sm
+check "a symbolic map item the map does not have" 1 'scrmap.cpy:19:9: error: symbolic map item OLDFLDI is for a field OLDFLD that map SCRMAP does not have' \
+    -- check --no-config $sm
+check_absent "matching symbolic map items" 'scrmap.cpy:\(9\|24\|28\|32\):' \
+    -- check --no-config $sm
 check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
 check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
     -- rules --no-config --enable evaluate-without-other

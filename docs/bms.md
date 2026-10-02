@@ -46,7 +46,9 @@ programs, and each map is checked: fields that overlap
 end of the map ([PLB-B002](rules.md#plb-b002-field-outside-map)). The
 programs' `SEND MAP` and `RECEIVE MAP` commands are checked against the
 maps ([PLB-B003](rules.md#plb-b003-map-not-in-mapset)); `dump calls`
-lists the maps each program uses.
+lists the maps each program uses. The symbolic maps that programs copy
+are checked against the maps they were generated from
+([PLB-B004](rules.md#plb-b004-symbolic-map-stale)).
 
 ```console
 $ plumbline check app/bms/*.bms

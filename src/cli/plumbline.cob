@@ -414,14 +414,13 @@ CHECK-COMMAND.
     *> One input at a time: read it, check it, settle which of its
     *> findings comments suppress, and let its lines go. What is kept
     *> (findings, the call graph) refers to files by id and line.
-    CALL "PLB-JCL-INIT" USING PLB-JCL
-    CALL "PLB-BMS-INIT" USING PLB-BMS
+    *> JCL and BMS first, so that each program can be checked against
+    *> the maps it copies.
+    PERFORM READ-OTHER-INPUTS
     PERFORM VARYING WS-FILE-ID FROM 1 BY 1
             UNTIL WS-FILE-ID > WS-MAIN-FILES
         PERFORM TEST-JCL-INPUT
-        IF WS-IS-JCL NOT = "N"
-            PERFORM READ-JCL-INPUT
-        ELSE
+        IF WS-IS-JCL = "N"
             PERFORM START-INPUT
         END-IF
         IF WS-IS-JCL = "N" AND SF-LOADED(WS-FILE-ID) = "Y"
@@ -430,6 +429,8 @@ CHECK-COMMAND.
             CALL "PLB-CHECK-RUN" USING PLB-SOURCE-SET PLB-TOKENS
                 PLB-AST PLB-SYMBOLS PLB-FLOW PLB-REFS PLB-INCLUSIONS
                 PLB-RULES PLB-FINDINGS
+            CALL "PLB-RULE-SYMBOLIC-MAPS" USING PLB-SOURCE-SET
+                PLB-TOKENS PLB-SYMBOLS PLB-BMS PLB-RULES PLB-FINDINGS
             CALL "PLB-CALL-COLLECT" USING PLB-SOURCE-SET PLB-TOKENS
                 PLB-AST PLB-SYMBOLS PLB-REFS PLB-CALL-GRAPH
             CALL "PLB-FIND-SUPPRESS-RANGE" USING PLB-SOURCE-SET
@@ -501,6 +502,18 @@ TEST-JCL-INPUT.
             MOVE "B" TO WS-IS-JCL
         END-IF
     END-IF.
+
+*> The JCL and BMS inputs of the run, into PLB-JCL and PLB-BMS.
+READ-OTHER-INPUTS.
+    CALL "PLB-JCL-INIT" USING PLB-JCL
+    CALL "PLB-BMS-INIT" USING PLB-BMS
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        PERFORM TEST-JCL-INPUT
+        IF WS-IS-JCL NOT = "N"
+            PERFORM READ-JCL-INPUT
+        END-IF
+    END-PERFORM.
 
 READ-JCL-INPUT.
     IF WS-IS-JCL = "B"
@@ -633,14 +646,11 @@ ANALYZE-RUN.
     MOVE WS-MODE TO PO-FORMAT
     MOVE WS-DEBUG TO PO-DEBUG
     MOVE "Y" TO WS-FIRST
-    CALL "PLB-JCL-INIT" USING PLB-JCL
-    CALL "PLB-BMS-INIT" USING PLB-BMS
+    PERFORM READ-OTHER-INPUTS
     PERFORM VARYING WS-FILE-ID FROM 1 BY 1
             UNTIL WS-FILE-ID > WS-MAIN-FILES
         PERFORM TEST-JCL-INPUT
-        IF WS-IS-JCL NOT = "N"
-            PERFORM READ-JCL-INPUT
-        ELSE
+        IF WS-IS-JCL = "N"
             PERFORM START-INPUT
         END-IF
         IF WS-IS-JCL = "N" AND SF-LOADED(WS-FILE-ID) = "Y"
