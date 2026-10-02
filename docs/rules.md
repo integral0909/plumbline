@@ -83,6 +83,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M014](#plb-m014-sql-select-star) | sql-select-star | note | Embedded SQL selects every column with SELECT * |
 | [PLB-M015](#plb-m015-packed-even-digits) | packed-even-digits | note, off | Packed-decimal item has an even number of digits |
 | [PLB-M016](#plb-m016-signed-to-alphanumeric) | signed-to-alphanumeric | note, off | MOVE of a signed integer to an alphanumeric item |
+| [PLB-M017](#plb-m017-two-digit-year) | two-digit-year | note | ACCEPT FROM DATE or DAY gives a two-digit year |
 | [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, off | CALL of a compiler library routine |
 | [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
 | [PLB-Q001](#plb-q001-sql-table-undeclared) | sql-table-undeclared | note | Embedded SQL uses a table the program does not declare |
@@ -1669,6 +1670,25 @@ the value can be negative, move it to a numeric-edited item with a sign
 (`PIC -(6)9`) first. Most signed items moved to text (record counts,
 CICS response codes) are never negative, which is why the rule is off
 by default; enable it with `--enable signed-to-alphanumeric`.
+
+## PLB-M017 two-digit-year
+
+`ACCEPT ... FROM DATE` and `ACCEPT ... FROM DAY` without the four-digit
+forms:
+
+```cobol
+    ACCEPT CURRENT-DATE     FROM DATE       *> reported: YYMMDD
+    ACCEPT CURRENT-YYDDD    FROM DAY        *> reported: YYDDD
+    ACCEPT TODAY            FROM DATE YYYYMMDD
+```
+
+The year comes in two digits, so dates kept that way order and
+subtract wrongly across a century, and a Julian date (YYDDD) subtracts
+wrongly across any new year: 26001 minus 25365 is 636, not one day.
+`FROM DATE YYYYMMDD` and `FROM DAY YYYYDDD` give four digits;
+`FUNCTION INTEGER-OF-DATE` turns a date into a day number to subtract.
+A program that only shows the date can leave it, which is why the rule
+is a note.
 
 ## PLB-P001 vendor-routine
 

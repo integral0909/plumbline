@@ -145,6 +145,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     *> Most signed items moved to text (counts, response codes) are
     *> never negative, so this rule is only run on request.
     MOVE "N" TO RL-ENABLED(RL-COUNT)
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M017"
+        "two-digit-year" "N"
+        "ACCEPT FROM DATE or DAY gives a two-digit year"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-Q001"
         "sql-table-undeclared" "N"
         "Embedded SQL uses a table the program does not declare"
