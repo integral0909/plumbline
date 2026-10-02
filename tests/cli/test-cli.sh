@@ -112,7 +112,7 @@ check "alnum-narrowing is off by default"  0 '^$' -- check --disable move-trunca
 check "alnum-narrowing can be enabled"     0 'c008-move-truncation.cob:16:23: note: MOVE truncates LONG-TEXT (20 characters) to fit SHORT-TEXT (5 characters) \[PLB-M004\]' \
     -- check --enable alnum-narrowing --disable move-truncation $rx/c008-move-truncation.cob
 check "overlong file names are refused"    2 'file name longer than 512 characters' \
-    -- check $(printf 'x%.0s' $(seq 1 600)).cob
+    -- check "$(printf 'x%.0s' $(seq 1 600)).cob"
 check "--debug includes debugging lines"  0 'continuation.cbl:5:20: alnum    "DEBUG ONLY"' \
     -- dump tokens --debug $gx/continuation.cbl
 check "dump lines needs files"            2 'no input files' -- dump lines
