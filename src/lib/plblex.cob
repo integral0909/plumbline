@@ -15,7 +15,8 @@
 *>     decimal point, and (after a decimal point) exponent:
 *>     42  -7  +3.25  .5  1.5E+3
 *>     A sign only belongs to the number when it directly follows a
-*>     separator or "(", as in "MOVE -1 TO X"; "A - 1" is an operator.
+*>     separator, "(", or the "==" that opens pseudo-text, as in
+*>     "MOVE -1 TO X" and "==+1=="; "A - 1" is an operator.
 *>   - Alphanumeric literals are quoted with " or ', may contain
 *>     doubled quotes, and may carry a prefix: X Z N NX G B BX U.
 *>   - After PIC or PICTURE (optionally followed by IS) the next token
@@ -395,7 +396,8 @@ SCAN-TOKEN.
                      AND LS-NEXT2-CLS = "D")
              AND (LS-POS = 1 OR ST-TEXT(LS-POS - 1:1) = SPACE
                   OR ST-TEXT(LS-POS - 1:1) = X"0A"
-                  OR ST-TEXT(LS-POS - 1:1) = "(")
+                  OR ST-TEXT(LS-POS - 1:1) = "("
+                  OR (LS-POS > 2 AND ST-TEXT(LS-POS - 2:2) = "=="))
             ADD 1 TO LS-POS
             PERFORM SCAN-NUMBER-DIGITS
         *> A decimal point followed by digits is a number (.5) unless it
@@ -405,7 +407,8 @@ SCAN-TOKEN.
         WHEN LS-CH = "." AND LS-NEXT-CLS = "D"
              AND (LS-POS = 1 OR ST-TEXT(LS-POS - 1:1) = SPACE
                   OR ST-TEXT(LS-POS - 1:1) = X"0A"
-                  OR ST-TEXT(LS-POS - 1:1) = "(")
+                  OR ST-TEXT(LS-POS - 1:1) = "("
+                  OR (LS-POS > 2 AND ST-TEXT(LS-POS - 2:2) = "=="))
             PERFORM SCAN-NUMBER-DIGITS
         WHEN OTHER
             PERFORM SCAN-SPECIAL
