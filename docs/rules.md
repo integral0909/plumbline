@@ -55,6 +55,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C042](#plb-c042-inspect-count-not-reset) | inspect-count-not-reset | warning | INSPECT TALLYING adds to a count the paragraph does not reset |
 | [PLB-C043](#plb-c043-pointer-not-reset) | pointer-not-reset | warning | STRING or UNSTRING POINTER that no statement sets |
 | [PLB-C044](#plb-c044-varying-control-changed) | varying-control-changed | warning | Statement in a PERFORM VARYING loop changes the loop's control |
+| [PLB-C045](#plb-c045-alnum-compared-to-number) | alnum-compared-to-number | warning | Alphanumeric item compared with a shorter numeric literal |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1220,6 +1221,25 @@ Moving past items a loop has handled on purpose, as a scanner does when
 it reads two tokens at once, is clearer written as `PERFORM UNTIL` with
 its own `ADD`; where the `VARYING` form stays, suppress the finding and
 say why.
+
+## PLB-C045 alnum-compared-to-number
+
+An alphanumeric item compared with a numeric literal that has fewer
+digits than the item has characters:
+
+```cobol
+01  WS-IN-TYPE-CD           PIC X(02).
+01  WS-IN-TYPE-CD-N REDEFINES WS-IN-TYPE-CD PIC 9(02).
+    EVALUATE TRUE
+        WHEN WS-IN-TYPE-CD = 0              *> reported
+```
+
+The comparison is of characters: the literal `0` stands for the
+character "0", and the shorter side is padded with spaces, so the
+condition is true only for "0 ", never for "00". Compare the numeric
+view (`WS-IN-TYPE-CD-N = 0`), or `ZERO`, which fills the item. A
+literal as long as the item (`TYPE-CODE = 12`) compares as written, and
+an item with a binary usage (`PIC X COMP-X`) is a number.
 
 ## PLB-I001 pcb-dbd-unknown
 

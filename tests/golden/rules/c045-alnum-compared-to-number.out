@@ -1,0 +1,3 @@
+tests/golden/rules/c045-alnum-compared-to-number.cob:10:5: warning: COUNTER is never referenced [PLB-M003]
+tests/golden/rules/c045-alnum-compared-to-number.cob:12:20: warning: TYPE-CODE is alphanumeric: 0 compares as the characters 0 followed by spaces, not as a number [PLB-C045]
+tests/golden/rules/c045-alnum-compared-to-number.cob:28:26: warning: TYPE-CODE is alphanumeric: 5 compares as the characters 5 followed by spaces, not as a number [PLB-C045]
