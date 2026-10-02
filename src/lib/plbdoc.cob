@@ -160,3 +160,98 @@ PRINT-OUT.
         DISPLAY LS-OUT(1:LS-LEN)
     END-IF.
 END PROGRAM PLB-DOC-PARAGRAPHS.
+
+*> PLB-DOC-DATASETS: the data sets the job steps running program LK-P
+*> (a program of the call graph) give it, as a Markdown table with the
+*> step, the DD, the data set, and the access. Nothing is written when
+*> no step of the run runs the program.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-DOC-DATASETS.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbcallc.cpy".
+COPY "plbjclc.cpy".
+COPY "plbdsetc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-A                    PIC 9(9) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-ROWS                 PIC 9(9) COMP-5.
+01  LS-PROGRAM-NAME         PIC X(8).
+01  LS-OUT                  PIC X(512).
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-LEN                  PIC 9(9) COMP-5.
+LINKAGE SECTION.
+COPY "plbcall.cpy".
+COPY "plbjcl.cpy".
+COPY "plbdset.cpy".
+01  LK-P                    PIC 9(9) COMP-5.
+PROCEDURE DIVISION USING PLB-CALL-GRAPH PLB-JCL PLB-DATASETS LK-P.
+    MOVE 0 TO LS-ROWS
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > DE-COUNT
+        MOVE DE-RUNS(LS-E) TO LS-A
+        MOVE JS-TARGET(LS-A) TO LS-PROGRAM-NAME
+        IF JS-INNER(LS-A) NOT = SPACES
+            MOVE JS-INNER(LS-A) TO LS-PROGRAM-NAME
+        END-IF
+        IF JS-KIND(LS-A) = "P" AND LS-PROGRAM-NAME = CP-NAME(LK-P)
+            IF LS-ROWS = 0
+                DISPLAY "## Data sets"
+                DISPLAY " "
+                DISPLAY "| Step | DD | Data set | Access |"
+                DISPLAY "|---|---|---|---|"
+            END-IF
+            ADD 1 TO LS-ROWS
+            PERFORM WRITE-ROW
+        END-IF
+    END-PERFORM
+    IF LS-ROWS > 0
+        DISPLAY " "
+    END-IF
+    GOBACK.
+
+*> | JOB.STEP | DD | `DSN` | read |
+WRITE-ROW.
+    MOVE DE-STEP(LS-E) TO LS-S
+    MOVE DE-DD(LS-E) TO LS-D
+    MOVE SPACES TO LS-OUT
+    MOVE 1 TO LS-PTR
+    STRING "| " DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    EVALUATE TRUE
+        WHEN JS-JOB(LS-S) > 0
+            STRING JJ-NAME(JS-JOB(LS-S)) DELIMITED BY SPACE "."
+                DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        WHEN JS-PROC(LS-S) > 0
+            STRING JP-NAME(JS-PROC(LS-S)) DELIMITED BY SPACE "."
+                DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    END-EVALUATE
+    STRING JS-NAME(LS-S) DELIMITED BY SPACE
+           " | " DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR
+    IF JD-QUALIFIER(LS-D) NOT = SPACES
+        STRING JD-QUALIFIER(LS-D) DELIMITED BY SPACE "." DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    STRING JD-NAME(LS-D) DELIMITED BY SPACE
+           " | `" DELIMITED BY SIZE
+           DS-NAME(DE-DATASET(LS-E)) DELIMITED BY SPACE
+           "` | " DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR
+    EVALUATE DE-ACCESS(LS-E)
+        WHEN "R"
+            STRING "read" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        WHEN "W"
+            STRING "written" DELIMITED BY SIZE
+                INTO LS-OUT WITH POINTER LS-PTR
+        WHEN "U"
+            STRING "updated" DELIMITED BY SIZE
+                INTO LS-OUT WITH POINTER LS-PTR
+        WHEN OTHER
+            STRING "not known" DELIMITED BY SIZE
+                INTO LS-OUT WITH POINTER LS-PTR
+    END-EVALUATE
+    STRING " |" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    CALL "PLB-STR-LENGTH" USING LS-OUT LS-LEN
+    DISPLAY LS-OUT(1:LS-LEN).
+END PROGRAM PLB-DOC-DATASETS.

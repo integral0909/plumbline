@@ -24,7 +24,7 @@
 *>   baseline FILE        like --baseline FILE
 *>   plumbline metrics [-I DIR]... [--format ...] [--debug]
 *>                     [--report text|json|csv] FILE...
-*>   plumbline graph [--kind performs|calls|copybooks|jobs]
+*>   plumbline graph [--kind performs|calls|copybooks|jobs|datasets]
 *>                   [--report dot|json] [-I DIR]... FILE...
 *>   plumbline impact NAME [-I DIR]... FILE...
 *>   plumbline format --to fixed|free [--format ...] FILE
@@ -75,7 +75,9 @@ COPY "plbref.cpy".
 COPY "plbcallc.cpy".
 COPY "plbcall.cpy".
 COPY "plbjclc.cpy".
+COPY "plbdsetc.cpy".
 COPY "plbjcl.cpy".
+COPY "plbdset.cpy".
 COPY "plbbmsc.cpy".
 COPY "plbbms.cpy".
 COPY "plbcsdc.cpy".
@@ -375,8 +377,10 @@ SHOW-USAGE.
     DISPLAY "  graph            draw the PERFORM graph of each program"
     DISPLAY "                   (--kind performs), the CALL graph"
     DISPLAY "                   (calls), the copybook graph"
-    DISPLAY "                   (copybooks), or what JCL jobs run"
-    DISPLAY "                   (jobs), as DOT or JSON"
+    DISPLAY "                   (copybooks), what JCL jobs run"
+    DISPLAY "                   (jobs), or which job steps read and"
+    DISPLAY "                   write which data sets (datasets), as"
+    DISPLAY "                   DOT or JSON"
     DISPLAY "  inventory        list the programs, jobs, transactions, and"
     DISPLAY "                   maps of the input, and how they fit together"
     DISPLAY "  layout           list the records of programs and copybooks"
@@ -385,7 +389,9 @@ SHOW-USAGE.
     DISPLAY "                   starts it, what it uses, its paragraphs,"
     DISPLAY "                   and its records"
     DISPLAY "  impact NAME      list what includes copybook NAME or"
-    DISPLAY "                   calls program NAME, directly or not"
+    DISPLAY "                   calls program NAME, directly or not,"
+    DISPLAY "                   where data item NAME is used, or which"
+    DISPLAY "                   job steps read and write data set NAME"
     DISPLAY "  format           rewrite a file in fixed or free format"
     DISPLAY "                   (--to); --check only tells whether"
     DISPLAY "                   that would change it"
@@ -770,6 +776,11 @@ GRAPH-COMMAND.
                 PLB-INCLUDE-GRAPH WS-REPORT
         WHEN "jobs"
             CALL "PLB-GRAPH-JOBS" USING PLB-CALL-GRAPH PLB-JCL WS-REPORT
+        WHEN "datasets"
+            CALL "PLB-DATASETS-COLLECT" USING PLB-CALL-GRAPH PLB-JCL
+                PLB-DATASETS
+            CALL "PLB-GRAPH-DATASETS" USING PLB-JCL PLB-DATASETS
+                WS-REPORT
     END-EVALUATE
     CALL "PLB-GRAPH-END" USING WS-REPORT
     PERFORM REPORT-DIAGNOSTICS
@@ -842,6 +853,8 @@ DOC-COMMAND.
     END-IF
     PERFORM ADD-INPUTS
     PERFORM ANALYZE-RUN
+    CALL "PLB-DATASETS-COLLECT" USING PLB-CALL-GRAPH PLB-JCL
+        PLB-DATASETS
     MOVE "md" TO WS-REPORT
     MOVE "Y" TO WS-FIRST
     PERFORM VARYING WS-FILE-ID FROM 1 BY 1
@@ -867,7 +880,8 @@ DOC-COMMAND.
 
 *> The page of program WS-M of the metrics: its place in the run (the
 *> program of the call graph defined at the same name in this file),
-*> its paragraphs, and its records.
+*> the data sets its job steps give it, its paragraphs, and its
+*> records.
 DOC-PROGRAM.
     IF WS-FIRST = "N"
         DISPLAY "---"
@@ -887,6 +901,8 @@ DOC-PROGRAM.
     IF WS-P > 0
         CALL "PLB-INVENTORY" USING PLB-SOURCE-SET PLB-CALL-GRAPH PLB-JCL
             PLB-CSD PLB-BMS WS-REPORT WS-P
+        CALL "PLB-DOC-DATASETS" USING PLB-CALL-GRAPH PLB-JCL
+            PLB-DATASETS WS-P
     END-IF
     CALL "PLB-DOC-PARAGRAPHS" USING PLB-FLOW PLB-METRICS WS-M
     DISPLAY "## Records"
@@ -1010,13 +1026,18 @@ IMPACT-COMMAND.
         PLB-INCLUDE-GRAPH PLB-JCL WS-IMPACT-NAME WS-FOUND
     CALL "PLB-DATA-IMPACT-PRINT" USING PLB-SOURCE-SET PLB-DATA-USES
         WS-IMPACT-NAME
+    CALL "PLB-DATASETS-COLLECT" USING PLB-CALL-GRAPH PLB-JCL
+        PLB-DATASETS
+    CALL "PLB-DATASET-IMPACT" USING PLB-SOURCE-SET PLB-JCL PLB-DATASETS
+        WS-IMPACT-NAME WS-FOUND
     IF DU-COUNT > 0
         MOVE "Y" TO WS-FOUND
     END-IF
     PERFORM REPORT-DIAGNOSTICS
     IF WS-FOUND = "N"
         CALL "PLB-STR-LENGTH" USING WS-IMPACT-NAME WS-PATH-LEN
-        DISPLAY PLB-NAME ": no copybook, program, or data item named "
+        DISPLAY PLB-NAME ": no copybook, program, data item, or data"
+            " set named "
             WS-IMPACT-NAME(1:WS-PATH-LEN) " in the input" UPON SYSERR
         MOVE 1 TO WS-EXIT-CODE
     END-IF
@@ -4003,12 +4024,13 @@ PARSE-INPUT-ARGS.
                 PERFORM NEXT-ARG
                 EVALUATE WS-ARG
                     WHEN "performs" WHEN "calls" WHEN "copybooks"
-                    WHEN "jobs"
+                    WHEN "jobs" WHEN "datasets"
                         MOVE WS-ARG TO WS-GRAPH-KIND
                     WHEN OTHER
                         DISPLAY PLB-NAME ": invalid --kind '"
                             WS-ARG(1:WS-ARG-LEN)
-                            "' (expected performs, calls, copybooks, or jobs)"
+                            "' (expected performs, calls, copybooks, jobs,"
+                            " or datasets)"
                             UPON SYSERR
                         MOVE 2 TO WS-EXIT-CODE
                 END-EVALUATE

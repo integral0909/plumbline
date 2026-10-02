@@ -105,14 +105,16 @@ and the targets of GO TO DEPENDING ON). `--report json` and
 
 `plumbline graph` draws how a program's paragraphs perform and jump to
 each other, which programs call which, which files include which
-copybooks, or which JCL jobs run which programs, as Graphviz DOT (or
-JSON with `--report json`):
+copybooks, which JCL jobs run which programs, or which job steps read
+and write which data sets, as Graphviz DOT (or JSON with `--report
+json`):
 
 ```console
 $ plumbline graph src/payroll.cbl | dot -Tsvg -o payroll.svg
 $ plumbline graph --kind calls src/*.cbl | dot -Tsvg -o calls.svg
 $ plumbline graph --kind copybooks -I copybooks src/*.cbl > copies.dot
 $ plumbline graph --kind jobs src/*.cbl jcl/*.jcl > jobs.dot
+$ plumbline graph --kind datasets src/*.cbl jcl/*.jcl > datasets.dot
 ```
 
 `plumbline impact` answers the question before a change: what does it
@@ -138,7 +140,16 @@ data item CUST-ID
 For a program, the job steps that run it are listed too when the JCL is
 among the inputs. For a data item, every declaration of that name and
 every statement that reads it, sets it, or passes it on, in each
-program of the run.
+program of the run. For a data set, the job steps that write, update, and
+read it, and what that is known from:
+
+```console
+$ plumbline impact AWS.M2.CARDDEMO.TRANSACT.VSAM.KSDS app/cbl/*.cbl app/jcl/*.jcl
+data set AWS.M2.CARDDEMO.TRANSACT.VSAM.KSDS
+  read by CBEXPORT.STEP02 through DD TRANSACT at app/jcl/CBEXPORT.jcl:55 (from OPEN; the step runs CBEXPORT)
+  written by POSTTRAN.STEP15 through DD TRANFILE at app/jcl/POSTTRAN.jcl:28 (from OPEN; the step runs CBTRN02C)
+  ...
+```
 
 ## Formatting
 
@@ -196,7 +207,8 @@ program CBTRN02C batch app/cbl/CBTRN02C.cbl:23
 ## Program documentation
 
 `plumbline doc` writes a Markdown page for each program: what starts
-it and what it uses (as in the inventory), its paragraphs and sections
+it and what it uses (as in the inventory), the data sets the job steps
+running it give it, its paragraphs and sections
 with their size, complexity, what they perform and go to, and whether
 they can run at all, and its records with the layout of each item.
 Give it the same inputs as the inventory.
