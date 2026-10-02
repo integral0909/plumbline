@@ -186,6 +186,23 @@ record ORDER-RECORD copybooks/order.cpy:3, 59 bytes
   05    ORDER-AMOUNT                    S9(9)V99        COMP-3             12       6
 ```
 
+## Copybook fields
+
+`plumbline fields` lists the data items of each copybook of the run and
+how many of the programs that copy it name each one: in a statement,
+through a condition name or a subordinate item, as a file's key or
+status, or as an `OCCURS DEPENDING ON` object. Items that no program
+names, which only travel with their record, are the ones to look at
+before a copybook is changed or a file converted. `--unused` lists only
+those, and `--report json` gives the counts as JSON.
+
+```console
+$ plumbline fields --unused -I app/cpy app/cbl/*.cbl
+copybook app/cpy/CVTRA06Y.cpy: 14 items, 1 named by no program; copied by 2
+  05 DALYTRAN-PROC-TS                line 17, named by no program
+...
+```
+
 ## Inventory
 
 `plumbline inventory` describes an application: each program with what

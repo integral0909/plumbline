@@ -1,0 +1,11 @@
+*> Lists customers: names the order count, and moves the whole record.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. CUSTLIST.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY custrec.
+01  WS-COPY             PIC X(200).
+PROCEDURE DIVISION.
+    MOVE WS-COPY TO CUST-RECORD
+    DISPLAY CUST-ORDERS
+    GOBACK.

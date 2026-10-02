@@ -126,6 +126,8 @@ uses [Semantic Versioning](https://semver.org/).
   set.
 - The Visual Studio Code extension's `Plumbline: Document this
   program` shows the `plumbline doc` page of the open file.
+- `plumbline fields [--unused]` lists the items of each copybook and
+  how many programs name them.
 - `plumbline doc` writes a Markdown page for each program: what starts
   it, what it uses, the data sets its job steps give it, its
   paragraphs, and its records.

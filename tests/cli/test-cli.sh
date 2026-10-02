@@ -415,6 +415,34 @@ check_absent "doc has no index for one program" '^# Programs$' \
     -- doc $dx/metrics/complexity.cob
 check "doc refuses --report"              2 'doc writes Markdown only' \
     -- doc --report json $dx/metrics/complexity.cob
+fx="-I tests/fixtures/fields tests/fixtures/fields/custread.cob tests/fixtures/fields/custlist.cob"
+check "fields counts the programs naming an item" 0 '^  05 CUST-NAME  *line 4, named by 1 of 2 programs$' \
+    -- fields $fx
+check "fields counts record keys"         0 '^  05 CUST-ID  *line 3, named by 1 of 2 programs$' \
+    -- fields $fx
+check "fields counts DEPENDING ON objects" 0 '^  10 CUST-ORDERS  *line 9, named by 2 of 2 programs$' \
+    -- fields $fx
+check "fields summarizes each copybook"   0 '^copybook tests/fixtures/fields/custrec.cpy: 9 items, 3 named by no program; copied by 2$' \
+    -- fields $fx
+check_absent "fields --unused leaves out named items" 'CUST-NAME' \
+    -- fields --unused $fx
+check "fields --unused keeps unnamed items" 0 '^  05 CUST-FAX  *line 7, named by no program$' \
+    -- fields --unused $fx
+check "fields refuses csv"                2 "invalid --report format 'csv' (expected text or json)" \
+    -- fields --report csv $fx
+n=$((n + 1))
+if "$bin" fields --report json $fx | python3 -c '
+import json, sys
+book = json.load(sys.stdin)["copybooks"][0]
+items = {i["name"]: i for i in book["items"]}
+assert book["copiedBy"] == 2
+assert items["CUST-FAX"]["namedBy"] == 0
+assert items["CUST-ORDERS"]["namedBy"] == 2
+'; then
+    echo "ok $n - fields json"
+else
+    echo "not ok $n - fields json"
+fi
 n=$((n + 1))
 if "$bin" layout --report json $lx/order.cpy $lx/orders.cob | python3 -c '
 import json, sys
