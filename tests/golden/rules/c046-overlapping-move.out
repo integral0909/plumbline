@@ -1,0 +1,7 @@
+tests/golden/rules/c046-overlapping-move.cob:19:10: warning: CUST-NAME is used before it is given a value [PLB-C012]
+tests/golden/rules/c046-overlapping-move.cob:19:23: warning: MOVE from CUST-NAME to SHIFT-NAME, which share storage: the result is undefined [PLB-C046]
+tests/golden/rules/c046-overlapping-move.cob:20:24: warning: the value given to CUST-CITY here is replaced on line 21 before it is used [PLB-C030]
+tests/golden/rules/c046-overlapping-move.cob:20:24: warning: MOVE from CUST-WHOLE to CUST-CITY, which share storage: the result is undefined [PLB-C046]
+tests/golden/rules/c046-overlapping-move.cob:22:23: note: OTHER-REC is given a value but never read [PLB-M005]
+tests/golden/rules/c046-overlapping-move.cob:23:23: warning: MOVE CUST-NAME TO CUST-NAME does nothing [PLB-C033]
+tests/golden/rules/c046-overlapping-move.cob:24:10: warning: ITEM is used before it is given a value [PLB-C012]

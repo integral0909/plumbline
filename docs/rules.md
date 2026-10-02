@@ -56,6 +56,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C043](#plb-c043-pointer-not-reset) | pointer-not-reset | warning | STRING or UNSTRING POINTER that no statement sets |
 | [PLB-C044](#plb-c044-varying-control-changed) | varying-control-changed | warning | Statement in a PERFORM VARYING loop changes the loop's control |
 | [PLB-C045](#plb-c045-alnum-compared-to-number) | alnum-compared-to-number | warning | Alphanumeric item compared with a shorter numeric literal |
+| [PLB-C046](#plb-c046-overlapping-move) | overlapping-move | warning | MOVE between items that share storage |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1240,6 +1241,29 @@ condition is true only for "0 ", never for "00". Compare the numeric
 view (`WS-IN-TYPE-CD-N = 0`), or `ZERO`, which fills the item. A
 literal as long as the item (`TYPE-CODE = 12`) compares as written, and
 an item with a binary usage (`PIC X COMP-X`) is a number.
+
+## PLB-C046 overlapping-move
+
+A `MOVE` from one item to another that occupies some of the same
+storage, through `REDEFINES` or because one contains the other:
+
+```cobol
+01  CUSTOMER-REC.
+    05  CUST-NAME       PIC X(20).
+    05  CUST-CITY       PIC X(20).
+01  SHIFTED REDEFINES CUSTOMER-REC.
+    05  FILLER          PIC X(5).
+    05  SHIFT-NAME      PIC X(20).
+    MOVE CUST-NAME TO SHIFT-NAME            *> reported
+```
+
+The standard leaves the result of a move between overlapping items
+undefined. A compiler may copy left to right, right to left, or through
+a temporary, so the same statement can shift the data on one compiler
+and smear its first characters across the receiver on another. Move
+through a work item of its own. A move of an item to itself is PLB-C033;
+subscripted items are not compared, since the subscripts decide whether
+they overlap.
 
 ## PLB-I001 pcb-dbd-unknown
 

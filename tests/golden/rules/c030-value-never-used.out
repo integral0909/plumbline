@@ -1,6 +1,7 @@
 tests/golden/rules/c030-value-never-used.cob:24:20: warning: the value given to TOTAL here is replaced on line 25 before it is used [PLB-C030]
 tests/golden/rules/c030-value-never-used.cob:26:10: warning: REC-ALT is used before it is given a value [PLB-C012]
 tests/golden/rules/c030-value-never-used.cob:26:21: warning: the value given to REC here is replaced on line 28 before it is used [PLB-C030]
+tests/golden/rules/c030-value-never-used.cob:26:21: warning: MOVE from REC-ALT to REC, which share storage: the result is undefined [PLB-C046]
 tests/golden/rules/c030-value-never-used.cob:31:20: warning: the value given to TOTAL here is replaced on line 32 before it is used [PLB-C030]
 tests/golden/rules/c030-value-never-used.cob:33:20: warning: the value given to TOTAL here is replaced on line 38 before it is used [PLB-C030]
 tests/golden/rules/c030-value-never-used.cob:38:13: warning: the value given to TOTAL here is replaced on line 39 before it is used [PLB-C030]
