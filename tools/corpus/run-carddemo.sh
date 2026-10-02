@@ -47,10 +47,13 @@ includes=$(find app \( -iname '*.cpy' -o -iname '*.dcl' \) | sed 's|/[^/]*$||' \
 find app \( -iname '*.cbl' -o -iname '*.cob' \) | sort > ../programs.list
 programs=$(wc -l < ../programs.list | tr -d ' ')
 lines=$(cat $(cat ../programs.list) | wc -l | tr -d ' ')
-# The jobs and procedures that run the programs.
+# The jobs and procedures that run the programs, and the BMS maps of
+# the online programs.
 find app \( -iname '*.jcl' -o -iname '*.prc' \) | sort > ../jcl.list
 jobs=$(wc -l < ../jcl.list | tr -d ' ')
-cat ../programs.list ../jcl.list > ../inputs.list
+find app -iname '*.bms' | sort > ../bms.list
+maps=$(wc -l < ../bms.list | tr -d ' ')
+cat ../programs.list ../jcl.list ../bms.list > ../inputs.list
 
 # The few sources with tabs were written with stops every 4 columns.
 start=$(date +%s)
@@ -62,6 +65,7 @@ cd ../out
 
 echo "programs:            $programs ($lines lines, without copybooks)"
 echo "JCL members:         $jobs"
+echo "BMS sources:         $maps"
 echo "seconds, one run:    $((end - start))"
 echo "with input errors:   $(grep ': error: ' diagnostics.txt | cut -d: -f1 | sort -u | wc -l | tr -d ' ')"
 echo

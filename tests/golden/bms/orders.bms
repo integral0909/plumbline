@@ -1,0 +1,19 @@
+* A mapset with two maps: positions as (row,column) and as offsets,
+* OCCURS, a quoted INITIAL that runs on to the next line, and
+* attributes that make a field protected, for input, or numeric.
+ORDSET  DFHMSD TYPE=MAP,MODE=INOUT,LANG=COBOL,                         -
+               STORAGE=AUTO,TIOAPFX=YES                                 
+ORDMAP  DFHMDI SIZE=(24,80),LINE=1,COLUMN=1                             
+        DFHMDF POS=(1,1),LENGTH=12,INITIAL='Order entry,'               
+ORDNUM  DFHMDF POS=(3,10),LENGTH=8,ATTRB=(UNPROT,NUM,IC),              -
+               PICIN='99999999'                                         
+ORDNAME DFHMDF POS=(4,10),LENGTH=30,ATTRB=(UNPROT,FSET)                 
+ORDLINE DFHMDF POS=(6,2),LENGTH=20,OCCURS=5,ATTRB=PROT                  
+        DFHMDF POS=(23,1),LENGTH=60,INITIAL='PF3=Exit  PF7=Back  X     -
+               PF8=Forward'                                                            
+ORDMSG  DFHMDF POS=1840,LENGTH=79                                       
+HELPMAP DFHMDI SIZE=(12,40)                                             
+HELPTXT DFHMDF POS=(2,2),LENGTH=36                                      
+        DFHMSD TYPE=FINAL                                               
+        END                                                             
+NOTREAD DFHMDF POS=(1,1),LENGTH=1                                       

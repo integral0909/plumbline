@@ -40,6 +40,7 @@
 *>   plumbline dump refs [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump calls [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump jcl FILE...
+*>   plumbline dump bms FILE...
 *>
 *> Exit codes:
 *>   0  success
@@ -70,6 +71,8 @@ COPY "plbcallc.cpy".
 COPY "plbcall.cpy".
 COPY "plbjclc.cpy".
 COPY "plbjcl.cpy".
+COPY "plbbmsc.cpy".
+COPY "plbbms.cpy".
 COPY "plbconf.cpy".
 COPY "plbmetrc.cpy".
 COPY "plbmetr.cpy".
@@ -314,6 +317,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline dump refs [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump calls [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump jcl FILE..."
+    DISPLAY "       plumbline dump bms FILE..."
     DISPLAY "Static analysis for COBOL programs."
     DISPLAY " "
     DISPLAY "Options:"
@@ -347,6 +351,7 @@ SHOW-USAGE.
     DISPLAY "  dump refs        show what each name in the procedures refers to"
     DISPLAY "  dump calls       show programs, their parameters, and CALLs"
     DISPLAY "  dump jcl         show the jobs, steps, and DD statements of JCL"
+    DISPLAY "  dump bms         show the maps and fields of CICS BMS sources"
     DISPLAY " "
     DISPLAY "Command options:"
     DISPLAY "  --format FORMAT  reference format: fixed, free, or auto"
@@ -410,10 +415,11 @@ CHECK-COMMAND.
     *> findings comments suppress, and let its lines go. What is kept
     *> (findings, the call graph) refers to files by id and line.
     CALL "PLB-JCL-INIT" USING PLB-JCL
+    CALL "PLB-BMS-INIT" USING PLB-BMS
     PERFORM VARYING WS-FILE-ID FROM 1 BY 1
             UNTIL WS-FILE-ID > WS-MAIN-FILES
         PERFORM TEST-JCL-INPUT
-        IF WS-IS-JCL = "Y"
+        IF WS-IS-JCL NOT = "N"
             PERFORM READ-JCL-INPUT
         ELSE
             PERFORM START-INPUT
@@ -435,6 +441,9 @@ CHECK-COMMAND.
     COMPUTE WS-FIRST-FINDING = FN-COUNT + 1
     CALL "PLB-CALL-RESOLVE" USING PLB-CALL-GRAPH
     CALL "PLB-RULE-CALLS" USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH
+    *> Maps, and the programs that send and receive them.
+    CALL "PLB-RULE-BMS" USING PLB-RULES PLB-FINDINGS PLB-BMS
+        PLB-CALL-GRAPH
     PERFORM SUPPRESS-LATE-FINDINGS
     *> Programs against the JCL that runs them. JCL has no suppression
     *> comments.
@@ -476,7 +485,8 @@ CHECK-COMMAND.
     END-IF.
 
 *> WS-IS-JCL = "Y" when input WS-FILE-ID is JCL: a file named
-*> *.jcl or *.prc, in either case.
+*> *.jcl or *.prc, in either case; "B" when it is a BMS map source,
+*> *.bms.
 TEST-JCL-INPUT.
     MOVE "N" TO WS-IS-JCL
     CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET WS-FILE-ID WS-PATH
@@ -487,14 +497,22 @@ TEST-JCL-INPUT.
         IF WS-EXTENSION = ".JCL" OR WS-EXTENSION = ".PRC"
             MOVE "Y" TO WS-IS-JCL
         END-IF
+        IF WS-EXTENSION = ".BMS"
+            MOVE "B" TO WS-IS-JCL
+        END-IF
     END-IF.
 
 READ-JCL-INPUT.
-    CALL "PLB-JCL-READ" USING WS-PATH(1:WS-PATH-LEN) WS-FILE-ID PLB-JCL
-        WS-STATUS
+    IF WS-IS-JCL = "B"
+        CALL "PLB-BMS-READ" USING WS-PATH(1:WS-PATH-LEN) WS-FILE-ID
+            PLB-BMS WS-STATUS
+    ELSE
+        CALL "PLB-JCL-READ" USING WS-PATH(1:WS-PATH-LEN) WS-FILE-ID
+            PLB-JCL WS-STATUS
+    END-IF
     IF WS-STATUS NOT = 0
         MOVE SPACES TO WS-OUT
-        STRING "cannot read JCL file " DELIMITED BY SIZE
+        STRING "cannot read " DELIMITED BY SIZE
                WS-PATH(1:WS-PATH-LEN) DELIMITED BY SIZE
             INTO WS-OUT
         MOVE 0 TO WS-POS-LINE WS-POS-COLUMN
@@ -616,10 +634,11 @@ ANALYZE-RUN.
     MOVE WS-DEBUG TO PO-DEBUG
     MOVE "Y" TO WS-FIRST
     CALL "PLB-JCL-INIT" USING PLB-JCL
+    CALL "PLB-BMS-INIT" USING PLB-BMS
     PERFORM VARYING WS-FILE-ID FROM 1 BY 1
             UNTIL WS-FILE-ID > WS-MAIN-FILES
         PERFORM TEST-JCL-INPUT
-        IF WS-IS-JCL = "Y"
+        IF WS-IS-JCL NOT = "N"
             PERFORM READ-JCL-INPUT
         ELSE
             PERFORM START-INPUT
@@ -1983,7 +2002,7 @@ DUMP-COMMAND.
        AND WS-ARG NOT = "expanded" AND WS-ARG NOT = "ast"
        AND WS-ARG NOT = "symbols" AND WS-ARG NOT = "flow"
        AND WS-ARG NOT = "refs" AND WS-ARG NOT = "calls"
-       AND WS-ARG NOT = "jcl"
+       AND WS-ARG NOT = "jcl" AND WS-ARG NOT = "bms"
         IF WS-ARG-LEN = 0
             DISPLAY PLB-NAME ": dump: missing what to dump"
                 UPON SYSERR
@@ -2001,6 +2020,10 @@ DUMP-COMMAND.
     END-IF
     IF WS-DUMP-TARGET = "jcl"
         PERFORM DUMP-JCL
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-DUMP-TARGET = "bms"
+        PERFORM DUMP-BMS
         EXIT PARAGRAPH
     END-IF
     PERFORM LOAD-INPUTS
@@ -2317,6 +2340,7 @@ DUMP-JCL.
     CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET
     CALL "PLB-DIAG-INIT" USING PLB-DIAGNOSTICS
     CALL "PLB-JCL-INIT" USING PLB-JCL
+    CALL "PLB-BMS-INIT" USING PLB-BMS
     PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > IP-COUNT
         CALL "PLB-SRC-ADD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
             IP-PATH(WS-I) WS-MODE WS-FILE-ID
@@ -2450,6 +2474,107 @@ APPEND-JCL-POSITION.
     PERFORM APPEND-NUM
     STRING ": " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR.
 
+*> BMS sources, like JCL, are registered for their paths and read by
+*> their own reader.
+DUMP-BMS.
+    CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET
+    CALL "PLB-DIAG-INIT" USING PLB-DIAGNOSTICS
+    CALL "PLB-BMS-INIT" USING PLB-BMS
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > IP-COUNT
+        CALL "PLB-SRC-ADD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            IP-PATH(WS-I) WS-MODE WS-FILE-ID
+        CALL "PLB-BMS-READ" USING IP-PATH(WS-I) WS-FILE-ID PLB-BMS
+            WS-STATUS
+        IF WS-STATUS NOT = 0
+            CALL "PLB-STR-LENGTH" USING IP-PATH(WS-I) WS-PATH-LEN
+            DISPLAY PLB-NAME ": cannot read "
+                IP-PATH(WS-I)(1:WS-PATH-LEN) UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        END-IF
+    END-PERFORM
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > BS-COUNT
+        MOVE SPACES TO WS-OUT
+        MOVE 1 TO WS-PTR
+        MOVE BS-FILE-ID(WS-I) TO WS-POS-FILE
+        MOVE BS-LINE(WS-I) TO WS-POS-LINE
+        PERFORM APPEND-JCL-POSITION
+        STRING "mapset " DELIMITED BY SIZE
+               BS-NAME(WS-I) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+        DISPLAY WS-OUT(1:WS-PTR - 1)
+        PERFORM VARYING WS-P FROM 1 BY 1 UNTIL WS-P > BM-COUNT
+            IF BM-MAPSET(WS-P) = WS-I
+                PERFORM DUMP-BMS-MAP
+            END-IF
+        END-PERFORM
+    END-PERFORM.
+
+DUMP-BMS-MAP.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    MOVE BM-FILE-ID(WS-P) TO WS-POS-FILE
+    MOVE BM-LINE(WS-P) TO WS-POS-LINE
+    PERFORM APPEND-JCL-POSITION
+    STRING "  map " DELIMITED BY SIZE
+           BM-NAME(WS-P) DELIMITED BY SPACE
+           " size " DELIMITED BY SIZE
+        INTO WS-OUT WITH POINTER WS-PTR
+    MOVE BM-LINES(WS-P) TO WS-NUM
+    PERFORM APPEND-NUM
+    STRING "x" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE BM-COLUMNS(WS-P) TO WS-NUM
+    PERFORM APPEND-NUM
+    DISPLAY WS-OUT(1:WS-PTR - 1)
+    PERFORM VARYING WS-C FROM BM-FIELD-FIRST(WS-P) BY 1
+            UNTIL WS-C >= BM-FIELD-FIRST(WS-P) + BM-FIELD-COUNT(WS-P)
+        PERFORM DUMP-BMS-FIELD
+    END-PERFORM.
+
+DUMP-BMS-FIELD.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    MOVE BF-FILE-ID(WS-C) TO WS-POS-FILE
+    MOVE BF-LINE(WS-C) TO WS-POS-LINE
+    PERFORM APPEND-JCL-POSITION
+    STRING "    field " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    IF BF-NAME(WS-C) = SPACES
+        STRING "-" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    ELSE
+        STRING BF-NAME(WS-C) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    STRING " at " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE BF-ROW(WS-C) TO WS-NUM
+    PERFORM APPEND-NUM
+    STRING "," DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE BF-COLUMN(WS-C) TO WS-NUM
+    PERFORM APPEND-NUM
+    STRING " length " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE BF-LENGTH(WS-C) TO WS-NUM
+    PERFORM APPEND-NUM
+    IF BF-OCCURS(WS-C) > 1
+        STRING " occurs " DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+        MOVE BF-OCCURS(WS-C) TO WS-NUM
+        PERFORM APPEND-NUM
+    END-IF
+    IF BF-PROTECTED(WS-C) = "Y"
+        STRING " protected" DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    ELSE
+        STRING " input" DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF BF-NUMERIC(WS-C) = "Y"
+        STRING " numeric" DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF BF-HAS-INITIAL(WS-C) = "Y"
+        STRING " initial" DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    DISPLAY WS-OUT(1:WS-PTR - 1).
+
 DUMP-CALLS.
     CALL "PLB-CALL-INIT" USING PLB-CALL-GRAPH
     MOVE SS-FILE-COUNT TO WS-MAIN-FILES
@@ -2471,6 +2596,9 @@ DUMP-CALLS.
     PERFORM VARYING WS-C FROM 1 BY 1 UNTIL WS-C > PF-COUNT
         PERFORM DUMP-ONE-FILE
     END-PERFORM
+    PERFORM VARYING WS-C FROM 1 BY 1 UNTIL WS-C > PM-COUNT
+        PERFORM DUMP-ONE-MAP
+    END-PERFORM
     IF CP-DROPPED > 0
         MOVE CP-DROPPED TO WS-NUM
         CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
@@ -2480,6 +2608,31 @@ DUMP-CALLS.
 
 *> file NAME path:line:col of PROGRAM dd DDNAME [optional] [sort]
 *> [opened MODES]
+*> map NAME of mapset SET path:line:col sent|received by PROGRAM
+DUMP-ONE-MAP.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    STRING "map " DELIMITED BY SIZE
+           PM-MAP(WS-C) DELIMITED BY SPACE
+           " of mapset " DELIMITED BY SIZE
+           PM-MAPSET(WS-C) DELIMITED BY SPACE
+           " " DELIMITED BY SIZE
+        INTO WS-OUT WITH POINTER WS-PTR
+    MOVE PM-FILE-ID(WS-C) TO WS-POS-FILE
+    MOVE PM-LINE(WS-C) TO WS-POS-LINE
+    MOVE PM-COLUMN(WS-C) TO WS-POS-COLUMN
+    PERFORM APPEND-POSITION
+    IF PM-COMMAND(WS-C) = "S"
+        STRING " sent by " DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    ELSE
+        STRING " received by " DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    STRING CP-NAME(PM-PROGRAM(WS-C)) DELIMITED BY SPACE
+        INTO WS-OUT WITH POINTER WS-PTR
+    DISPLAY WS-OUT(1:WS-PTR - 1).
+
 DUMP-ONE-FILE.
     MOVE SPACES TO WS-OUT
     MOVE 1 TO WS-PTR

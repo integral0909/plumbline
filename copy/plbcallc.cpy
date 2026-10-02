@@ -4,3 +4,4 @@
 78  CC-MAX                      VALUE 20000.
 78  CG-MAX                      VALUE 60000.
 78  PF-MAX                      VALUE 20000.
+78  PM-MAX                      VALUE 20000.

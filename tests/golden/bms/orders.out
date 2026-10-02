@@ -1,0 +1,10 @@
+tests/golden/bms/orders.bms:4: mapset ORDSET
+tests/golden/bms/orders.bms:6:   map ORDMAP size 24x80
+tests/golden/bms/orders.bms:7:     field - at 1,1 length 12 protected initial
+tests/golden/bms/orders.bms:8:     field ORDNUM at 3,10 length 8 input numeric
+tests/golden/bms/orders.bms:10:     field ORDNAME at 4,10 length 30 input
+tests/golden/bms/orders.bms:11:     field ORDLINE at 6,2 length 20 occurs 5 protected
+tests/golden/bms/orders.bms:12:     field - at 23,1 length 60 protected initial
+tests/golden/bms/orders.bms:14:     field ORDMSG at 24,1 length 79 protected
+tests/golden/bms/orders.bms:15:   map HELPMAP size 12x40
+tests/golden/bms/orders.bms:16:     field HELPTXT at 2,2 length 36 protected

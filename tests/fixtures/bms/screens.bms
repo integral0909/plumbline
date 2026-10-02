@@ -1,0 +1,17 @@
+* Fields that overlap, and fields that run past the end of the map.
+SCRSET  DFHMSD TYPE=MAP,LANG=COBOL                                      
+SCRMAP  DFHMDI SIZE=(24,80)                                             
+        DFHMDF POS=(1,1),LENGTH=10,INITIAL='Customer:'                  
+CUSTNO  DFHMDF POS=(1,12),LENGTH=8,ATTRB=(UNPROT,NUM)                   
+CUSTNM  DFHMDF POS=(1,21),LENGTH=30                                     
+        DFHMDF POS=(3,1),LENGTH=0                                       
+STOPPER DFHMDF POS=(3,1),LENGTH=5                                       
+LINES   DFHMDF POS=(5,1),LENGTH=39,OCCURS=4                             
+NEXTTO  DFHMDF POS=(6,40),LENGTH=10                                     
+ERRMSG  DFHMDF POS=(23,1),LENGTH=80                                     
+FKEYS   DFHMDF POS=(24,1),LENGTH=79                                     
+SMALL   DFHMDI SIZE=(5,40)                                              
+WIDE    DFHMDF POS=(5,10),LENGTH=40                                     
+OFFMAP  DFHMDF POS=(2,41),LENGTH=1                                      
+        DFHMSD TYPE=FINAL                                               
+        END                                                             
