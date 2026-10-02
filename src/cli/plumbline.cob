@@ -855,8 +855,9 @@ DOC-COMMAND.
     PERFORM ANALYZE-RUN
     CALL "PLB-DATASETS-COLLECT" USING PLB-CALL-GRAPH PLB-JCL
         PLB-DATASETS
-    MOVE "md" TO WS-REPORT
     MOVE "Y" TO WS-FIRST
+    PERFORM DOC-INDEX
+    MOVE "md" TO WS-REPORT
     PERFORM VARYING WS-FILE-ID FROM 1 BY 1
             UNTIL WS-FILE-ID > WS-MAIN-FILES
         PERFORM TEST-JCL-INPUT
@@ -876,6 +877,25 @@ DOC-COMMAND.
     PERFORM REPORT-DIAGNOSTICS
     IF DG-ERRORS > 0
         MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+*> With more than one program, an index of them first.
+DOC-INDEX.
+    MOVE 0 TO WS-J
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > CP-COUNT
+        IF CP-KIND(WS-I) = "P"
+            ADD 1 TO WS-J
+        END-IF
+    END-PERFORM
+    IF WS-J > 1
+        DISPLAY "# Programs"
+        DISPLAY " "
+        MOVE "mdidx" TO WS-REPORT
+        MOVE 0 TO WS-P
+        CALL "PLB-INVENTORY" USING PLB-SOURCE-SET PLB-CALL-GRAPH PLB-JCL
+            PLB-CSD PLB-BMS WS-REPORT WS-P
+        DISPLAY " "
+        MOVE "N" TO WS-FIRST
     END-IF.
 
 *> The page of program WS-M of the metrics: its place in the run (the
