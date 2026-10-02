@@ -52,7 +52,12 @@ See the [rule reference](docs/rules.md) for what each rule looks for.
 
 The `dump` commands show Plumbline's view of a program at each stage,
 which helps when a result is surprising: `dump lines`, `dump tokens`,
-`dump expanded`, `dump ast`, `dump symbols`, `dump flow`, and `dump refs`.
+`dump expanded`, `dump ast`, `dump symbols`, `dump flow`, `dump refs`,
+and `dump calls`.
+
+Give `check` all the programs that call each other in one run. Calls
+between them are then checked against the programs they call: the
+number of arguments, how they are passed, and their sizes.
 
 ## Documentation
 

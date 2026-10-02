@@ -18,11 +18,15 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C010](#plb-c010-ambiguous-name) | ambiguous-name | error | Name refers to more than one data item |
 | [PLB-C011](#plb-c011-read-never-set) | read-never-set | warning | Data item is read but never given a value |
 | [PLB-C012](#plb-c012-use-before-set) | use-before-set | warning | Data item is read before any path gives it a value |
+| [PLB-C013](#plb-c013-call-argument-count) | call-argument-count | warning | CALL passes a different number of arguments than the program takes |
+| [PLB-C014](#plb-c014-call-argument-mismatch) | call-argument-mismatch | warning | CALL argument is passed differently or is smaller than its parameter |
+| [PLB-C015](#plb-c015-recursive-call) | recursive-call | error | Program that is not RECURSIVE can be called while it is running |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
 | [PLB-M004](#plb-m004-alnum-narrowing) | alnum-narrowing | note, off | MOVE from a larger alphanumeric item to a smaller one |
 | [PLB-M005](#plb-m005-set-never-read) | set-never-read | note | Data item is given values but never read |
+| [PLB-M006](#plb-m006-dynamic-call) | dynamic-call | note, off | CALL of a program named by a data item |
 
 Rules marked *off* run only when enabled with `--enable`.
 
@@ -292,6 +296,75 @@ Many compilers fill working storage with spaces or zeros by default, so
 such code may happen to work. Give the item a `VALUE` or set it
 explicitly, and the program no longer depends on compiler options.
 
+## How call rules see programs
+
+PLB-C013, PLB-C014, and PLB-C015 check each `CALL "NAME"` against the
+program it calls. That program has to be in the same run: give
+`plumbline check` the calling and the called programs together, in one
+file or several. Calls of programs outside the run, such as runtime
+library routines, are not checked. `plumbline dump calls` shows how
+each call was resolved.
+
+## PLB-C013 call-argument-count
+
+A `CALL` that passes more or fewer arguments than the called program's
+`PROCEDURE DIVISION USING` (or `ENTRY ... USING`) has parameters:
+
+```cobol
+    CALL "PRICING" USING ORDER-ID        *> reported
+    ...
+PROGRAM-ID. PRICING.
+    PROCEDURE DIVISION USING ORDER-KEY ORDER-AMOUNT.
+```
+
+The parameters left without an argument have no storage behind them,
+and using one is undefined. Pass `OMITTED` for an argument the program
+is written to do without; it counts as an argument.
+
+## PLB-C014 call-argument-mismatch
+
+An argument that does not fit the parameter it is passed to:
+
+- passed `BY VALUE` to a parameter the program takes by reference, or
+  `BY REFERENCE` or `BY CONTENT` to one it takes `BY VALUE`;
+- passed by reference or content while being smaller than its
+  parameter.
+
+```cobol
+01  SHORT-ID        PIC X(4).
+    CALL "PRICING" USING SHORT-ID ORDER-TOTAL   *> reported
+    ...
+PROGRAM-ID. PRICING.
+    LINKAGE SECTION.
+    01  ORDER-KEY       PIC X(8).
+```
+
+The called program reads and writes all 8 bytes of `ORDER-KEY`, and 4 of
+them belong to whatever follows `SHORT-ID`. Literals count by their
+length, so `CALL "PRICING" USING "A12" ...` is reported too. A larger
+argument is not reported, because programs often pass a record to a
+routine that uses only its start. Sizes Plumbline does not know, such
+as `ANY LENGTH` parameters and reference-modified arguments, are not
+compared.
+
+## PLB-C015 recursive-call
+
+A program that can be called while it is still running, through a chain
+of calls that leads back to it, and that is not declared `RECURSIVE`:
+
+```cobol
+PROGRAM-ID. PRICING.
+    CALL "DISCOUNT" USING ...
+PROGRAM-ID. DISCOUNT.
+    CALL "PRICING" USING ...    *> reported: PRICING -> DISCOUNT -> PRICING
+```
+
+COBOL programs are not reentrant unless they are declared `RECURSIVE`,
+and calling an active program is undefined. Many runtimes stop with an
+error at that point. The finding shows the chain and is reported at the
+call that closes it. Declare the program `PROGRAM-ID. NAME IS RECURSIVE`
+if the recursion is intended.
+
 ## PLB-M001 go-to
 
 Every `GO TO` statement, reported as a note. `GO TO` makes the flow of
@@ -355,3 +428,15 @@ storage it shares:
 
 Usually the item is left over from earlier code, or the read that should
 use it is reading something else. The rule is a note by default.
+
+## PLB-M006 dynamic-call
+
+A `CALL` of the program named in a data item:
+
+```cobol
+    CALL ROUTINE-NAME USING ORDER-ID       *> reported when enabled
+```
+
+Plumbline cannot tell which program such a call reaches, so the call
+rules do not check it. Enable this rule to list the calls that are left
+unchecked.

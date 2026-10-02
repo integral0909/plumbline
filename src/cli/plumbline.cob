@@ -13,6 +13,7 @@
 *>   plumbline dump symbols [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump flow [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump refs [-I DIR]... [--format ...] [--debug] FILE...
+*>   plumbline dump calls [-I DIR]... [--format ...] [--debug] FILE...
 *>
 *> Exit codes:
 *>   0  success
@@ -38,6 +39,8 @@ COPY "plbflow.cpy".
 COPY "plbrules.cpy".
 COPY "plbfind.cpy".
 COPY "plbref.cpy".
+COPY "plbcallc.cpy".
+COPY "plbcall.cpy".
 78  MAX-INPUTS                  VALUE 256.
 01  WS-ARG-COUNT            PIC 9(4).
 01  WS-ARG-INDEX            PIC 9(4).
@@ -83,6 +86,11 @@ COPY "plbref.cpy".
 01  WS-FAIL-ON              PIC X VALUE "W".
 01  WS-FAILING              PIC 9(9) COMP-5.
 01  WS-REPORT               PIC X(5) VALUE "text".
+01  WS-C                    PIC 9(9) COMP-5.
+01  WS-K                    PIC 9(9) COMP-5.
+01  WS-POS-FILE             PIC 9(4) COMP-5.
+01  WS-POS-LINE             PIC 9(9) COMP-5.
+01  WS-POS-COLUMN           PIC 9(4) COMP-5.
 
 PROCEDURE DIVISION.
 MAIN-LOGIC.
@@ -147,6 +155,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline dump symbols [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump flow [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump refs [-I DIR]... [--format FORMAT] [--debug] FILE..."
+    DISPLAY "       plumbline dump calls [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "Static analysis for COBOL programs."
     DISPLAY " "
     DISPLAY "Options:"
@@ -162,6 +171,7 @@ SHOW-USAGE.
     DISPLAY "  dump symbols     show data items with sizes and offsets"
     DISPLAY "  dump flow        show paragraphs, sections, and control flow"
     DISPLAY "  dump refs        show what each name in the procedures refers to"
+    DISPLAY "  dump calls       show programs, their parameters, and CALLs"
     DISPLAY " "
     DISPLAY "Command options:"
     DISPLAY "  --format FORMAT  reference format: fixed, free, or auto"
@@ -185,6 +195,7 @@ CHECK-COMMAND.
     END-IF
     PERFORM LOAD-INPUTS
     CALL "PLB-FIND-INIT" USING PLB-FINDINGS
+    CALL "PLB-CALL-INIT" USING PLB-CALL-GRAPH
     MOVE SS-FILE-COUNT TO WS-MAIN-FILES
     MOVE WS-MODE TO PO-FORMAT
     MOVE WS-DEBUG TO PO-DEBUG
@@ -193,7 +204,12 @@ CHECK-COMMAND.
         PERFORM ANALYZE-FILE
         CALL "PLB-CHECK-RUN" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
             PLB-SYMBOLS PLB-FLOW PLB-REFS PLB-RULES PLB-FINDINGS
+        CALL "PLB-CALL-COLLECT" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
+            PLB-SYMBOLS PLB-REFS PLB-CALL-GRAPH
     END-PERFORM
+    *> Rules about calls between programs, in any of the files.
+    CALL "PLB-CALL-RESOLVE" USING PLB-CALL-GRAPH
+    CALL "PLB-RULE-CALLS" USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH
     CALL "PLB-FIND-SUPPRESS" USING PLB-SOURCE-SET PLB-RULES PLB-FINDINGS
     CALL "PLB-FIND-SORT" USING PLB-FINDINGS
     EVALUATE WS-REPORT
@@ -263,7 +279,7 @@ DUMP-COMMAND.
     IF WS-ARG NOT = "lines" AND WS-ARG NOT = "tokens"
        AND WS-ARG NOT = "expanded" AND WS-ARG NOT = "ast"
        AND WS-ARG NOT = "symbols" AND WS-ARG NOT = "flow"
-       AND WS-ARG NOT = "refs"
+       AND WS-ARG NOT = "refs" AND WS-ARG NOT = "calls"
         IF WS-ARG-LEN = 0
             DISPLAY PLB-NAME ": dump: missing what to dump"
                 UPON SYSERR
@@ -296,6 +312,8 @@ DUMP-COMMAND.
         PERFORM DUMP-FLOW
     WHEN "refs"
         PERFORM DUMP-REFS
+    WHEN "calls"
+        PERFORM DUMP-CALLS
     WHEN OTHER
         CALL "PLB-LEX-INIT" USING PLB-TOKENS
         PERFORM VARYING WS-FILE-ID FROM 1 BY 1
@@ -560,6 +578,192 @@ DUMP-REFS.
             PERFORM DUMP-ONE-REF
         END-PERFORM
     END-PERFORM.
+
+*> One line per program or ENTRY point, then its parameters; one
+*> line per CALL, then its arguments:
+*>     program NAME path:line:col [in OUTER] [common] [recursive]
+*>       parameter NAME reference|value SIZE
+*>     entry NAME path:line:col in PROGRAM
+*>     call path:line:col CALLER -> TARGET RESOLUTION
+*>       argument item|literal|omitted|other TEXT MODE SIZE
+*> SIZE is in bytes, or ? when not known.
+DUMP-CALLS.
+    CALL "PLB-CALL-INIT" USING PLB-CALL-GRAPH
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
+    MOVE WS-MODE TO PO-FORMAT
+    MOVE WS-DEBUG TO PO-DEBUG
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        PERFORM ANALYZE-FILE
+        CALL "PLB-CALL-COLLECT" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
+            PLB-SYMBOLS PLB-REFS PLB-CALL-GRAPH
+    END-PERFORM
+    CALL "PLB-CALL-RESOLVE" USING PLB-CALL-GRAPH
+    PERFORM VARYING WS-P FROM 1 BY 1 UNTIL WS-P > CP-COUNT
+        PERFORM DUMP-ONE-PROGRAM
+    END-PERFORM
+    PERFORM VARYING WS-C FROM 1 BY 1 UNTIL WS-C > CC-COUNT
+        PERFORM DUMP-ONE-CALL
+    END-PERFORM
+    IF CP-DROPPED > 0
+        MOVE CP-DROPPED TO WS-NUM
+        CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+        DISPLAY "dropped " WS-NUM-TEXT(1:WS-NUM-LEN)
+            " entries over the call graph's limits"
+    END-IF.
+
+DUMP-ONE-PROGRAM.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    IF CP-KIND(WS-P) = "E"
+        STRING "entry " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    ELSE
+        STRING "program " DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    STRING CP-NAME(WS-P) DELIMITED BY SPACE " " DELIMITED BY SIZE
+        INTO WS-OUT WITH POINTER WS-PTR
+    MOVE CP-FILE-ID(WS-P) TO WS-POS-FILE
+    MOVE CP-LINE(WS-P) TO WS-POS-LINE
+    MOVE CP-COLUMN(WS-P) TO WS-POS-COLUMN
+    PERFORM APPEND-POSITION
+    IF CP-KIND(WS-P) = "E"
+        STRING " in " DELIMITED BY SIZE
+               CP-NAME(CP-OWNER(WS-P)) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+    ELSE
+        IF CP-PARENT(WS-P) > 0
+            STRING " in " DELIMITED BY SIZE
+                   CP-NAME(CP-PARENT(WS-P)) DELIMITED BY SPACE
+                INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+        IF CP-COMMON(WS-P) = "Y"
+            STRING " common" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+        IF CP-RECURSIVE(WS-P) = "Y"
+            STRING " recursive" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+    END-IF
+    CALL "PLB-STR-LENGTH" USING WS-OUT WS-OUT-LEN
+    DISPLAY WS-OUT(1:WS-OUT-LEN)
+    PERFORM VARYING WS-K FROM CP-PARAM-FIRST(WS-P) BY 1
+            UNTIL WS-K >= CP-PARAM-FIRST(WS-P) + CP-PARAM-COUNT(WS-P)
+        MOVE SPACES TO WS-OUT
+        MOVE 1 TO WS-PTR
+        STRING "  parameter " DELIMITED BY SIZE
+               CA-NAME(WS-K) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+        IF CA-MODE(WS-K) = "V"
+            STRING " value " DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        ELSE
+            STRING " reference " DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+        MOVE CA-SIZE(WS-K) TO WS-NUM
+        PERFORM APPEND-SIZE
+        CALL "PLB-STR-LENGTH" USING WS-OUT WS-OUT-LEN
+        DISPLAY WS-OUT(1:WS-OUT-LEN)
+    END-PERFORM.
+
+DUMP-ONE-CALL.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    STRING "call " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE CC-FILE-ID(WS-C) TO WS-POS-FILE
+    MOVE CC-LINE(WS-C) TO WS-POS-LINE
+    MOVE CC-COLUMN(WS-C) TO WS-POS-COLUMN
+    PERFORM APPEND-POSITION
+    STRING " " DELIMITED BY SIZE
+           CP-NAME(CC-FROM(WS-C)) DELIMITED BY SPACE
+           " -> " DELIMITED BY SIZE
+           CC-TARGET(WS-C) DELIMITED BY SPACE
+           " " DELIMITED BY SIZE
+        INTO WS-OUT WITH POINTER WS-PTR
+    EVALUATE TRUE
+        WHEN CC-DYNAMIC(WS-C) = "Y"
+            STRING "dynamic" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN CC-TO(WS-C) > 0
+            MOVE CC-TO(WS-C) TO WS-K
+            MOVE CP-FILE-ID(WS-K) TO WS-POS-FILE
+            MOVE CP-LINE(WS-K) TO WS-POS-LINE
+            MOVE CP-COLUMN(WS-K) TO WS-POS-COLUMN
+            PERFORM APPEND-POSITION
+        WHEN CC-MATCHES(WS-C) > 1
+            MOVE CC-MATCHES(WS-C) TO WS-NUM
+            PERFORM APPEND-NUM
+            STRING " programs" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN OTHER
+            STRING "not found" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+    END-EVALUATE
+    CALL "PLB-STR-LENGTH" USING WS-OUT WS-OUT-LEN
+    DISPLAY WS-OUT(1:WS-OUT-LEN)
+    PERFORM VARYING WS-K FROM CC-ARG-FIRST(WS-C) BY 1
+            UNTIL WS-K >= CC-ARG-FIRST(WS-C) + CC-ARG-COUNT(WS-C)
+        MOVE SPACES TO WS-OUT
+        MOVE 1 TO WS-PTR
+        STRING "  argument " DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+        EVALUATE CG-KIND(WS-K)
+            WHEN "D"
+                STRING "item " DELIMITED BY SIZE
+                    INTO WS-OUT WITH POINTER WS-PTR
+            WHEN "L"
+                STRING "literal " DELIMITED BY SIZE
+                    INTO WS-OUT WITH POINTER WS-PTR
+            WHEN "O"
+                STRING "omitted " DELIMITED BY SIZE
+                    INTO WS-OUT WITH POINTER WS-PTR
+            WHEN OTHER
+                STRING "other " DELIMITED BY SIZE
+                    INTO WS-OUT WITH POINTER WS-PTR
+        END-EVALUATE
+        STRING CG-TEXT(WS-K) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+        EVALUATE CG-MODE(WS-K)
+            WHEN "C"
+                STRING " content " DELIMITED BY SIZE
+                    INTO WS-OUT WITH POINTER WS-PTR
+            WHEN "V"
+                STRING " value " DELIMITED BY SIZE
+                    INTO WS-OUT WITH POINTER WS-PTR
+            WHEN OTHER
+                STRING " reference " DELIMITED BY SIZE
+                    INTO WS-OUT WITH POINTER WS-PTR
+        END-EVALUATE
+        MOVE CG-SIZE(WS-K) TO WS-NUM
+        PERFORM APPEND-SIZE
+        CALL "PLB-STR-LENGTH" USING WS-OUT WS-OUT-LEN
+        DISPLAY WS-OUT(1:WS-OUT-LEN)
+    END-PERFORM.
+
+*> path:line:column of WS-POS-FILE, WS-POS-LINE, WS-POS-COLUMN.
+APPEND-POSITION.
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET WS-POS-FILE WS-PATH
+    CALL "PLB-STR-LENGTH" USING WS-PATH WS-PATH-LEN
+    IF WS-PATH-LEN > 0
+        STRING WS-PATH(1:WS-PATH-LEN) DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    STRING ":" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE WS-POS-LINE TO WS-NUM
+    PERFORM APPEND-NUM
+    STRING ":" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE WS-POS-COLUMN TO WS-NUM
+    PERFORM APPEND-NUM.
+
+*> WS-NUM bytes, or ? for 0.
+APPEND-SIZE.
+    IF WS-NUM = 0
+        STRING "?" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    ELSE
+        PERFORM APPEND-NUM
+    END-IF.
 
 DUMP-ONE-REF.
     MOVE SPACES TO WS-OUT

@@ -47,6 +47,15 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C012"
         "use-before-set" "W"
         "Data item is read before any path gives it a value"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C013"
+        "call-argument-count" "W"
+        "CALL passes a different number of arguments than the program takes"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C014"
+        "call-argument-mismatch" "W"
+        "CALL argument is passed differently or is smaller than its parameter"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C015"
+        "recursive-call" "E"
+        "Program that is not RECURSIVE can be called while it is running"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M001"
         "go-to" "N"
         "GO TO statement"
@@ -64,6 +73,10 @@ PROCEDURE DIVISION USING PLB-RULES.
         "MOVE from a larger alphanumeric item to a smaller one"
     *> Moving a large buffer into a smaller field is common and often
     *> intended, so this rule is only run on request.
+    MOVE "N" TO RL-ENABLED(RL-COUNT)
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M006"
+        "dynamic-call" "N"
+        "CALL of a program named by a data item"
     MOVE "N" TO RL-ENABLED(RL-COUNT)
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
@@ -131,6 +144,11 @@ END PROGRAM PLB-FIND-INIT.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-FIND-AT-TOKEN.
 DATA DIVISION.
+LOCAL-STORAGE SECTION.
+01  LS-FILE-ID              PIC 9(4) COMP-5 VALUE 0.
+01  LS-LINE                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 0.
+01  LS-SRC-LINE             PIC 9(9) COMP-5 VALUE 0.
 LINKAGE SECTION.
 COPY "plbsrc.cpy".
 COPY "plbtokc.cpy".
@@ -142,6 +160,36 @@ COPY "plbfind.cpy".
 01  LK-MESSAGE              PIC X ANY LENGTH.
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LK-RULE LK-TOKEN LK-MESSAGE.
+    IF LK-TOKEN >= 1 AND LK-TOKEN <= TK-COUNT
+        MOVE TK-FILE-ID(LK-TOKEN) TO LS-FILE-ID
+        MOVE TK-SRC-LINE(LK-TOKEN) TO LS-SRC-LINE
+        IF LS-SRC-LINE > 0
+            MOVE SL-LINE-NO(LS-SRC-LINE) TO LS-LINE
+        END-IF
+        MOVE TK-COLUMN(LK-TOKEN) TO LS-COLUMN
+    END-IF
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LK-RULE LS-FILE-ID
+        LS-LINE LS-COLUMN LS-SRC-LINE LK-MESSAGE
+    GOBACK.
+END PROGRAM PLB-FIND-AT-TOKEN.
+
+*> PLB-FIND-AT: report rule RULE with MESSAGE at a position given as
+*> file, line, column, and SS-LINE index (0 when unknown), at the
+*> rule's configured severity. Disabled rules report nothing.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-FIND-AT.
+DATA DIVISION.
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+01  LK-RULE                 PIC 9(4) COMP-5.
+01  LK-FILE-ID              PIC 9(4) COMP-5.
+01  LK-LINE                 PIC 9(9) COMP-5.
+01  LK-COLUMN               PIC 9(4) COMP-5.
+01  LK-SRC-LINE             PIC 9(9) COMP-5.
+01  LK-MESSAGE              PIC X ANY LENGTH.
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS LK-RULE LK-FILE-ID
+        LK-LINE LK-COLUMN LK-SRC-LINE LK-MESSAGE.
     IF LK-RULE < 1 OR LK-RULE > RL-COUNT
         GOBACK
     END-IF
@@ -157,18 +205,12 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
     MOVE RL-SEVERITY(LK-RULE) TO FN-SEVERITY(FN-COUNT)
     MOVE LK-MESSAGE TO FN-MESSAGE(FN-COUNT)
     MOVE "N" TO FN-SUPPRESSED(FN-COUNT)
-    MOVE 0 TO FN-FILE-ID(FN-COUNT) FN-LINE(FN-COUNT)
-        FN-COLUMN(FN-COUNT) FN-SRC-LINE(FN-COUNT)
-    IF LK-TOKEN >= 1 AND LK-TOKEN <= TK-COUNT
-        MOVE TK-FILE-ID(LK-TOKEN) TO FN-FILE-ID(FN-COUNT)
-        MOVE TK-SRC-LINE(LK-TOKEN) TO FN-SRC-LINE(FN-COUNT)
-        IF TK-SRC-LINE(LK-TOKEN) > 0
-            MOVE SL-LINE-NO(TK-SRC-LINE(LK-TOKEN)) TO FN-LINE(FN-COUNT)
-        END-IF
-        MOVE TK-COLUMN(LK-TOKEN) TO FN-COLUMN(FN-COUNT)
-    END-IF
+    MOVE LK-FILE-ID TO FN-FILE-ID(FN-COUNT)
+    MOVE LK-LINE TO FN-LINE(FN-COUNT)
+    MOVE LK-COLUMN TO FN-COLUMN(FN-COUNT)
+    MOVE LK-SRC-LINE TO FN-SRC-LINE(FN-COUNT)
     GOBACK.
-END PROGRAM PLB-FIND-AT-TOKEN.
+END PROGRAM PLB-FIND-AT.
 
 *> PLB-FIND-SORT: order findings by file, line, column, and rule.
 IDENTIFICATION DIVISION.

@@ -503,6 +503,7 @@ LOCAL-STORAGE SECTION.
 01  LS-MAIN-EOF             PIC 9(9) COMP-5.
 01  LS-F                    PIC 9(4) COMP-5.
 01  LS-I                    PIC 9(9) COMP-5.
+01  LS-LOADED               PIC 9(4) COMP-5.
 01  LS-J                    PIC 9(9) COMP-5.
 01  LS-K                    PIC 9(9) COMP-5.
 01  LS-R                    PIC 9(9) COMP-5.
@@ -952,8 +953,20 @@ FIND-OR-LOAD.
         MOVE "N" TO LS-OK
         EXIT PARAGRAPH
     END-IF
-    CALL "PLB-SRC-LOAD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS LS-PATH
-        PO-FORMAT LS-FILE-ID LS-LOAD-STATUS
+    *> A copybook an earlier file of the run included is already in
+    *> the source set; tokenize it again rather than read it again.
+    MOVE 0 TO LS-FILE-ID
+    PERFORM VARYING LS-LOADED FROM 1 BY 1
+            UNTIL LS-LOADED > SS-FILE-COUNT
+        IF SF-PATH(LS-LOADED) = LS-PATH
+            MOVE LS-LOADED TO LS-FILE-ID
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-FILE-ID = 0
+        CALL "PLB-SRC-LOAD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS LS-PATH
+            PO-FORMAT LS-FILE-ID LS-LOAD-STATUS
+    END-IF
     IF LS-FILE-ID = 0
         MOVE "N" TO LS-OK
         EXIT PARAGRAPH

@@ -63,3 +63,12 @@ uses [Semantic Versioning](https://semver.org/).
   spans, and a shared access table for data-flow rules.
 - Rules PLB-C011 read-never-set, PLB-C012 use-before-set, and
   PLB-M005 set-never-read.
+- Call graph across all files of a run, with parameters and arguments;
+  `plumbline dump calls` prints it.
+- Rules PLB-C013 call-argument-count, PLB-C014 call-argument-mismatch,
+  PLB-C015 recursive-call, and PLB-M006 dynamic-call (off by default).
+
+### Fixed
+
+- Copybooks shared by many files of one run are read once, rather than
+  once per file, which ran into the 256-file limit.

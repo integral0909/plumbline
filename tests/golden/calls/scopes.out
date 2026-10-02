@@ -1,0 +1,24 @@
+program OUTER tests/golden/calls/scopes.cob:5:13
+program INNER-A tests/golden/calls/scopes.cob:23:13 in OUTER common
+  parameter L-REC reference 20
+program INNER-B tests/golden/calls/scopes.cob:34:13 in OUTER
+  parameter L-ROW reference 4
+  parameter L-ANY reference ?
+program LIB tests/golden/calls/scopes.cob:45:13
+entry ALT-ENTRY tests/golden/calls/scopes.cob:51:11 in LIB
+  parameter L-N value 2
+call tests/golden/calls/scopes.cob:13:10 OUTER -> INNER-A tests/golden/calls/scopes.cob:23:13
+  argument item REC reference 20
+call tests/golden/calls/scopes.cob:14:10 OUTER -> INNER-B tests/golden/calls/scopes.cob:34:13
+  argument item ROW reference 4
+  argument other LENGTH content ?
+call tests/golden/calls/scopes.cob:15:10 OUTER -> ALT-ENTRY tests/golden/calls/scopes.cob:51:11
+  argument item N value 2
+call tests/golden/calls/scopes.cob:16:10 OUTER -> LIB tests/golden/calls/scopes.cob:45:13
+  argument item ROW reference ?
+  argument item REC reference ?
+  argument omitted OMITTED reference ?
+call tests/golden/calls/scopes.cob:19:10 OUTER -> SYSTEM not found
+  argument literal ls content 2
+call tests/golden/calls/scopes.cob:29:10 INNER-A -> INNER-B not found
+  argument item L-REC reference 20

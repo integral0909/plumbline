@@ -115,6 +115,13 @@ check "overlong file names are refused"    2 'file name longer than 512 characte
     -- check "$(printf 'x%.0s' $(seq 1 600)).cob"
 check "--debug includes debugging lines"  0 'continuation.cbl:5:20: alnum    "DEBUG ONLY"' \
     -- dump tokens --debug $gx/continuation.cbl
+cx=tests/fixtures/calls
+check "calls are checked across files"    1 'billing.cob:9:17: warning: argument 1 (CUST-ID, 6 bytes) is smaller than parameter LK-CUST-ID of CUSTLOOK (8 bytes) \[PLB-C014\]' \
+    -- check $cx/billing.cob $cx/custlook.cob
+check "calls to programs not in the run are not checked" 0 '^$' -- check $cx/billing.cob
+check "dynamic-call is off by default"    0 '^$' -- check --disable call-argument-count --disable call-argument-mismatch --disable recursive-call $rx/c013-c015-calls.cob
+check "dump calls lists parameters"       0 '^  parameter LK-CUST-ID reference 8$' -- dump calls $cx/custlook.cob
+check "help lists dump calls"             0 'dump calls' -- --help
 check "dump lines needs files"            2 'no input files' -- dump lines
 check "invalid --format value"            2 "invalid format 'variable'" \
     -- dump lines --format variable $fx/fixed-basic.cbl
