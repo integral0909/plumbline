@@ -176,6 +176,7 @@ uses [Semantic Versioning](https://semver.org/).
   and `dump calls` the record length of each file.
 - Rule PLB-K002 read-update-not-released.
 - Rule PLB-Q004 sql-no-where.
+- Rule PLB-C046 overlapping-move.
 - SARIF reports link each rule to its section of the rule reference
   (`helpUri`), and the tool to the project (`informationUri`).
 - Rules PLB-C039 decimal-to-alphanumeric and PLB-M016

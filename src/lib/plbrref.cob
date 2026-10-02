@@ -98,12 +98,17 @@ WORKING-STORAGE SECTION.
 *> Reference starting at each token (0: none), for the tokens of the
 *> current file.
 01  WS-TOKEN-REF            PIC 9(9) COMP-5 OCCURS 500000 TIMES.
+*> The storage of each item, for PLB-C046.
+COPY "plbspan.cpy" REPLACING ==PLB-SPANS== BY ==WS-SPANS==.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-RULE-TRUNCATION      PIC 9(4) COMP-5.
 01  LS-RULE-NARROWING       PIC 9(4) COMP-5.
 01  LS-RULE-DECIMAL-TEXT    PIC 9(4) COMP-5.
 01  LS-RULE-SIGNED-TEXT     PIC 9(4) COMP-5.
+01  LS-RULE-OVERLAP         PIC 9(4) COMP-5.
+01  LS-OVERLAP              PIC X.
+01  LS-SEND-SUBSCRIPTED     PIC X.
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-DEPTH                PIC S9(9) COMP-5.
@@ -155,11 +160,16 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M004" LS-RULE-NARROWING
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C039" LS-RULE-DECIMAL-TEXT
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M016" LS-RULE-SIGNED-TEXT
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C046" LS-RULE-OVERLAP
     IF RL-ENABLED(LS-RULE-TRUNCATION) NOT = "Y"
        AND RL-ENABLED(LS-RULE-NARROWING) NOT = "Y"
        AND RL-ENABLED(LS-RULE-DECIMAL-TEXT) NOT = "Y"
        AND RL-ENABLED(LS-RULE-SIGNED-TEXT) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-OVERLAP) NOT = "Y"
         GOBACK
+    END-IF
+    IF RL-ENABLED(LS-RULE-OVERLAP) = "Y"
+        CALL "PLB-SPAN-BUILD" USING PLB-SYMBOLS WS-SPANS
     END-IF
     IF AS-COUNT = 0
         GOBACK
@@ -245,6 +255,7 @@ CLASSIFY-SENDER.
                 IF RF-KIND(LS-R) = "D" AND RF-REFMOD(LS-R) = "N"
                     MOVE "D" TO LS-SEND-KIND
                     MOVE RF-SYMBOL(LS-R) TO LS-SEND-SYM
+                    MOVE RF-SUBSCRIPTED(LS-R) TO LS-SEND-SUBSCRIPTED
                     MOVE SY-SIZE(LS-SEND-SYM) TO LS-SEND-SIZE
                     COMPUTE LS-SEND-INT = SY-DIGITS(LS-SEND-SYM)
                         - SY-SCALE(LS-SEND-SYM)
@@ -284,6 +295,7 @@ CHECK-RECEIVER.
     IF SY-SIZE(LS-RECV) = 0
         EXIT PARAGRAPH
     END-IF
+    PERFORM CHECK-OVERLAP
     IF LS-SEND-KIND = "D"
         IF SY-SIZE(LS-SEND-SYM) = 0
             EXIT PARAGRAPH
@@ -332,6 +344,31 @@ CHECK-RECEIVER.
                 END-IF
             END-IF
     END-EVALUATE.
+
+*> PLB-C046: sender and receiver share storage, and are not the same
+*> item (PLB-C033). Subscripted items stand for their whole table here,
+*> so they are not compared.
+CHECK-OVERLAP.
+    IF RL-ENABLED(LS-RULE-OVERLAP) NOT = "Y" OR LS-SEND-KIND NOT = "D"
+       OR LS-SEND-SYM = LS-RECV OR LS-SEND-SUBSCRIPTED = "Y"
+       OR RF-SUBSCRIPTED(LS-R) = "Y" OR SY-SIZE(LS-SEND-SYM) = 0
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-SPAN-OVERLAP" USING WS-SPANS LS-SEND-SYM LS-RECV
+        LS-OVERLAP
+    IF LS-OVERLAP = "Y"
+        MOVE SPACES TO LS-MESSAGE
+        STRING "MOVE from " DELIMITED BY SIZE
+               SY-NAME(LS-SEND-SYM) DELIMITED BY SPACE
+               " to " DELIMITED BY SIZE
+               SY-NAME(LS-RECV) DELIMITED BY SPACE
+               ", which share storage: the result is undefined"
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE
+        MOVE LS-RULE-OVERLAP TO LS-RULE
+        PERFORM REPORT-FINDING
+        MOVE SPACES TO LS-MESSAGE
+    END-IF.
 
 *> LS-JUSTIFIED = "Y" when the receiver has a JUSTIFIED clause.
 CHECK-JUSTIFIED.

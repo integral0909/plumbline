@@ -194,6 +194,8 @@ Some findings that were read and are true:
   (`COTRTLIC`) tests `WHEN WS-IN-TYPE-CD = 0`, with `WS-IN-TYPE-CD`
   `PIC X(02)`: true for "0 " but not for a type code of "00". The
   program declares the numeric view `WS-IN-TYPE-CD-N` next to it.
+- **PLB-C046 overlapping-move.** None, here or in the NIST and
+  GnuCOBOL corpora: no program moves between items that share storage.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)
