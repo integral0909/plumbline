@@ -216,6 +216,14 @@ The findings were checked by rule:
   pattern only matches a whole literal (SM401M). A seventh,
   `==+00001==` in SM206A, was Plumbline reading the sign of a pseudo-text
   pattern as an operator, fixed before this diagnostic was added.
+- **PLB-C049 loop-condition-unchanged.** One: NC401M, the flagging test
+  again, performs `NC401M-NESTIF THRU NC401M-INIT WITH TEST AFTER UNTIL
+  BOX-B IS EQUAL TO BOX-A`, and the two paragraphs set only `VARD` and
+  `VARB`. The loop ends only because both boxes are zero when it starts.
+  A first version also reported NC244A, whose condition subscripts with
+  two indexes the performed paragraph moves with `SET ... DOWN BY`; a
+  condition that names an index is now left alone.
+
 ## Limits
 
 - **Report Writer** is parsed and its `SOURCE`, `SUM`, and `CONTROL`

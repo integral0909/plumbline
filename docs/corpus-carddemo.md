@@ -204,6 +204,10 @@ Some findings that were read and are true:
   GnuCOBOL corpora. The 29 NIST programs with SORT or MERGE procedures
   all release and return their records; with the `RELEASE` of `DB104A`
   taken out, its input procedure `SORT-IN` is reported.
+- **PLB-C049 loop-condition-unchanged.** None, and none in the
+  GnuCOBOL corpus. Of CardDemo's 33 lines with `UNTIL`, four belong to
+  `VARYING` loops; the others are loops that read a file, call a program
+  (MQ), or run EXEC SQL or CICS commands, which the rule leaves alone.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)

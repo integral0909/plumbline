@@ -1,0 +1,4 @@
+tests/golden/rules/c049-loop-condition-unchanged.cob:20:13: warning: the loop never changes WS-COUNT or WS-LIMIT, which its UNTIL condition reads: unless the condition holds when the loop starts, it never ends [PLB-C049]
+tests/golden/rules/c049-loop-condition-unchanged.cob:24:18: warning: the loop never changes WS-DONE, which its UNTIL condition reads: unless the condition holds when the loop starts, it never ends [PLB-C049]
+tests/golden/rules/c049-loop-condition-unchanged.cob:41:19: warning: WS-ENTRY is read but never given a value [PLB-C011]
+tests/golden/rules/c049-loop-condition-unchanged.cob:46:9: note: GO TO makes the flow of control hard to follow [PLB-M001]
