@@ -1,0 +1,2 @@
+tests/golden/rules/c042-inspect-count-not-reset.cob:21:5: note: GO TO makes the flow of control hard to follow [PLB-M001]
+tests/golden/rules/c042-inspect-count-not-reset.cob:30:31: warning: INSPECT adds to I, which this paragraph does not set before it [PLB-C042]

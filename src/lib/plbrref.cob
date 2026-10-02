@@ -579,3 +579,193 @@ REPORT-LOSS.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-JOIN LS-MESSAGE.
 END PROGRAM PLB-RULE-C041.
+
+*> PLB-C042 inspect-count-not-reset: INSPECT ... TALLYING count FOR
+*> ... adds to count; it does not start it at zero. A count that the
+*> paragraph does not set before the INSPECT (MOVE ZERO TO count,
+*> INITIALIZE of it or of a group around it, ...) carries whatever it
+*> held: the total of an earlier INSPECT, or a loop index's last value.
+*>
+*> Only the paragraph of the INSPECT is read, and only plain stores
+*> count: ADD 1 TO count adds as INSPECT does. A count passed BY
+*> REFERENCE to a CALL before the INSPECT counts as set.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-C042.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+*> Reference starting at each token (0: none), for the tokens of the
+*> current file.
+01  WS-TOKEN-REF            PIC 9(9) COMP-5 OCCURS 500000 TIMES.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
+01  LS-NODE                 PIC 9(9) COMP-5.
+01  LS-DEPTH                PIC S9(9) COMP-5.
+01  LS-R                    PIC 9(9) COMP-5.
+01  LS-Q                    PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-U                    PIC 9(9) COMP-5.
+01  LS-NEXT                 PIC 9(9) COMP-5.
+01  LS-START                PIC 9(9) COMP-5.
+01  LS-END                  PIC 9(9) COMP-5.
+01  LS-UNIT                 PIC 9(9) COMP-5.
+01  LS-V                    PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-COUNT                PIC 9(9) COMP-5.
+01  LS-UP                   PIC 9(9) COMP-5.
+01  LS-LEVEL                PIC S9(4) COMP-5.
+01  LS-TALLYING             PIC X.
+01  LS-FOUND                PIC X.
+01  LS-WORD                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbsym.cpy".
+COPY "plbflow.cpy".
+COPY "plbref.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
+        PLB-FLOW PLB-REFS PLB-RULES PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C042" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        MOVE LS-R TO WS-TOKEN-REF(RF-TOKEN(LS-R))
+    END-PERFORM
+    MOVE 1 TO LS-NODE
+    MOVE 0 TO LS-DEPTH
+    PERFORM UNTIL LS-NODE = 0
+        IF ND-KIND(LS-NODE) = "STMT" AND ND-DETAIL(LS-NODE) = "INSPECT"
+            PERFORM CHECK-INSPECT
+        END-IF
+        CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
+    END-PERFORM
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        MOVE 0 TO WS-TOKEN-REF(RF-TOKEN(LS-R))
+    END-PERFORM
+    GOBACK.
+
+*> The counts of the TALLYING phrase: each data item followed by FOR.
+CHECK-INSPECT.
+    MOVE "N" TO LS-TALLYING
+    MOVE 0 TO LS-LEVEL
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
+            UNTIL LS-T >= ND-TOK-LAST(LS-NODE)
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-T)
+                ADD 1 TO LS-LEVEL
+            WHEN TK-IS-RPAREN(LS-T)
+                SUBTRACT 1 FROM LS-LEVEL
+            WHEN LS-LEVEL > 0
+                CONTINUE
+            WHEN WS-TOKEN-REF(LS-T) > 0 AND LS-TALLYING = "Y"
+                PERFORM COUNT-AT-T
+            WHEN TK-IS-WORD(LS-T)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+                EVALUATE FUNCTION UPPER-CASE(LS-WORD)
+                    WHEN "TALLYING"
+                        MOVE "Y" TO LS-TALLYING
+                    WHEN "REPLACING" WHEN "CONVERTING"
+                        MOVE "N" TO LS-TALLYING
+                END-EVALUATE
+        END-EVALUATE
+    END-PERFORM.
+
+*> The data item at LS-T is a count when the next word is FOR (past
+*> its subscripts).
+COUNT-AT-T.
+    MOVE WS-TOKEN-REF(LS-T) TO LS-R
+    IF RF-KIND(LS-R) NOT = "D"
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-NEXT = RF-LAST(LS-R) + 1
+    IF LS-NEXT > ND-TOK-LAST(LS-NODE)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-NEXT LS-WORD LS-LEN
+    IF FUNCTION UPPER-CASE(LS-WORD) NOT = "FOR"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE RF-SYMBOL(LS-R) TO LS-COUNT
+    PERFORM PARAGRAPH-START
+    MOVE ND-TOK-FIRST(LS-NODE) TO LS-END
+    PERFORM FIND-RESET
+    IF LS-FOUND = "N" AND LS-UNIT > 0
+        PERFORM FIND-RESET-BEFORE
+    END-IF
+    IF LS-FOUND = "N"
+        MOVE SPACES TO LS-MESSAGE
+        STRING "INSPECT adds to " DELIMITED BY SIZE
+               SY-NAME(LS-COUNT) DELIMITED BY SPACE
+               ", which this paragraph does not set before it"
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE LS-T LS-MESSAGE
+    END-IF.
+
+*> LS-START: the first token of the paragraph (or section, or start of
+*> the division) the INSPECT is in.
+PARAGRAPH-START.
+    MOVE 1 TO LS-START
+    MOVE 0 TO LS-UNIT
+    PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > FU-COUNT
+        IF ND-TOK-FIRST(FU-NODE(LS-U)) <= ND-TOK-FIRST(LS-NODE)
+           AND ND-TOK-FIRST(FU-NODE(LS-U)) >= LS-START
+            MOVE ND-TOK-FIRST(FU-NODE(LS-U)) TO LS-START
+            MOVE LS-U TO LS-UNIT
+        END-IF
+    END-PERFORM.
+
+*> A unit that leads into the INSPECT's (LS-UNIT) may set the count
+*> anywhere: one that falls into it, goes to it, or performs it.
+FIND-RESET-BEFORE.
+    PERFORM VARYING LS-V FROM 1 BY 1
+            UNTIL LS-V > FU-COUNT OR LS-FOUND = "Y"
+        IF FU-NEXT(LS-V) = LS-UNIT AND FU-FALLS(LS-V) = "Y"
+           AND FU-FLOWED(LS-V) = "Y"
+            PERFORM FIND-RESET-IN-UNIT
+        END-IF
+    END-PERFORM
+    PERFORM VARYING LS-E FROM 1 BY 1
+            UNTIL LS-E > FE-COUNT OR LS-FOUND = "Y"
+        IF FE-TO(LS-E) = LS-UNIT
+           AND (FE-KIND(LS-E) = "P" OR FE-KIND(LS-E) = "G")
+            MOVE FE-FROM(LS-E) TO LS-V
+            PERFORM FIND-RESET-IN-UNIT
+        END-IF
+    END-PERFORM.
+
+FIND-RESET-IN-UNIT.
+    MOVE ND-TOK-FIRST(FU-NODE(LS-V)) TO LS-START
+    COMPUTE LS-END = ND-TOK-LAST(FU-NODE(LS-V)) + 1
+    PERFORM FIND-RESET.
+
+*> LS-FOUND = "Y" when a reference from LS-START up to LS-END stores
+*> into the count or a group around it (role D), or may (role X).
+FIND-RESET.
+    MOVE "N" TO LS-FOUND
+    PERFORM VARYING LS-Q FROM 1 BY 1 UNTIL LS-Q > RF-COUNT
+        IF RF-TOKEN(LS-Q) >= LS-START
+           AND RF-TOKEN(LS-Q) < LS-END
+           AND RF-KIND(LS-Q) = "D"
+           AND (RF-ROLE(LS-Q) = "D" OR RF-ROLE(LS-Q) = "X")
+            MOVE LS-COUNT TO LS-UP
+            PERFORM UNTIL LS-UP = 0
+                IF RF-SYMBOL(LS-Q) = LS-UP
+                    MOVE "Y" TO LS-FOUND
+                    EXIT PARAGRAPH
+                END-IF
+                MOVE SY-PARENT(LS-UP) TO LS-UP
+            END-PERFORM
+        END-IF
+    END-PERFORM.
+END PROGRAM PLB-RULE-C042.
