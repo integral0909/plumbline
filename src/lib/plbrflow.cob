@@ -340,8 +340,19 @@ END PROGRAM PLB-RULE-C029.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-C035.
 DATA DIVISION.
+WORKING-STORAGE SECTION.
+*> The units by name, upper-cased once: a hash of the name picks a
+*> bucket, which chains the units added so far, the latest first.
+78  UH-BUCKETS                  VALUE 4093.
+01  WS-UNIT-HEAD            PIC 9(9) COMP-5 OCCURS UH-BUCKETS TIMES.
+01  WS-UNIT-NEXT            PIC 9(9) COMP-5 OCCURS 20000 TIMES.
+01  WS-UNIT-NAME            PIC X(31) OCCURS 20000 TIMES.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-HASH                 PIC 9(9) COMP-5.
+01  LS-HASH-SUM             PIC 9(9) COMP-5.
+01  LS-HASH-I               PIC 9(4) COMP-5.
+01  LS-FIRST                PIC 9(9) COMP-5.
 01  LS-U                    PIC 9(9) COMP-5.
 01  LS-V                    PIC 9(9) COMP-5.
 01  LS-NAME                 PIC X(31).
@@ -364,31 +375,57 @@ COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
         PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C035" LS-RULE
-    PERFORM VARYING LS-U FROM 2 BY 1 UNTIL LS-U > FU-COUNT
+    IF RL-ENABLED(LS-RULE) NOT = "Y" OR FU-COUNT > 20000
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-HASH FROM 1 BY 1 UNTIL LS-HASH > UH-BUCKETS
+        MOVE 0 TO WS-UNIT-HEAD(LS-HASH)
+    END-PERFORM
+    PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > FU-COUNT
         IF FU-KIND(LS-U) = "P" OR FU-KIND(LS-U) = "S"
             MOVE FUNCTION UPPER-CASE(FU-NAME(LS-U)) TO LS-NAME
+            MOVE LS-NAME TO WS-UNIT-NAME(LS-U)
+            PERFORM NAME-HASH
             PERFORM FIND-EARLIER
             IF LS-V > 0
                 PERFORM REPORT-UNIT
             END-IF
+            MOVE WS-UNIT-HEAD(LS-HASH) TO WS-UNIT-NEXT(LS-U)
+            MOVE LS-U TO WS-UNIT-HEAD(LS-HASH)
         END-IF
     END-PERFORM
     GOBACK.
 
 *> LS-V: the first unit before LS-U of the same kind and name in the
-*> same scope, or 0.
+*> same scope, or 0. The chain holds the earlier units, the latest
+*> first, so the last match found is the first in the source.
 FIND-EARLIER.
-    PERFORM VARYING LS-V FROM 1 BY 1 UNTIL LS-V >= LS-U
+    MOVE 0 TO LS-FIRST
+    MOVE WS-UNIT-HEAD(LS-HASH) TO LS-V
+    PERFORM UNTIL LS-V = 0
         IF FU-PROGRAM(LS-V) = FU-PROGRAM(LS-U)
            AND FU-KIND(LS-V) = FU-KIND(LS-U)
-           AND FUNCTION UPPER-CASE(FU-NAME(LS-V)) = LS-NAME
+           AND WS-UNIT-NAME(LS-V) = LS-NAME
             IF FU-KIND(LS-U) = "S"
                OR FU-SECTION(LS-V) = FU-SECTION(LS-U)
-                EXIT PARAGRAPH
+                MOVE LS-V TO LS-FIRST
             END-IF
         END-IF
+        MOVE WS-UNIT-NEXT(LS-V) TO LS-V
     END-PERFORM
-    MOVE 0 TO LS-V.
+    MOVE LS-FIRST TO LS-V.
+
+*> LS-HASH: the bucket of LS-NAME, 1 to UH-BUCKETS.
+NAME-HASH.
+    MOVE 0 TO LS-HASH-SUM
+    PERFORM VARYING LS-HASH-I FROM 1 BY 1 UNTIL LS-HASH-I > 31
+        IF LS-NAME(LS-HASH-I:1) = SPACE
+            EXIT PERFORM
+        END-IF
+        COMPUTE LS-HASH-SUM = FUNCTION MOD(LS-HASH-SUM * 31
+            + FUNCTION ORD(LS-NAME(LS-HASH-I:1)), UH-BUCKETS)
+    END-PERFORM
+    COMPUTE LS-HASH = LS-HASH-SUM + 1.
 
 REPORT-UNIT.
     MOVE ND-NAME(FU-NODE(LS-V)) TO LS-TOKEN
