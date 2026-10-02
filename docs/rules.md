@@ -53,6 +53,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C040](#plb-c040-odo-object-too-small) | odo-object-too-small | warning | OCCURS DEPENDING ON object cannot hold the table's largest count |
 | [PLB-C041](#plb-c041-write-from-truncation) | write-from-truncation | warning | WRITE or REWRITE FROM an item longer than the record |
 | [PLB-C042](#plb-c042-inspect-count-not-reset) | inspect-count-not-reset | warning | INSPECT TALLYING adds to a count the paragraph does not reset |
+| [PLB-C043](#plb-c043-pointer-not-reset) | pointer-not-reset | warning | STRING or UNSTRING POINTER that no statement sets |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1165,6 +1166,32 @@ or into a group around it, before the `INSPECT` (`MOVE ZERO TO`,
 it, goes to it, or performs it) does so anywhere. `ADD 1 TO count` adds
 as `INSPECT` does and does not count, and a `VALUE` clause sets the
 count only for the first time the paragraph runs.
+
+## PLB-C043 pointer-not-reset
+
+A `STRING` or `UNSTRING` `WITH POINTER` whose pointer no statement
+sets:
+
+```cobol
+01  WS-RESP-LENGTH      PIC S9(4) VALUE 1.
+...
+6000-MAKE-DECISION.
+    STRING PA-RL-CARD-NUM ',' ... DELIMITED BY SIZE
+        INTO W02-PUT-BUFFER
+        WITH POINTER WS-RESP-LENGTH           *> reported
+```
+
+The statement starts at the pointer and leaves it past what it handled.
+When the paragraph runs again, for the next message of a loop, it
+starts where the last one stopped: the text lands after the earlier
+reply, or does not fit at all. `VALUE 1` sets the pointer only for the
+first run. Set it to 1 just before the statement.
+
+Only a pointer that no statement of the program sets is reported: one
+with just a `VALUE` clause, or nothing. A paragraph that appends to a
+line through a pointer its callers set (`MOVE 1 TO PTR`, then `PERFORM
+APPEND-FIELD` several times) is the usual way to build text, and is
+fine.
 
 ## PLB-I001 pcb-dbd-unknown
 

@@ -1,0 +1,1 @@
+tests/golden/rules/c043-pointer-not-reset.cob:23:36: warning: STRING starts at the value of WS-REPLY-LENGTH, which no statement of the program sets: only its first run starts where its VALUE says [PLB-C043]
