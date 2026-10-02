@@ -129,6 +129,8 @@ uses [Semantic Versioning](https://semver.org/).
 - The language server shows, above each section and paragraph, how many
   `PERFORM` and `GO TO` statements name it (code lens).
 - Go to definition on a `COPY` statement opens the copybook.
+- The copybook name of each `COPY` statement is a link to the copybook
+  (document links).
 - Hover over a paragraph or section name shows its size, complexity,
   callers, and whether it ever runs.
 - `plumbline check --report md` writes the findings as Markdown, for a

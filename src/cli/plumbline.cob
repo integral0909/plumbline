@@ -1260,6 +1260,8 @@ LSP-MESSAGE.
             PERFORM LSP-FOLDING-RANGES
         WHEN "textDocument/codeLens"
             PERFORM LSP-CODE-LENSES
+        WHEN "textDocument/documentLink"
+            PERFORM LSP-DOCUMENT-LINKS
         WHEN "textDocument/prepareRename"
             PERFORM LSP-PREPARE-RENAME
         WHEN "textDocument/rename"
@@ -1294,6 +1296,8 @@ LSP-INITIALIZE.
            '"documentHighlightProvider":true,' DELIMITED BY SIZE
            '"foldingRangeProvider":true,' DELIMITED BY SIZE
            '"codeLensProvider":{"resolveProvider":false},'
+           DELIMITED BY SIZE
+           '"documentLinkProvider":{"resolveProvider":false},'
            DELIMITED BY SIZE
            '"callHierarchyProvider":true,' DELIMITED BY SIZE
            '"semanticTokensProvider":{"legend":{"tokenTypes":'
@@ -2325,6 +2329,86 @@ LSP-APPEND-FOLD.
         INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
     COMPUTE WS-NUM = SL-LINE-NO(TK-SRC-LINE(WS-TOK)) - 1
     PERFORM LSP-APPEND-NUM
+    STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
+*> textDocument/documentLink: the name of each copybook a COPY
+*> statement of the document includes, linked to the copybook. The name
+*> is the word after COPY on the same line.
+LSP-DOCUMENT-LINKS.
+    PERFORM LSP-FIND-DOCUMENT
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":[' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-DOC-INDEX > 0
+        PERFORM LSP-ANALYZE
+        MOVE "Y" TO WS-LSP-FIRST
+        PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > IN-COUNT
+            IF IN-PARENT(WS-I) = 0 AND IN-FROM-FILE-ID(WS-I) = 1
+               AND IN-FROM-LINE(WS-I) > 0
+               AND WS-LSP-PTR < LSP-SIZE - 2048
+                PERFORM LSP-APPEND-LINK
+            END-IF
+        END-PERFORM
+    END-IF
+    STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> {"range":...,"target":"file://..."} for inclusion WS-I, when the
+*> copybook's name follows COPY on its line.
+LSP-APPEND-LINK.
+    IF SF-LOADED(1) NOT = "Y"
+       OR IN-FROM-LINE(WS-I) > SF-LINE-COUNT(1)
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE WS-J = SF-FIRST-LINE(1) + IN-FROM-LINE(WS-I) - 1
+    *> After the word COPY, past blanks: the name, to a blank or a
+    *> period.
+    COMPUTE WS-K = IN-FROM-COLUMN(WS-I) + 4
+    PERFORM UNTIL WS-K > SL-TEXT-LEN(WS-J)
+        IF SS-HEAP(SL-TEXT-OFF(WS-J) + WS-K - 1:1) NOT = SPACE
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO WS-K
+    END-PERFORM
+    MOVE WS-K TO WS-LSP-CHAR
+    PERFORM UNTIL WS-K > SL-TEXT-LEN(WS-J)
+        IF SS-HEAP(SL-TEXT-OFF(WS-J) + WS-K - 1:1) = SPACE
+           OR SS-HEAP(SL-TEXT-OFF(WS-J) + WS-K - 1:1) = "."
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO WS-K
+    END-PERFORM
+    IF WS-K = WS-LSP-CHAR
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST
+    STRING '{"range":{"start":{"line":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-NUM = IN-FROM-LINE(WS-I) - 1
+    PERFORM LSP-APPEND-NUM
+    STRING ',"character":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-NUM = WS-LSP-CHAR - 1
+    PERFORM LSP-APPEND-NUM
+    STRING '},"end":{"line":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-NUM = IN-FROM-LINE(WS-I) - 1
+    PERFORM LSP-APPEND-NUM
+    STRING ',"character":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-NUM = WS-K - 1
+    PERFORM LSP-APPEND-NUM
+    STRING '}},"target":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET IN-FILE-ID(WS-I)
+        WS-PATH
+    MOVE SPACES TO WS-LSP-TEXT-PATH
+    STRING "file://" DELIMITED BY SIZE
+           WS-PATH DELIMITED BY SPACE
+        INTO WS-LSP-TEXT-PATH
+    CALL "PLB-JSON-STRING" USING WS-LSP-TEXT-PATH WS-LSP-OUT WS-LSP-PTR
     STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
 
 *> textDocument/codeLens: above each section and paragraph of the
