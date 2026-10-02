@@ -1,0 +1,1 @@
+tests/golden/rules/c035-duplicate-paragraph.cob:29:13: warning: paragraph FINISH-UP is defined more than once [FL002]

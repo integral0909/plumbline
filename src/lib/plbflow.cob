@@ -423,9 +423,15 @@ RESOLVE-PROC-NODE.
             END-PERFORM
             IF LS-MATCHES > 1
                 MOVE SPACES TO LS-MESSAGE
-                STRING "paragraph " FUNCTION TRIM(LS-NAME)
-                    " is defined in more than one section; qualify it"
-                    DELIMITED BY SIZE INTO LS-MESSAGE
+                IF FU-SECTION(LS-FOUND) = 0
+                    STRING "paragraph " FUNCTION TRIM(LS-NAME)
+                        " is defined more than once"
+                        DELIMITED BY SIZE INTO LS-MESSAGE
+                ELSE
+                    STRING "paragraph " FUNCTION TRIM(LS-NAME)
+                        " is defined in more than one section; qualify it"
+                        DELIMITED BY SIZE INTO LS-MESSAGE
+                END-IF
                 CALL "PLB-PX-DIAG" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
                     PLB-TOKENS ND-NAME(LS-NODE) "W" "FL002" LS-MESSAGE
             END-IF

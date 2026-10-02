@@ -172,6 +172,21 @@ The findings were checked by rule:
   END-"` into a 20-character FEATURE loses `D-`). Numeric findings
   report a MOVE whose receiver has fewer integer digits than the
   sender. The suite does this on purpose to display results.
+- **PLB-C036 arithmetic-overflow.** 31 findings, a sample read. The
+  operands are declared wider than the values they hold: `DNAME-10`
+  is `PIC 9(18) VALUE 1` and is added into a `PIC 9(17)` total, and
+  the indexed-file tests subtract a `PIC 9(6)` counter from a `PIC
+  9(3)` count. With the values the tests give them, none of the
+  sample can overflow; each is the case the rule documents, where the
+  declarations allow what the values do not.
+
+- **PLB-C037 search-index-not-set.** One finding: `NC401M`, a test of
+  the compiler's flagging of non-standard code, searches `TEST-CODE`
+  without ever setting `CODE-INDEX`. Of the suite's 107 serial
+  searches, the first version of the rule, which read only the
+  `SEARCH`'s own paragraph, reported 71; the suite sets the index in an
+  `-INIT` paragraph that falls into or goes to the test paragraph, and
+  the rule now follows that step.
 
 ## Limits
 

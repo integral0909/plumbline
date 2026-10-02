@@ -5,5 +5,6 @@ tests/golden/rules/c028-comparison.cob:24:57: warning: BALANCE holds nothing abo
 tests/golden/rules/c028-comparison.cob:27:25: warning: AGE holds nothing above 99, so this comparison is never true [PLB-C028]
 tests/golden/rules/c028-comparison.cob:31:22: warning: DELTA holds nothing below -999, so this comparison is never true [PLB-C028]
 tests/golden/rules/c028-comparison.cob:36:12: warning: CODE-ENTRY is read but never given a value [PLB-C011]
+tests/golden/rules/c028-comparison.cob:36:12: warning: SEARCH CODE-ENTRY starts at the current value of CX, which this paragraph does not set before it [PLB-C037]
 tests/golden/rules/c028-comparison.cob:37:32: warning: CODE-ENTRY holds nothing above 9, so this comparison is never true [PLB-C028]
 tests/golden/rules/c028-comparison.cob:55:61: warning: BALANCE holds nothing above 99999, so this comparison is never true [PLB-C028]

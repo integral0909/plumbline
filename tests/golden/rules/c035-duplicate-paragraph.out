@@ -1,0 +1,6 @@
+tests/golden/rules/c035-duplicate-paragraph.cob:15:1: warning: paragraph CHECK-IT is never executed [PLB-C001]
+tests/golden/rules/c035-duplicate-paragraph.cob:15:1: warning: paragraph CHECK-IT is already defined on line 13 of section MAIN [PLB-C035]
+tests/golden/rules/c035-duplicate-paragraph.cob:20:1: warning: section OTHER-WORK is never executed [PLB-C001]
+tests/golden/rules/c035-duplicate-paragraph.cob:20:1: warning: section OTHER-WORK is already defined on line 17 [PLB-C035]
+tests/golden/rules/c035-duplicate-paragraph.cob:33:1: warning: paragraph FINISH-UP is never executed [PLB-C001]
+tests/golden/rules/c035-duplicate-paragraph.cob:33:1: warning: paragraph FINISH-UP is already defined on line 31 [PLB-C035]
