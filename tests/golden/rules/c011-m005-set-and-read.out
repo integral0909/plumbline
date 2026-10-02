@@ -1,3 +1,4 @@
 tests/golden/rules/c011-m005-set-and-read.cob:23:13: warning: NEVER-SET is read but never given a value [PLB-C011]
 tests/golden/rules/c011-m005-set-and-read.cob:26:15: note: WRITE-ONLY is given a value but never read [PLB-M005]
+tests/golden/rules/c011-m005-set-and-read.cob:35:14: warning: COUNTER is used before it is given a value [PLB-C012]
 tests/golden/rules/c011-m005-set-and-read.cob:36:13: warning: LOCAL-TEMP is read but never given a value [PLB-C011]

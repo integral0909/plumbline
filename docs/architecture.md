@@ -245,6 +245,39 @@ such as `CONSOLE`.
 `plumbline dump refs FILE` prints every reference and what it resolved
 to.
 
+### Data flow
+
+`src/lib/plbrole.cob`, `src/lib/plbspan.cob`, and `src/lib/plbacc.cob`,
+with tables in `copy/plbspan.cpy` and `copy/plbacc.cpy`.
+
+`plbrole` gives each reference a role from its statement's verb and the
+nearest keyword before it: read (U), set (D), both (B), unknown (X), or
+none (-). `plbspan` gives each data item the record it belongs to and
+the byte range it covers there. A table element covers its whole table,
+and an item whose size is unknown covers its whole record. Two items
+share storage when their ranges in the same record overlap.
+
+`plbacc` builds the access table the data-flow rules share. It holds
+every access (references with their roles, `VALUE` clauses, and names
+mentioned in the environment division), sorted by record, and whether
+each item is checked at all. `PLB-ACCESS-FIND` answers "does any access
+with one of these roles touch storage this item shares?"
+
+PLB-C011 and PLB-M005 ask that question for each item. PLB-C012 is a
+may-be-set analysis over the procedure graph, with one bit per checked
+item:
+
+1. Each paragraph or section becomes a list of events in source order:
+   references, `PERFORM`s and `GO TO`s, and the start of looping
+   `PERFORM`s.
+2. The summary of a unit is everything it may set, plus the summaries
+   of every range it performs. It is computed to a fixed point.
+3. The entry set of each unit is the union of what may be set where
+   control falls, jumps, or is performed into it. It is also computed to
+   a fixed point.
+4. A final walk of each reachable unit, starting from its entry set,
+   reports reads of items that are not set yet.
+
 ### Rules and reporting
 
 `src/lib/plbrule.cob` (catalog and findings) and `src/lib/plbcheck.cob`
@@ -270,8 +303,6 @@ See the [rule reference](rules.md).
 
 ### Planned
 
-- **Data flow**: reaching definitions over the procedure graph and the
-  data references, for uninitialized-use and dead-store checks.
 - **Call graph**: static `CALL` literals across programs in one run.
 - **Baselines**: record today's findings and report only new ones.
 

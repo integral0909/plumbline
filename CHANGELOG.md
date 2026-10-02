@@ -59,3 +59,7 @@ uses [Semantic Versioning](https://semver.org/).
   PLB-C010 ambiguous-name, and PLB-M004 alnum-narrowing (off by default).
 - Level-78 constants resolved in PICTURE and OCCURS; identical
   diagnostics reported once.
+- Reference roles (read, set, both) in `plumbline dump refs`, storage
+  spans, and a shared access table for data-flow rules.
+- Rules PLB-C011 read-never-set, PLB-C012 use-before-set, and
+  PLB-M005 set-never-read.
