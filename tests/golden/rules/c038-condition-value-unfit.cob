@@ -1,0 +1,37 @@
+*> PLB-C038 condition-value-unfit: condition names whose value their
+*> item cannot hold.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. CONDS.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  STATUS-CODE         PIC 9 VALUE 0.
+    88  DONE            VALUE 10.
+    88  SMALL           VALUE 1 THRU 9.
+    88  STARTED         VALUE 0 1 2.
+    88  WIDE-RANGE      VALUE 5 THRU 50.
+01  REGION              PIC XX VALUE SPACES.
+    88  NORTH           VALUE "NORTH".
+    88  EAST            VALUE "E ".
+    88  PADDED          VALUE "W    ".
+    88  ANY-ALL         VALUE ALL "ZZZ".
+    88  HEX-CODE        VALUE X"C1C2".
+    88  SOME-FIT        VALUE "N" "S" "XYZ".
+01  AMOUNT              PIC 9(3)V9 VALUE 0.
+    88  CENTS           VALUE 1.25.
+    88  ROUND-TENTH     VALUE 1.50.
+    88  BELOW-ZERO      VALUE -1.
+01  SIGNED-AMOUNT       PIC S9(3) VALUE 0.
+    88  OVERDRAWN       VALUE -999 THRU -1.
+01  FLAGS.
+    05  FLAG-A          PIC X.
+    05  FLAG-B          PIC X.
+01  FLAGS-AS-ONE REDEFINES FLAGS PIC XX.
+    88  BOTH-SET        VALUE "YY".
+    88  TOO-MANY        VALUE "YYY".
+PROCEDURE DIVISION.
+    IF DONE OR SMALL OR STARTED OR WIDE-RANGE OR NORTH OR EAST
+       OR PADDED OR ANY-ALL OR HEX-CODE OR CENTS OR ROUND-TENTH
+       OR BELOW-ZERO OR OVERDRAWN OR BOTH-SET OR TOO-MANY OR SOME-FIT
+        DISPLAY "SOMETHING"
+    END-IF
+    STOP RUN.

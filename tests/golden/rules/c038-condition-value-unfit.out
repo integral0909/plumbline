@@ -1,0 +1,8 @@
+tests/golden/rules/c038-condition-value-unfit.cob:8:31: warning: STATUS-CODE has 1 integer digit and cannot hold 10, so DONE is never true [PLB-C038]
+tests/golden/rules/c038-condition-value-unfit.cob:13:31: warning: REGION (2 characters) cannot hold a 5-character value, so NORTH is never true [PLB-C038]
+tests/golden/rules/c038-condition-value-unfit.cob:18:39: warning: REGION (2 characters) cannot hold a 3-character value, so this value of SOME-FIT never matches [PLB-C038]
+tests/golden/rules/c038-condition-value-unfit.cob:20:31: warning: AMOUNT has 1 decimal place and cannot hold 1.25, so CENTS is never true [PLB-C038]
+tests/golden/rules/c038-condition-value-unfit.cob:22:31: warning: AMOUNT is unsigned and cannot hold -1, so BELOW-ZERO is never true [PLB-C038]
+tests/golden/rules/c038-condition-value-unfit.cob:30:31: warning: FLAGS-AS-ONE (2 characters) cannot hold a 3-character value, so TOO-MANY is never true [PLB-C038]
+tests/golden/rules/c038-condition-value-unfit.cob:34:38: warning: BOTH-SET is read but never given a value [PLB-C011]
+tests/golden/rules/c038-condition-value-unfit.cob:34:50: warning: TOO-MANY is read but never given a value [PLB-C011]
