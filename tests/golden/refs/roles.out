@@ -2,7 +2,7 @@
 15:15 B (MOVE) -> 1 B @5 role=D
 15:17 C (MOVE) -> 1 C @6 role=D
 16:9 A (ADD) -> 1 A @4 role=U
-16:14 B (ADD) -> 1 B @5 role=B
+16:14 B (ADD) -> 1 B @5 role=U
 16:23 C (ADD) -> 1 C @6 role=D
 17:9 A (ADD) -> 1 A @4 role=U
 17:14 B (ADD) -> 1 B @5 role=B

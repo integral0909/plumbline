@@ -241,6 +241,9 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- In `ADD a TO b GIVING c` (and `SUBTRACT ... FROM`, `MULTIPLY ... BY`,
+  `DIVIDE ... INTO` with `GIVING`), `b` was taken as both read and set;
+  it is only read.
 - PLB-M005 reported the object of OCCURS DEPENDING ON as never read,
   though every use of the table reads it.
 - On a file system that ignores case (macOS), a copybook named in
