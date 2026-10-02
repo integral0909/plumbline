@@ -1,0 +1,6 @@
+tests/golden/rules/c052-string-overlap.cob:17:14: warning: STRING sends WS-LINE into itself: the result is undefined [PLB-C052]
+tests/golden/rules/c052-string-overlap.cob:19:48: warning: STRING sends WS-LINE-HEAD into WS-LINE, which shares its storage: the result is undefined [PLB-C052]
+tests/golden/rules/c052-string-overlap.cob:21:14: warning: WS-PARTS is used before it is given a value [PLB-C012]
+tests/golden/rules/c052-string-overlap.cob:21:45: warning: UNSTRING sends WS-PARTS into WS-PART, which shares its storage: the result is undefined [PLB-C052]
+tests/golden/rules/c052-string-overlap.cob:24:14: note: WS-WORK is given a value but never read [PLB-M005]
+tests/golden/rules/c052-string-overlap.cob:24:35: warning: STRING starts at the value of WS-PTR, which no statement of the program sets: only its first run starts where its VALUE says [PLB-C043]

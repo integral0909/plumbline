@@ -62,6 +62,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C049](#plb-c049-loop-condition-unchanged) | loop-condition-unchanged | warning | PERFORM UNTIL loop never changes what its condition reads |
 | [PLB-C050](#plb-c050-record-read-at-end) | record-read-at-end | warning | AT END of a READ reads the file's record |
 | [PLB-C051](#plb-c051-duplicate-if-condition) | duplicate-if-condition | warning | ELSE IF repeats a condition the chain already tested |
+| [PLB-C052](#plb-c052-string-overlap) | string-overlap | warning | STRING or UNSTRING sends from storage it receives into |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1398,6 +1399,30 @@ An `IF` belongs to the chain when it is the first statement of the
 `ELSE` of the one before; an `IF` after other statements can see other
 values and is not compared. Conditions are compared as text, as in
 PLB-C032, and those that call a `FUNCTION` are left out.
+
+## PLB-C052 string-overlap
+
+A `STRING` or `UNSTRING` whose receiving item shares storage with an
+item it sends from:
+
+```cobol
+    STRING WS-LINE DELIMITED BY SPACE ", DONE" DELIMITED BY SIZE
+        INTO WS-LINE                        *> reported
+```
+
+The standard leaves the result undefined when a sending and a receiving
+item of these statements overlap. Moving character by character, the
+append above works; a compiler that clears the receiver first, or
+builds the result elsewhere and copies it back, loses the text. Build
+the result in another item and move it back, or append with `WITH
+POINTER` into the item without sending it.
+
+Senders are the items a `STRING` sends and its delimiters, or the item
+an `UNSTRING` splits and its delimiters. Receivers are the `INTO` item
+of a `STRING`, or the receivers of an `UNSTRING` with their `DELIMITER
+IN` and `COUNT IN` items. `POINTER` and `TALLYING` items, and names in
+subscripts, are not compared. Storage is shared through the same name,
+a group and its items, or `REDEFINES`, as in PLB-C046.
 
 ## PLB-I001 pcb-dbd-unknown
 
