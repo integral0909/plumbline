@@ -79,6 +79,8 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, off | CALL of a compiler library routine |
 | [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
 | [PLB-Q001](#plb-q001-sql-table-undeclared) | sql-table-undeclared | note | Embedded SQL uses a table the program does not declare |
+| [PLB-Q002](#plb-q002-cursor-not-closed) | cursor-not-closed | warning | SQL cursor is opened but never closed |
+| [PLB-Q003](#plb-q003-cursor-not-opened) | cursor-not-opened | error | SQL cursor is fetched or closed but never opened |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -1553,6 +1555,37 @@ finds tables after `FROM` and `JOIN` (every table of a `FROM` list),
 table once per program, at its first use. The catalog tables of DB2
 (`SYSIBM.*`) are left out. `dump calls` and `inventory` list the
 tables each program uses.
+
+## PLB-Q002 cursor-not-closed
+
+A cursor the program opens but never closes:
+
+```cobol
+    EXEC SQL OPEN C-LEFT-OPEN END-EXEC      *> reported
+    EXEC SQL FETCH NEXT FROM C-LEFT-OPEN INTO :WS-ORDER-ID END-EXEC
+```
+
+The cursor keeps its position, and in DB2 its locks, until the unit of
+work ends; a cursor declared `WITH HOLD` survives a `COMMIT` too. The
+next `OPEN` of it fails with SQLCODE -502 (cursor already open), which
+a program run again in the same unit of work, such as a CICS
+transaction calling it twice, meets. A `COMMIT` or `ROLLBACK` closes a
+cursor without `WITH HOLD`, so a program that relies on that can
+suppress the finding and say so.
+
+## PLB-Q003 cursor-not-opened
+
+A cursor the program fetches or closes but never opens:
+
+```cobol
+    EXEC SQL FETCH FIRST FROM C-NEVER-OPENED INTO :WS-ORDER-ID
+    END-EXEC                                *> reported
+```
+
+The `FETCH` fails with SQLCODE -501 (cursor not open). Cursors are
+those declared in the file (`EXEC SQL DECLARE name ... CURSOR`, in any
+division), and their `OPEN`, `FETCH`, and `CLOSE` statements are found
+anywhere in the file, in the order of the source or not.
 
 ## PLB-S001 dynamic-sql
 

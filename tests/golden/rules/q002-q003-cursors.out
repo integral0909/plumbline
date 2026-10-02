@@ -1,0 +1,3 @@
+tests/golden/rules/q002-q003-cursors.cob:24:9: warning: the result of EXEC SQL FETCH is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q002-q003-cursors.cob:27:19: warning: cursor C-LEFT-OPEN is opened but never closed [PLB-Q002]
+tests/golden/rules/q002-q003-cursors.cob:32:35: error: cursor C-NEVER-OPENED is fetched but never opened [PLB-Q003]
