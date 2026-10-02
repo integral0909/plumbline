@@ -101,9 +101,9 @@ END PROGRAM PLB-PP-SAFE-NAME.
 *> Each directory (the including file's own, then each search path)
 *> is tried with each spelling of the name. A literal name is used as
 *> written. A word (which the lexer has upper-cased) is tried in lower
-*> case first, then upper case: files are usually named in lower case,
-*> and trying that first gives the same path on case-insensitive file
-*> systems as on case-sensitive ones. Each spelling is tried bare if it has
+*> case first, then upper case; on a file system that ignores case, the
+*> file's own name is then taken from the system, so that the path is
+*> the same as a case-sensitive system finds. Each spelling is tried bare if it has
 *> an extension, then with .cpy .CPY .cbl .CBL .cob .COB .dcl .DCL
 *> (DB2 declarations, DCLGEN members), then bare.
 *> STATUS: 0 found (PATH set), 1 not found, 2 unsafe name.
@@ -137,6 +137,14 @@ LOCAL-STORAGE SECTION.
 01  LS-CANDIDATE            PIC X(1100).
 01  LS-PROBE                PIC X(1100).
 01  LS-INFO                 PIC X(16).
+*> For the file name as stored (STORED-NAME).
+01  LS-C-PATH               PIC X(1101).
+01  LS-REAL                 PIC X(4096).
+01  LS-REAL-RESULT          USAGE POINTER.
+01  LS-SLASH                PIC 9(9) COMP-5.
+01  LS-REAL-SLASH           PIC 9(9) COMP-5.
+01  LS-REAL-END             PIC 9(9) COMP-5.
+01  LS-CAND-LEN             PIC 9(9) COMP-5.
 01  LS-EXT-INDEX            PIC 9(4) COMP-5.
 01  LS-HAS-EXT              PIC X.
 01  LS-FOUND                PIC X.
@@ -280,9 +288,57 @@ CHECK-CANDIDATE.
         CALL "CBL_CHECK_FILE_EXIST" USING LS-PROBE LS-INFO
         IF RETURN-CODE NOT = 0
             MOVE "Y" TO LS-FOUND
+            PERFORM STORED-NAME
         END-IF
     END-IF
     MOVE 0 TO RETURN-CODE.
+
+*> On a file system that ignores case, the spelling tried first is
+*> found whatever the file is called. Take the file's own name from
+*> realpath(3), so that the path is the one a case-sensitive system
+*> finds; the directory stays as given.
+STORED-NAME.
+    CALL "PLB-STR-LENGTH" USING LS-CANDIDATE LS-CAND-LEN
+    IF LS-CAND-LEN = 0 OR LS-CAND-LEN > 1099
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-C-PATH
+    STRING LS-CANDIDATE(1:LS-CAND-LEN) X"00" DELIMITED BY SIZE
+        INTO LS-C-PATH
+    MOVE LOW-VALUES TO LS-REAL
+    CALL "realpath" USING BY REFERENCE LS-C-PATH BY REFERENCE LS-REAL
+        RETURNING LS-REAL-RESULT
+    END-CALL
+    MOVE 0 TO RETURN-CODE
+    IF LS-REAL-RESULT = NULL
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-REAL-END LS-REAL-SLASH LS-SLASH
+    INSPECT LS-REAL TALLYING LS-REAL-END FOR CHARACTERS BEFORE X"00"
+    PERFORM VARYING LS-I FROM LS-REAL-END BY -1 UNTIL LS-I = 0
+        IF LS-REAL(LS-I:1) = "/"
+            MOVE LS-I TO LS-REAL-SLASH
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    PERFORM VARYING LS-I FROM LS-CAND-LEN BY -1 UNTIL LS-I = 0
+        IF LS-CANDIDATE(LS-I:1) = "/"
+            MOVE LS-I TO LS-SLASH
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    *> Only a name that differs in case: a link to another name stays.
+    IF LS-REAL-END - LS-REAL-SLASH = LS-CAND-LEN - LS-SLASH
+       AND LS-CAND-LEN > LS-SLASH
+        IF FUNCTION UPPER-CASE(LS-REAL(LS-REAL-SLASH + 1:
+                LS-REAL-END - LS-REAL-SLASH))
+           = FUNCTION UPPER-CASE(LS-CANDIDATE(LS-SLASH + 1:
+                LS-CAND-LEN - LS-SLASH))
+            MOVE LS-REAL(LS-REAL-SLASH + 1:LS-REAL-END - LS-REAL-SLASH)
+                TO LS-CANDIDATE(LS-SLASH + 1:
+                    LS-CAND-LEN - LS-SLASH)
+        END-IF
+    END-IF.
 END PROGRAM PLB-PP-RESOLVE.
 
 *> PLB-PP-MATCH: does replacement rule (KIND, pattern PAT-FROM..PAT-TO,

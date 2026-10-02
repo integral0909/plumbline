@@ -192,3 +192,14 @@ file `I-O` (the account file in `INTCALC` and `POSTTRAN`, the category
 balances in `POSTTRAN`). Four are left without a direction: `IDCAMS`
 steps loading a VSAM file with `DISP=OLD`, whose `REPRO` is in the
 control statements rather than in a program.
+
+## Copybook fields
+
+`plumbline fields` over the base programs lists 41 copybooks. The
+record layouts of the data files are named nearly in full: every item
+of the account, card cross-reference, customer, and transaction
+records is named by some program. What no program names is mostly in
+the symbolic maps, whose input and attribute fields a program leaves to
+CICS, and in a few layouts: the date conversion area `CODATECN`, filled
+by the date routine the program calls with the whole record, and the
+timestamp `DALYTRAN-PROC-TS` of the daily transaction record.

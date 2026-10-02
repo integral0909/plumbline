@@ -42,6 +42,7 @@
 *>   plumbline inventory [--report text|json] [OPTION]... FILE...
 *>   plumbline layout [--report text|json|csv|md] [OPTION]... FILE...
 *>   plumbline doc [OPTION]... FILE...
+*>   plumbline fields [--report text|json] [--unused] [OPTION]... FILE...
 *>   plumbline dump jcl FILE...
 *>   plumbline dump bms FILE...
 *>   plumbline dump csd FILE...
@@ -76,8 +77,10 @@ COPY "plbcallc.cpy".
 COPY "plbcall.cpy".
 COPY "plbjclc.cpy".
 COPY "plbdsetc.cpy".
+COPY "plbfldc.cpy".
 COPY "plbjcl.cpy".
 COPY "plbdset.cpy".
+COPY "plbfld.cpy".
 COPY "plbbmsc.cpy".
 COPY "plbbms.cpy".
 COPY "plbcsdc.cpy".
@@ -141,6 +144,8 @@ COPY "plbinput.cpy".
 *> The program of the metrics plumbline doc is writing.
 01  WS-M                    PIC 9(9) COMP-5.
 01  WS-DOC-FIRST            PIC X.
+*> plumbline fields --unused: only the items no program names.
+01  WS-FIELDS-UNUSED        PIC X VALUE "N".
 01  WS-U                    PIC 9(9) COMP-5.
 01  WS-E                    PIC 9(9) COMP-5.
 01  WS-RULE                 PIC 9(4) COMP-5.
@@ -307,6 +312,9 @@ MAIN-LOGIC.
             WHEN "doc"
                 MOVE "doc" TO WS-COMMAND
                 PERFORM DOC-COMMAND
+            WHEN "fields"
+                MOVE "fields" TO WS-COMMAND
+                PERFORM FIELDS-COMMAND
             WHEN OTHER
                 IF WS-ARG(1:1) = "-"
                     PERFORM UNKNOWN-OPTION
@@ -349,6 +357,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline inventory [--report text|json] [OPTION]... FILE..."
     DISPLAY "       plumbline layout [--report text|json|csv|md] [OPTION]... FILE..."
     DISPLAY "       plumbline doc [OPTION]... FILE..."
+    DISPLAY "       plumbline fields [--report text|json] [--unused] [OPTION]... FILE..."
     DISPLAY "       plumbline format --to fixed|free [--check] FILE..."
     DISPLAY "       plumbline lsp [OPTION]..."
     DISPLAY "       plumbline rules [--report text|json] [OPTION]..."
@@ -388,6 +397,9 @@ SHOW-USAGE.
     DISPLAY "  doc              write a Markdown page for each program: what"
     DISPLAY "                   starts it, what it uses, its paragraphs,"
     DISPLAY "                   and its records"
+    DISPLAY "  fields           list the items of each copybook and how"
+    DISPLAY "                   many programs name them (--unused: only"
+    DISPLAY "                   those no program names)"
     DISPLAY "  impact NAME      list what includes copybook NAME or"
     DISPLAY "                   calls program NAME, directly or not,"
     DISPLAY "                   where data item NAME is used, or which"
@@ -837,6 +849,39 @@ LAYOUT-COMMAND.
     CALL "PLB-LAYOUT-END" USING WS-REPORT
     IF WS-LAYOUT-WRAPPER NOT = SPACES
         CALL "CBL_DELETE_FILE" USING WS-LAYOUT-WRAPPER
+    END-IF
+    PERFORM REPORT-DIAGNOSTICS
+    IF DG-ERRORS > 0
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+*> fields: the data items of the copybooks of the run, and how many
+*> programs name each.
+FIELDS-COMMAND.
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM ADD-INPUTS
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
+    MOVE WS-MODE TO PO-FORMAT
+    MOVE WS-DEBUG TO PO-DEBUG
+    CALL "PLB-FIELDS-INIT" USING PLB-FIELDS
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        PERFORM START-INPUT
+        IF SF-LOADED(WS-FILE-ID) = "Y"
+            PERFORM ANALYZE-FILE
+            CALL "PLB-FIELDS-COLLECT" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-SYMBOLS PLB-REFS PLB-FIELDS WS-FILE-ID
+            PERFORM END-INPUT
+        END-IF
+    END-PERFORM
+    CALL "PLB-FIELDS-PRINT" USING PLB-SOURCE-SET PLB-FIELDS WS-REPORT
+        WS-FIELDS-UNUSED
+    IF FI-DROPPED > 0
+        DISPLAY PLB-NAME ": " FI-DROPPED " copybook items did not fit"
+            " and are left out" UPON SYSERR
     END-IF
     PERFORM REPORT-DIAGNOSTICS
     IF DG-ERRORS > 0
@@ -4042,6 +4087,8 @@ PARSE-INPUT-ARGS.
                         UPON SYSERR
                     MOVE 2 TO WS-EXIT-CODE
                 END-IF
+            WHEN WS-ARG = "--unused" AND WS-COMMAND = "fields"
+                MOVE "Y" TO WS-FIELDS-UNUSED
             WHEN WS-ARG = "--check" AND WS-COMMAND = "format"
                 MOVE "Y" TO WS-FORMAT-CHECK
             WHEN WS-ARG = "--kind" AND WS-COMMAND = "graph"
@@ -4359,6 +4406,7 @@ SET-REPORT.
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "sarif" AND WS-COMMAND NOT = "metrics"
              AND WS-COMMAND NOT = "rules" AND WS-COMMAND NOT = "inventory"
+             AND WS-COMMAND NOT = "fields"
              AND WS-COMMAND NOT = "layout"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "html" AND WS-COMMAND = "check"
@@ -4386,6 +4434,7 @@ SET-REPORT.
                 "' (expected text, json, csv, or md)" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
         WHEN WS-COMMAND = "rules" OR WS-COMMAND = "inventory"
+             OR WS-COMMAND = "fields"
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected text or json)" UPON SYSERR

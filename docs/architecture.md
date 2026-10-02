@@ -410,6 +410,18 @@ copies against the BMS map it was generated from.
 description of the application: each program with what starts it and
 what it uses, then the jobs, transactions, and maps, as text or JSON.
 
+### Copybook fields
+
+`src/lib/plbfield.cob`, with its table in `copy/plbfld.cpy`.
+
+`plumbline fields` reads each program once. After a file is analyzed,
+`PLB-FIELDS-COLLECT` marks the symbols its statements name (with the
+groups they are in), and the keys, status items, and `DEPENDING ON`
+objects its clauses name, then adds each item whose name is in a
+copybook to a run-wide table, keyed by the copybook and the line of the
+name, with a chain of entries per copybook. Each file counts once per
+item, both as a program that copies it and as one that names it.
+
 ### Program documentation
 
 `src/lib/plbdoc.cob`.
