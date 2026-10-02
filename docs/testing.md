@@ -69,6 +69,40 @@ between Plumbline's programs is checked against the program it calls. Plumbline 
 The analyzer's own source is several thousand lines of real COBOL, and
 this check has already caught parser bugs that the targeted tests missed.
 
+## Bounds-checked build
+
+COBOL does not check subscripts: an index past the end of a table
+reads or overwrites whatever follows it, and the program goes on.
+`make check-bounds` builds Plumbline with
+`-fec=EC-BOUND-SUBSCRIPT` in `build/bounds/` and runs the whole test
+suite on that build, so such an index stops the program with a
+message naming the table instead. CI runs it on Linux.
+
+It caught a real bug when the file limit was raised from 256 to 20,000:
+the tables that `plumbline impact` keeps per file still had 256 entries.
+
+Reference modifiers are not checked. GnuCOBOL 3.2 has three bugs in
+code built with checks, and the code avoids the two that affect
+subscripts:
+
+- with `EC-BOUND-SUBSCRIPT`, a subscript nested two deep, as in
+  `A(B(C(I)))`, takes only as many bytes as the innermost index field
+  has. The code takes such an index into a variable first;
+- with `EC-BOUND-SUBSCRIPT`, `FUNCTION ORD` as a subscript does not
+  compile. The lexer reads character codes through a `BINARY-CHAR
+  UNSIGNED` redefinition instead, which is also faster;
+- with `EC-BOUND-REF-MOD`, comparing two reference modifications whose
+  offsets are subscripted compares the wrong text. That is why
+  reference modifiers are left unchecked.
+
+## Rule reference
+
+`tests/tools/test_rules_doc.py` runs `plumbline rules --report json`
+and checks that `docs/rules.md` has a row and a section for every rule,
+with the name, default severity, default state, and title of the
+catalog. A rule cannot be added, renamed, or retuned without its
+documentation.
+
 ## Formatter round trip
 
 `make test` also runs `tests/tools/roundtrip_format.py` on every golden

@@ -18,11 +18,20 @@ LINKAGE SECTION.
 01  LK-KIND                 PIC X.
 PROCEDURE DIVISION USING LK-WORD LK-KIND.
     MOVE SPACE TO LK-KIND
-    CALL "PLB-STR-LENGTH" USING LK-WORD LS-LEN
-    IF LS-LEN = 0 OR LS-LEN > 31
+    *> Callers pass wide text buffers. A word longer than 31 characters
+    *> is not reserved, and that takes one comparison to see.
+    MOVE FUNCTION LENGTH(LK-WORD) TO LS-LEN
+    IF LS-LEN > 31
+        IF LK-WORD(32:) NOT = SPACES
+            GOBACK
+        END-IF
+        MOVE LK-WORD(1:31) TO LS-KEY
+    ELSE
+        MOVE LK-WORD TO LS-KEY
+    END-IF
+    IF LS-KEY = SPACES
         GOBACK
     END-IF
-    MOVE LK-WORD(1:LS-LEN) TO LS-KEY
     SEARCH ALL WS-KEYWORD
         AT END
             CONTINUE

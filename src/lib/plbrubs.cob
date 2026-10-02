@@ -86,6 +86,9 @@ COPY "plbacc.cpy".
 *> What the declarative procedures may set.
 01  WS-DECLARED             PIC X(CD-MAX).
 LOCAL-STORAGE SECTION.
+*> Holds an index taken from another table: GnuCOBOL 3.2 built with
+*> -fec=EC-BOUND-SUBSCRIPT miscompiles a subscript nested two deep.
+01  LS-ALTERED              PIC 9(9) COMP-5.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-S                    PIC 9(9) COMP-5.
 01  LS-C                    PIC 9(9) COMP-5.
@@ -111,6 +114,7 @@ LOCAL-STORAGE SECTION.
 01  LS-REPORTING            PIC X.
 01  LS-MESSAGE              PIC X(200).
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
@@ -235,7 +239,8 @@ BUILD-EVENTS.
             IF FE-KIND(LS-E) = "A"
                 MOVE FE-ALTERED(LS-E) TO EV-UNIT(WS-EVENT-COUNT)
                 IF FE-ALTERED(LS-E) > 0
-                    MOVE ND-TOK-LAST(FU-NODE(FE-ALTERED(LS-E)))
+                    MOVE FE-ALTERED(LS-E) TO LS-ALTERED
+                    MOVE ND-TOK-LAST(FU-NODE(LS-ALTERED))
                         TO EV-KEY(WS-EVENT-COUNT)
                 END-IF
             END-IF

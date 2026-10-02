@@ -51,6 +51,7 @@ PROGRAM-ID. PLUMBLINE.
 DATA DIVISION.
 WORKING-STORAGE SECTION.
 COPY "plbver.cpy".
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbtokc.cpy".
@@ -71,7 +72,6 @@ COPY "plbmetrc.cpy".
 COPY "plbmetr.cpy".
 COPY "plbigrc.cpy".
 COPY "plbigr.cpy".
-78  MAX-INPUTS                  VALUE 256.
 01  WS-ARG-COUNT            PIC 9(4).
 01  WS-ARG-INDEX            PIC 9(4).
 01  WS-ARG                  PIC X(1024).
@@ -80,9 +80,9 @@ COPY "plbigr.cpy".
 01  WS-MODE                 PIC X VALUE "A".
 01  WS-DEBUG                PIC X VALUE "N".
 01  WS-DUMP-TARGET          PIC X(8).
-01  WS-INPUT-COUNT          PIC 9(4) COMP-5 VALUE 0.
-01  WS-INPUTS.
-    05  WS-INPUT            PIC X(512) OCCURS MAX-INPUTS TIMES.
+COPY "plbinput.cpy".
+01  WS-LIST-STATUS          PIC 9(4) COMP-5.
+01  WS-LIST-LINE            PIC 9(9) COMP-5.
 01  WS-I                    PIC 9(9) COMP-5.
 01  WS-FILE-ID              PIC 9(4) COMP-5.
 01  WS-STATUS               PIC 9(4) COMP-5.
@@ -182,6 +182,12 @@ COPY "plbigr.cpy".
 01  WS-LSP-EXIT-ROUTINE     PIC X(8) VALUE "_exit".
 01  WS-LSP-EXIT-STATUS      PIC S9(9) COMP-5.
 01  WS-LEN                  PIC 9(9) COMP-5.
+*> check keeps the lines of one input (and its copybooks) at a time:
+*> the source set as it was before the input was read, and the first
+*> finding the input added.
+01  WS-MARK-LINES           PIC 9(9) COMP-5.
+01  WS-MARK-HEAP            PIC 9(9) COMP-5.
+01  WS-FIRST-FINDING        PIC 9(9) COMP-5.
 
 PROCEDURE DIVISION.
 MAIN-LOGIC.
@@ -220,6 +226,9 @@ MAIN-LOGIC.
             WHEN "lsp"
                 MOVE "lsp" TO WS-COMMAND
                 PERFORM LSP-COMMAND
+            WHEN "rules"
+                MOVE "rules" TO WS-COMMAND
+                PERFORM RULES-COMMAND
             WHEN OTHER
                 IF WS-ARG(1:1) = "-"
                     PERFORM UNKNOWN-OPTION
@@ -261,6 +270,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline impact NAME [OPTION]... FILE..."
     DISPLAY "       plumbline format --to fixed|free [--check] FILE..."
     DISPLAY "       plumbline lsp [OPTION]..."
+    DISPLAY "       plumbline rules [--report text|json] [OPTION]..."
     DISPLAY "       plumbline dump lines [--format FORMAT] FILE..."
     DISPLAY "       plumbline dump tokens [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump expanded [-I DIR]... [--format FORMAT] [--debug] FILE..."
@@ -288,6 +298,8 @@ SHOW-USAGE.
     DISPLAY "  format           rewrite a file in fixed or free format"
     DISPLAY "                   (--to); --check only tells whether"
     DISPLAY "                   that would change it"
+    DISPLAY "  rules            list the rules, with their severity and"
+    DISPLAY "                   whether they are on, as configured"
     DISPLAY "  lsp              run as a language server for editors, on"
     DISPLAY "                   standard input and output"
     DISPLAY "  dump lines       show how each source line was read"
@@ -304,6 +316,9 @@ SHOW-USAGE.
     DISPLAY "                   (default auto)"
     DISPLAY "  --debug          treat debugging lines as code"
     DISPLAY "  -I DIR           search DIR for copybooks (repeatable)"
+    DISPLAY "  --files-from LIST"
+    DISPLAY "                   also analyze the files listed in LIST,"
+    DISPLAY "                   one per line (- for standard input)"
     DISPLAY "  --config FILE    read settings from FILE (default:"
     DISPLAY "                   plumbline.conf, when there is one)"
     DISPLAY "  --no-config      do not read a configuration file"
@@ -321,6 +336,22 @@ SHOW-USAGE.
     DISPLAY "                   write the findings to FILE instead of"
     DISPLAY "                   reporting them".
 
+*> rules --------------------------------------------------------
+
+*> The rules, with the settings of the configuration and the options
+*> applied: what plumbline check would run.
+RULES-COMMAND.
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF IP-COUNT > 0
+        DISPLAY PLB-NAME ": rules takes no files" UPON SYSERR
+        PERFORM SUGGEST-HELP
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-RULES-LIST" USING PLB-RULES WS-REPORT.
+
 *> check --------------------------------------------------------
 
 CHECK-COMMAND.
@@ -328,24 +359,39 @@ CHECK-COMMAND.
     IF WS-EXIT-CODE NOT = 0
         EXIT PARAGRAPH
     END-IF
-    PERFORM LOAD-INPUTS
+    PERFORM ADD-INPUTS
     CALL "PLB-FIND-INIT" USING PLB-FINDINGS
     CALL "PLB-CALL-INIT" USING PLB-CALL-GRAPH
     MOVE SS-FILE-COUNT TO WS-MAIN-FILES
     MOVE WS-MODE TO PO-FORMAT
     MOVE WS-DEBUG TO PO-DEBUG
+    *> One input at a time: read it, check it, settle which of its
+    *> findings comments suppress, and let its lines go. What is kept
+    *> (findings, the call graph) refers to files by id and line.
     PERFORM VARYING WS-FILE-ID FROM 1 BY 1
             UNTIL WS-FILE-ID > WS-MAIN-FILES
-        PERFORM ANALYZE-FILE
-        CALL "PLB-CHECK-RUN" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
-            PLB-SYMBOLS PLB-FLOW PLB-REFS PLB-RULES PLB-FINDINGS
-        CALL "PLB-CALL-COLLECT" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
-            PLB-SYMBOLS PLB-REFS PLB-CALL-GRAPH
+        PERFORM START-INPUT
+        IF SF-LOADED(WS-FILE-ID) = "Y"
+            COMPUTE WS-FIRST-FINDING = FN-COUNT + 1
+            PERFORM ANALYZE-FILE
+            CALL "PLB-CHECK-RUN" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-AST PLB-SYMBOLS PLB-FLOW PLB-REFS PLB-RULES
+                PLB-FINDINGS
+            CALL "PLB-CALL-COLLECT" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-AST PLB-SYMBOLS PLB-REFS PLB-CALL-GRAPH
+            CALL "PLB-FIND-SUPPRESS-RANGE" USING PLB-SOURCE-SET
+                PLB-RULES PLB-FINDINGS WS-FIRST-FINDING FN-COUNT
+            PERFORM FORGET-SOURCE-LINES
+        END-IF
     END-PERFORM
     *> Rules about calls between programs, in any of the files.
+    COMPUTE WS-FIRST-FINDING = FN-COUNT + 1
     CALL "PLB-CALL-RESOLVE" USING PLB-CALL-GRAPH
     CALL "PLB-RULE-CALLS" USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH
-    CALL "PLB-FIND-SUPPRESS" USING PLB-SOURCE-SET PLB-RULES PLB-FINDINGS
+    PERFORM SUPPRESS-LATE-FINDINGS
+    IF FN-DROPPED > 0
+        PERFORM REPORT-DROPPED-FINDINGS
+    END-IF
     CALL "PLB-FIND-SORT" USING PLB-FINDINGS
     IF WS-WRITE-BASELINE NOT = SPACES
         PERFORM WRITE-BASELINE
@@ -378,6 +424,43 @@ CHECK-COMMAND.
         MOVE 1 TO WS-EXIT-CODE
     END-IF.
 
+*> Release the input's lines. The SS-LINE indexes of findings made
+*> since WS-FIRST-FINDING point at released lines now.
+FORGET-SOURCE-LINES.
+    PERFORM END-INPUT
+    PERFORM VARYING WS-I FROM WS-FIRST-FINDING BY 1
+            UNTIL WS-I > FN-COUNT
+        MOVE 0 TO FN-SRC-LINE(WS-I)
+    END-PERFORM.
+
+*> A report that leaves findings out must say so.
+REPORT-DROPPED-FINDINGS.
+    MOVE FN-DROPPED TO WS-NUM
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    MOVE SPACES TO WS-OUT
+    STRING WS-NUM-TEXT(1:WS-NUM-LEN) DELIMITED BY SIZE
+           " findings were left out: a run keeps at most " DELIMITED BY SIZE
+           FN-MAX DELIMITED BY SIZE
+           "; check fewer files at a time" DELIMITED BY SIZE
+        INTO WS-OUT
+    MOVE 0 TO WS-POS-FILE WS-POS-LINE WS-POS-COLUMN
+    CALL "PLB-DIAG-ADD" USING PLB-DIAGNOSTICS "E" "FN001" WS-POS-FILE
+        WS-POS-LINE WS-POS-COLUMN WS-OUT.
+
+*> Findings from WS-FIRST-FINDING on were made after the lines of
+*> their files were released: read each file again to see its
+*> suppression comments.
+SUPPRESS-LATE-FINDINGS.
+    PERFORM VARYING WS-I FROM WS-FIRST-FINDING BY 1
+            UNTIL WS-I > FN-COUNT
+        CALL "PLB-SRC-LINE-INDEX" USING PLB-SOURCE-SET FN-FILE-ID(WS-I)
+            FN-LINE(WS-I) FN-SRC-LINE(WS-I)
+        MOVE WS-I TO WS-J
+        CALL "PLB-FIND-SUPPRESS-RANGE" USING PLB-SOURCE-SET PLB-RULES
+            PLB-FINDINGS WS-I WS-J
+        MOVE 0 TO FN-SRC-LINE(WS-I)
+    END-PERFORM.
+
 *> Record the findings as accepted, rather than report them. A
 *> baseline that is in use is not applied: the new one lists all
 *> findings.
@@ -402,7 +485,7 @@ METRICS-COMMAND.
     IF WS-EXIT-CODE NOT = 0
         EXIT PARAGRAPH
     END-IF
-    PERFORM LOAD-INPUTS
+    PERFORM ADD-INPUTS
     MOVE SS-FILE-COUNT TO WS-MAIN-FILES
     MOVE WS-MODE TO PO-FORMAT
     MOVE WS-DEBUG TO PO-DEBUG
@@ -415,19 +498,24 @@ METRICS-COMMAND.
     END-IF
     PERFORM VARYING WS-FILE-ID FROM 1 BY 1
             UNTIL WS-FILE-ID > WS-MAIN-FILES
-        PERFORM ANALYZE-FILE
-        CALL "PLB-METRICS-COMPUTE" USING PLB-SOURCE-SET PLB-TOKENS
-            PLB-AST PLB-SYMBOLS PLB-FLOW PLB-METRICS
-        EVALUATE WS-REPORT
-            WHEN "json"
-                CALL "PLB-METRICS-JSON" USING PLB-SOURCE-SET PLB-METRICS
-                    WS-FIRST
-            WHEN "csv"
-                CALL "PLB-METRICS-CSV" USING PLB-SOURCE-SET PLB-METRICS
-                    WS-FIRST
-            WHEN OTHER
-                CALL "PLB-METRICS-TEXT" USING PLB-SOURCE-SET PLB-METRICS
-        END-EVALUATE
+        PERFORM START-INPUT
+        IF SF-LOADED(WS-FILE-ID) = "Y"
+            PERFORM ANALYZE-FILE
+            CALL "PLB-METRICS-COMPUTE" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-AST PLB-SYMBOLS PLB-FLOW PLB-METRICS
+            EVALUATE WS-REPORT
+                WHEN "json"
+                    CALL "PLB-METRICS-JSON" USING PLB-SOURCE-SET
+                        PLB-METRICS WS-FIRST
+                WHEN "csv"
+                    CALL "PLB-METRICS-CSV" USING PLB-SOURCE-SET
+                        PLB-METRICS WS-FIRST
+                WHEN OTHER
+                    CALL "PLB-METRICS-TEXT" USING PLB-SOURCE-SET
+                        PLB-METRICS
+            END-EVALUATE
+            PERFORM END-INPUT
+        END-IF
     END-PERFORM
     IF WS-REPORT = "json"
         DISPLAY "  ]"
@@ -451,14 +539,18 @@ ANALYZE-RUN.
     MOVE "Y" TO WS-FIRST
     PERFORM VARYING WS-FILE-ID FROM 1 BY 1
             UNTIL WS-FILE-ID > WS-MAIN-FILES
-        PERFORM ANALYZE-FILE
-        CALL "PLB-GRAPH-INCLUDES-ADD" USING PLB-INCLUSIONS
-            PLB-INCLUDE-GRAPH
-        CALL "PLB-CALL-COLLECT" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
-            PLB-SYMBOLS PLB-REFS PLB-CALL-GRAPH
-        IF WS-COMMAND = "graph" AND WS-GRAPH-KIND = "performs"
-            CALL "PLB-GRAPH-PERFORMS" USING PLB-SOURCE-SET PLB-TOKENS
-                PLB-AST PLB-FLOW WS-REPORT WS-FIRST
+        PERFORM START-INPUT
+        IF SF-LOADED(WS-FILE-ID) = "Y"
+            PERFORM ANALYZE-FILE
+            CALL "PLB-GRAPH-INCLUDES-ADD" USING PLB-INCLUSIONS
+                PLB-INCLUDE-GRAPH
+            CALL "PLB-CALL-COLLECT" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-AST PLB-SYMBOLS PLB-REFS PLB-CALL-GRAPH
+            IF WS-COMMAND = "graph" AND WS-GRAPH-KIND = "performs"
+                CALL "PLB-GRAPH-PERFORMS" USING PLB-SOURCE-SET
+                    PLB-TOKENS PLB-AST PLB-FLOW WS-REPORT WS-FIRST
+            END-IF
+            PERFORM END-INPUT
         END-IF
     END-PERFORM
     CALL "PLB-CALL-RESOLVE" USING PLB-CALL-GRAPH.
@@ -468,7 +560,7 @@ GRAPH-COMMAND.
     IF WS-EXIT-CODE NOT = 0
         EXIT PARAGRAPH
     END-IF
-    PERFORM LOAD-INPUTS
+    PERFORM ADD-INPUTS
     CALL "PLB-GRAPH-START" USING WS-REPORT WS-GRAPH-KIND
     PERFORM ANALYZE-RUN
     EVALUATE WS-GRAPH-KIND
@@ -498,7 +590,7 @@ IMPACT-COMMAND.
     IF WS-EXIT-CODE NOT = 0
         EXIT PARAGRAPH
     END-IF
-    PERFORM LOAD-INPUTS
+    PERFORM ADD-INPUTS
     PERFORM ANALYZE-RUN
     CALL "PLB-IMPACT" USING PLB-SOURCE-SET PLB-CALL-GRAPH
         PLB-INCLUDE-GRAPH WS-IMPACT-NAME WS-FOUND
@@ -526,7 +618,7 @@ FORMAT-COMMAND.
         PERFORM SUGGEST-HELP
         EXIT PARAGRAPH
     END-IF
-    IF WS-FORMAT-CHECK = "N" AND WS-INPUT-COUNT > 1
+    IF WS-FORMAT-CHECK = "N" AND IP-COUNT > 1
         DISPLAY PLB-NAME ": format writes one file to standard output;"
             " give one file, or use --check" UPON SYSERR
         MOVE 2 TO WS-EXIT-CODE
@@ -1914,6 +2006,7 @@ DUMP-ONE-INCLUSION.
 
 *> Collect options and file operands up to the end of the arguments.
 PARSE-INPUT-ARGS.
+    MOVE 0 TO IP-COUNT
     CALL "PLB-PP-INIT-OPTIONS" USING PLB-PP-OPTIONS
     CALL "PLB-RULES-INIT" USING PLB-RULES
     PERFORM FIND-CONFIG-OPTIONS
@@ -1944,6 +2037,15 @@ PARSE-INPUT-ARGS.
                     PERFORM SUGGEST-HELP
                 ELSE
                     MOVE WS-ARG TO WS-WRITE-BASELINE
+                END-IF
+            WHEN WS-ARG = "--files-from"
+                PERFORM NEXT-ARG
+                IF WS-ARG-LEN = 0
+                    DISPLAY PLB-NAME ": --files-from needs a file"
+                        UPON SYSERR
+                    PERFORM SUGGEST-HELP
+                ELSE
+                    PERFORM READ-FILE-LIST
                 END-IF
             WHEN WS-ARG = "--format"
                 PERFORM NEXT-ARG
@@ -2003,23 +2105,46 @@ PARSE-INPUT-ARGS.
                 PERFORM SET-MODE
             WHEN WS-ARG(1:1) = "-" AND WS-ARG-LEN > 1
                 PERFORM UNKNOWN-OPTION
-            WHEN WS-INPUT-COUNT >= MAX-INPUTS
+            WHEN IP-COUNT >= IP-MAX
                 DISPLAY PLB-NAME ": too many input files (limit "
-                    MAX-INPUTS ")" UPON SYSERR
+                    IP-MAX ")" UPON SYSERR
                 MOVE 2 TO WS-EXIT-CODE
-            WHEN WS-ARG-LEN > LENGTH OF WS-INPUT(1)
+            WHEN WS-ARG-LEN > LENGTH OF IP-PATH(1)
                 DISPLAY PLB-NAME ": file name longer than 512 characters: "
                     WS-ARG(1:60) "..." UPON SYSERR
                 MOVE 2 TO WS-EXIT-CODE
             WHEN OTHER
-                ADD 1 TO WS-INPUT-COUNT
-                MOVE WS-ARG TO WS-INPUT(WS-INPUT-COUNT)
+                ADD 1 TO IP-COUNT
+                MOVE WS-ARG TO IP-PATH(IP-COUNT)
         END-EVALUATE
     END-PERFORM
-    IF WS-EXIT-CODE = 0 AND WS-INPUT-COUNT = 0 AND WS-COMMAND NOT = "lsp"
+    IF WS-EXIT-CODE = 0 AND IP-COUNT = 0 AND WS-COMMAND NOT = "lsp"
+       AND WS-COMMAND NOT = "rules"
         DISPLAY PLB-NAME ": no input files" UPON SYSERR
         PERFORM SUGGEST-HELP
     END-IF.
+
+*> --files-from WS-ARG: add the files it lists ("-": standard input).
+READ-FILE-LIST.
+    CALL "PLB-INPUTS-READ-LIST" USING WS-ARG(1:WS-ARG-LEN) PLB-INPUTS
+        WS-LIST-STATUS WS-LIST-LINE
+    EVALUATE WS-LIST-STATUS
+        WHEN 1
+            DISPLAY PLB-NAME ": cannot read file list "
+                WS-ARG(1:WS-ARG-LEN) UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        WHEN 2
+            DISPLAY PLB-NAME ": too many input files (limit "
+                IP-MAX ")" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        WHEN 3
+            MOVE WS-LIST-LINE TO WS-NUM
+            CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+            DISPLAY PLB-NAME ": file name longer than 512 characters"
+                " in " WS-ARG(1:WS-ARG-LEN) " line "
+                WS-NUM-TEXT(1:WS-NUM-LEN) UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+    END-EVALUATE.
 
 *> Look ahead in the arguments for --config FILE and --no-config, which
 *> decide what is read before the other options.
@@ -2200,6 +2325,7 @@ SET-REPORT.
         WHEN WS-ARG = "text" AND WS-COMMAND NOT = "graph"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "sarif" AND WS-COMMAND NOT = "metrics"
+             AND WS-COMMAND NOT = "rules"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "html" AND WS-COMMAND = "check"
             MOVE WS-ARG TO WS-REPORT
@@ -2216,6 +2342,11 @@ SET-REPORT.
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected text, json, or csv)" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        WHEN WS-COMMAND = "rules"
+            DISPLAY PLB-NAME ": invalid --report format '"
+                WS-ARG(1:WS-ARG-LEN)
+                "' (expected text or json)" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
         WHEN OTHER
             DISPLAY PLB-NAME ": invalid --report format '"
@@ -2246,12 +2377,34 @@ SET-MODE.
             MOVE 2 TO WS-EXIT-CODE
     END-EVALUATE.
 
+*> Read input WS-FILE-ID, noting what to release after it; its lines
+*> are in memory when SF-LOADED(WS-FILE-ID) is "Y".
+START-INPUT.
+    MOVE SS-LINE-COUNT TO WS-MARK-LINES
+    MOVE SS-HEAP-USED TO WS-MARK-HEAP
+    CALL "PLB-SRC-ENSURE" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+        WS-FILE-ID WS-STATUS.
+
+*> Release the lines of the input and of the copybooks read for it.
+END-INPUT.
+    CALL "PLB-SRC-RELEASE" USING PLB-SOURCE-SET WS-MARK-LINES
+        WS-MARK-HEAP.
+
+*> Give every input an id, in order, without reading it yet.
+ADD-INPUTS.
+    CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET
+    CALL "PLB-DIAG-INIT" USING PLB-DIAGNOSTICS
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > IP-COUNT
+        CALL "PLB-SRC-ADD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            IP-PATH(WS-I) WS-MODE WS-FILE-ID
+    END-PERFORM.
+
 LOAD-INPUTS.
     CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET
     CALL "PLB-DIAG-INIT" USING PLB-DIAGNOSTICS
-    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > WS-INPUT-COUNT
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > IP-COUNT
         CALL "PLB-SRC-LOAD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
-            WS-INPUT(WS-I) WS-MODE WS-FILE-ID WS-STATUS
+            IP-PATH(WS-I) WS-MODE WS-FILE-ID WS-STATUS
     END-PERFORM.
 
 *> One output line per source line:

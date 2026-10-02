@@ -8,26 +8,44 @@
 *>     SS-HEAP(SL-TEXT-OFF + SL-CONTENT-COL - 1 : SL-CONTENT-LEN)
 *> is the line's significant text.
 *>
-*> The limits below are hard: exceeding one is reported as an error
-*> diagnostic and the rest of the input is not loaded.
-78  SS-MAX-FILES                VALUE 256.
-78  SS-MAX-LINES                VALUE 200000.
-78  SS-HEAP-SIZE                VALUE 16000000.
-78  SS-MAX-WIDTH                VALUE 1024.
-78  SS-PATH-SIZE                VALUE 512.
+*> A file can be added (given an id) before it is read, and its lines
+*> can be released again when they are no longer needed, so that a run
+*> over many files holds the lines of a few at a time. Lines are always
+*> appended, so releasing everything read since a mark (SS-LINE-COUNT
+*> and SS-HEAP-USED at some moment) is a rewind.
+*>
+*> The limits, in plbsrcc.cpy, are hard: exceeding one is reported as
+*> an error diagnostic and the rest of the input is not loaded. A
+*> program copies plbsrcc.cpy once, before plbsrc.cpy, so that its own
+*> tables can be sized by them too.
 01  PLB-SOURCE-SET.
     05  SS-FILE-COUNT           PIC 9(4) COMP-5.
     05  SS-LINE-COUNT           PIC 9(9) COMP-5.
     05  SS-HEAP-USED            PIC 9(9) COMP-5.
+    *> Files by path: SS-PATH-HEAD holds the last file added whose
+    *> path hashes to the bucket, and SF-PATH-NEXT the one before it.
+    05  SS-PATH-HEAD            PIC 9(4) COMP-5
+                                OCCURS SS-PATH-BUCKETS TIMES.
     05  SS-FILE                 OCCURS SS-MAX-FILES TIMES.
         10  SF-PATH             PIC X(SS-PATH-SIZE).
+        10  SF-PATH-NEXT        PIC 9(4) COMP-5.
         *> Format in effect at the top of the file.
         10  SF-FORMAT           PIC X.
             88  SF-IS-FIXED           VALUE "X".
             88  SF-IS-FREE            VALUE "F".
         *> "Y" when the format was detected rather than given.
         10  SF-DETECTED         PIC X.
+        *> Format asked for when the file was added: "X", "F", or
+        *> "A" (detect). A file read again is read the same way.
+        10  SF-MODE             PIC X.
+        *> Times the file was read: 0 when it was only added. Problems
+        *> are reported the first time only.
+        10  SF-READS            PIC 9(4) COMP-5.
+        *> "Y" while the file's lines are in SS-LINE; PLB-SRC-RELEASE
+        *> takes them out again, and then SF-FIRST-LINE is 0.
+        10  SF-LOADED           PIC X.
         10  SF-FIRST-LINE       PIC 9(9) COMP-5.
+        *> Lines of the file, kept when its lines are released.
         10  SF-LINE-COUNT       PIC 9(9) COMP-5.
     05  SS-LINE                 OCCURS SS-MAX-LINES TIMES.
         10  SL-FILE-ID          PIC 9(4) COMP-5.

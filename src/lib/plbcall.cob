@@ -68,6 +68,7 @@ LOCAL-STORAGE SECTION.
 01  LS-COLUMN               PIC 9(4) COMP-5.
 01  LS-SRC-LINE             PIC 9(9) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbtok.cpy".
 COPY "plbastc.cpy".
@@ -101,6 +102,8 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
                         PERFORM ADD-CALL
                     WHEN "ENTRY"
                         PERFORM ADD-ENTRY
+                    WHEN "STOP"
+                        PERFORM NOTE-STOP-RUN
                 END-EVALUATE
         END-EVALUATE
     END-PERFORM
@@ -128,6 +131,8 @@ ADD-PROGRAM.
     MOVE CA-COUNT TO CP-PARAM-FIRST(LS-P)
     ADD 1 TO CP-PARAM-FIRST(LS-P)
     MOVE 0 TO CP-PARAM-COUNT(LS-P)
+    MOVE 0 TO CP-STOP-FILE-ID(LS-P) CP-STOP-LINE(LS-P)
+        CP-STOP-COLUMN(LS-P) CP-STOP-SRC-LINE(LS-P)
     MOVE ND-NAME(LS-N) TO LS-T
     PERFORM TOKEN-NAME
     MOVE LS-TEXT TO CP-NAME(LS-P)
@@ -156,6 +161,31 @@ ADD-PROGRAM.
         END-IF
         ADD 1 TO LS-T
     END-PERFORM.
+
+*> STOP RUN: remember the first of each program.
+NOTE-STOP-RUN.
+    COMPUTE LS-T = ND-TOK-FIRST(LS-N) + 1
+    IF LS-T > TK-COUNT OR NOT TK-IS-WORD(LS-T)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+    IF LS-WORD NOT = "RUN"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-N TO LS-UP
+    PERFORM PROGRAM-OF-NODE
+    IF LS-P = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF CP-STOP-LINE(LS-P) > 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE ND-TOK-FIRST(LS-N) TO LS-T
+    PERFORM TOKEN-POSITION
+    MOVE LS-FILE-ID TO CP-STOP-FILE-ID(LS-P)
+    MOVE LS-LINE TO CP-STOP-LINE(LS-P)
+    MOVE LS-COLUMN TO CP-STOP-COLUMN(LS-P)
+    MOVE LS-SRC-LINE TO CP-STOP-SRC-LINE(LS-P).
 
 *> LS-P = the program in the graph whose PROG node contains node
 *> LS-UP (LS-UP itself included); 0 when there is none.

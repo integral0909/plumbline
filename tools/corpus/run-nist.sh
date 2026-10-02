@@ -47,13 +47,27 @@ for f in *.cob; do
         > "../out/$name.out" 2> "../out/$name.err" || true
 done
 end=$(date +%s)
+# All programs in one run, as a project would check its whole source
+# tree. Its findings must be those of the runs above, put together.
+one_start=$(date +%s)
+"$bin" check --no-config -I copy --fail-on never *.cob \
+    > ../out/all-in-one.txt 2> ../out/all-in-one.log || true
+one_end=$(date +%s)
 cd ../out
 
 programs=$(ls ../src/*.cob | wc -l | tr -d ' ')
 lines=$(cat ../src/*.cob ../src/copy/*.cpy | wc -l | tr -d ' ')
 with_errors=$(grep -l ': error: ' *.err 2>/dev/null | wc -l | tr -d ' ')
 echo "programs:            $programs ($lines lines with copybooks)"
-echo "seconds:             $((end - start))"
+echo "seconds:             $((end - start)) (one run per program)"
+echo "seconds, one run:    $((one_end - one_start))"
+cat *.out | sort > per-program.sorted
+if sort all-in-one.txt | cmp -s - per-program.sorted; then
+    echo "one run agrees:      yes"
+else
+    echo "one run agrees:      NO (compare all-in-one.txt with the .out files)"
+fi
+rm -f per-program.sorted
 echo "with input errors:   $with_errors"
 echo
 echo "input diagnostics:"

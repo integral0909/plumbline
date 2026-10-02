@@ -59,6 +59,7 @@ DATA DIVISION.
 WORKING-STORAGE SECTION.
 COPY "plbstrm.cpy".
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbtokc.cpy".
@@ -80,7 +81,7 @@ PROGRAM-ID. PLB-LEX-SCAN.
 DATA DIVISION.
 WORKING-STORAGE SECTION.
 01  WS-CLASSES-READY        PIC X VALUE "N".
-*> Character classes, indexed by FUNCTION ORD (byte value + 1):
+*> Character classes, indexed by byte value + 1:
 *>   W letter or underscore   D digit   H hyphen
 *>   S separator              Q quote   X anything else
 01  WS-CLASS-TABLE.
@@ -120,8 +121,22 @@ LOCAL-STORAGE SECTION.
 01  LS-WORD                 PIC X(31).
 01  LS-WORD-LEN             PIC 9(9) COMP-5.
 01  LS-AT                   PIC 9(9) COMP-5.
+01  LS-AT-CLS               PIC X.
+*> CLASS-AT: a stream position and the class of its character.
+01  LS-CLASS-POS            PIC 9(9) COMP-5.
+01  LS-CLASS-OF             PIC X.
+*> The class of the character after the next one.
+01  LS-NEXT2-CLS            PIC X.
+*> A character and its byte value, for WS-CLASS. FUNCTION ORD would
+*> build a temporary field on each call, which made the lexer three
+*> times slower, and GnuCOBOL 3.2 cannot compile it as a subscript
+*> when subscripts are checked (make check-bounds).
+01  LS-BYTE.
+    05  LS-BYTE-CHAR        PIC X.
+01  LS-BYTE-CODE REDEFINES LS-BYTE BINARY-CHAR UNSIGNED.
 LINKAGE SECTION.
 COPY "plbstrm.cpy".
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbtokc.cpy".
@@ -134,8 +149,8 @@ PROCEDURE DIVISION USING PLB-STREAM PLB-SOURCE-SET PLB-DIAGNOSTICS
 
     MOVE 1 TO LS-POS
     PERFORM UNTIL LS-POS > ST-LEN OR LS-FULL = "Y"
-        MOVE ST-TEXT(LS-POS:1) TO LS-CH
-        MOVE WS-CLASS(FUNCTION ORD(LS-CH)) TO LS-CLS
+        MOVE ST-TEXT(LS-POS:1) TO LS-CH LS-BYTE-CHAR
+        MOVE WS-CLASS(LS-BYTE-CODE + 1) TO LS-CLS
         IF LS-CLS = "S"
             ADD 1 TO LS-POS
         ELSE
@@ -159,8 +174,10 @@ PROCEDURE DIVISION USING PLB-STREAM PLB-SOURCE-SET PLB-DIAGNOSTICS
 
 INIT-CLASSES.
     MOVE ALL "X" TO WS-CLASS-TABLE
+    MOVE "W" TO LS-CLASS-OF
     PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > 53
-        MOVE "W" TO WS-CLASS(FUNCTION ORD(WS-LETTERS(WS-I:1)))
+        MOVE WS-LETTERS(WS-I:1) TO LS-BYTE-CHAR
+        PERFORM SET-CLASS
     END-PERFORM
     PERFORM VARYING WS-I FROM 129 BY 1 UNTIL WS-I > 256
         MOVE "W" TO WS-CLASS(WS-I)
@@ -168,16 +185,42 @@ INIT-CLASSES.
     PERFORM VARYING WS-I FROM 49 BY 1 UNTIL WS-I > 58
         MOVE "D" TO WS-CLASS(WS-I)
     END-PERFORM
-    MOVE "H" TO WS-CLASS(FUNCTION ORD("-"))
-    MOVE "S" TO WS-CLASS(FUNCTION ORD(" "))
-    MOVE "S" TO WS-CLASS(FUNCTION ORD(X"0A"))
-    MOVE "S" TO WS-CLASS(FUNCTION ORD(X"0D"))
-    MOVE "S" TO WS-CLASS(FUNCTION ORD(X"09"))
-    MOVE "S" TO WS-CLASS(FUNCTION ORD(","))
-    MOVE "S" TO WS-CLASS(FUNCTION ORD(";"))
-    MOVE "Q" TO WS-CLASS(FUNCTION ORD('"'))
-    MOVE "Q" TO WS-CLASS(FUNCTION ORD("'"))
+    MOVE "H" TO LS-CLASS-OF
+    MOVE "-" TO LS-BYTE-CHAR
+    PERFORM SET-CLASS
+    MOVE "S" TO LS-CLASS-OF
+    MOVE " " TO LS-BYTE-CHAR
+    PERFORM SET-CLASS
+    MOVE X"0A" TO LS-BYTE-CHAR
+    PERFORM SET-CLASS
+    MOVE X"0D" TO LS-BYTE-CHAR
+    PERFORM SET-CLASS
+    MOVE X"09" TO LS-BYTE-CHAR
+    PERFORM SET-CLASS
+    MOVE "," TO LS-BYTE-CHAR
+    PERFORM SET-CLASS
+    MOVE ";" TO LS-BYTE-CHAR
+    PERFORM SET-CLASS
+    MOVE "Q" TO LS-CLASS-OF
+    MOVE '"' TO LS-BYTE-CHAR
+    PERFORM SET-CLASS
+    MOVE "'" TO LS-BYTE-CHAR
+    PERFORM SET-CLASS
     MOVE "Y" TO WS-CLASSES-READY.
+
+*> Give the character in LS-BYTE-CHAR the class in LS-CLASS-OF.
+SET-CLASS.
+    MOVE LS-CLASS-OF TO WS-CLASS(LS-BYTE-CODE + 1).
+
+*> LS-CLASS-OF = the class of the stream character at LS-CLASS-POS,
+*> or X when the position is outside the stream.
+CLASS-AT.
+    IF LS-CLASS-POS < 1 OR LS-CLASS-POS > ST-LEN
+        MOVE "X" TO LS-CLASS-OF
+    ELSE
+        MOVE ST-TEXT(LS-CLASS-POS:1) TO LS-BYTE-CHAR
+        MOVE WS-CLASS(LS-BYTE-CODE + 1) TO LS-CLASS-OF
+    END-IF.
 
 *> Follow which division the tokens are in, and after the period of a
 *> paragraph that takes a comment entry, skip the entry.
@@ -293,16 +336,17 @@ WORD-AT.
     MOVE SPACES TO LS-WORD
     MOVE 0 TO LS-WORD-LEN
     PERFORM UNTIL LS-AT > ST-LEN OR LS-WORD-LEN >= LENGTH OF LS-WORD
-        IF WS-CLASS(FUNCTION ORD(ST-TEXT(LS-AT:1))) NOT = "W"
-           AND WS-CLASS(FUNCTION ORD(ST-TEXT(LS-AT:1))) NOT = "D"
-           AND WS-CLASS(FUNCTION ORD(ST-TEXT(LS-AT:1))) NOT = "H"
+        MOVE ST-TEXT(LS-AT:1) TO LS-BYTE-CHAR
+        MOVE WS-CLASS(LS-BYTE-CODE + 1) TO LS-AT-CLS
+        IF LS-AT-CLS NOT = "W" AND LS-AT-CLS NOT = "D"
+           AND LS-AT-CLS NOT = "H"
             EXIT PERFORM
         END-IF
         ADD 1 TO LS-WORD-LEN
-        MOVE FUNCTION UPPER-CASE(ST-TEXT(LS-AT:1))
-            TO LS-WORD(LS-WORD-LEN:1)
+        MOVE LS-BYTE-CHAR TO LS-WORD(LS-WORD-LEN:1)
         ADD 1 TO LS-AT
-    END-PERFORM.
+    END-PERFORM
+    MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD.
 
 *> Scan one token starting at LS-POS (not a separator).
 SCAN-TOKEN.
@@ -310,6 +354,9 @@ SCAN-TOKEN.
     MOVE SPACES TO LS-PREFIX
     PERFORM CHECK-PICTURE-CONTEXT
     PERFORM PEEK-NEXT-CLASS
+    COMPUTE LS-CLASS-POS = LS-POS + 2
+    PERFORM CLASS-AT
+    MOVE LS-CLASS-OF TO LS-NEXT2-CLS
     EVALUATE TRUE
         WHEN LS-PICTURE = "Y"
             PERFORM SCAN-PICTURE
@@ -330,8 +377,7 @@ SCAN-TOKEN.
              AND (LS-NEXT-CLS = "D"
                   OR LS-POS + 2 <= ST-LEN
                      AND ST-TEXT(LS-POS + 1:1) = "."
-                     AND WS-CLASS(FUNCTION ORD(ST-TEXT(LS-POS + 2:1)))
-                         = "D")
+                     AND LS-NEXT2-CLS = "D")
              AND (LS-POS = 1 OR ST-TEXT(LS-POS - 1:1) = SPACE
                   OR ST-TEXT(LS-POS - 1:1) = X"0A"
                   OR ST-TEXT(LS-POS - 1:1) = "(")
@@ -350,8 +396,9 @@ SCAN-TOKEN.
 
 PEEK-NEXT-CLASS.
     IF LS-POS < ST-LEN
-        MOVE WS-CLASS(FUNCTION ORD(ST-TEXT(LS-POS + 1:1)))
-            TO LS-NEXT-CLS
+        COMPUTE LS-CLASS-POS = LS-POS + 1
+        PERFORM CLASS-AT
+        MOVE LS-CLASS-OF TO LS-NEXT-CLS
     ELSE
         MOVE "S" TO LS-NEXT-CLS
     END-IF.
@@ -387,8 +434,10 @@ CHECK-PICTURE-CONTEXT.
     *> "PIC IS X": the IS is a keyword, not the picture.
     IF LS-PICTURE = "Y" AND (LS-CH = "I" OR LS-CH = "i")
             AND LS-POS + 2 <= ST-LEN
+        COMPUTE LS-CLASS-POS = LS-POS + 2
+        PERFORM CLASS-AT
         IF FUNCTION UPPER-CASE(ST-TEXT(LS-POS:2)) = "IS"
-                AND WS-CLASS(FUNCTION ORD(ST-TEXT(LS-POS + 2:1))) = "S"
+                AND LS-CLASS-OF = "S"
             MOVE "N" TO LS-PICTURE
         END-IF
     END-IF.
@@ -419,7 +468,8 @@ SCAN-PICTURE.
 SCAN-WORD-OR-NUMBER.
     MOVE "Y" TO LS-ALL-DIGITS
     PERFORM UNTIL LS-POS > ST-LEN
-        MOVE WS-CLASS(FUNCTION ORD(ST-TEXT(LS-POS:1))) TO LS-CLS
+        MOVE ST-TEXT(LS-POS:1) TO LS-BYTE-CHAR
+        MOVE WS-CLASS(LS-BYTE-CODE + 1) TO LS-CLS
         EVALUATE LS-CLS
             WHEN "D"
                 ADD 1 TO LS-POS
@@ -448,7 +498,9 @@ SCAN-WORD-OR-NUMBER.
 
     *> A short prefix directly followed by a quote starts a literal.
     IF LS-POS <= ST-LEN AND LS-RUN-LEN <= 2
-        IF WS-CLASS(FUNCTION ORD(ST-TEXT(LS-POS:1))) = "Q"
+        MOVE LS-POS TO LS-CLASS-POS
+        PERFORM CLASS-AT
+        IF LS-CLASS-OF = "Q"
             MOVE FUNCTION UPPER-CASE(ST-TEXT(LS-START:LS-RUN-LEN))
                 TO LS-PREFIX
             IF LS-PREFIX = "X " OR "Z " OR "N " OR "NX" OR "G "
@@ -471,7 +523,8 @@ MEASURE-TAG.
     MOVE LS-POS TO LS-J
     ADD 1 TO LS-J
     PERFORM UNTIL LS-J > ST-LEN
-        MOVE WS-CLASS(FUNCTION ORD(ST-TEXT(LS-J:1))) TO LS-NEXT-CLS
+        MOVE ST-TEXT(LS-J:1) TO LS-BYTE-CHAR
+        MOVE WS-CLASS(LS-BYTE-CODE + 1) TO LS-NEXT-CLS
         IF LS-NEXT-CLS NOT = "W" AND LS-NEXT-CLS NOT = "D"
                 AND LS-NEXT-CLS NOT = "H"
             EXIT PERFORM
@@ -495,7 +548,9 @@ SCAN-NUMBER-DIGITS.
 SCAN-NUMBER-TAIL.
     IF LS-POS < ST-LEN AND (ST-TEXT(LS-POS:1) = "."
        OR ST-TEXT(LS-POS:1) = "," AND LS-DECIMAL-COMMA = "Y")
-        IF WS-CLASS(FUNCTION ORD(ST-TEXT(LS-POS + 1:1))) = "D"
+        COMPUTE LS-CLASS-POS = LS-POS + 1
+        PERFORM CLASS-AT
+        IF LS-CLASS-OF = "D"
             ADD 1 TO LS-POS
             PERFORM SKIP-DIGITS
             PERFORM SCAN-EXPONENT
@@ -515,7 +570,9 @@ SCAN-EXPONENT.
                 AND (ST-TEXT(LS-J:1) = "+" OR ST-TEXT(LS-J:1) = "-")
             ADD 1 TO LS-J
         END-IF
-        IF WS-CLASS(FUNCTION ORD(ST-TEXT(LS-J:1))) = "D"
+        MOVE LS-J TO LS-CLASS-POS
+        PERFORM CLASS-AT
+        IF LS-CLASS-OF = "D"
             MOVE LS-J TO LS-POS
             PERFORM SKIP-DIGITS
         END-IF
@@ -523,7 +580,8 @@ SCAN-EXPONENT.
 
 SKIP-DIGITS.
     PERFORM UNTIL LS-POS > ST-LEN
-        IF WS-CLASS(FUNCTION ORD(ST-TEXT(LS-POS:1))) NOT = "D"
+        MOVE ST-TEXT(LS-POS:1) TO LS-BYTE-CHAR
+        IF WS-CLASS(LS-BYTE-CODE + 1) NOT = "D"
             EXIT PERFORM
         END-IF
         ADD 1 TO LS-POS
@@ -608,8 +666,9 @@ SCAN-SPECIAL.
             *> A separator period is followed by a space; a period
             *> right before a letter qualifies a name, as in the host
             *> variable :RECORD.FIELD of embedded SQL.
-            IF LS-POS <= ST-LEN
-               AND WS-CLASS(FUNCTION ORD(ST-TEXT(LS-POS:1))) = "W"
+            MOVE LS-POS TO LS-CLASS-POS
+            PERFORM CLASS-AT
+            IF LS-CLASS-OF = "W"
                 MOVE "O" TO LS-KIND
             ELSE
                 MOVE "." TO LS-KIND
@@ -676,6 +735,11 @@ ADD-TOKEN.
     ADD 1 TO TK-COUNT
     MOVE LS-KIND TO TK-KIND(TK-COUNT)
     MOVE LS-PREFIX TO TK-PREFIX(TK-COUNT)
+    MOVE SPACE TO TK-KEYWORD(TK-COUNT)
+    IF LS-KIND = "W" AND LS-BUF-LEN <= 31
+        CALL "PLB-KW-LOOKUP" USING LS-BUF(1:LS-BUF-LEN)
+            TK-KEYWORD(TK-COUNT)
+    END-IF
     MOVE ST-FILE-ID TO TK-FILE-ID(TK-COUNT)
     MOVE 0 TO TK-INCL(TK-COUNT)
     CALL "PLB-STREAM-LOCATE" USING PLB-STREAM LS-START LS-SEG

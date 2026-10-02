@@ -118,6 +118,11 @@ PROCEDURE DIVISION USING PLB-RULES.
         "Paragraph or section has more statements than the limit"
     MOVE 50 TO RL-LIMIT(RL-COUNT)
     MOVE "N" TO RL-ENABLED(RL-COUNT)
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M011"
+        "evaluate-without-other" "N"
+        "EVALUATE has no WHEN OTHER"
+    *> A team's convention, like the size limits.
+    MOVE "N" TO RL-ENABLED(RL-COUNT)
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-S001"
         "dynamic-sql" "N"
         "SQL text is built at run time"
@@ -139,6 +144,18 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-P002"
         "hard-coded-path" "W"
         "File is assigned to a path on one machine"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C023"
+        "subscript-out-of-range" "E"
+        "Literal subscript is outside the table"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C024"
+        "refmod-out-of-range" "E"
+        "Literal reference modification is outside the item"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C025"
+        "stop-run-in-called-program" "W"
+        "STOP RUN in a program that is called"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C026"
+        "varying-limit-unreachable" "W"
+        "PERFORM VARYING waits for a value its counter cannot hold"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
@@ -212,6 +229,7 @@ LOCAL-STORAGE SECTION.
 01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 0.
 01  LS-SRC-LINE             PIC 9(9) COMP-5 VALUE 0.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
@@ -347,3 +365,113 @@ APPEND-NUMBER.
     STRING ":" LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
         INTO LK-TEXT WITH POINTER LS-PTR.
 END PROGRAM PLB-FIND-FORMAT.
+
+*> PLB-RULES-LIST: write the rule catalog, as configured, to standard
+*> output. FORMAT is "text" (one line per rule) or "json".
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULES-LIST.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbver.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-R                    PIC 9(4) COMP-5.
+01  LS-SEVERITY             PIC X(7).
+01  LS-STATE                PIC X(3).
+01  LS-OUT                  PIC X(400).
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-SEPARATOR            PIC X.
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+01  LK-FORMAT               PIC X(5).
+PROCEDURE DIVISION USING PLB-RULES LK-FORMAT.
+    IF LK-FORMAT = "json"
+        DISPLAY "{"
+        DISPLAY '  "tool": "' PLB-NAME '",'
+        DISPLAY '  "version": "' PLB-VERSION '",'
+        DISPLAY '  "rules": ['
+    END-IF
+    MOVE SPACE TO LS-SEPARATOR
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RL-COUNT
+        EVALUATE RL-SEVERITY(LS-R)
+            WHEN "E"
+                MOVE "error" TO LS-SEVERITY
+            WHEN "W"
+                MOVE "warning" TO LS-SEVERITY
+            WHEN OTHER
+                MOVE "note" TO LS-SEVERITY
+        END-EVALUATE
+        MOVE SPACES TO LS-OUT
+        MOVE 1 TO LS-PTR
+        IF LK-FORMAT = "json"
+            PERFORM JSON-RULE
+        ELSE
+            PERFORM TEXT-RULE
+        END-IF
+        CALL "PLB-STR-LENGTH" USING LS-OUT LS-LEN
+        DISPLAY LS-OUT(1:LS-LEN)
+    END-PERFORM
+    IF LK-FORMAT = "json"
+        DISPLAY "  ]"
+        DISPLAY "}"
+    END-IF
+    GOBACK.
+
+*> PLB-C001  unreachable-code  warning  on  Title [limit N]
+TEXT-RULE.
+    IF RL-ENABLED(LS-R) = "Y"
+        MOVE "on" TO LS-STATE
+    ELSE
+        MOVE "off" TO LS-STATE
+    END-IF
+    STRING RL-ID(LS-R) DELIMITED BY SIZE
+           "  " DELIMITED BY SIZE
+           RL-NAME(LS-R)(1:28) DELIMITED BY SIZE
+           LS-SEVERITY DELIMITED BY SIZE
+           "  " DELIMITED BY SIZE
+           LS-STATE DELIMITED BY SIZE
+           "  " DELIMITED BY SIZE
+           RL-TITLE(LS-R) DELIMITED BY "  "
+        INTO LS-OUT WITH POINTER LS-PTR
+    IF RL-LIMIT(LS-R) > 0
+        STRING " (limit " DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+        MOVE RL-LIMIT(LS-R) TO LS-NUM
+        PERFORM APPEND-NUM
+        STRING ")" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    END-IF.
+
+JSON-RULE.
+    STRING "    " LS-SEPARATOR '{"id": ' DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR
+    MOVE "," TO LS-SEPARATOR
+    CALL "PLB-JSON-STRING" USING RL-ID(LS-R) LS-OUT LS-PTR
+    STRING ', "name": ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    CALL "PLB-JSON-STRING" USING RL-NAME(LS-R) LS-OUT LS-PTR
+    STRING ', "severity": "' DELIMITED BY SIZE
+           LS-SEVERITY DELIMITED BY SPACE
+           '", "enabled": ' DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR
+    IF RL-ENABLED(LS-R) = "Y"
+        STRING "true" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING "false" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    IF RL-LIMIT(LS-R) > 0
+        STRING ', "limit": ' DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+        MOVE RL-LIMIT(LS-R) TO LS-NUM
+        PERFORM APPEND-NUM
+    END-IF
+    STRING ', "title": ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    CALL "PLB-JSON-STRING" USING RL-TITLE(LS-R) LS-OUT LS-PTR
+    STRING "}" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR.
+
+APPEND-NUM.
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR.
+END PROGRAM PLB-RULES-LIST.

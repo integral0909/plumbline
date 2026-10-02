@@ -5,6 +5,7 @@ IDENTIFICATION DIVISION.
 PROGRAM-ID. TEST-PLBPP.
 DATA DIVISION.
 WORKING-STORAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbppopt.cpy".

@@ -14,6 +14,9 @@ WORKING-STORAGE SECTION.
 COPY "plbmetrc.cpy".
 COPY "plbmetr.cpy".
 LOCAL-STORAGE SECTION.
+*> Holds an index taken from another table: GnuCOBOL 3.2 built with
+*> -fec=EC-BOUND-SUBSCRIPT miscompiles a subscript nested two deep.
+01  LS-UNIT                 PIC 9(9) COMP-5.
 01  LS-RULE-COMPLEX         PIC 9(4) COMP-5.
 01  LS-RULE-LONG            PIC 9(4) COMP-5.
 01  LS-M                    PIC 9(9) COMP-5.
@@ -26,6 +29,7 @@ LOCAL-STORAGE SECTION.
 01  LS-LIMIT-LEN            PIC 9(9) COMP-5.
 01  LS-MESSAGE              PIC X(200).
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
@@ -96,7 +100,8 @@ DESCRIBE.
     END-EVALUATE
     MOVE MU-NAME-TOKEN(LS-M) TO LS-TOKEN
     IF LS-TOKEN = 0
-        MOVE ND-TOK-FIRST(FU-NODE(MU-UNIT(LS-M))) TO LS-TOKEN
+        MOVE MU-UNIT(LS-M) TO LS-UNIT
+        MOVE ND-TOK-FIRST(FU-NODE(LS-UNIT)) TO LS-TOKEN
     END-IF
     MOVE SPACES TO LS-MESSAGE.
 END PROGRAM PLB-RULE-SIZE.

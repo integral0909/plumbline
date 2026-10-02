@@ -3,7 +3,9 @@
 *> Rule findings are kept apart from diagnostics (plbdiag.cpy):
 *> diagnostics describe problems with Plumbline's input or limits,
 *> findings describe problems in the program being analyzed.
-78  FN-MAX                      VALUE 20000.
+*> Findings beyond FN-MAX are counted in FN-DROPPED, and plumbline
+*> check reports them as error FN001.
+78  FN-MAX                      VALUE 100000.
 01  PLB-FINDINGS.
     05  FN-COUNT                PIC 9(9) COMP-5.
     05  FN-DROPPED              PIC 9(9) COMP-5.

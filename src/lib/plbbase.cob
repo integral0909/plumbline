@@ -41,7 +41,9 @@ LOCAL-STORAGE SECTION.
 01  LS-START                PIC 9(9) COMP-5.
 01  LS-SPACE                PIC X.
 01  LS-RULE-LEN             PIC 9(9) COMP-5.
+01  LS-SRC-LINE             PIC 9(9) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbrules.cpy".
 COPY "plbfind.cpy".
@@ -71,11 +73,13 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-RULES PLB-FINDINGS
             INTO LK-KEY WITH POINTER LS-PTR
     END-IF
     STRING " | " DELIMITED BY SIZE INTO LK-KEY WITH POINTER LS-PTR
-    IF FN-SRC-LINE(LK-INDEX) = 0
+    CALL "PLB-SRC-LINE-INDEX" USING PLB-SOURCE-SET FN-FILE-ID(LK-INDEX)
+        FN-LINE(LK-INDEX) LS-SRC-LINE
+    IF LS-SRC-LINE = 0
         GOBACK
     END-IF
-    CALL "PLB-SRC-LINE-CONTENT" USING PLB-SOURCE-SET
-        FN-SRC-LINE(LK-INDEX) LS-LINE LS-LEN
+    CALL "PLB-SRC-LINE-CONTENT" USING PLB-SOURCE-SET LS-SRC-LINE
+        LS-LINE LS-LEN
     *> The line's text with runs of spaces and tabs as one space, and
     *> none at either end.
     MOVE LS-PTR TO LS-START
@@ -122,6 +126,7 @@ WORKING-STORAGE SECTION.
 01  WS-NO-COLUMN            PIC 9(4) COMP-5 VALUE 0.
 01  WS-MESSAGE              PIC X(200).
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbrules.cpy".
@@ -211,6 +216,7 @@ WORKING-STORAGE SECTION.
 01  WS-NO-COLUMN            PIC 9(4) COMP-5 VALUE 0.
 01  WS-MESSAGE              PIC X(200).
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbrules.cpy".

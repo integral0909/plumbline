@@ -67,6 +67,7 @@ COPY "plbpic.cpy".
 01  LS-CURRENCY             PIC X VALUE SPACE.
 COPY "plbpic.cpy" REPLACING ==PLB-PIC-INFO== BY ==LS-SAVED-PIC==.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbtokc.cpy".

@@ -80,6 +80,19 @@ uses [Semantic Versioning](https://semver.org/).
   sensitive-data-displayed, and PLB-S004 shell-command.
 - Portability rules PLB-P001 vendor-routine (off by default) and
   PLB-P002 hard-coded-path.
+- `plumbline check` holds the lines of one input at a time and takes up
+  to 10,000 inputs (was 256); the NIST suite checks in one run.
+- Error FN001 when a run has more findings than it can keep.
+- `--files-from LIST` reads the files to analyze from a list, or from
+  standard input with `-`.
+- Rules PLB-C023 subscript-out-of-range and PLB-C024
+  refmod-out-of-range, for literal subscripts and reference modifiers.
+- Rule PLB-C025 stop-run-in-called-program.
+- Rule PLB-C026 varying-limit-unreachable.
+- Rule PLB-M011 evaluate-without-other (off by default).
+- `plumbline rules [--report text|json]` lists the rules as configured.
+- `make check-bounds` runs the tests on a build that checks subscripts.
+- [Diagnostics reference](docs/diagnostics.md).
 - `plumbline format --to fixed|free [--check]`: rewrite a file in the
   other reference format without changing its tokens.
 - HTML report (`--report html`): one self-contained page with source
@@ -104,6 +117,11 @@ uses [Semantic Versioning](https://semver.org/).
   PLB-C017 report-not-terminated, and PLB-M007 detail-never-generated.
 - SORT and MERGE INPUT and OUTPUT PROCEDUREs, ALTER, CD entries, the
   fields of DEBUG-ITEM, DECIMAL-POINT IS COMMA, and CURRENCY SIGN.
+
+### Changed
+
+- Checking is faster: the NIST suite in one run went from 17.2 to 9.8
+  seconds.
 
 ### Fixed
 

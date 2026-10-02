@@ -28,6 +28,10 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C020](#plb-c020-file-status-not-checked) | file-status-not-checked | warning | FILE STATUS is not tested after an I/O statement |
 | [PLB-C021](#plb-c021-file-not-opened) | file-not-opened | warning | File is used but never opened |
 | [PLB-C022](#plb-c022-open-mode-mismatch) | open-mode-mismatch | error | I/O statement needs an open mode the file is never opened in |
+| [PLB-C023](#plb-c023-subscript-out-of-range) | subscript-out-of-range | error | Literal subscript is outside the table |
+| [PLB-C024](#plb-c024-refmod-out-of-range) | refmod-out-of-range | error | Literal reference modification is outside the item |
+| [PLB-C025](#plb-c025-stop-run-in-called-program) | stop-run-in-called-program | warning | STOP RUN in a program that is called |
+| [PLB-C026](#plb-c026-varying-limit-unreachable) | varying-limit-unreachable | warning | PERFORM VARYING waits for a value its counter cannot hold |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -38,7 +42,8 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M008](#plb-m008-file-not-closed) | file-not-closed | note | File is opened but never closed |
 | [PLB-M009](#plb-m009-complex-paragraph) | complex-paragraph | note, off | Paragraph or section is more complex than the limit |
 | [PLB-M010](#plb-m010-long-paragraph) | long-paragraph | note, off | Paragraph or section has more statements than the limit |
-| [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, *off* | CALL of a compiler library routine |
+| [PLB-M011](#plb-m011-evaluate-without-other) | evaluate-without-other | note, off | EVALUATE has no WHEN OTHER |
+| [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, off | CALL of a compiler library routine |
 | [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
@@ -532,6 +537,96 @@ An I/O statement that none of the file's open modes allows:
 `READ` and `START` need `INPUT` or `I-O`, `WRITE` needs `OUTPUT`,
 `EXTEND`, or `I-O`, and `REWRITE` and `DELETE` need `I-O`.
 
+## PLB-C023 subscript-out-of-range
+
+A subscript written as a number that is below 1 or past the table's
+OCCURS:
+
+```cobol
+01  MONTH-TABLE.
+    05  MONTH-NAME  PIC X(9) OCCURS 12 TIMES.
+    ...
+    MOVE "SMARCH" TO MONTH-NAME (13)                *> reported
+    MOVE "NONE" TO MONTH-NAME (0)                   *> reported
+    MOVE MONTH-NAME (I + 12) TO OUT-TEXT            *> not checked
+```
+
+At run time such a subscript reads or overwrites whatever follows the
+table, unless the program was compiled with subscript checking. Each
+dimension of a table inside a table is checked against its own OCCURS:
+for `GRID-CELL (2, 5)` in a 3 by 4 grid, the 5 is reported. With
+`OCCURS ... DEPENDING ON`, the subscript is checked against the maximum.
+Only literal subscripts are checked, and only when there is one per
+dimension.
+
+## PLB-C024 refmod-out-of-range
+
+A reference modification written with numbers that reaches outside the
+item:
+
+```cobol
+01  CODE-TEXT  PIC X(8).
+    ...
+    MOVE CODE-TEXT (5:6) TO OUT-TEXT                *> ends at 10: reported
+    MOVE CODE-TEXT (9:) TO OUT-TEXT                 *> starts past the end
+    MOVE CODE-TEXT (0:2) TO OUT-TEXT                *> starts at 0
+    MOVE CODE-TEXT (I:9) TO OUT-TEXT                *> 9 is too long anywhere
+```
+
+Positions count characters, from 1. Items whose characters are not
+bytes (national, boolean), numeric items that are not `DISPLAY`, and
+tables whose size depends on `OCCURS ... DEPENDING ON` are not checked.
+
+## PLB-C025 stop-run-in-called-program
+
+`STOP RUN` in a program that another program of the run calls, or in a
+nested program:
+
+```cobol
+PROGRAM-ID. PAYSTEP.                    *> MAIN-RUN calls PAYSTEP
+PROCEDURE DIVISION.
+    ...
+    STOP RUN.                           *> reported
+```
+
+`STOP RUN` ends the run unit: the program, its callers, and everything
+else that is running. A called program usually means to return to its
+caller, which `GOBACK` (or `EXIT PROGRAM`) does. A nested program only
+runs when it is called, so it is always checked.
+
+Whether a program is called is taken from the call graph, so the rule
+needs the callers in the same run. That keeps it quiet on a main
+program that has `PROCEDURE DIVISION USING` to receive a JCL `PARM`:
+nothing calls it. Calls through a data item (`CALL WS-NAME`) do not
+count.
+
+## PLB-C026 varying-limit-unreachable
+
+A `PERFORM VARYING` whose `UNTIL` condition waits for a value the
+counter cannot hold:
+
+```cobol
+01  I  PIC 99.
+    ...
+    PERFORM VARYING I FROM 1 BY 1 UNTIL I > 99      *> reported
+        MOVE "A" TO CELL (I)
+    END-PERFORM
+```
+
+`I` goes from 99 to 00 when it is increased, so it is never greater
+than 99, and the loop goes on until something else ends it: a `GO TO`
+out of it, `EXIT PERFORM`, or an abend when `CELL (0)` is stored. Give
+the counter one more digit, or stop at the last value it holds
+(`UNTIL I = 99` with `TEST AFTER`).
+
+The rule checks `UNTIL counter op literal`, with op one of `>`, `>=`,
+`=`, `<`, `<=` or their words, on the counter that `VARYING` names:
+`UNTIL I < 0` is reported for an unsigned counter too. Only integer
+counters stored as decimal digits (`DISPLAY` or `PACKED-DECIMAL`) are
+checked. A binary counter can hold more than its picture says when the
+compiler does not truncate binary data (IBM `TRUNC(BIN)`, GnuCOBOL
+`-fnotrunc`). Conditions with `AND` or `OR` are not checked.
+
 ## PLB-M001 go-to
 
 Every `GO TO` statement, reported as a note. `GO TO` makes the flow of
@@ -661,6 +756,22 @@ paragraph PRINT-SUMMARY has 87 statements (limit 50)
 ```
 
 Off by default, like PLB-M009.
+
+## PLB-M011 evaluate-without-other
+
+*Off by default.* An `EVALUATE` without `WHEN OTHER`:
+
+```cobol
+    EVALUATE STATUS-CODE                *> noted
+        WHEN 1 DISPLAY "OPEN"
+        WHEN 2 DISPLAY "CLOSED"
+    END-EVALUATE
+```
+
+A value that no `WHEN` matches does nothing, silently. Often that is
+what was meant, so the rule is for teams whose convention is that
+every `EVALUATE` says what happens to the other values, if only
+`WHEN OTHER CONTINUE`.
 
 ## PLB-P001 vendor-routine
 

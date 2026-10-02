@@ -139,6 +139,7 @@ LOCAL-STORAGE SECTION.
 01  LS-FOUND                PIC X.
 01  LS-I                    PIC 9(9) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbppopt.cpy".
 01  LK-NAME                 PIC X ANY LENGTH.
@@ -449,6 +450,7 @@ WORKING-STORAGE SECTION.
 COPY "plbtokc.cpy".
 COPY "plbtok.cpy" REPLACING ==PLB-TOKENS== BY ==WORK-TOKENS==.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbppopt.cpy".
@@ -503,7 +505,6 @@ LOCAL-STORAGE SECTION.
 01  LS-MAIN-EOF             PIC 9(9) COMP-5.
 01  LS-F                    PIC 9(4) COMP-5.
 01  LS-I                    PIC 9(9) COMP-5.
-01  LS-LOADED               PIC 9(4) COMP-5.
 01  LS-J                    PIC 9(9) COMP-5.
 01  LS-K                    PIC 9(9) COMP-5.
 01  LS-R                    PIC 9(9) COMP-5.
@@ -539,6 +540,7 @@ LOCAL-STORAGE SECTION.
 01  LS-COLUMN               PIC 9(4) COMP-5.
 01  LS-DIAG-FILE            PIC 9(4) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbppopt.cpy".
@@ -1061,18 +1063,18 @@ FIND-OR-LOAD.
         EXIT PARAGRAPH
     END-IF
     *> A copybook an earlier file of the run included is already in
-    *> the source set; tokenize it again rather than read it again.
-    MOVE 0 TO LS-FILE-ID
-    PERFORM VARYING LS-LOADED FROM 1 BY 1
-            UNTIL LS-LOADED > SS-FILE-COUNT
-        IF SF-PATH(LS-LOADED) = LS-PATH
-            MOVE LS-LOADED TO LS-FILE-ID
-            EXIT PERFORM
-        END-IF
-    END-PERFORM
+    *> the source set: tokenize it again, under the same id, reading it
+    *> again only if its lines were released since.
+    CALL "PLB-SRC-FIND-PATH" USING PLB-SOURCE-SET LS-PATH LS-FILE-ID
     IF LS-FILE-ID = 0
         CALL "PLB-SRC-LOAD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS LS-PATH
             PO-FORMAT LS-FILE-ID LS-LOAD-STATUS
+    ELSE
+        CALL "PLB-SRC-ENSURE" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            LS-FILE-ID LS-LOAD-STATUS
+        IF LS-LOAD-STATUS NOT = 0
+            MOVE 0 TO LS-FILE-ID
+        END-IF
     END-IF
     IF LS-FILE-ID = 0
         MOVE "N" TO LS-OK
@@ -1113,6 +1115,11 @@ EMIT-TOKEN.
     MOVE TK-KIND OF WORK-TOKENS (LS-I) TO TK-KIND OF RESULT-TOKENS (LS-K)
     MOVE TK-PREFIX OF WORK-TOKENS (LS-I)
         TO TK-PREFIX OF RESULT-TOKENS (LS-K)
+    MOVE TK-KEYWORD OF WORK-TOKENS (LS-I)
+        TO TK-KEYWORD OF RESULT-TOKENS (LS-K)
+    IF LS-USE-TEXT = "Y"
+        PERFORM LOOK-UP-KEYWORD
+    END-IF
     MOVE TK-FILE-ID OF WORK-TOKENS (LS-I)
         TO TK-FILE-ID OF RESULT-TOKENS (LS-K)
     MOVE LS-INCL TO TK-INCL OF RESULT-TOKENS (LS-K)
@@ -1128,6 +1135,15 @@ EMIT-TOKEN.
         MOVE LS-TEXT(1:LS-TEXT-LEN) TO TK-TEXT OF RESULT-TOKENS
             (TK-TEXT-USED OF RESULT-TOKENS + 1:LS-TEXT-LEN)
         ADD LS-TEXT-LEN TO TK-TEXT-USED OF RESULT-TOKENS
+    END-IF.
+
+*> The keyword kind of RESULT token LS-K, whose text is replaced.
+LOOK-UP-KEYWORD.
+    MOVE SPACE TO TK-KEYWORD OF RESULT-TOKENS (LS-K)
+    IF TK-KIND OF RESULT-TOKENS (LS-K) = "W" AND LS-TEXT-LEN > 0
+       AND LS-TEXT-LEN <= 31
+        CALL "PLB-KW-LOOKUP" USING LS-TEXT(1:LS-TEXT-LEN)
+            TK-KEYWORD OF RESULT-TOKENS (LS-K)
     END-IF.
 
 *> Report LS-DIAG-CODE / LS-MESSAGE at WORK token LS-DIAG-TOKEN.
@@ -1201,6 +1217,7 @@ LOCAL-STORAGE SECTION.
 01  LS-LINE-NO              PIC 9(9) COMP-5.
 01  LS-COLUMN               PIC 9(4) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbtokc.cpy".
@@ -1482,6 +1499,9 @@ EMIT-TOKEN.
     MOVE TK-COUNT OF RESULT-TOKENS TO LS-K
     MOVE TK-ENTRY OF WORK-TOKENS (LS-I) TO TK-ENTRY OF RESULT-TOKENS (LS-K)
     MOVE LS-INCL TO TK-INCL OF RESULT-TOKENS (LS-K)
+    IF LS-USE-TEXT = "Y"
+        PERFORM LOOK-UP-KEYWORD
+    END-IF
     COMPUTE TK-TEXT-OFF OF RESULT-TOKENS (LS-K) =
         TK-TEXT-USED OF RESULT-TOKENS + 1
     MOVE LS-TEXT-LEN TO TK-TEXT-LEN OF RESULT-TOKENS (LS-K)
@@ -1489,5 +1509,14 @@ EMIT-TOKEN.
         MOVE LS-TEXT(1:LS-TEXT-LEN) TO TK-TEXT OF RESULT-TOKENS
             (TK-TEXT-USED OF RESULT-TOKENS + 1:LS-TEXT-LEN)
         ADD LS-TEXT-LEN TO TK-TEXT-USED OF RESULT-TOKENS
+    END-IF.
+
+*> The keyword kind of RESULT token LS-K, whose text is replaced.
+LOOK-UP-KEYWORD.
+    MOVE SPACE TO TK-KEYWORD OF RESULT-TOKENS (LS-K)
+    IF TK-KIND OF RESULT-TOKENS (LS-K) = "W" AND LS-TEXT-LEN > 0
+       AND LS-TEXT-LEN <= 31
+        CALL "PLB-KW-LOOKUP" USING LS-TEXT(1:LS-TEXT-LEN)
+            TK-KEYWORD OF RESULT-TOKENS (LS-K)
     END-IF.
 END PROGRAM PLB-PP-REPLACE.

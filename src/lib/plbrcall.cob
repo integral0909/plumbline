@@ -4,6 +4,7 @@
 *>   PLB-C013  call-argument-count
 *>   PLB-C014  call-argument-mismatch
 *>   PLB-C015  recursive-call
+*>   PLB-C025  stop-run-in-called-program
 *>   PLB-M006  dynamic-call
 *>
 *> These run once per run, after every file's programs and calls are
@@ -40,6 +41,8 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE-MISMATCH        PIC 9(4) COMP-5.
 01  LS-RULE-RECURSIVE       PIC 9(4) COMP-5.
 01  LS-RULE-DYNAMIC         PIC 9(4) COMP-5.
+01  LS-RULE-STOP-RUN        PIC 9(4) COMP-5.
+01  LS-EDGES-BUILT          PIC X VALUE "N".
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-C                    PIC 9(9) COMP-5.
 01  LS-P                    PIC 9(9) COMP-5.
@@ -67,6 +70,7 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C014" LS-RULE-MISMATCH
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C015" LS-RULE-RECURSIVE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M006" LS-RULE-DYNAMIC
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C025" LS-RULE-STOP-RUN
     PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > CC-COUNT
         EVALUATE TRUE
             WHEN CC-DYNAMIC(LS-C) = "Y"
@@ -78,7 +82,69 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH.
     IF RL-ENABLED(LS-RULE-RECURSIVE) = "Y"
         PERFORM CHECK-RECURSION
     END-IF
+    IF RL-ENABLED(LS-RULE-STOP-RUN) = "Y"
+        PERFORM CHECK-STOP-RUN
+    END-IF
     GOBACK.
+
+*> PLB-C025 ------------------------------------------------------
+
+*> STOP RUN ends the run unit: every program in it, the callers too.
+*> In a program that another program of the run calls, or in a nested
+*> program, which only runs when called, GOBACK or EXIT PROGRAM returns
+*> to the caller instead. A main program that has PROCEDURE DIVISION
+*> USING (to receive a JCL PARM, say) and is called by nobody in the
+*> run is not reported.
+CHECK-STOP-RUN.
+    IF LS-EDGES-BUILT = "N"
+        PERFORM BUILD-EDGES
+    END-IF
+    PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+        *> A program without a name is a parse that was reported.
+        IF CP-KIND(LS-P) = "P" AND CP-STOP-LINE(LS-P) > 0
+           AND CP-NAME(LS-P) NOT = SPACES
+            EVALUATE TRUE
+                WHEN CP-PARENT(LS-P) > 0
+                    MOVE SPACES TO LS-MESSAGE
+                    STRING "STOP RUN in nested program " DELIMITED BY SIZE
+                           CP-NAME(LS-P) DELIMITED BY SPACE
+                           " ends the whole run; GOBACK returns to its"
+                           DELIMITED BY SIZE
+                           " caller" DELIMITED BY SIZE
+                        INTO LS-MESSAGE
+                    PERFORM REPORT-STOP-RUN
+                WHEN WS-CALLED(LS-P) = "Y"
+                    PERFORM FIRST-CALLER
+                    MOVE SPACES TO LS-MESSAGE
+                    STRING "STOP RUN in " DELIMITED BY SIZE
+                           CP-NAME(LS-P) DELIMITED BY SPACE
+                           ", which " DELIMITED BY SIZE
+                           CP-NAME(LS-U) DELIMITED BY SPACE
+                           " calls, ends the whole run; GOBACK returns"
+                           DELIMITED BY SIZE
+                           " to the caller" DELIMITED BY SIZE
+                        INTO LS-MESSAGE
+                    PERFORM REPORT-STOP-RUN
+            END-EVALUATE
+        END-IF
+    END-PERFORM.
+
+*> LS-U = the first program, in call order, that calls program LS-P.
+FIRST-CALLER.
+    MOVE 0 TO LS-U
+    PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > CC-COUNT
+        IF CC-TO(LS-C) > 0 AND CC-FROM(LS-C) > 0
+            IF CP-OWNER(CC-TO(LS-C)) = LS-P
+                MOVE CC-FROM(LS-C) TO LS-U
+                EXIT PERFORM
+            END-IF
+        END-IF
+    END-PERFORM.
+
+REPORT-STOP-RUN.
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE-STOP-RUN
+        CP-STOP-FILE-ID(LS-P) CP-STOP-LINE(LS-P) CP-STOP-COLUMN(LS-P)
+        CP-STOP-SRC-LINE(LS-P) LS-MESSAGE.
 
 *> PLB-M006 ------------------------------------------------------
 
@@ -262,6 +328,7 @@ CHECK-RECURSION.
 
 *> Edges between programs (an ENTRY point counts as its program).
 BUILD-EDGES.
+    MOVE "Y" TO LS-EDGES-BUILT
     MOVE 0 TO WS-EDGE-COUNT
     PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
         MOVE "N" TO WS-CALLED(LS-P)
@@ -274,7 +341,7 @@ BUILD-EDGES.
             MOVE CC-FROM(LS-C) TO WS-EDGE-FROM(WS-EDGE-COUNT)
             MOVE CP-OWNER(CC-TO(LS-C)) TO WS-EDGE-TO(WS-EDGE-COUNT)
             MOVE LS-C TO WS-EDGE-CALL(WS-EDGE-COUNT)
-            MOVE "Y" TO WS-CALLED(CP-OWNER(CC-TO(LS-C)))
+            MOVE "Y" TO WS-CALLED(WS-EDGE-TO(WS-EDGE-COUNT))
         END-IF
     END-PERFORM
     IF WS-EDGE-COUNT > 1

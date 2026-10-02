@@ -24,6 +24,7 @@ LOCAL-STORAGE SECTION.
 01  LS-TOKEN                PIC 9(9) COMP-5.
 01  LS-MESSAGE              PIC X(200).
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
@@ -81,6 +82,7 @@ LOCAL-STORAGE SECTION.
 01  LS-TOKEN                PIC 9(9) COMP-5.
 01  LS-MESSAGE              PIC X(200).
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
@@ -142,6 +144,7 @@ LOCAL-STORAGE SECTION.
 01  LS-TOKEN                PIC 9(9) COMP-5.
 01  LS-MESSAGE              PIC X(200).
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbtokc.cpy".
 COPY "plbtok.cpy".

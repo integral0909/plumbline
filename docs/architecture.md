@@ -49,6 +49,43 @@ point at the exact source the user wrote.
 Hard limits (files, lines, heap size, 1024-column lines) are enforced
 with diagnostics, never with silent truncation.
 
+A file can be added before it is read (`PLB-SRC-ADD`), which gives it
+its id, and its lines can be released again (`PLB-SRC-RELEASE`). Lines
+are only ever appended, so releasing is a rewind to a mark taken
+earlier. A released file keeps its id, path, and line count, and
+`PLB-SRC-ENSURE` reads it again when it is needed. The first read
+reports the file's problems and a later read keeps quiet. Paths are
+found through a hash index, so looking up a copybook does not depend on
+how many files a run has.
+
+### Checking many files
+
+`plumbline check` adds every input first, so inputs have ids 1 to N in
+command-line order, and then takes them one at a time:
+
+1. read the input (copybooks are read as the preprocessor meets them);
+2. analyze it and run the rules;
+3. collect its programs and calls into the call graph;
+4. settle which of its findings `plumbline: ignore` comments suppress;
+5. release its lines and its copybooks' lines.
+
+Only the lines of one input and its copybooks are in memory at a time.
+Findings and the call graph refer to source by file id and line, which
+stay valid. Some work needs a released file's lines again:
+
+- the call rules, which run after the last input;
+- baselines, whose entries hold the text of the reported line;
+- the HTML report's excerpts.
+
+For these, `PLB-SRC-LINE-INDEX` reads the file again, keeping one
+such file at a time.
+
+A run takes up to 10,000 inputs, which together with their copybooks
+may be up to 20,000 files, and keeps up to 100,000 findings. Findings
+beyond that are counted and reported as error FN001. The NIST suite's
+459 programs (347,000 lines) check in one run in about 10 seconds, with
+the same findings as one run per program (see [corpus](corpus.md)).
+
 ### Preprocessor
 
 `src/lib/plbpp.cob`, with tables in `copy/plbppopt.cpy` and

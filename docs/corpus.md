@@ -11,7 +11,9 @@ mirror, checks it against a known SHA-256, and runs Plumbline over it:
 ```console
 $ make corpus
 programs:            459 (347213 lines with copybooks)
-seconds:             26
+seconds:             22 (one run per program)
+seconds, one run:    10
+one run agrees:      yes
 with input errors:   2
 ...
 ```
@@ -26,14 +28,17 @@ comments.
 
 ## Results
 
-The figures below are from 2026-10-01. Each program is checked on its
-own with every rule at its default setting.
+The figures below are from 2026-10-01, on an Apple M1 laptop.
+Each program is checked on its own with every rule at its default
+setting. The script then checks all programs in one run and compares
+the findings; they must be the same.
 
 | | |
 |---|---|
 | Programs | 459 |
 | Lines, with copybooks | 347,213 |
-| Time, one `plumbline` run per program | 26 s |
+| Time, one `plumbline` run per program | 22 s |
+| Time, all programs in one run | 10 s |
 | Programs read without input errors | 457 |
 
 The 2 programs that still have input errors are:

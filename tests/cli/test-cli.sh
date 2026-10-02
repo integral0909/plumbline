@@ -31,6 +31,63 @@ check() {
     fi
 }
 
+# check_stdin LABEL EXPECTED-RC PATTERN INPUT -- ARGS...: like check,
+# with INPUT (printf format) on standard input.
+check_stdin() {
+    label=$1 want_rc=$2 pattern=$3 input=$4
+    shift 5
+    n=$((n + 1))
+    out=$(printf '%b' "$input" | "$bin_abs" "$@" 2>&1)
+    rc=$?
+    if [ "$rc" -eq "$want_rc" ] && printf '%s\n' "$out" | grep -q -- "$pattern"; then
+        echo "ok $n - $label"
+    else
+        failed=$((failed + 1))
+        echo "not ok $n - $label"
+        echo "  ---"
+        echo "  expected rc $want_rc, output matching: $pattern"
+        echo "  actual rc $rc, output:"
+        printf '%s\n' "$out" | sed 's/^/    /'
+        echo "  ..."
+    fi
+}
+
+# check_absent LABEL PATTERN -- ARGS...: no line of the output matches
+# PATTERN (the exit code is not checked).
+check_absent() {
+    label=$1 pattern=$2
+    shift 3
+    n=$((n + 1))
+    out=$(cd "$run_dir" && "$bin_abs" "$@" 2>&1)
+    if printf '%s\n' "$out" | grep -q -- "$pattern"; then
+        failed=$((failed + 1))
+        echo "not ok $n - $label"
+        echo "  ---"
+        echo "  expected no line matching: $pattern"
+        echo "  actual output:"
+        printf '%s\n' "$out" | sed 's/^/    /'
+        echo "  ..."
+    else
+        echo "ok $n - $label"
+    fi
+}
+
+# check_file LABEL PATTERN FILE: a line of FILE matches PATTERN.
+check_file() {
+    n=$((n + 1))
+    if grep -q -- "$2" "$3"; then
+        echo "ok $n - $1"
+    else
+        failed=$((failed + 1))
+        echo "not ok $n - $1"
+        echo "  ---"
+        echo "  expected a line matching: $2"
+        echo "  actual file:"
+        sed 's/^/    /' "$3"
+        echo "  ..."
+    fi
+}
+
 echo "TAP version 13"
 echo "# suite: cli"
 check "--version prints name and version" 0 '^plumbline [0-9]' -- --version
@@ -122,6 +179,75 @@ cx=tests/fixtures/calls
 check "calls are checked across files"    1 'billing.cob:9:17: warning: argument 1 (CUST-ID, 6 bytes) is smaller than parameter LK-CUST-ID of CUSTLOOK (8 bytes) \[PLB-C014\]' \
     -- check $cx/billing.cob $cx/custlook.cob
 check "calls to programs not in the run are not checked" 0 '^$' -- check $cx/billing.cob
+# More inputs than the old limit of 256 files: tables indexed by file
+# must hold them all.
+many=$(mktemp -d)
+i=1
+while [ $i -le 300 ]; do
+    printf '       IDENTIFICATION DIVISION.\n       PROGRAM-ID. P%s.\n       PROCEDURE DIVISION.\n           GOBACK.\n' $i \
+        > "$many/p$i.cob"
+    i=$((i + 1))
+done
+printf '       01  SHARED-REC PIC X(10).\n' > "$many/shared.cpy"
+printf '       IDENTIFICATION DIVISION.\n       PROGRAM-ID. LAST.\n       DATA DIVISION.\n       WORKING-STORAGE SECTION.\n       COPY SHARED.\n       PROCEDURE DIVISION.\n           GOBACK.\n' \
+    > "$many/z-last.cob"
+check "impact over more than 256 files"   0 'included by .*z-last.cob directly' \
+    -- impact SHARED --no-config -I "$many" "$many"/*.cob
+check "check over more than 256 files"    0 '^$' -- check --no-config -I "$many" "$many"/*.cob
+rm -rf "$many"
+check "evaluate-without-other is off by default" 0 '^$' \
+    -- check --no-config tests/fixtures/rules/evaluate.cob
+check "evaluate-without-other finds the EVALUATE" 0 'evaluate.cob:12:12: note: EVALUATE has no WHEN OTHER' \
+    -- check --no-config --enable evaluate-without-other --fail-on error tests/fixtures/rules/evaluate.cob
+check_absent "an EVALUATE with WHEN OTHER is fine" 'evaluate.cob:8:' \
+    -- check --no-config --enable PLB-M011 tests/fixtures/rules/evaluate.cob
+check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
+check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
+    -- rules --no-config --enable evaluate-without-other
+check "rules shows limits from the config" 0 'PLB-M009  complex-paragraph .* on .*(limit 10)$' \
+    -- rules --config tests/fixtures/config/limits.conf
+check "rules as JSON"                     0 '"id": "PLB-C023", "name": "subscript-out-of-range", "severity": "error", "enabled": true' \
+    -- rules --no-config --report json
+check "rules takes no files"              2 'rules takes no files' -- rules --no-config x.cob
+check "rules has no sarif report"         2 "invalid --report format 'sarif' (expected text or json)" \
+    -- rules --report sarif
+lx=tests/fixtures/lists
+check "--files-from adds the files a list names" 1 'billing.cob:9:17: .*\[PLB-C014\]' \
+    -- check --no-config --files-from $lx/calls.list
+check "--files-from and file arguments add up" 1 'billing.cob:9:17: .*\[PLB-C014\]' \
+    -- check --no-config --files-from $lx/calls.list $cx/archive.cob
+check_stdin "--files-from - reads standard input" 1 'billing.cob:9:17: .*\[PLB-C014\]' \
+    "$cx/billing.cob\n$cx/custlook.cob\n" -- check --no-config --files-from -
+check_stdin "a last line without a newline counts" 1 'billing.cob:9:17: .*\[PLB-C014\]' \
+    "$cx/billing.cob\n$cx/custlook.cob" -- check --no-config --files-from -
+n=$((n + 1))
+if printf '%s\n' "$cx/billing.cob" | "$bin_abs" check --no-config --files-from - 2>&1 \
+        | grep -q libcob; then
+    failed=$((failed + 1))
+    echo "not ok $n - reading standard input draws no runtime warning"
+else
+    echo "ok $n - reading standard input draws no runtime warning"
+fi
+check "--files-from needs a file"         2 '--files-from needs a file' -- check --files-from
+check "a missing list is an error"        2 'cannot read file list nope.list' \
+    -- check --files-from nope.list
+tmp_list=$(mktemp)
+printf '%s.cob\n' "$(printf 'x%.0s' $(seq 1 600))" > "$tmp_list"
+check "overlong names in a list are refused" 2 'file name longer than 512 characters in .* line 1' \
+    -- check --files-from "$tmp_list"
+rm -f "$tmp_list"
+check "comments suppress call findings in earlier files" 0 '^$' \
+    -- check $cx/archive.cob $cx/custlook.cob
+check "html shows lines of files checked earlier" 1 '<mark>     9             CALL &quot;CUSTLOOK&quot;' \
+    -- check --report html $cx/billing.cob $cx/custlook.cob
+tmp_baseline=$(mktemp)
+check "baselines key findings of earlier files by their line" 0 'wrote 1 findings' \
+    -- check --write-baseline "$tmp_baseline" $cx/billing.cob $cx/custlook.cob
+check_file "baseline line holds the source line" \
+    '| CALL "CUSTLOOK" USING CUST-ID CUST-NAME$' "$tmp_baseline"
+check "a baseline of several files hides their findings" 0 '^$' \
+    -- check --baseline "$tmp_baseline" $cx/billing.cob $cx/custlook.cob
+rm -f "$tmp_baseline"
 check "dynamic-call is off by default"    0 '^$' -- check --disable call-argument-count --disable call-argument-mismatch --disable recursive-call $rx/c013-c015-calls.cob
 check "dump calls lists parameters"       0 '^  parameter LK-CUST-ID reference 8$' -- dump calls $cx/custlook.cob
 check "help lists dump calls"             0 'dump calls' -- --help

@@ -35,9 +35,18 @@ Findings go to standard output as `file:line:column: severity: message
 code is 1 when there are findings at or above the `--fail-on` level
 (`warning` by default), so `plumbline check` can gate a build.
 
+A whole source tree can be checked in one run, which also checks the
+calls between its programs. `check` holds one program's source at a
+time and takes up to 10,000 files:
+
+```console
+$ find src -name '*.cbl' | plumbline check -I copybooks --files-from -
+```
+
 | Option | Meaning |
 |--------|---------|
 | `-I DIR` | search `DIR` for copybooks (repeatable) |
+| `--files-from LIST` | also analyze the files listed in `LIST`, one per line (`-` for standard input) |
 | `--format fixed\|free\|auto` | reference format of the sources (default `auto`) |
 | `--enable RULE`, `--disable RULE` | turn a rule on or off, by id or name |
 | `--fail-on error\|warning\|note\|never` | the lowest severity that fails the run |
@@ -54,6 +63,9 @@ a build artifact. In both, input diagnostics are part of the
 report rather than printed to standard error.
 
 See the [rule reference](docs/rules.md) for what each rule looks for.
+`plumbline rules` lists the rules with their severity and whether they
+are on, after `plumbline.conf` and the options are applied
+(`--report json` for tools).
 
 The `dump` commands show Plumbline's view of a program at each stage,
 which helps when a result is surprising: `dump lines`, `dump tokens`,
@@ -180,6 +192,7 @@ with the same paths each time.
 ## Documentation
 
 - [Rule reference](docs/rules.md)
+- [Diagnostics](docs/diagnostics.md): problems reading the input, and limits
 - [Using Plumbline in an editor](docs/editors.md)
 - [Running Plumbline on the NIST COBOL-85 suite](docs/corpus.md)
 - [Architecture](docs/architecture.md)

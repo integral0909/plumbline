@@ -1,0 +1,37 @@
+UNIT @3:1
+  PROG PROGRAM TIMESES @3:1
+    DIVN IDENTIFICATION @3:1
+      IDPA PROGRAM-ID TIMESES @4:1
+    DIVN DATA @5:1
+      SECT WORKING-STORAGE @6:1
+        DATA 1 TOTALS @7:1
+          DATA 5 CNT @8:5
+            CLAU PICTURE 9 @8:25
+            CLAU OCCURS @8:31
+        DATA 1 N @9:1
+          CLAU PICTURE 9 @9:25
+          CLAU VALUE @9:31
+    DIVN PROCEDURE @10:1
+      SECT MAIN @11:1
+        PARA START-HERE @12:1
+          SENT @13:5
+            STMT PERFORM @13:5
+              COND LOOP @13:13
+              BLCK BODY @14:9
+                STMT DISPLAY @14:9
+            STMT PERFORM @16:5
+              COND LOOP @16:13
+              BLCK BODY @17:9
+                STMT DISPLAY @17:9
+            STMT PERFORM @19:5
+              COND LOOP @19:13
+              BLCK BODY @20:9
+                STMT DISPLAY @20:9
+            STMT PERFORM @22:5
+              PROC PERFORM SAY-D @22:13
+            STMT PERFORM @23:5
+              PROC PERFORM SAY-D @23:13
+            STMT STOP @24:5
+        PARA SAY-D @25:1
+          SENT @26:5
+            STMT DISPLAY @26:5

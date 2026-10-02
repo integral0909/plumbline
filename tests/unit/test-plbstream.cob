@@ -3,6 +3,7 @@ IDENTIFICATION DIVISION.
 PROGRAM-ID. TEST-PLBSTREAM.
 DATA DIVISION.
 WORKING-STORAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbstrm.cpy".

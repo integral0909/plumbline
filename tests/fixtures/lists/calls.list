@@ -1,0 +1,4 @@
+# The two programs of the cross-file call test.
+
+   tests/fixtures/calls/billing.cob   
+tests/fixtures/calls/custlook.cob

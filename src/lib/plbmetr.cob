@@ -41,6 +41,7 @@ LOCAL-STORAGE SECTION.
 01  LS-TEXT                 PIC X(31).
 01  LS-LEN                  PIC 9(9) COMP-5.
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbtok.cpy".
 COPY "plbastc.cpy".
@@ -356,6 +357,7 @@ LOCAL-STORAGE SECTION.
 01  LS-NUM-LEN              PIC 9(9) COMP-5.
 01  LS-PATH                 PIC X(512).
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbmetr.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-METRICS.
@@ -512,6 +514,7 @@ LOCAL-STORAGE SECTION.
 01  LS-PATH                 PIC X(512).
 01  LS-KIND                 PIC X(9).
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbmetr.cpy".
 01  LK-FIRST                PIC X.
@@ -671,6 +674,7 @@ LOCAL-STORAGE SECTION.
 01  LS-KIND                 PIC X(9).
 01  LS-NAME                 PIC X(31).
 LINKAGE SECTION.
+COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbmetr.cpy".
 01  LK-HEADER               PIC X.
