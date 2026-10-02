@@ -1676,6 +1676,272 @@ PRINT-OUT.
     END-IF.
 END PROGRAM PLB-GRAPH-DATASETS.
 
+*> PLB-GRAPH-CICS: the CICS side of the run, as DOT or JSON: which
+*> program each transaction starts (from the CICS definitions), and
+*> what each program's EXEC CICS commands name: the programs it passes
+*> control to (XCTL, LINK, LOAD), the transactions it returns to or
+*> starts (RETURN TRANSID, START), the mapsets it sends and receives,
+*> and the files it reads and writes. Edges are labelled with the
+*> command; each is drawn once.
+*>
+*> Nodes are named "NAME (transaction)", "NAME (mapset)", and "NAME
+*> (file)", and programs by their name; a program not in the run is
+*> drawn dashed (kind "external" in JSON).
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-GRAPH-CICS.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbcallc.cpy".
+COPY "plbcsdc.cpy".
+78  GN-MAX                      VALUE 5000.
+01  WS-NODES.
+    05  WS-GN-COUNT         PIC 9(9) COMP-5.
+    05  WS-GN               OCCURS GN-MAX TIMES.
+        10  WS-GN-NAME      PIC X(60).
+        10  WS-GN-KIND      PIC X(12).
+78  GX-MAX                      VALUE 10000.
+01  WS-EDGES.
+    05  WS-GX-COUNT         PIC 9(9) COMP-5.
+    05  WS-GX               OCCURS GX-MAX TIMES.
+        10  WS-GX-FROM      PIC 9(9) COMP-5.
+        10  WS-GX-TO        PIC 9(9) COMP-5.
+        10  WS-GX-LABEL     PIC X(12).
+LOCAL-STORAGE SECTION.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-U                    PIC 9(9) COMP-5.
+01  LS-P                    PIC 9(9) COMP-5.
+01  LS-N                    PIC 9(9) COMP-5.
+01  LS-FROM                 PIC 9(9) COMP-5.
+01  LS-TO                   PIC 9(9) COMP-5.
+01  LS-NAME                 PIC X(60).
+01  LS-KIND                 PIC X(12).
+01  LS-LABEL                PIC X(12).
+01  LS-OUT                  PIC X(512).
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-FIRST-ITEM           PIC X.
+LINKAGE SECTION.
+COPY "plbcall.cpy".
+COPY "plbcsd.cpy".
+01  LK-FORMAT               PIC X(5).
+PROCEDURE DIVISION USING PLB-CALL-GRAPH PLB-CSD LK-FORMAT.
+    MOVE 0 TO WS-GN-COUNT WS-GX-COUNT
+    *> Transactions of the definitions, and the programs they start.
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > CR-COUNT
+        IF CR-TYPE(LS-I) = "TRANSACTION" AND CR-TARGET(LS-I) NOT = SPACES
+            MOVE CR-NAME(LS-I) TO LS-NAME
+            MOVE "transaction" TO LS-KIND
+            PERFORM NODE-OF
+            MOVE LS-N TO LS-FROM
+            MOVE CR-TARGET(LS-I) TO LS-NAME
+            PERFORM PROGRAM-NODE
+            MOVE LS-N TO LS-TO
+            MOVE "starts" TO LS-LABEL
+            PERFORM ADD-EDGE
+        END-IF
+    END-PERFORM
+    *> What each program's CICS commands name.
+    PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > PU-COUNT
+        PERFORM RESOURCE-USE
+    END-PERFORM
+    IF LK-FORMAT = "json"
+        DISPLAY '    {"nodes": ['
+    END-IF
+    MOVE "Y" TO LS-FIRST-ITEM
+    PERFORM VARYING LS-N FROM 1 BY 1 UNTIL LS-N > WS-GN-COUNT
+        PERFORM WRITE-NODE
+    END-PERFORM
+    IF LK-FORMAT = "json"
+        DISPLAY '     ],'
+        DISPLAY '     "edges": ['
+    END-IF
+    MOVE "Y" TO LS-FIRST-ITEM
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > WS-GX-COUNT
+        PERFORM WRITE-EDGE
+    END-PERFORM
+    IF LK-FORMAT = "json"
+        DISPLAY '     ]}'
+    END-IF
+    GOBACK.
+
+*> The edge of resource use LS-U, from the outermost program that has
+*> the command.
+RESOURCE-USE.
+    MOVE PU-PROGRAM(LS-U) TO LS-P
+    PERFORM UNTIL CP-PARENT(LS-P) = 0
+        MOVE CP-PARENT(LS-P) TO LS-P
+    END-PERFORM
+    MOVE CP-NAME(LS-P) TO LS-NAME
+    PERFORM PROGRAM-NODE
+    MOVE LS-N TO LS-FROM
+    MOVE PU-NAME(LS-U) TO LS-NAME
+    EVALUATE PU-KIND(LS-U)
+        WHEN "P"
+            PERFORM PROGRAM-NODE
+        WHEN "T"
+            MOVE "transaction" TO LS-KIND
+            PERFORM NODE-OF
+        WHEN "M"
+            MOVE "mapset" TO LS-KIND
+            PERFORM NODE-OF
+        WHEN "F"
+            MOVE "file" TO LS-KIND
+            PERFORM NODE-OF
+        WHEN OTHER
+            EXIT PARAGRAPH
+    END-EVALUATE
+    MOVE LS-N TO LS-TO
+    MOVE PU-COMMAND(LS-U) TO LS-LABEL
+    PERFORM ADD-EDGE.
+
+*> LS-N: the node of program LS-NAME, "program" when it is a program of
+*> the run, else "external".
+PROGRAM-NODE.
+    MOVE "external" TO LS-KIND
+    PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+        IF CP-KIND(LS-P) = "P" AND CP-NAME(LS-P) = LS-NAME
+            MOVE "program" TO LS-KIND
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    PERFORM NODE-OF.
+
+*> LS-N: the node of LS-NAME and LS-KIND, added when new. A program
+*> found once as external and later in the run is the same node.
+NODE-OF.
+    PERFORM VARYING LS-N FROM 1 BY 1 UNTIL LS-N > WS-GN-COUNT
+        IF WS-GN-NAME(LS-N) = LS-NAME
+            IF WS-GN-KIND(LS-N) = LS-KIND
+                EXIT PARAGRAPH
+            END-IF
+            IF (WS-GN-KIND(LS-N) = "program"
+                OR WS-GN-KIND(LS-N) = "external")
+               AND (LS-KIND = "program" OR LS-KIND = "external")
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+    END-PERFORM
+    IF WS-GN-COUNT >= GN-MAX
+        MOVE GN-MAX TO LS-N
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO WS-GN-COUNT
+    MOVE WS-GN-COUNT TO LS-N
+    MOVE LS-NAME TO WS-GN-NAME(LS-N)
+    MOVE LS-KIND TO WS-GN-KIND(LS-N).
+
+ADD-EDGE.
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > WS-GX-COUNT
+        IF WS-GX-FROM(LS-E) = LS-FROM AND WS-GX-TO(LS-E) = LS-TO
+           AND WS-GX-LABEL(LS-E) = LS-LABEL
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    IF WS-GX-COUNT < GX-MAX
+        ADD 1 TO WS-GX-COUNT
+        MOVE LS-FROM TO WS-GX-FROM(WS-GX-COUNT)
+        MOVE LS-TO TO WS-GX-TO(WS-GX-COUNT)
+        MOVE LS-LABEL TO WS-GX-LABEL(WS-GX-COUNT)
+    END-IF.
+
+*> The name a node is drawn with: programs by their name, others with
+*> their kind.
+DISPLAY-NAME.
+    MOVE SPACES TO LS-NAME
+    IF WS-GN-KIND(LS-N) = "program" OR WS-GN-KIND(LS-N) = "external"
+        MOVE WS-GN-NAME(LS-N) TO LS-NAME
+    ELSE
+        STRING WS-GN-NAME(LS-N) DELIMITED BY SPACE
+               " (" DELIMITED BY SIZE
+               WS-GN-KIND(LS-N) DELIMITED BY SPACE
+               ")" DELIMITED BY SIZE
+            INTO LS-NAME
+    END-IF.
+
+WRITE-NODE.
+    PERFORM DISPLAY-NAME
+    MOVE SPACES TO LS-OUT
+    MOVE 1 TO LS-PTR
+    IF LK-FORMAT = "json"
+        PERFORM JSON-SEPARATOR
+        STRING '{"id": ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-NAME LS-OUT LS-PTR
+        STRING ', "kind": "' DELIMITED BY SIZE
+               WS-GN-KIND(LS-N) DELIMITED BY SPACE
+               '"}' DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING '  ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-NAME LS-OUT LS-PTR
+        EVALUATE WS-GN-KIND(LS-N)
+            WHEN "transaction"
+                STRING ' [shape=oval];' DELIMITED BY SIZE
+                    INTO LS-OUT WITH POINTER LS-PTR
+            WHEN "mapset"
+                STRING ' [shape=tab];' DELIMITED BY SIZE
+                    INTO LS-OUT WITH POINTER LS-PTR
+            WHEN "file"
+                STRING ' [shape=cylinder];' DELIMITED BY SIZE
+                    INTO LS-OUT WITH POINTER LS-PTR
+            WHEN "external"
+                STRING ' [style=dashed];' DELIMITED BY SIZE
+                    INTO LS-OUT WITH POINTER LS-PTR
+            WHEN OTHER
+                STRING ';' DELIMITED BY SIZE
+                    INTO LS-OUT WITH POINTER LS-PTR
+        END-EVALUATE
+    END-IF
+    PERFORM PRINT-OUT.
+
+WRITE-EDGE.
+    MOVE SPACES TO LS-OUT
+    MOVE 1 TO LS-PTR
+    IF LK-FORMAT = "json"
+        PERFORM JSON-SEPARATOR
+        STRING '{"from": ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING '  ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    MOVE WS-GX-FROM(LS-I) TO LS-N
+    PERFORM DISPLAY-NAME
+    CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-NAME LS-OUT LS-PTR
+    IF LK-FORMAT = "json"
+        STRING ', "to": ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING ' -> ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    MOVE WS-GX-TO(LS-I) TO LS-N
+    PERFORM DISPLAY-NAME
+    CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-NAME LS-OUT LS-PTR
+    IF LK-FORMAT = "json"
+        STRING ', "command": "' DELIMITED BY SIZE
+               WS-GX-LABEL(LS-I) DELIMITED BY SPACE
+               '"}' DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING ' [label="' DELIMITED BY SIZE
+               WS-GX-LABEL(LS-I) DELIMITED BY SPACE
+               '"];' DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    PERFORM PRINT-OUT.
+
+JSON-SEPARATOR.
+    IF LS-FIRST-ITEM = "Y"
+        STRING '        ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING '       ,' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    MOVE "N" TO LS-FIRST-ITEM.
+
+PRINT-OUT.
+    CALL "PLB-STR-LENGTH" USING LS-OUT LS-LEN
+    IF LS-LEN > 0
+        DISPLAY LS-OUT(1:LS-LEN)
+    END-IF.
+END PROGRAM PLB-GRAPH-CICS.
+
 *> PLB-DATASET-IMPACT: for plumbline impact DSN, the job steps that
 *> write, update, read, or use data set DSN, in the order of the JCL,
 *> with the DD, its place, and what the access is known from:

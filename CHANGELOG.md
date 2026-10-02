@@ -122,6 +122,8 @@ uses [Semantic Versioning](https://semver.org/).
 - `plumbline graph --kind datasets` draws which job steps read and
   write which data sets, from the programs' `OPEN` statements, utility
   DD names, and `DISP`.
+- `plumbline graph --kind cics` draws how transactions, programs,
+  mapsets, and files connect through the CICS commands.
 - `plumbline impact DSN` lists the job steps that read and write a data
   set.
 - The Visual Studio Code extension's `Plumbline: Document this
