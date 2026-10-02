@@ -221,6 +221,8 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- PLB-M005 reported the object of OCCURS DEPENDING ON as never read,
+  though every use of the table reads it.
 - On a file system that ignores case (macOS), a copybook named in
   upper case was reported under its lower-case spelling.
 - PLB-Q001 took the cursor of `FETCH ... FROM cursor` for a table.

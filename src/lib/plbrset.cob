@@ -24,6 +24,9 @@ COPY "plbspan.cpy".
 COPY "plbacc.cpy".
 *> "Y" once an item has been reported.
 01  WS-REPORTED             PIC X OCCURS 100000 TIMES.
+*> "Y" for the object of an OCCURS DEPENDING ON: every use of the table
+*> or of a group around it reads the object.
+01  WS-ODO-OBJECT           PIC X OCCURS 100000 TIMES.
 LOCAL-STORAGE SECTION.
 01  LS-RULE-NEVER-SET       PIC 9(4) COMP-5.
 01  LS-RULE-NEVER-READ      PIC 9(4) COMP-5.
@@ -31,6 +34,10 @@ LOCAL-STORAGE SECTION.
 01  LS-S                    PIC 9(9) COMP-5.
 01  LS-FOUND                PIC X.
 01  LS-MESSAGE              PIC X(200).
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-O                    PIC 9(9) COMP-5.
+01  LS-NAME                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -56,8 +63,9 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-ACCESS-BUILD" USING PLB-TOKENS PLB-AST PLB-SYMBOLS
         PLB-REFS PLB-SPANS PLB-ACCESSES PLB-ACCESS-INDEX
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
-        MOVE "N" TO WS-REPORTED(LS-S)
+        MOVE "N" TO WS-REPORTED(LS-S) WS-ODO-OBJECT(LS-S)
     END-PERFORM
+    PERFORM MARK-ODO-OBJECTS
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
         IF RF-KIND(LS-R) = "D"
             MOVE RF-SYMBOL(LS-R) TO LS-S
@@ -91,10 +99,27 @@ CHECK-NEVER-SET.
             LS-MESSAGE
     END-IF.
 
+*> The items of the same program named by DEPENDING ON.
+MARK-ODO-OBJECTS.
+    PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T > SY-COUNT
+        IF SY-ODO-TOKEN(LS-T) > 0
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS SY-ODO-TOKEN(LS-T)
+                LS-NAME LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-NAME) TO LS-NAME
+            PERFORM VARYING LS-O FROM 1 BY 1 UNTIL LS-O > SY-COUNT
+                IF SY-NAME(LS-O) = LS-NAME
+                   AND SY-PROGRAM(LS-O) = SY-PROGRAM(LS-T)
+                    MOVE "Y" TO WS-ODO-OBJECT(LS-O)
+                END-IF
+            END-PERFORM
+        END-IF
+    END-PERFORM.
+
 *> PLB-M005: given a value, yet nothing reads it or any storage it
 *> shares.
 CHECK-NEVER-READ.
     IF RL-ENABLED(LS-RULE-NEVER-READ) NOT = "Y"
+       OR WS-ODO-OBJECT(LS-S) = "Y"
         EXIT PARAGRAPH
     END-IF
     CALL "PLB-ACCESS-FIND" USING PLB-SPANS PLB-ACCESSES
