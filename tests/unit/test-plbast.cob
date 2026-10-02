@@ -88,6 +88,7 @@ WALK.
     PERFORM UNTIL WS-NODE = 0
         STRING FUNCTION TRIM(ND-DETAIL(WS-NODE)) " " DELIMITED BY SIZE
             INTO WS-ORDER WITH POINTER WS-PTR
+        *> plumbline: ignore move-truncation -- the test tree is three levels deep
         MOVE WS-DEPTH TO WS-DIGIT
         STRING WS-DIGIT DELIMITED BY SIZE
             INTO WS-DEPTHS WITH POINTER WS-DPTR

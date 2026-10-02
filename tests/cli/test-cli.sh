@@ -97,7 +97,7 @@ check "dump flow reports bad targets"     1 'NO-SUCH-PARAGRAPH is not a paragrap
     -- dump flow $fw/sections.cob
 rx=tests/golden/rules
 check "help lists check"                  0 'check            analyze programs' -- --help
-check "check reports findings"            1 'c001-unreachable.cob:23:1: warning: paragraph NEVER-CALLED is never executed \[PLB-C001\]' \
+check "check reports findings"            1 'c001-unreachable.cob:27:1: warning: paragraph NEVER-CALLED is never executed \[PLB-C001\]' \
     -- check $rx/c001-unreachable.cob
 check "--fail-on error ignores warnings"  0 'NEVER-CALLED' -- check --fail-on error $rx/c001-unreachable.cob
 check "--disable by rule name"            0 '^$' -- check --disable unreachable-code --disable go-to $rx/c001-unreachable.cob
@@ -106,6 +106,13 @@ check "notes do not fail by default"      0 'GO TO makes' -- check --disable PLB
 check "--fail-on note fails on notes"     1 'GO TO makes' -- check --disable PLB-C001 --fail-on note $rx/c001-unreachable.cob
 check "unknown rule is a usage error"     2 "unknown rule 'PLB-X999'" -- check --disable PLB-X999 $rx/c001-unreachable.cob
 check "invalid --fail-on level"           2 "invalid --fail-on level 'sometimes'" -- check --fail-on sometimes $rx/c001-unreachable.cob
+check "dump refs resolves qualified names" 0 '^25:10 CUST-ID OF CUSTOMER (MOVE) -> 5 CUST-ID @16$' \
+    -- dump refs tests/golden/refs/resolution.cob
+check "alnum-narrowing is off by default"  0 '^$' -- check --disable move-truncation $rx/c008-move-truncation.cob
+check "alnum-narrowing can be enabled"     0 'c008-move-truncation.cob:16:23: note: MOVE truncates LONG-TEXT (20 characters) to fit SHORT-TEXT (5 characters) \[PLB-M004\]' \
+    -- check --enable alnum-narrowing --disable move-truncation $rx/c008-move-truncation.cob
+check "overlong file names are refused"    2 'file name longer than 512 characters' \
+    -- check "$(printf 'x%.0s' $(seq 1 600)).cob"
 check "--debug includes debugging lines"  0 'continuation.cbl:5:20: alnum    "DEBUG ONLY"' \
     -- dump tokens --debug $gx/continuation.cbl
 check "dump lines needs files"            2 'no input files' -- dump lines

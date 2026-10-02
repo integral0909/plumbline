@@ -308,7 +308,9 @@ FINISH.
         WHEN OTHER
             MOVE "picture has no character positions" TO PI-ERROR
     END-EVALUATE
+    *> plumbline: ignore move-truncation -- digits are limited to 38 above
     MOVE LS-DIGITS TO PI-DIGITS
+    *> plumbline: ignore move-truncation -- the scale is within the 38-digit limit checked above
     MOVE LS-SCALE TO PI-SCALE.
 
 *> A, X, and 9 together: alphanumeric, or alphanumeric-edited with

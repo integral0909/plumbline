@@ -10,7 +10,10 @@
 *> The comment applies to findings on its own line, or, when the
 *> comment is a line of its own, to findings on the line after it.
 *> After "ignore" come rule ids or names, separated by spaces or
-*> commas; with none, every rule is suppressed. Case does not matter.
+*> commas; with none, every rule is suppressed. A reason may follow
+*> after "--". Case does not matter.
+*>
+*>     *> plumbline: ignore move-truncation -- lines are short
 *> ---------------------------------------------------------------
 
 *> PLB-FIND-SUPPRESS: mark suppressed findings.
@@ -105,6 +108,9 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-RULES LK-RULE LK-LINE
         UNSTRING LS-REST DELIMITED BY ALL SPACE
             INTO LS-WORD WITH POINTER LS-PTR
         END-UNSTRING
+        IF LS-WORD = "--"
+            EXIT PERFORM
+        END-IF
         IF LS-WORD NOT = SPACES
             MOVE "Y" TO LS-ANY
             CALL "PLB-RULE-FIND" USING PLB-RULES LS-WORD LS-RULE

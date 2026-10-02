@@ -121,6 +121,7 @@ APPEND-SEGMENT.
     COMPUTE SG-START(ST-SEG-COUNT) = ST-LEN + 1
     MOVE LS-INDEX TO SG-LINE(ST-SEG-COUNT)
     MOVE LS-FROM-COL TO SG-COL(ST-SEG-COUNT)
+    *> plumbline: ignore move-truncation -- a segment is at most one 1024-column line
     MOVE LS-LEN TO SG-LEN(ST-SEG-COUNT)
     IF LS-LEN > 0
         MOVE SS-HEAP(SL-TEXT-OFF(LS-INDEX) + LS-FROM-COL - 1:LS-LEN)

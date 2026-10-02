@@ -1,4 +1,8 @@
 *> NEXT SENTENCE inside an END-IF scope jumps past the END-IF.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  A                  PIC 9.
+01  B                  PIC 9.
 PROCEDURE DIVISION.
 MAIN-LINE.
     IF A = 1

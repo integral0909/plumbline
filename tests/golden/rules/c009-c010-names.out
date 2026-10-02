@@ -1,0 +1,3 @@
+tests/golden/rules/c009-c010-names.cob:9:10: error: KEY-FIELD names more than one data item; qualify it with IN or OF [PLB-C010]
+tests/golden/rules/c009-c010-names.cob:10:10: error: MISSPELT-NAME is not declared [PLB-C009]
+tests/golden/rules/c009-c010-names.cob:11:13: error: KEY-FIELD OF NO-SUCH-GROUP is not declared [PLB-C009]

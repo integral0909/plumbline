@@ -1,1 +1,1 @@
-tests/golden/rules/c004-next-sentence.cob:5:9: warning: NEXT SENTENCE skips past END-IF to the next period; use CONTINUE [PLB-C004]
+tests/golden/rules/c004-next-sentence.cob:9:9: warning: NEXT SENTENCE skips past END-IF to the next period; use CONTINUE [PLB-C004]

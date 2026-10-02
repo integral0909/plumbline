@@ -13,9 +13,15 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C005](#plb-c005-perform-thru-backwards) | perform-thru-backwards | error | PERFORM THRU range ends before it starts |
 | [PLB-C006](#plb-c006-recursive-perform) | recursive-perform | error | Paragraph performs a range that contains itself |
 | [PLB-C007](#plb-c007-redefines-larger) | redefines-larger | error | REDEFINES item is larger than the item it redefines |
+| [PLB-C008](#plb-c008-move-truncation) | move-truncation | warning | MOVE loses characters or high-order digits |
+| [PLB-C009](#plb-c009-undefined-name) | undefined-name | error | Name is not declared |
+| [PLB-C010](#plb-c010-ambiguous-name) | ambiguous-name | error | Name refers to more than one data item |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
+| [PLB-M004](#plb-m004-alnum-narrowing) | alnum-narrowing | note, off | MOVE from a larger alphanumeric item to a smaller one |
+
+Rules marked *off* run only when enabled with `--enable`.
 
 Categories: **C** correctness, **M** maintainability, **P** portability,
 **S** security.
@@ -33,7 +39,15 @@ OLD-ENTRY-POINT.
 ```
 
 After `ignore`, list rule ids or names separated by spaces or commas.
-With none, every rule is suppressed for that line. Case does not matter.
+With none, every rule is suppressed for that line. A reason can follow
+after `--`, and it is good practice to give one:
+
+```cobol
+*> plumbline: ignore move-truncation -- level numbers are at most 88
+    MOVE ND-NUM TO SY-LEVEL
+```
+
+Case does not matter.
 A suppression names the rules it silences, so the reason for it stays
 reviewable.
 
@@ -145,6 +159,64 @@ some compilers accept it with a warning. Sizes come from the symbol
 table, so usages and `OCCURS` are taken into account. Level-01 records
 may be redefined by larger records and are not reported.
 
+## PLB-C008 move-truncation
+
+A `MOVE` whose receiver cannot hold what is moved:
+
+```cobol
+01  SHORT-TEXT          PIC X(5).
+01  SMALL-NUM           PIC 9(3).
+01  BIG-NUM             PIC S9(7)V99.
+    MOVE "TOO LONG FOR IT" TO SHORT-TEXT   *> 15 characters into 5
+    MOVE 12345 TO SMALL-NUM                *> 5 integer digits into 3
+    MOVE BIG-NUM TO SMALL-NUM              *> 7 integer digits into 3
+```
+
+A literal that is too long loses its rightmost characters. A number
+with more integer digits than its receiver loses its high-order digits,
+which silently changes the value: `MOVE 12345 TO SMALL-NUM` stores 345.
+Leading zeros of a literal do not count.
+
+Sizes come from the symbol table. Reference-modified operands, `MOVE
+CORRESPONDING`, `ALL` literals, figurative constants, function results,
+and `ANY LENGTH` parameters are not checked, because their sizes are not
+known statically. Moving a larger alphanumeric item into a smaller one is
+the separate, opt-in rule [PLB-M004](#plb-m004-alnum-narrowing).
+
+When a narrowing is safe because of something the program guarantees,
+suppress it and say why.
+
+## PLB-C009 undefined-name
+
+A name in the procedure division that is not a data item of the program
+(or a `GLOBAL` item of a program containing it), a paragraph or section,
+or another declared name: a file, a mnemonic name from `SPECIAL-NAMES`,
+an alphabet or class, or an index from `INDEXED BY`. Device names such
+as `CONSOLE` and `SYSOUT` are accepted without declaration, as compilers
+do.
+
+A qualified reference that matches no item is reported with its
+qualifiers, as in `KEY-FIELD OF NO-SUCH-GROUP is not declared`.
+
+Undefined names usually mean a typing mistake or a missing copybook. If
+a `COPY` failed (see the `PP001` diagnostic), fix that first.
+
+## PLB-C010 ambiguous-name
+
+A name that matches more than one data item, where the reference does
+not say which:
+
+```cobol
+01  A-REC.
+    05  KEY-FIELD       PIC X(4).
+01  B-REC.
+    05  KEY-FIELD       PIC X(4).
+    MOVE KEY-FIELD TO ...          *> reported
+    MOVE KEY-FIELD OF B-REC TO ... *> fine
+```
+
+Compilers reject such references. Qualify the name with `IN` or `OF`.
+
 ## PLB-M001 go-to
 
 Every `GO TO` statement, reported as a note. `GO TO` makes the flow of
@@ -185,3 +257,13 @@ linkage items, constants (level 78), and `RENAMES` (level 66).
 
 References are matched by name within the program, so an item is treated
 as used if any item of the same name is referenced.
+
+## PLB-M004 alnum-narrowing
+
+*Off by default; enable with `--enable alnum-narrowing`.*
+
+A `MOVE` from an alphanumeric, edited, or group item into a smaller
+alphanumeric or group item. The rightmost characters are lost. This is
+often intended, for example when moving a field out of a large input
+buffer, so the rule reports notes and does not run unless asked. Turn it
+on when reviewing record layouts or when a truncation bug is suspected.

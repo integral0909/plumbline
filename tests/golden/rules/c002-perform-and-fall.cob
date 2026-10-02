@@ -1,4 +1,7 @@
 *> A paragraph that is performed and also fallen into.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  TOTAL              PIC 9(4).
 PROCEDURE DIVISION.
 MAIN-LINE.
     PERFORM CALC

@@ -9,7 +9,7 @@
 *> The list covers the reserved words of the 2014 standard that matter
 *> to analysis, plus common GnuCOBOL and IBM extensions. It must stay
 *> sorted: tests/unit/test-plbkw.cob checks the order.
-78  KW-COUNT                    VALUE 443.
+78  KW-COUNT                    VALUE 447.
 01  WS-KEYWORD-VALUES.
     05  FILLER PIC X(32) VALUE "ACCEPT                         V".
     05  FILLER PIC X(32) VALUE "ACCESS                         R".
@@ -113,6 +113,7 @@
     05  FILLER PIC X(32) VALUE "CRT                            R".
     05  FILLER PIC X(32) VALUE "CURRENCY                       R".
     05  FILLER PIC X(32) VALUE "CURSOR                         R".
+    05  FILLER PIC X(32) VALUE "CYCLE                          R".
     05  FILLER PIC X(32) VALUE "DATA                           R".
     05  FILLER PIC X(32) VALUE "DATA-POINTER                   R".
     05  FILLER PIC X(32) VALUE "DATE                           R".
@@ -228,6 +229,7 @@
     05  FILLER PIC X(32) VALUE "INHERITS                       R".
     05  FILLER PIC X(32) VALUE "INITIAL                        R".
     05  FILLER PIC X(32) VALUE "INITIALIZE                     V".
+    05  FILLER PIC X(32) VALUE "INITIALIZED                    R".
     05  FILLER PIC X(32) VALUE "INITIATE                       V".
     05  FILLER PIC X(32) VALUE "INPUT                          R".
     05  FILLER PIC X(32) VALUE "INPUT-OUTPUT                   R".
@@ -236,6 +238,7 @@
     05  FILLER PIC X(32) VALUE "INTERFACE                      R".
     05  FILLER PIC X(32) VALUE "INTERFACE-ID                   R".
     05  FILLER PIC X(32) VALUE "INTO                           R".
+    05  FILLER PIC X(32) VALUE "INTRINSIC                      R".
     05  FILLER PIC X(32) VALUE "INVALID                        R".
     05  FILLER PIC X(32) VALUE "INVOKE                         V".
     05  FILLER PIC X(32) VALUE "IS                             R".
@@ -305,6 +308,7 @@
     05  FILLER PIC X(32) VALUE "PADDING                        R".
     05  FILLER PIC X(32) VALUE "PAGE                           R".
     05  FILLER PIC X(32) VALUE "PAGE-COUNTER                   R".
+    05  FILLER PIC X(32) VALUE "PARAGRAPH                      R".
     05  FILLER PIC X(32) VALUE "PERFORM                        V".
     05  FILLER PIC X(32) VALUE "PF                             R".
     05  FILLER PIC X(32) VALUE "PH                             R".
