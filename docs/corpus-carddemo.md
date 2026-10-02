@@ -183,6 +183,13 @@ Some findings that were read and are true:
   NO-MORE-MSG-AVAILABLE` loop. From the second message on, the reply is
   written after the previous one and its length (`W02-BUFFLEN`) is
   wrong.
+- **PLB-M017 two-digit-year.** Four programs of the authorization
+  extension accept the date and the day in two-digit years (8 notes).
+  The purge job `CBPAUP0C` goes further: it ages each authorization as
+  `CURRENT-YYDDD - WS-AUTH-DATE`, a difference of two Julian dates that
+  is wrong across every new year (an authorization of December 31 is
+  636 days old on January 1), so it purges authorizations early in the
+  first days of a year.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)

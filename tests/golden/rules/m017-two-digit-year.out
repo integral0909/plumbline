@@ -1,0 +1,2 @@
+tests/golden/rules/m017-two-digit-year.cob:13:29: note: ACCEPT FROM DATE gives a two-digit year (YYMMDD); use FROM DATE YYYYMMDD [PLB-M017]
+tests/golden/rules/m017-two-digit-year.cob:15:27: note: ACCEPT FROM DAY gives a two-digit year (YYDDD); use FROM DAY YYYYDDD [PLB-M017]
