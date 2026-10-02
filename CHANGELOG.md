@@ -89,12 +89,32 @@ uses [Semantic Versioning](https://semver.org/).
   refmod-out-of-range, for literal subscripts and reference modifiers.
 - Rule PLB-C025 stop-run-in-called-program.
 - Rule PLB-C026 varying-limit-unreachable.
+- `plumbline dump jcl` reads JCL: jobs, procedures, steps, and DD
+  statements (see docs/jcl.md).
+- `check` reads `*.jcl` and `*.prc` inputs as JCL and checks each step
+  against the programs it runs: rules PLB-J001 dd-missing, PLB-J002
+  dd-unused, PLB-J003 program-not-in-run (off by default), and
+  PLB-J004 dd-cannot-be-read.
+- `plumbline graph --kind jobs` draws which jobs and procedures run
+  which programs, and `impact` lists the job steps that run a program
+  or its callers.
+- Rule PLB-C027 divide-by-zero.
+- Rule PLB-C028 comparison-never-true.
+- Rule PLB-C029 go-to-leaves-perform.
+- Rule PLB-C030 value-never-used.
+- Rule PLB-C031 string-overflow.
 - Rule PLB-M011 evaluate-without-other (off by default).
+- Rule PLB-M012 deep-nesting (off by default, limit 5).
+- Rule PLB-M013 unused-copybook.
 - `plumbline rules [--report text|json]` lists the rules as configured.
 - Conditional compilation: `>>IF`/`>>ELIF`/`>>ELSE`/`>>END-IF` and
   `$IF`/`$ELSE`/`$END` with `DEFINED` and `SET` conditions, and
   `--define NAME` (`-D`).
 - `--tab-width N` (`tab-width` in `plumbline.conf`), as `cobc -ftab-width`.
+- `plumbline lsp` finds references and highlights them, telling reads
+  from writes, renames data items and procedures, gives folding
+  ranges, offers quick fixes that suppress a finding, and finds
+  symbols across the open files.
 - Object-oriented COBOL definitions (`CLASS-ID`, `FACTORY`, `OBJECT`,
   `METHOD-ID`, `INTERFACE-ID`) are read as nested units, with instance
   data visible to methods.

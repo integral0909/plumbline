@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+import tempfile
 import unittest
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
@@ -89,7 +90,16 @@ class LanguageServerTest(unittest.TestCase):
         self.assertEqual(self.capabilities["textDocumentSync"]["change"], 1)
         self.assertTrue(self.capabilities["definitionProvider"])
         self.assertTrue(self.capabilities["hoverProvider"])
+        self.assertTrue(self.capabilities["referencesProvider"])
+        self.assertTrue(self.capabilities["documentHighlightProvider"])
+        self.assertTrue(
+            self.capabilities["renameProvider"]["prepareProvider"])
+        self.assertTrue(self.capabilities["foldingRangeProvider"])
+        self.assertEqual(
+            self.capabilities["codeActionProvider"]["codeActionKinds"],
+            ["quickfix"])
         self.assertTrue(self.capabilities["documentSymbolProvider"])
+        self.assertTrue(self.capabilities["workspaceSymbolProvider"])
 
     def test_diagnostics_on_open(self):
         self.assertEqual(self.diagnostics["method"],
@@ -124,6 +134,26 @@ class LanguageServerTest(unittest.TestCase):
         self.assertIn(("STEP-1", 6), symbols)
         self.assertIn(("ERRORS", 13), symbols)
 
+    def test_workspace_symbols(self):
+        with tempfile.TemporaryDirectory() as directory:
+            other = os.path.join(directory, "other.cob")
+            uri = "file://" + os.path.realpath(other)
+            self.server.notify("textDocument/didOpen", {"textDocument": {
+                "uri": uri, "languageId": "cobol", "version": 1,
+                "text": "IDENTIFICATION DIVISION.\nPROGRAM-ID. OTHER.\n"
+                        "PROCEDURE DIVISION.\nSTEP-ONE.\n    GOBACK.\n"}})
+            self.server.receive()
+            reply = self.server.request("workspace/symbol",
+                                        {"query": "step"})
+            found = {(s["name"], s["location"]["uri"])
+                     for s in reply["result"]}
+            self.assertIn(("STEP-1", URI), found)
+            self.assertIn(("STEP-ONE", uri), found)
+            self.assertTrue(all("STEP" in name for name, _ in found))
+            everything = self.server.request("workspace/symbol",
+                                             {"query": ""})["result"]
+            self.assertIn("ERRORS", {s["name"] for s in everything})
+
     def test_definition_of_a_paragraph(self):
         reply = self.server.request("textDocument/definition", {
             "textDocument": {"uri": URI},
@@ -139,6 +169,177 @@ class LanguageServerTest(unittest.TestCase):
             "position": self.position("IF ERRORS", len("IF "))})
         self.assertEqual(reply["result"]["range"]["start"]["line"],
                          self.position("01  ERRORS")["line"])
+
+    def lines(self, locations):
+        return sorted(l["range"]["start"]["line"] for l in locations)
+
+    def test_references_to_a_data_item(self):
+        reply = self.server.request("textDocument/references", {
+            "textDocument": {"uri": URI},
+            "position": self.position("IF ERRORS", len("IF ")),
+            "context": {"includeDeclaration": True}})
+        self.assertEqual(self.lines(reply["result"]), [
+            self.position("01  ERRORS")["line"],
+            self.position("IF ERRORS")["line"],
+            self.position("MOVE 0 TO ERRORS")["line"]])
+        self.assertTrue(all(l["uri"] == URI for l in reply["result"]))
+
+    def test_references_without_the_declaration(self):
+        reply = self.server.request("textDocument/references", {
+            "textDocument": {"uri": URI},
+            "position": self.position("01  ERRORS", len("01  ")),
+            "context": {"includeDeclaration": False}})
+        self.assertEqual(self.lines(reply["result"]), [
+            self.position("IF ERRORS")["line"],
+            self.position("MOVE 0 TO ERRORS")["line"]])
+
+    def test_references_to_a_paragraph(self):
+        reply = self.server.request("textDocument/references", {
+            "textDocument": {"uri": URI},
+            "position": self.position("ABEND.", 0),
+            "context": {"includeDeclaration": True}})
+        self.assertEqual(self.lines(reply["result"]), [
+            self.position("GO TO ABEND")["line"],
+            self.position("ABEND.")["line"]])
+
+    def test_references_to_nothing(self):
+        reply = self.server.request("textDocument/references", {
+            "textDocument": {"uri": URI},
+            "position": {"line": 0, "character": 0},
+            "context": {"includeDeclaration": True}})
+        self.assertIsNone(reply["result"])
+
+    def test_highlights_tell_reads_from_writes(self):
+        reply = self.server.request("textDocument/documentHighlight", {
+            "textDocument": {"uri": URI},
+            "position": self.position("IF ERRORS", len("IF "))})
+        kinds = {h["range"]["start"]["line"]: h["kind"]
+                 for h in reply["result"]}
+        self.assertEqual(kinds[self.position("IF ERRORS")["line"]], 2)
+        self.assertEqual(kinds[self.position("MOVE 0 TO ERRORS")["line"]], 3)
+        self.assertIn(self.position("01  ERRORS")["line"], kinds)
+
+    def rename(self, needle, offset, new_name):
+        return self.server.request("textDocument/rename", {
+            "textDocument": {"uri": URI},
+            "position": self.position(needle, offset),
+            "newName": new_name})
+
+    def apply(self, edits):
+        lines = self.text.splitlines(keepends=True)
+        for edit in sorted(edits, key=lambda e: (e["range"]["start"]["line"],
+                                                 e["range"]["start"]["character"]),
+                           reverse=True):
+            start, end = edit["range"]["start"], edit["range"]["end"]
+            self.assertEqual(start["line"], end["line"])
+            line = lines[start["line"]]
+            lines[start["line"]] = (line[:start["character"]] + edit["newText"]
+                                    + line[end["character"]:])
+        return "".join(lines)
+
+    def test_rename_a_data_item(self):
+        reply = self.rename("IF ERRORS", len("IF "), "Failures")
+        edits = reply["result"]["changes"][URI]
+        self.assertEqual(len(edits), 3)
+        renamed = self.apply(edits)
+        self.assertNotIn("ERRORS", renamed)
+        self.assertIn("01  Failures", renamed)
+        self.assertIn("MOVE 0 TO Failures.", renamed)
+
+    def test_rename_a_paragraph(self):
+        reply = self.rename("ABEND.", 0, "FAIL-EXIT")
+        renamed = self.apply(reply["result"]["changes"][URI])
+        self.assertIn("GO TO FAIL-EXIT", renamed)
+        self.assertIn("FAIL-EXIT.", renamed)
+        self.assertNotIn("ABEND", renamed)
+
+    def test_rename_to_a_reserved_word(self):
+        for name in ("MOVE", "-X", "X-", "123", "A B", ""):
+            reply = self.rename("IF ERRORS", len("IF "), name)
+            self.assertEqual(reply["error"]["code"], -32602, name)
+
+    def test_rename_in_a_copybook(self):
+        with tempfile.TemporaryDirectory() as directory:
+            copybook = os.path.join(directory, "totals.cpy")
+            with open(copybook, "w") as f:
+                f.write("01  TOTAL-AMOUNT PIC 9(7).\n")
+            program = os.path.join(directory, "report.cob")
+            text = ("IDENTIFICATION DIVISION.\nPROGRAM-ID. REPORT1.\n"
+                    "DATA DIVISION.\nWORKING-STORAGE SECTION.\n"
+                    "COPY totals.\nPROCEDURE DIVISION.\n"
+                    "    ADD 1 TO TOTAL-AMOUNT\n"
+                    "    DISPLAY TOTAL-AMOUNT\n    GOBACK.\n")
+            uri = "file://" + os.path.realpath(program)
+            self.server.notify("textDocument/didOpen", {"textDocument": {
+                "uri": uri, "languageId": "cobol", "version": 1,
+                "text": text}})
+            self.server.receive()
+            reply = self.server.request("textDocument/rename", {
+                "textDocument": {"uri": uri},
+                "position": {"line": 6, "character": 15},
+                "newName": "GRAND-TOTAL"})
+            changes = reply["result"]["changes"]
+            self.assertEqual(len(changes[uri]), 2)
+            [declaration] = [edits for key, edits in changes.items()
+                             if key.endswith("/totals.cpy")]
+            self.assertEqual(declaration[0]["range"]["start"],
+                             {"line": 0, "character": 4})
+
+    def code_actions(self, line):
+        return self.server.request("textDocument/codeAction", {
+            "textDocument": {"uri": URI},
+            "range": {"start": {"line": line, "character": 0},
+                      "end": {"line": line, "character": 0}},
+            "context": {"diagnostics": []}})["result"]
+
+    def test_quick_fix_suppresses_a_finding(self):
+        line = self.position("AFTER-RANGE.")["line"]
+        [action] = self.code_actions(line)
+        self.assertEqual(action["kind"], "quickfix")
+        self.assertIn("PLB-C001", action["title"])
+        [edit] = action["edit"]["changes"][URI]
+        self.assertEqual(edit["range"]["start"], {"line": line, "character": 0})
+        self.assertTrue(edit["newText"].rstrip().endswith(
+            "*> plumbline: ignore unreachable-code"))
+        # With the edit made, the finding is gone.
+        lines = self.text.splitlines(keepends=True)
+        lines.insert(line, edit["newText"])
+        self.server.notify("textDocument/didChange", {
+            "textDocument": {"uri": URI, "version": 2},
+            "contentChanges": [{"text": "".join(lines)}]})
+        codes = {(d["code"], d["range"]["start"]["line"]) for d in
+                 self.server.receive()["params"]["diagnostics"]}
+        self.assertNotIn(("PLB-C001", line + 1), codes)
+
+    def test_no_quick_fix_without_a_finding(self):
+        self.assertEqual(self.code_actions(0), [])
+
+    def test_folding_ranges(self):
+        reply = self.server.request("textDocument/foldingRange",
+                                    {"textDocument": {"uri": URI}})
+        ranges = {(r["startLine"], r["endLine"]) for r in reply["result"]}
+        procedure = self.position("PROCEDURE DIVISION")["line"]
+        last = len(self.text.rstrip("\n").splitlines()) - 1
+        self.assertIn((procedure, last), ranges)
+        # MAIN-LINE runs to STOP RUN; its IF to END-IF.
+        self.assertIn((self.position("MAIN-LINE.")["line"],
+                       self.position("STOP RUN.")["line"]), ranges)
+        self.assertIn((self.position("IF ERRORS")["line"],
+                       self.position("END-IF")["line"]), ranges)
+        # One-line paragraphs do not fold.
+        self.assertTrue(all(end > start for start, end in ranges))
+
+    def test_prepare_rename(self):
+        reply = self.server.request("textDocument/prepareRename", {
+            "textDocument": {"uri": URI},
+            "position": self.position("IF ERRORS", len("IF E"))})
+        self.assertEqual(reply["result"]["start"]["character"], len("    IF "))
+        self.assertEqual(reply["result"]["end"]["character"],
+                         len("    IF ERRORS"))
+        reply = self.server.request("textDocument/prepareRename", {
+            "textDocument": {"uri": URI},
+            "position": self.position("STOP RUN", 0)})
+        self.assertIsNone(reply["result"])
 
     def test_hover_on_a_data_item(self):
         reply = self.server.request("textDocument/hover", {
@@ -156,7 +357,9 @@ class LanguageServerTest(unittest.TestCase):
         self.assertIsNone(reply["result"])
 
     def test_unknown_request(self):
-        reply = self.server.request("workspace/symbol", {"query": "X"})
+        reply = self.server.request("textDocument/signatureHelp", {
+            "textDocument": {"uri": URI},
+            "position": {"line": 0, "character": 0}})
         self.assertEqual(reply["error"]["code"], -32601)
 
     def test_close_clears_diagnostics(self):

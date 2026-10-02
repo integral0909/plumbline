@@ -47,16 +47,21 @@ includes=$(find app \( -iname '*.cpy' -o -iname '*.dcl' \) | sed 's|/[^/]*$||' \
 find app \( -iname '*.cbl' -o -iname '*.cob' \) | sort > ../programs.list
 programs=$(wc -l < ../programs.list | tr -d ' ')
 lines=$(cat $(cat ../programs.list) | wc -l | tr -d ' ')
+# The jobs and procedures that run the programs.
+find app \( -iname '*.jcl' -o -iname '*.prc' \) | sort > ../jcl.list
+jobs=$(wc -l < ../jcl.list | tr -d ' ')
+cat ../programs.list ../jcl.list > ../inputs.list
 
 # The few sources with tabs were written with stops every 4 columns.
 start=$(date +%s)
 # shellcheck disable=SC2086
 "$bin" check --no-config $includes --tab-width 4 --fail-on never \
-    --files-from ../programs.list > ../out/findings.txt 2> ../out/diagnostics.txt || true
+    --files-from ../inputs.list > ../out/findings.txt 2> ../out/diagnostics.txt || true
 end=$(date +%s)
 cd ../out
 
 echo "programs:            $programs ($lines lines, without copybooks)"
+echo "JCL members:         $jobs"
 echo "seconds, one run:    $((end - start))"
 echo "with input errors:   $(grep ': error: ' diagnostics.txt | cut -d: -f1 | sort -u | wc -l | tr -d ' ')"
 echo

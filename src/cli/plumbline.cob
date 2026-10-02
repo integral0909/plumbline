@@ -24,7 +24,7 @@
 *>   baseline FILE        like --baseline FILE
 *>   plumbline metrics [-I DIR]... [--format ...] [--debug]
 *>                     [--report text|json|csv] FILE...
-*>   plumbline graph [--kind performs|calls|copybooks]
+*>   plumbline graph [--kind performs|calls|copybooks|jobs]
 *>                   [--report dot|json] [-I DIR]... FILE...
 *>   plumbline impact NAME [-I DIR]... FILE...
 *>   plumbline format --to fixed|free [--format ...] FILE
@@ -39,6 +39,7 @@
 *>   plumbline dump flow [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump refs [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump calls [-I DIR]... [--format ...] [--debug] FILE...
+*>   plumbline dump jcl FILE...
 *>
 *> Exit codes:
 *>   0  success
@@ -67,6 +68,8 @@ COPY "plbfind.cpy".
 COPY "plbref.cpy".
 COPY "plbcallc.cpy".
 COPY "plbcall.cpy".
+COPY "plbjclc.cpy".
+COPY "plbjcl.cpy".
 COPY "plbconf.cpy".
 COPY "plbmetrc.cpy".
 COPY "plbmetr.cpy".
@@ -80,6 +83,9 @@ COPY "plbigr.cpy".
 01  WS-MODE                 PIC X VALUE "A".
 01  WS-DEBUG                PIC X VALUE "N".
 01  WS-DUMP-TARGET          PIC X(8).
+*> check: whether the input is JCL, by its extension.
+01  WS-IS-JCL               PIC X VALUE "N".
+01  WS-EXTENSION            PIC X(4).
 COPY "plbinput.cpy".
 *> --define NAME: names for conditional compilation (>>IF NAME DEFINED).
 01  WS-DEFINE-COUNT         PIC 9(4) COMP-5 VALUE 0.
@@ -170,6 +176,29 @@ COPY "plbinput.cpy".
 01  WS-LSP-TOKEN            PIC 9(9) COMP-5.
 01  WS-LSP-SYMBOL           PIC 9(9) COMP-5.
 01  WS-LSP-UNIT             PIC 9(9) COMP-5.
+*> textDocument/documentHighlight rather than references, and whether
+*> the declaration is listed.
+01  WS-LSP-HIGHLIGHT        PIC X.
+01  WS-LSP-DECLARATION      PIC X.
+01  WS-LSP-QUALIFIER        PIC X(31).
+*> workspace/symbol: the query, in upper case (spaces: every name).
+01  WS-LSP-QUERY            PIC X(31).
+*> textDocument/rename: the new name, and the tokens to change, by
+*> file.
+01  WS-LSP-NEW-NAME         PIC X(31).
+01  WS-LSP-NEW-LEN          PIC 9(9) COMP-5.
+01  WS-LSP-OLD-NAME         PIC X(31).
+01  WS-LSP-UPPER-NAME       PIC X(31).
+*> textDocument/codeAction: the rules already offered for the line.
+01  WS-LSP-OFFERED          PIC X(400).
+01  WS-LSP-INDENT           PIC 9(4) COMP-5.
+01  WS-LSP-BLANKS           PIC X(64) VALUE SPACES.
+01  WS-LSP-WORD-KIND        PIC X.
+78  LSP-EDIT-MAX            VALUE 10000.
+01  WS-LSP-EDITS.
+    05  WS-LSP-EDIT-COUNT   PIC 9(9) COMP-5.
+    05  WS-LSP-EDIT-TOKEN   PIC 9(9) COMP-5 OCCURS LSP-EDIT-MAX TIMES.
+    05  WS-LSP-EDIT-DONE    PIC X OCCURS LSP-EDIT-MAX TIMES.
 01  WS-LSP-FIRST            PIC X.
 01  WS-LSP-SEVERITY         PIC X.
 01  WS-LSP-TEXT-PATH        PIC X(512).
@@ -284,6 +313,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline dump flow [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump refs [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump calls [-I DIR]... [--format FORMAT] [--debug] FILE..."
+    DISPLAY "       plumbline dump jcl FILE..."
     DISPLAY "Static analysis for COBOL programs."
     DISPLAY " "
     DISPLAY "Options:"
@@ -296,8 +326,9 @@ SHOW-USAGE.
     DISPLAY "                   and their paragraphs"
     DISPLAY "  graph            draw the PERFORM graph of each program"
     DISPLAY "                   (--kind performs), the CALL graph"
-    DISPLAY "                   (calls), or the copybook graph"
-    DISPLAY "                   (copybooks), as DOT or JSON"
+    DISPLAY "                   (calls), the copybook graph"
+    DISPLAY "                   (copybooks), or what JCL jobs run"
+    DISPLAY "                   (jobs), as DOT or JSON"
     DISPLAY "  impact NAME      list what includes copybook NAME or"
     DISPLAY "                   calls program NAME, directly or not"
     DISPLAY "  format           rewrite a file in fixed or free format"
@@ -315,6 +346,7 @@ SHOW-USAGE.
     DISPLAY "  dump flow        show paragraphs, sections, and control flow"
     DISPLAY "  dump refs        show what each name in the procedures refers to"
     DISPLAY "  dump calls       show programs, their parameters, and CALLs"
+    DISPLAY "  dump jcl         show the jobs, steps, and DD statements of JCL"
     DISPLAY " "
     DISPLAY "Command options:"
     DISPLAY "  --format FORMAT  reference format: fixed, free, or auto"
@@ -377,15 +409,21 @@ CHECK-COMMAND.
     *> One input at a time: read it, check it, settle which of its
     *> findings comments suppress, and let its lines go. What is kept
     *> (findings, the call graph) refers to files by id and line.
+    CALL "PLB-JCL-INIT" USING PLB-JCL
     PERFORM VARYING WS-FILE-ID FROM 1 BY 1
             UNTIL WS-FILE-ID > WS-MAIN-FILES
-        PERFORM START-INPUT
-        IF SF-LOADED(WS-FILE-ID) = "Y"
+        PERFORM TEST-JCL-INPUT
+        IF WS-IS-JCL = "Y"
+            PERFORM READ-JCL-INPUT
+        ELSE
+            PERFORM START-INPUT
+        END-IF
+        IF WS-IS-JCL = "N" AND SF-LOADED(WS-FILE-ID) = "Y"
             COMPUTE WS-FIRST-FINDING = FN-COUNT + 1
             PERFORM ANALYZE-FILE
             CALL "PLB-CHECK-RUN" USING PLB-SOURCE-SET PLB-TOKENS
-                PLB-AST PLB-SYMBOLS PLB-FLOW PLB-REFS PLB-RULES
-                PLB-FINDINGS
+                PLB-AST PLB-SYMBOLS PLB-FLOW PLB-REFS PLB-INCLUSIONS
+                PLB-RULES PLB-FINDINGS
             CALL "PLB-CALL-COLLECT" USING PLB-SOURCE-SET PLB-TOKENS
                 PLB-AST PLB-SYMBOLS PLB-REFS PLB-CALL-GRAPH
             CALL "PLB-FIND-SUPPRESS-RANGE" USING PLB-SOURCE-SET
@@ -398,6 +436,10 @@ CHECK-COMMAND.
     CALL "PLB-CALL-RESOLVE" USING PLB-CALL-GRAPH
     CALL "PLB-RULE-CALLS" USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH
     PERFORM SUPPRESS-LATE-FINDINGS
+    *> Programs against the JCL that runs them. JCL has no suppression
+    *> comments.
+    CALL "PLB-RULE-JCL" USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH
+        PLB-JCL
     IF FN-DROPPED > 0
         PERFORM REPORT-DROPPED-FINDINGS
     END-IF
@@ -431,6 +473,33 @@ CHECK-COMMAND.
     PERFORM COUNT-FAILING
     IF WS-FAILING > 0 OR DG-ERRORS > 0
         MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+*> WS-IS-JCL = "Y" when input WS-FILE-ID is JCL: a file named
+*> *.jcl or *.prc, in either case.
+TEST-JCL-INPUT.
+    MOVE "N" TO WS-IS-JCL
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET WS-FILE-ID WS-PATH
+    CALL "PLB-STR-LENGTH" USING WS-PATH WS-PATH-LEN
+    IF WS-PATH-LEN > 4
+        MOVE FUNCTION UPPER-CASE(WS-PATH(WS-PATH-LEN - 3:4))
+            TO WS-EXTENSION
+        IF WS-EXTENSION = ".JCL" OR WS-EXTENSION = ".PRC"
+            MOVE "Y" TO WS-IS-JCL
+        END-IF
+    END-IF.
+
+READ-JCL-INPUT.
+    CALL "PLB-JCL-READ" USING WS-PATH(1:WS-PATH-LEN) WS-FILE-ID PLB-JCL
+        WS-STATUS
+    IF WS-STATUS NOT = 0
+        MOVE SPACES TO WS-OUT
+        STRING "cannot read JCL file " DELIMITED BY SIZE
+               WS-PATH(1:WS-PATH-LEN) DELIMITED BY SIZE
+            INTO WS-OUT
+        MOVE 0 TO WS-POS-LINE WS-POS-COLUMN
+        CALL "PLB-DIAG-ADD" USING PLB-DIAGNOSTICS "E" "JL001" WS-FILE-ID
+            WS-POS-LINE WS-POS-COLUMN WS-OUT
     END-IF.
 
 *> Release the input's lines. The SS-LINE indexes of findings made
@@ -546,10 +615,16 @@ ANALYZE-RUN.
     MOVE WS-MODE TO PO-FORMAT
     MOVE WS-DEBUG TO PO-DEBUG
     MOVE "Y" TO WS-FIRST
+    CALL "PLB-JCL-INIT" USING PLB-JCL
     PERFORM VARYING WS-FILE-ID FROM 1 BY 1
             UNTIL WS-FILE-ID > WS-MAIN-FILES
-        PERFORM START-INPUT
-        IF SF-LOADED(WS-FILE-ID) = "Y"
+        PERFORM TEST-JCL-INPUT
+        IF WS-IS-JCL = "Y"
+            PERFORM READ-JCL-INPUT
+        ELSE
+            PERFORM START-INPUT
+        END-IF
+        IF WS-IS-JCL = "N" AND SF-LOADED(WS-FILE-ID) = "Y"
             PERFORM ANALYZE-FILE
             CALL "PLB-GRAPH-INCLUDES-ADD" USING PLB-INCLUSIONS
                 PLB-INCLUDE-GRAPH
@@ -579,6 +654,8 @@ GRAPH-COMMAND.
         WHEN "copybooks"
             CALL "PLB-GRAPH-INCLUDES" USING PLB-SOURCE-SET
                 PLB-INCLUDE-GRAPH WS-REPORT
+        WHEN "jobs"
+            CALL "PLB-GRAPH-JOBS" USING PLB-CALL-GRAPH PLB-JCL WS-REPORT
     END-EVALUATE
     CALL "PLB-GRAPH-END" USING WS-REPORT
     PERFORM REPORT-DIAGNOSTICS
@@ -602,7 +679,7 @@ IMPACT-COMMAND.
     PERFORM ADD-INPUTS
     PERFORM ANALYZE-RUN
     CALL "PLB-IMPACT" USING PLB-SOURCE-SET PLB-CALL-GRAPH
-        PLB-INCLUDE-GRAPH WS-IMPACT-NAME WS-FOUND
+        PLB-INCLUDE-GRAPH PLB-JCL WS-IMPACT-NAME WS-FOUND
     PERFORM REPORT-DIAGNOSTICS
     IF WS-FOUND = "N"
         CALL "PLB-STR-LENGTH" USING WS-IMPACT-NAME WS-PATH-LEN
@@ -733,6 +810,22 @@ LSP-MESSAGE.
             PERFORM LSP-DEFINITION
         WHEN "textDocument/hover"
             PERFORM LSP-HOVER
+        WHEN "textDocument/references"
+            MOVE "N" TO WS-LSP-HIGHLIGHT
+            PERFORM LSP-REFERENCES
+        WHEN "textDocument/documentHighlight"
+            MOVE "Y" TO WS-LSP-HIGHLIGHT
+            PERFORM LSP-REFERENCES
+        WHEN "workspace/symbol"
+            PERFORM LSP-WORKSPACE-SYMBOLS
+        WHEN "textDocument/codeAction"
+            PERFORM LSP-CODE-ACTIONS
+        WHEN "textDocument/foldingRange"
+            PERFORM LSP-FOLDING-RANGES
+        WHEN "textDocument/prepareRename"
+            PERFORM LSP-PREPARE-RENAME
+        WHEN "textDocument/rename"
+            PERFORM LSP-RENAME
         WHEN OTHER
             *> A request (with an id) must be answered.
             IF WS-LSP-ID-KIND NOT = "-"
@@ -756,8 +849,16 @@ LSP-INITIALIZE.
            DELIMITED BY SIZE
            '"save":true},' DELIMITED BY SIZE
            '"documentSymbolProvider":true,' DELIMITED BY SIZE
+           '"workspaceSymbolProvider":true,' DELIMITED BY SIZE
            '"definitionProvider":true,' DELIMITED BY SIZE
-           '"hoverProvider":true},' DELIMITED BY SIZE
+           '"hoverProvider":true,' DELIMITED BY SIZE
+           '"referencesProvider":true,' DELIMITED BY SIZE
+           '"documentHighlightProvider":true,' DELIMITED BY SIZE
+           '"foldingRangeProvider":true,' DELIMITED BY SIZE
+           '"codeActionProvider":{"codeActionKinds":["quickfix"]},'
+           DELIMITED BY SIZE
+           '"renameProvider":{"prepareProvider":true}},'
+           DELIMITED BY SIZE
            '"serverInfo":{"name":"' DELIMITED BY SIZE
            PLB-NAME DELIMITED BY SPACE
            '","version":"' DELIMITED BY SIZE
@@ -909,7 +1010,8 @@ LSP-ANALYZE.
     MOVE WS-DEBUG TO PO-DEBUG
     PERFORM ANALYZE-FILE
     CALL "PLB-CHECK-RUN" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
-        PLB-SYMBOLS PLB-FLOW PLB-REFS PLB-RULES PLB-FINDINGS
+        PLB-SYMBOLS PLB-FLOW PLB-REFS PLB-INCLUSIONS PLB-RULES
+        PLB-FINDINGS
     CALL "PLB-FIND-SUPPRESS" USING PLB-SOURCE-SET PLB-RULES PLB-FINDINGS
     CALL "PLB-FIND-SORT" USING PLB-FINDINGS.
 
@@ -1097,6 +1199,15 @@ LSP-TARGET.
             EXIT PERFORM
         END-IF
     END-PERFORM
+    *> The name in a data description entry.
+    IF WS-LSP-SYMBOL = 0
+        PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > SY-COUNT
+            IF SY-NAME-TOKEN(WS-I) = WS-LSP-TOKEN
+                MOVE WS-I TO WS-LSP-SYMBOL
+                EXIT PERFORM
+            END-IF
+        END-PERFORM
+    END-IF
     IF WS-LSP-SYMBOL > 0
         EXIT PARAGRAPH
     END-IF
@@ -1129,6 +1240,482 @@ LSP-DEFINITION.
     END-EVALUATE
     STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
     PERFORM LSP-SEND-OUT.
+
+*> textDocument/references and textDocument/documentHighlight: the
+*> declaration of the data item or procedure at the position, and every
+*> reference to it. References list locations in copybooks too, and
+*> leave out the declaration unless the request includes it;
+*> highlights stay in the document, and tell reads from writes.
+LSP-REFERENCES.
+    PERFORM LSP-POSITION
+    PERFORM LSP-TARGET
+    MOVE "Y" TO WS-LSP-DECLARATION
+    IF WS-LSP-HIGHLIGHT = "N"
+        MOVE "includeDeclaration" TO WS-LSP-NAME
+        PERFORM LSP-GET
+        IF WS-LSP-VALUE(1:5) = "false"
+            MOVE "N" TO WS-LSP-DECLARATION
+        END-IF
+    END-IF
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-SYMBOL = 0 AND WS-LSP-UNIT = 0
+        STRING "null}" DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        PERFORM LSP-SEND-OUT
+        EXIT PARAGRAPH
+    END-IF
+    STRING "[" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE "Y" TO WS-LSP-FIRST
+    PERFORM LSP-COLLECT-REFERENCES
+    STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> LSP-APPEND-REFERENCE for the declaration of the target (when
+*> WS-LSP-DECLARATION is "Y") and each reference to it.
+LSP-COLLECT-REFERENCES.
+    IF WS-LSP-SYMBOL > 0
+        IF WS-LSP-DECLARATION = "Y"
+            MOVE SY-NAME-TOKEN(WS-LSP-SYMBOL) TO WS-LSP-TOKEN
+            MOVE "3" TO WS-LSP-KIND
+            PERFORM LSP-APPEND-REFERENCE
+        END-IF
+        PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > RF-COUNT
+            IF RF-KIND(WS-I) = "D" AND RF-SYMBOL(WS-I) = WS-LSP-SYMBOL
+                MOVE RF-TOKEN(WS-I) TO WS-LSP-TOKEN
+                EVALUATE RF-ROLE(WS-I)
+                    WHEN "U"
+                        MOVE "2" TO WS-LSP-KIND
+                    WHEN "D"
+                    WHEN "B"
+                        MOVE "3" TO WS-LSP-KIND
+                    WHEN OTHER
+                        MOVE "1" TO WS-LSP-KIND
+                END-EVALUATE
+                PERFORM LSP-APPEND-REFERENCE
+            END-IF
+        END-PERFORM
+    ELSE
+        IF WS-LSP-DECLARATION = "Y"
+            MOVE ND-NAME(FU-NODE(WS-LSP-UNIT)) TO WS-LSP-TOKEN
+            MOVE "1" TO WS-LSP-KIND
+            PERFORM LSP-APPEND-REFERENCE
+        END-IF
+        *> The procedure names in the same program that name the unit:
+        *> by name, and by section when qualified.
+        MOVE FU-PROGRAM(WS-LSP-UNIT) TO WS-ROOT
+        PERFORM VARYING WS-NODE FROM 1 BY 1 UNTIL WS-NODE > AS-COUNT
+            IF ND-KIND(WS-NODE) = "PROC" AND ND-NAME(WS-NODE) > 0
+               AND ND-NAME(WS-NODE) >= ND-TOK-FIRST(WS-ROOT)
+               AND ND-NAME(WS-NODE) <= ND-TOK-LAST(WS-ROOT)
+                PERFORM LSP-PROC-NAMES-UNIT
+            END-IF
+        END-PERFORM
+    END-IF.
+
+*> PROC node WS-NODE names unit WS-LSP-UNIT: list it.
+LSP-PROC-NAMES-UNIT.
+    MOVE ND-NAME(WS-NODE) TO WS-LSP-TOKEN
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-LSP-TOKEN WS-LSP-NAME
+        WS-TOKEN-LEN
+    IF WS-LSP-NAME NOT = FU-NAME(WS-LSP-UNIT)
+        EXIT PARAGRAPH
+    END-IF
+    *> Not in a program nested in the unit's program.
+    MOVE ND-PARENT(WS-NODE) TO WS-P
+    PERFORM UNTIL WS-P = 0
+        IF ND-KIND(WS-P) = "PROG"
+            EXIT PERFORM
+        END-IF
+        MOVE ND-PARENT(WS-P) TO WS-P
+    END-PERFORM
+    IF WS-P NOT = WS-ROOT
+        EXIT PARAGRAPH
+    END-IF
+    IF ND-TOK-LAST(WS-NODE) >= WS-LSP-TOKEN + 2
+        COMPUTE WS-TOK = WS-LSP-TOKEN + 2
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-TOK WS-LSP-QUALIFIER
+            WS-TOKEN-LEN
+        IF FU-SECTION(WS-LSP-UNIT) = 0
+            EXIT PARAGRAPH
+        END-IF
+        IF WS-LSP-QUALIFIER NOT = FU-NAME(FU-SECTION(WS-LSP-UNIT))
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    MOVE "1" TO WS-LSP-KIND
+    PERFORM LSP-APPEND-REFERENCE.
+
+*> One location (references) or highlight (or for a rename, an edit) of WS-LSP-KIND (1 text,
+*> 2 read, 3 write) for token WS-LSP-TOKEN, unless it is outside the
+*> document for a highlight, or has no source line.
+LSP-APPEND-REFERENCE.
+    IF WS-LSP-TOKEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF TK-SRC-LINE(WS-LSP-TOKEN) = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-HIGHLIGHT = "R"
+        PERFORM LSP-ADD-EDIT
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-HIGHLIGHT = "Y" AND TK-FILE-ID(WS-LSP-TOKEN) NOT = 1
+        EXIT PARAGRAPH
+    END-IF
+    *> Leave room for the closing brackets.
+    IF WS-LSP-PTR > LSP-SIZE - 2048
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST
+    IF WS-LSP-HIGHLIGHT = "Y"
+        STRING '{"range":' DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        MOVE SL-LINE-NO(TK-SRC-LINE(WS-LSP-TOKEN)) TO WS-LSP-LINE
+        MOVE TK-COLUMN(WS-LSP-TOKEN) TO WS-LSP-CHAR
+        PERFORM LSP-APPEND-RANGE
+        STRING ',"kind":' DELIMITED BY SIZE
+               WS-LSP-KIND DELIMITED BY SIZE
+               "}" DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    ELSE
+        PERFORM LSP-APPEND-LOCATION
+    END-IF.
+
+*> Quick fixes -----------------------------------------------------
+
+*> textDocument/codeAction: for each rule with a finding on the first
+*> line of the request's range, an edit that puts a suppression comment
+*> on the line before it, indented like the line (in fixed format, in
+*> the indicator column). The line is the first "line" in the request,
+*> which is the start of its range: clients send the range before the
+*> context.
+LSP-CODE-ACTIONS.
+    PERFORM LSP-FIND-DOCUMENT
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":[' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-DOC-INDEX > 0
+        PERFORM LSP-ANALYZE
+        MOVE "line" TO WS-LSP-NAME
+        PERFORM LSP-GET
+        COMPUTE WS-LSP-LINE = FUNCTION NUMVAL(WS-LSP-VALUE) + 1
+        MOVE "Y" TO WS-LSP-FIRST
+        MOVE SPACES TO WS-LSP-OFFERED
+        PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > FN-COUNT
+            IF FN-SUPPRESSED(WS-I) = "N" AND FN-FILE-ID(WS-I) = 1
+               AND FN-LINE(WS-I) = WS-LSP-LINE AND FN-SRC-LINE(WS-I) > 0
+                PERFORM LSP-APPEND-SUPPRESS-ACTION
+            END-IF
+        END-PERFORM
+    END-IF
+    STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> A quick fix suppressing finding WS-I's rule, once per rule.
+LSP-APPEND-SUPPRESS-ACTION.
+    MOVE 0 TO WS-K
+    INSPECT WS-LSP-OFFERED TALLYING WS-K
+        FOR ALL RL-ID(FN-RULE(WS-I))(1:8)
+    IF WS-K > 0 OR WS-LSP-PTR > LSP-SIZE - 4096
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 1 TO WS-PTR
+    INSPECT WS-LSP-OFFERED TALLYING WS-PTR FOR CHARACTERS BEFORE "  "
+    IF WS-PTR < 390
+        MOVE RL-ID(FN-RULE(WS-I))(1:8) TO WS-LSP-OFFERED(WS-PTR + 1:8)
+    END-IF
+    IF SL-FORMAT(FN-SRC-LINE(WS-I)) = "X"
+        MOVE 6 TO WS-LSP-INDENT
+    ELSE
+        COMPUTE WS-LSP-INDENT = SL-CONTENT-COL(FN-SRC-LINE(WS-I)) - 1
+        IF WS-LSP-INDENT > 60
+            MOVE 0 TO WS-LSP-INDENT
+        END-IF
+    END-IF
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST
+    STRING '{"title":"Suppress ' DELIMITED BY SIZE
+           RL-ID(FN-RULE(WS-I)) DELIMITED BY SPACE
+           " " DELIMITED BY SIZE
+           RL-NAME(FN-RULE(WS-I)) DELIMITED BY SPACE
+           ' on this line","kind":"quickfix",' DELIMITED BY SIZE
+           '"edit":{"changes":{' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    CALL "PLB-JSON-STRING" USING DOC-URI(WS-LSP-DOC-INDEX) WS-LSP-OUT
+        WS-LSP-PTR
+    COMPUTE WS-NUM = WS-LSP-LINE - 1
+    STRING ':[{"range":{"start":{"line":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-APPEND-NUM
+    STRING ',"character":0},"end":{"line":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-APPEND-NUM
+    STRING ',"character":0}},"newText":"' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-INDENT > 0
+        STRING WS-LSP-BLANKS(1:WS-LSP-INDENT) DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    STRING "*> plumbline: ignore " DELIMITED BY SIZE
+           RL-NAME(FN-RULE(WS-I)) DELIMITED BY SPACE
+           '\n"}]}}}' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
+*> Folding --------------------------------------------------------
+
+*> textDocument/foldingRange: divisions, sections, paragraphs, and
+*> statements with a body (IF, EVALUATE, inline PERFORM, ...) that span
+*> more than one line of the document. A range ends at the last line
+*> of the document it covers: the lines a COPY brings in are not in it.
+LSP-FOLDING-RANGES.
+    PERFORM LSP-FIND-DOCUMENT
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":[' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-DOC-INDEX > 0
+        PERFORM LSP-ANALYZE
+        MOVE "Y" TO WS-LSP-FIRST
+        PERFORM VARYING WS-NODE FROM 1 BY 1 UNTIL WS-NODE > AS-COUNT
+            EVALUATE ND-KIND(WS-NODE)
+                WHEN "PROG"
+                WHEN "DIVN"
+                WHEN "SECT"
+                WHEN "PARA"
+                    PERFORM LSP-APPEND-FOLD
+                WHEN "STMT"
+                    *> Only statements with a body.
+                    MOVE ND-FIRST(WS-NODE) TO WS-U
+                    PERFORM UNTIL WS-U = 0
+                        IF ND-KIND(WS-U) = "BLCK"
+                            PERFORM LSP-APPEND-FOLD
+                            EXIT PERFORM
+                        END-IF
+                        MOVE ND-NEXT(WS-U) TO WS-U
+                    END-PERFORM
+            END-EVALUATE
+        END-PERFORM
+    END-IF
+    STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> {"startLine":N,"endLine":M} for node WS-NODE, when it starts in the
+*> document and ends on a later line of it.
+LSP-APPEND-FOLD.
+    MOVE ND-TOK-FIRST(WS-NODE) TO WS-TOK
+    IF WS-TOK = 0 OR TK-FILE-ID(WS-TOK) NOT = 1
+       OR TK-SRC-LINE(WS-TOK) = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SL-LINE-NO(TK-SRC-LINE(WS-TOK)) TO WS-LSP-LINE
+    MOVE ND-TOK-LAST(WS-NODE) TO WS-TOK
+    PERFORM UNTIL WS-TOK <= ND-TOK-FIRST(WS-NODE)
+        IF TK-FILE-ID(WS-TOK) = 1 AND TK-SRC-LINE(WS-TOK) > 0
+           AND NOT TK-IS-EOF(WS-TOK)
+            EXIT PERFORM
+        END-IF
+        SUBTRACT 1 FROM WS-TOK
+    END-PERFORM
+    IF TK-SRC-LINE(WS-TOK) = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF SL-LINE-NO(TK-SRC-LINE(WS-TOK)) <= WS-LSP-LINE
+       OR WS-LSP-PTR > LSP-SIZE - 1024
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST
+    STRING '{"startLine":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-NUM = WS-LSP-LINE - 1
+    PERFORM LSP-APPEND-NUM
+    STRING ',"endLine":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-NUM = SL-LINE-NO(TK-SRC-LINE(WS-TOK)) - 1
+    PERFORM LSP-APPEND-NUM
+    STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
+*> Renaming ---------------------------------------------------------
+
+*> textDocument/prepareRename: the range of the name at the position
+*> when it names a data item or procedure, else null.
+LSP-PREPARE-RENAME.
+    PERFORM LSP-POSITION
+    PERFORM LSP-TARGET
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-SYMBOL = 0 AND WS-LSP-UNIT = 0
+        STRING "null" DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    ELSE
+        MOVE SL-LINE-NO(TK-SRC-LINE(WS-LSP-TOKEN)) TO WS-LSP-LINE
+        MOVE TK-COLUMN(WS-LSP-TOKEN) TO WS-LSP-CHAR
+        PERFORM LSP-APPEND-RANGE
+    END-IF
+    STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> textDocument/rename: a workspace edit that changes the declaration
+*> and every reference, in the document and its copybooks. Names that
+*> come from COPY REPLACING are not where the old name is written, and
+*> are left alone; the new name must be a user-defined word.
+LSP-RENAME.
+    MOVE "newName" TO WS-LSP-NAME
+    PERFORM LSP-GET
+    MOVE SPACES TO WS-LSP-NEW-NAME
+    MOVE 0 TO WS-LSP-NEW-LEN
+    IF WS-LSP-VALUE-LEN >= 1 AND WS-LSP-VALUE-LEN <= 31
+        MOVE WS-LSP-VALUE-LEN TO WS-LSP-NEW-LEN
+        MOVE WS-LSP-VALUE(1:WS-LSP-NEW-LEN) TO WS-LSP-NEW-NAME
+    END-IF
+    PERFORM LSP-CHECK-NEW-NAME
+    IF WS-LSP-NEW-LEN = 0
+        PERFORM LSP-START-RESPONSE
+        STRING '"error":{"code":-32602,"message":"not a COBOL '
+               'user-defined word"}}' DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        PERFORM LSP-SEND-OUT
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM LSP-POSITION
+    PERFORM LSP-TARGET
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LSP-SYMBOL = 0 AND WS-LSP-UNIT = 0
+        STRING "null}" DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        PERFORM LSP-SEND-OUT
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-SYMBOL > 0
+        MOVE SY-NAME(WS-LSP-SYMBOL) TO WS-LSP-OLD-NAME
+    ELSE
+        MOVE FU-NAME(WS-LSP-UNIT) TO WS-LSP-OLD-NAME
+    END-IF
+    MOVE FUNCTION UPPER-CASE(WS-LSP-OLD-NAME) TO WS-LSP-OLD-NAME
+    MOVE "R" TO WS-LSP-HIGHLIGHT
+    MOVE "Y" TO WS-LSP-DECLARATION
+    MOVE 0 TO WS-LSP-EDIT-COUNT
+    PERFORM LSP-COLLECT-REFERENCES
+    *> {"changes":{URI:[edits], ...}}, one key per file.
+    STRING '{"changes":{' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE "Y" TO WS-LSP-FIRST
+    PERFORM VARYING WS-J FROM 1 BY 1 UNTIL WS-J > WS-LSP-EDIT-COUNT
+        IF WS-LSP-EDIT-DONE(WS-J) = "N"
+            PERFORM LSP-APPEND-FILE-EDITS
+        END-IF
+    END-PERFORM
+    STRING "}}}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> WS-LSP-NEW-LEN = 0 unless WS-LSP-NEW-NAME is a user-defined word:
+*> letters, digits, hyphens, and underscores, with a letter, no hyphen
+*> at either end, and not a reserved word. Its case is kept.
+LSP-CHECK-NEW-NAME.
+    IF WS-LSP-NEW-LEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE FUNCTION UPPER-CASE(WS-LSP-NEW-NAME) TO WS-LSP-UPPER-NAME
+    MOVE 0 TO WS-K
+    PERFORM VARYING WS-C FROM 1 BY 1 UNTIL WS-C > WS-LSP-NEW-LEN
+        EVALUATE WS-LSP-UPPER-NAME(WS-C:1)
+            WHEN "A" THRU "Z"
+                ADD 1 TO WS-K
+            WHEN "0" THRU "9"
+            WHEN "-"
+            WHEN "_"
+                CONTINUE
+            WHEN OTHER
+                MOVE 0 TO WS-LSP-NEW-LEN
+                EXIT PARAGRAPH
+        END-EVALUATE
+    END-PERFORM
+    IF WS-K = 0 OR WS-LSP-NEW-NAME(1:1) = "-"
+       OR WS-LSP-NEW-NAME(WS-LSP-NEW-LEN:1) = "-"
+        MOVE 0 TO WS-LSP-NEW-LEN
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-KW-LOOKUP" USING WS-LSP-UPPER-NAME WS-LSP-WORD-KIND
+    IF WS-LSP-WORD-KIND NOT = SPACE
+        MOVE 0 TO WS-LSP-NEW-LEN
+    END-IF.
+
+*> Keep token WS-LSP-TOKEN for the rename when the old name is written
+*> there, once.
+LSP-ADD-EDIT.
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-LSP-TOKEN WS-LSP-NAME
+        WS-TOKEN-LEN
+    IF FUNCTION UPPER-CASE(WS-LSP-NAME) NOT = WS-LSP-OLD-NAME
+       OR TK-SPAN(WS-LSP-TOKEN) NOT = WS-TOKEN-LEN
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING WS-K FROM 1 BY 1 UNTIL WS-K > WS-LSP-EDIT-COUNT
+        IF TK-FILE-ID(WS-LSP-EDIT-TOKEN(WS-K)) = TK-FILE-ID(WS-LSP-TOKEN)
+           AND TK-SRC-LINE(WS-LSP-EDIT-TOKEN(WS-K))
+               = TK-SRC-LINE(WS-LSP-TOKEN)
+           AND TK-COLUMN(WS-LSP-EDIT-TOKEN(WS-K)) = TK-COLUMN(WS-LSP-TOKEN)
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    IF WS-LSP-EDIT-COUNT < LSP-EDIT-MAX
+        ADD 1 TO WS-LSP-EDIT-COUNT
+        MOVE WS-LSP-TOKEN TO WS-LSP-EDIT-TOKEN(WS-LSP-EDIT-COUNT)
+        MOVE "N" TO WS-LSP-EDIT-DONE(WS-LSP-EDIT-COUNT)
+    END-IF.
+
+*> "URI":[edits] for the file of edit WS-J and the later edits in it.
+LSP-APPEND-FILE-EDITS.
+    IF WS-LSP-PTR > LSP-SIZE - 4096
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST
+    MOVE WS-LSP-EDIT-TOKEN(WS-J) TO WS-LSP-TOKEN
+    IF TK-FILE-ID(WS-LSP-TOKEN) = 1
+        CALL "PLB-JSON-STRING" USING DOC-URI(WS-LSP-DOC-INDEX) WS-LSP-OUT
+            WS-LSP-PTR
+    ELSE
+        CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET
+            TK-FILE-ID(WS-LSP-TOKEN) WS-PATH
+        MOVE SPACES TO WS-LSP-TEXT-PATH
+        STRING "file://" DELIMITED BY SIZE
+               WS-PATH DELIMITED BY SPACE
+            INTO WS-LSP-TEXT-PATH
+        CALL "PLB-JSON-STRING" USING WS-LSP-TEXT-PATH WS-LSP-OUT
+            WS-LSP-PTR
+    END-IF
+    STRING ":[" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM VARYING WS-K FROM WS-J BY 1 UNTIL WS-K > WS-LSP-EDIT-COUNT
+        IF WS-LSP-EDIT-DONE(WS-K) = "N"
+           AND TK-FILE-ID(WS-LSP-EDIT-TOKEN(WS-K))
+               = TK-FILE-ID(WS-LSP-EDIT-TOKEN(WS-J))
+           AND WS-LSP-PTR <= LSP-SIZE - 2048
+            IF WS-K > WS-J
+                STRING "," DELIMITED BY SIZE
+                    INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+            END-IF
+            MOVE "Y" TO WS-LSP-EDIT-DONE(WS-K)
+            MOVE WS-LSP-EDIT-TOKEN(WS-K) TO WS-LSP-TOKEN
+            MOVE SL-LINE-NO(TK-SRC-LINE(WS-LSP-TOKEN)) TO WS-LSP-LINE
+            MOVE TK-COLUMN(WS-LSP-TOKEN) TO WS-LSP-CHAR
+            STRING '{"range":' DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+            PERFORM LSP-APPEND-RANGE
+            STRING ',"newText":"' DELIMITED BY SIZE
+                   WS-LSP-NEW-NAME(1:WS-LSP-NEW-LEN) DELIMITED BY SIZE
+                   '"}' DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        END-IF
+    END-PERFORM
+    STRING "]" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
 
 *> Hover over a data item: its level, name, picture, usage, size, and
 *> place in its record.
@@ -1219,70 +1806,112 @@ LSP-DOCUMENT-SYMBOLS.
     PERFORM LSP-FIND-DOCUMENT
     PERFORM LSP-START-RESPONSE
     STRING '"result":[' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE SPACES TO WS-LSP-QUERY
+    MOVE "Y" TO WS-LSP-FIRST
     IF WS-LSP-DOC-INDEX > 0
         PERFORM LSP-ANALYZE
-        MOVE "Y" TO WS-LSP-FIRST
-        MOVE 1 TO WS-ROOT WS-NODE
-        MOVE 0 TO WS-DEPTH
-        PERFORM UNTIL WS-NODE = 0
-            IF ND-KIND(WS-NODE) = "PROG" AND ND-NAME(WS-NODE) > 0
-                MOVE ND-NAME(WS-NODE) TO WS-LSP-TOKEN
-                MOVE 2 TO WS-LSP-KIND-NUM
-                MOVE SPACES TO WS-LSP-NAME
-                PERFORM LSP-APPEND-SYMBOL
-            END-IF
-            CALL "PLB-AST-NEXT" USING PLB-AST WS-ROOT WS-NODE WS-DEPTH
-        END-PERFORM
-        PERFORM VARYING WS-U FROM 1 BY 1 UNTIL WS-U > FU-COUNT
-            IF FU-KIND(WS-U) NOT = "D" AND ND-NAME(FU-NODE(WS-U)) > 0
-                MOVE ND-NAME(FU-NODE(WS-U)) TO WS-LSP-TOKEN
-                IF FU-KIND(WS-U) = "S"
-                    MOVE 3 TO WS-LSP-KIND-NUM
-                ELSE
-                    MOVE 6 TO WS-LSP-KIND-NUM
-                END-IF
-                CALL "PLB-TOK-TEXT" USING PLB-TOKENS
-                    ND-NAME(FU-PROGRAM(WS-U)) WS-LSP-NAME WS-TOKEN-LEN
-                IF FU-SECTION(WS-U) > 0
-                    MOVE FU-NAME(FU-SECTION(WS-U)) TO WS-LSP-NAME
-                END-IF
-                PERFORM LSP-APPEND-SYMBOL
-            END-IF
-        END-PERFORM
-        PERFORM VARYING WS-S FROM 1 BY 1 UNTIL WS-S > SY-COUNT
-            IF SY-NAME-TOKEN(WS-S) > 0
-                MOVE SY-NAME-TOKEN(WS-S) TO WS-LSP-TOKEN
-                EVALUATE TRUE
-                    WHEN SY-LEVEL(WS-S) = 88
-                        MOVE 22 TO WS-LSP-KIND-NUM
-                    WHEN SY-LEVEL(WS-S) = 78
-                        MOVE 14 TO WS-LSP-KIND-NUM
-                    WHEN SY-CATEGORY(WS-S) = "G"
-                        MOVE 23 TO WS-LSP-KIND-NUM
-                    WHEN SY-PARENT(WS-S) > 0
-                        MOVE 8 TO WS-LSP-KIND-NUM
-                    WHEN OTHER
-                        MOVE 13 TO WS-LSP-KIND-NUM
-                END-EVALUATE
-                IF SY-PARENT(WS-S) > 0
-                    MOVE SY-NAME(SY-PARENT(WS-S)) TO WS-LSP-NAME
-                ELSE
-                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS
-                        ND-NAME(SY-PROGRAM(WS-S)) WS-LSP-NAME WS-TOKEN-LEN
-                END-IF
-                PERFORM LSP-APPEND-SYMBOL
-            END-IF
-        END-PERFORM
+        PERFORM LSP-COLLECT-SYMBOLS
     END-IF
     STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
     PERFORM LSP-SEND-OUT.
 
+*> workspace/symbol: the symbols of every open document whose names
+*> contain the query, ignoring case.
+LSP-WORKSPACE-SYMBOLS.
+    MOVE "query" TO WS-LSP-NAME
+    PERFORM LSP-GET
+    MOVE SPACES TO WS-LSP-QUERY
+    IF WS-LSP-KIND = "S" AND WS-LSP-VALUE-LEN > 0
+       AND WS-LSP-VALUE-LEN <= 31
+        MOVE FUNCTION UPPER-CASE(WS-LSP-VALUE(1:WS-LSP-VALUE-LEN))
+            TO WS-LSP-QUERY
+    END-IF
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":[' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE "Y" TO WS-LSP-FIRST
+    PERFORM VARYING WS-LSP-SLOT FROM 1 BY 1 UNTIL WS-LSP-SLOT > LSP-DOC-MAX
+        IF DOC-URI(WS-LSP-SLOT) NOT = SPACES
+            MOVE WS-LSP-SLOT TO WS-LSP-DOC-INDEX
+            PERFORM LSP-ANALYZE
+            PERFORM LSP-COLLECT-SYMBOLS
+        END-IF
+    END-PERFORM
+    STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> LSP-APPEND-SYMBOL for the programs, sections, paragraphs, and named
+*> data items of the analyzed document.
+LSP-COLLECT-SYMBOLS.
+    MOVE 1 TO WS-ROOT WS-NODE
+    MOVE 0 TO WS-DEPTH
+    PERFORM UNTIL WS-NODE = 0
+        IF ND-KIND(WS-NODE) = "PROG" AND ND-NAME(WS-NODE) > 0
+            MOVE ND-NAME(WS-NODE) TO WS-LSP-TOKEN
+            MOVE 2 TO WS-LSP-KIND-NUM
+            MOVE SPACES TO WS-LSP-NAME
+            PERFORM LSP-APPEND-SYMBOL
+        END-IF
+        CALL "PLB-AST-NEXT" USING PLB-AST WS-ROOT WS-NODE WS-DEPTH
+    END-PERFORM
+    PERFORM VARYING WS-U FROM 1 BY 1 UNTIL WS-U > FU-COUNT
+        IF FU-KIND(WS-U) NOT = "D" AND ND-NAME(FU-NODE(WS-U)) > 0
+            MOVE ND-NAME(FU-NODE(WS-U)) TO WS-LSP-TOKEN
+            IF FU-KIND(WS-U) = "S"
+                MOVE 3 TO WS-LSP-KIND-NUM
+            ELSE
+                MOVE 6 TO WS-LSP-KIND-NUM
+            END-IF
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS
+                ND-NAME(FU-PROGRAM(WS-U)) WS-LSP-NAME WS-TOKEN-LEN
+            IF FU-SECTION(WS-U) > 0
+                MOVE FU-NAME(FU-SECTION(WS-U)) TO WS-LSP-NAME
+            END-IF
+            PERFORM LSP-APPEND-SYMBOL
+        END-IF
+    END-PERFORM
+    PERFORM VARYING WS-S FROM 1 BY 1 UNTIL WS-S > SY-COUNT
+        IF SY-NAME-TOKEN(WS-S) > 0
+            MOVE SY-NAME-TOKEN(WS-S) TO WS-LSP-TOKEN
+            EVALUATE TRUE
+                WHEN SY-LEVEL(WS-S) = 88
+                    MOVE 22 TO WS-LSP-KIND-NUM
+                WHEN SY-LEVEL(WS-S) = 78
+                    MOVE 14 TO WS-LSP-KIND-NUM
+                WHEN SY-CATEGORY(WS-S) = "G"
+                    MOVE 23 TO WS-LSP-KIND-NUM
+                WHEN SY-PARENT(WS-S) > 0
+                    MOVE 8 TO WS-LSP-KIND-NUM
+                WHEN OTHER
+                    MOVE 13 TO WS-LSP-KIND-NUM
+            END-EVALUATE
+            IF SY-PARENT(WS-S) > 0
+                MOVE SY-NAME(SY-PARENT(WS-S)) TO WS-LSP-NAME
+            ELSE
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS
+                    ND-NAME(SY-PROGRAM(WS-S)) WS-LSP-NAME WS-TOKEN-LEN
+            END-IF
+            PERFORM LSP-APPEND-SYMBOL
+        END-IF
+    END-PERFORM.
+
 *> A SymbolInformation for the name at WS-LSP-TOKEN, of kind
 *> WS-LSP-KIND-NUM, in container WS-LSP-NAME; only for names in the
-*> document itself.
+*> document itself, and that contain WS-LSP-QUERY when it is set.
 LSP-APPEND-SYMBOL.
     IF TK-FILE-ID(WS-LSP-TOKEN) NOT = 1
+       OR WS-LSP-PTR > LSP-SIZE - 4096
         EXIT PARAGRAPH
+    END-IF
+    *> workspace/symbol: only names that contain the query.
+    IF WS-LSP-QUERY NOT = SPACES
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-LSP-TOKEN WS-TOKEN-TEXT
+            WS-TOKEN-LEN
+        MOVE 0 TO WS-K
+        INSPECT FUNCTION UPPER-CASE(WS-TOKEN-TEXT(1:WS-TOKEN-LEN))
+            TALLYING WS-K FOR ALL FUNCTION TRIM(WS-LSP-QUERY)
+        IF WS-K = 0
+            EXIT PARAGRAPH
+        END-IF
     END-IF
     IF WS-LSP-FIRST = "N"
         STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
@@ -1354,6 +1983,7 @@ DUMP-COMMAND.
        AND WS-ARG NOT = "expanded" AND WS-ARG NOT = "ast"
        AND WS-ARG NOT = "symbols" AND WS-ARG NOT = "flow"
        AND WS-ARG NOT = "refs" AND WS-ARG NOT = "calls"
+       AND WS-ARG NOT = "jcl"
         IF WS-ARG-LEN = 0
             DISPLAY PLB-NAME ": dump: missing what to dump"
                 UPON SYSERR
@@ -1367,6 +1997,10 @@ DUMP-COMMAND.
 
     PERFORM PARSE-INPUT-ARGS
     IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-DUMP-TARGET = "jcl"
+        PERFORM DUMP-JCL
         EXIT PARAGRAPH
     END-IF
     PERFORM LOAD-INPUTS
@@ -1677,6 +2311,145 @@ DUMP-REFS.
 *>     call path:line:col CALLER -> TARGET RESOLUTION
 *>       argument item|literal|omitted|other TEXT MODE SIZE
 *> SIZE is in bytes, or ? when not known.
+*> JCL is not COBOL source: each file is registered for its path and
+*> read by the JCL reader.
+DUMP-JCL.
+    CALL "PLB-SRC-INIT" USING PLB-SOURCE-SET
+    CALL "PLB-DIAG-INIT" USING PLB-DIAGNOSTICS
+    CALL "PLB-JCL-INIT" USING PLB-JCL
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > IP-COUNT
+        CALL "PLB-SRC-ADD" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            IP-PATH(WS-I) WS-MODE WS-FILE-ID
+        CALL "PLB-JCL-READ" USING IP-PATH(WS-I) WS-FILE-ID PLB-JCL
+            WS-STATUS
+        IF WS-STATUS NOT = 0
+            CALL "PLB-STR-LENGTH" USING IP-PATH(WS-I) WS-PATH-LEN
+            DISPLAY PLB-NAME ": cannot read "
+                IP-PATH(WS-I)(1:WS-PATH-LEN) UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+        END-IF
+    END-PERFORM
+    *> In source order: jobs and procedures, their steps, each step's
+    *> DDs.
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > JJ-COUNT
+        MOVE SPACES TO WS-OUT
+        MOVE 1 TO WS-PTR
+        MOVE JJ-FILE-ID(WS-I) TO WS-POS-FILE
+        MOVE JJ-LINE(WS-I) TO WS-POS-LINE
+        PERFORM APPEND-JCL-POSITION
+        STRING "job " DELIMITED BY SIZE
+               JJ-NAME(WS-I) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+        DISPLAY WS-OUT(1:WS-PTR - 1)
+        PERFORM VARYING WS-P FROM 1 BY 1 UNTIL WS-P > JS-COUNT
+            IF JS-JOB(WS-P) = WS-I
+                PERFORM DUMP-JCL-STEP
+            END-IF
+        END-PERFORM
+    END-PERFORM
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > JP-COUNT
+        MOVE SPACES TO WS-OUT
+        MOVE 1 TO WS-PTR
+        MOVE JP-FILE-ID(WS-I) TO WS-POS-FILE
+        MOVE JP-LINE(WS-I) TO WS-POS-LINE
+        PERFORM APPEND-JCL-POSITION
+        STRING "proc " DELIMITED BY SIZE
+               JP-NAME(WS-I) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+        IF JP-INSTREAM(WS-I) = "Y"
+            STRING " in-stream" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        END-IF
+        DISPLAY WS-OUT(1:WS-PTR - 1)
+        PERFORM VARYING WS-P FROM 1 BY 1 UNTIL WS-P > JS-COUNT
+            IF JS-PROC(WS-P) = WS-I
+                PERFORM DUMP-JCL-STEP
+            END-IF
+        END-PERFORM
+    END-PERFORM.
+
+DUMP-JCL-STEP.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    MOVE JS-FILE-ID(WS-P) TO WS-POS-FILE
+    MOVE JS-LINE(WS-P) TO WS-POS-LINE
+    PERFORM APPEND-JCL-POSITION
+    STRING "  step " DELIMITED BY SIZE
+        INTO WS-OUT WITH POINTER WS-PTR
+    IF JS-NAME(WS-P) = SPACES
+        STRING "-" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    ELSE
+        STRING JS-NAME(WS-P) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    EVALUATE JS-KIND(WS-P)
+        WHEN "P"
+            STRING " pgm " DELIMITED BY SIZE
+                   JS-TARGET(WS-P) DELIMITED BY SPACE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN "R"
+            STRING " proc " DELIMITED BY SIZE
+                   JS-TARGET(WS-P) DELIMITED BY SPACE
+                INTO WS-OUT WITH POINTER WS-PTR
+    END-EVALUATE
+    DISPLAY WS-OUT(1:WS-PTR - 1)
+    PERFORM VARYING WS-C FROM JS-DD-FIRST(WS-P) BY 1
+            UNTIL WS-C >= JS-DD-FIRST(WS-P) + JS-DD-COUNT(WS-P)
+        PERFORM DUMP-JCL-DD
+    END-PERFORM.
+
+DUMP-JCL-DD.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    MOVE JD-FILE-ID(WS-C) TO WS-POS-FILE
+    MOVE JD-LINE(WS-C) TO WS-POS-LINE
+    PERFORM APPEND-JCL-POSITION
+    STRING "    dd " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    IF JD-QUALIFIER(WS-C) NOT = SPACES
+        STRING JD-QUALIFIER(WS-C) DELIMITED BY SPACE
+               "." DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    STRING JD-NAME(WS-C) DELIMITED BY SPACE
+        INTO WS-OUT WITH POINTER WS-PTR
+    EVALUATE JD-KIND(WS-C)
+        WHEN "D"
+            STRING " dsn " DELIMITED BY SIZE
+                   JD-DSN(WS-C) DELIMITED BY SPACE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN "S"
+            STRING " sysout" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN "M"
+            STRING " dummy" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN "I"
+            STRING " in-stream data" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN OTHER
+            STRING " other" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+    END-EVALUATE
+    IF JD-DISP(WS-C) NOT = SPACES
+        STRING " disp " DELIMITED BY SIZE
+               JD-DISP(WS-C) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    DISPLAY WS-OUT(1:WS-PTR - 1).
+
+*> path:line: for a position in a JCL file.
+APPEND-JCL-POSITION.
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET WS-POS-FILE WS-PATH
+    CALL "PLB-STR-LENGTH" USING WS-PATH WS-PATH-LEN
+    IF WS-PATH-LEN > 0
+        STRING WS-PATH(1:WS-PATH-LEN) DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    STRING ":" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE WS-POS-LINE TO WS-NUM
+    PERFORM APPEND-NUM
+    STRING ": " DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR.
+
 DUMP-CALLS.
     CALL "PLB-CALL-INIT" USING PLB-CALL-GRAPH
     MOVE SS-FILE-COUNT TO WS-MAIN-FILES
@@ -1695,12 +2468,59 @@ DUMP-CALLS.
     PERFORM VARYING WS-C FROM 1 BY 1 UNTIL WS-C > CC-COUNT
         PERFORM DUMP-ONE-CALL
     END-PERFORM
+    PERFORM VARYING WS-C FROM 1 BY 1 UNTIL WS-C > PF-COUNT
+        PERFORM DUMP-ONE-FILE
+    END-PERFORM
     IF CP-DROPPED > 0
         MOVE CP-DROPPED TO WS-NUM
         CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
         DISPLAY "dropped " WS-NUM-TEXT(1:WS-NUM-LEN)
             " entries over the call graph's limits"
     END-IF.
+
+*> file NAME path:line:col of PROGRAM dd DDNAME [optional] [sort]
+*> [opened MODES]
+DUMP-ONE-FILE.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    STRING "file " DELIMITED BY SIZE
+           PF-NAME(WS-C) DELIMITED BY SPACE
+           " " DELIMITED BY SIZE
+        INTO WS-OUT WITH POINTER WS-PTR
+    MOVE PF-FILE-ID(WS-C) TO WS-POS-FILE
+    MOVE PF-LINE(WS-C) TO WS-POS-LINE
+    MOVE PF-COLUMN(WS-C) TO WS-POS-COLUMN
+    PERFORM APPEND-POSITION
+    STRING " of " DELIMITED BY SIZE
+           CP-NAME(PF-PROGRAM(WS-C)) DELIMITED BY SPACE
+        INTO WS-OUT WITH POINTER WS-PTR
+    IF PF-DDNAME(WS-C) = SPACES
+        STRING " dd ?" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    ELSE
+        STRING " dd " DELIMITED BY SIZE
+               PF-DDNAME(WS-C) DELIMITED BY SPACE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF PF-OPTIONAL(WS-C) = "Y"
+        STRING " optional" DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF PF-SORT(WS-C) = "Y"
+        STRING " sort" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF PF-INPUT(WS-C) = "Y"
+        STRING " input" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF PF-OUTPUT(WS-C) = "Y"
+        STRING " output" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF PF-I-O(WS-C) = "Y"
+        STRING " i-o" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    IF PF-EXTEND(WS-C) = "Y"
+        STRING " extend" DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
+    DISPLAY WS-OUT(1:WS-PTR - 1).
 
 DUMP-ONE-PROGRAM.
     MOVE SPACES TO WS-OUT
@@ -2093,11 +2913,12 @@ PARSE-INPUT-ARGS.
                 PERFORM NEXT-ARG
                 EVALUATE WS-ARG
                     WHEN "performs" WHEN "calls" WHEN "copybooks"
+                    WHEN "jobs"
                         MOVE WS-ARG TO WS-GRAPH-KIND
                     WHEN OTHER
                         DISPLAY PLB-NAME ": invalid --kind '"
                             WS-ARG(1:WS-ARG-LEN)
-                            "' (expected performs, calls, or copybooks)"
+                            "' (expected performs, calls, copybooks, or jobs)"
                             UPON SYSERR
                         MOVE 2 TO WS-EXIT-CODE
                 END-EVALUATE

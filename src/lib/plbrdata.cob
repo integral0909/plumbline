@@ -77,6 +77,13 @@ END PROGRAM PLB-RULE-C007.
 *> Items from copybooks are not reported (a program commonly uses
 *> part of a shared layout), nor are GLOBAL or EXTERNAL items, which
 *> other programs may use, nor constants (level 78 or CONSTANT).
+*>
+*> PLB-M013 unused-copybook comes from the same reckoning: a COPY in
+*> working-storage or local-storage that declares items, none of them
+*> used. It is reported at the COPY statement. A copybook with
+*> anything else (file or linkage entries, GLOBAL or EXTERNAL items,
+*> code) is not, nor is one that only copies other copybooks: each of
+*> those is judged on its own.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-M003.
 DATA DIVISION.
@@ -95,8 +102,26 @@ WORKING-STORAGE SECTION.
     05  WS-DIRECT           PIC X OCCURS 100000 TIMES.
     05  WS-USED             PIC X OCCURS 100000 TIMES.
     05  WS-VIA-GROUP        PIC X OCCURS 100000 TIMES.
+*> Per inclusion: items it declares, whether one is used, and whether
+*> it holds anything the rule does not judge.
+01  WS-COPYBOOKS.
+    05  WS-INCL-ITEMS       PIC 9(9) COMP-5 OCCURS 4096 TIMES.
+    05  WS-INCL-USED        PIC X OCCURS 4096 TIMES.
+    05  WS-INCL-OTHER       PIC X OCCURS 4096 TIMES.
+*> Constants of the program, and whether the data division names them
+*> (OCCURS TK-MAX TIMES, PIC X(LEN)).
+01  WS-CONSTANTS.
+    05  WS-CONST-COUNT      PIC 9(4) COMP-5.
+    05  WS-CONST            OCCURS 2000 TIMES.
+        10  WS-CONST-SYM    PIC 9(9) COMP-5.
+        10  WS-CONST-USED   PIC X.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-RULE-COPYBOOK        PIC 9(4) COMP-5.
+01  LS-I                    PIC 9(4) COMP-5.
+01  LS-SRC-LINE             PIC 9(9) COMP-5.
+01  LS-PATH                 PIC X(1024).
+01  LS-BASE                 PIC 9(9) COMP-5.
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-DEPTH                PIC S9(9) COMP-5.
@@ -122,12 +147,16 @@ COPY "plbtok.cpy".
 COPY "plbastc.cpy".
 COPY "plbast.cpy".
 COPY "plbsym.cpy".
+COPY "plbincl.cpy".
 COPY "plbrules.cpy".
 COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
-        PLB-RULES PLB-FINDINGS.
+        PLB-INCLUSIONS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M003" LS-RULE
-    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M013" LS-RULE-COPYBOOK
+    IF (RL-ENABLED(LS-RULE) NOT = "Y"
+        AND RL-ENABLED(LS-RULE-COPYBOOK) NOT = "Y")
+       OR AS-COUNT = 0
         GOBACK
     END-IF
     MOVE 1 TO LS-NODE
@@ -185,11 +214,175 @@ CHECK-PROGRAM.
             END-IF
         END-IF
     END-PERFORM
+    IF RL-ENABLED(LS-RULE) = "Y"
+        PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
+            IF SY-PROGRAM(LS-S) = LS-PROGRAM
+                PERFORM CONSIDER-ITEM
+            END-IF
+        END-PERFORM
+    END-IF
+    IF RL-ENABLED(LS-RULE-COPYBOOK) = "Y" AND IN-COUNT > 0
+        PERFORM CHECK-COPYBOOKS
+    END-IF.
+
+*> PLB-M013: tally each inclusion's items in this program, then
+*> report those with items and none used.
+CHECK-COPYBOOKS.
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > IN-COUNT
+        MOVE 0 TO WS-INCL-ITEMS(LS-I)
+        MOVE "N" TO WS-INCL-USED(LS-I) WS-INCL-OTHER(LS-I)
+    END-PERFORM
+    *> Copybook text outside the data division's storage sections:
+    *> code, environment entries, the program header.
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-PROGRAM) BY 1
+            UNTIL LS-T > ND-TOK-LAST(LS-PROGRAM)
+        IF TK-INCL(LS-T) > 0
+            MOVE TK-INCL(LS-T) TO LS-I
+            IF WS-INCL-OTHER(LS-I) = "N"
+                PERFORM CHECK-COPYBOOK-TOKEN
+            END-IF
+        END-IF
+    END-PERFORM
+    PERFORM COLLECT-CONSTANT-USES
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
-        IF SY-PROGRAM(LS-S) = LS-PROGRAM
-            PERFORM CONSIDER-ITEM
+        IF SY-PROGRAM(LS-S) = LS-PROGRAM AND SY-NAME-TOKEN(LS-S) > 0
+            MOVE SY-NAME-TOKEN(LS-S) TO LS-TOKEN
+            IF TK-INCL(LS-TOKEN) > 0
+                MOVE TK-INCL(LS-TOKEN) TO LS-I
+                ADD 1 TO WS-INCL-ITEMS(LS-I)
+                IF WS-USED(LS-S) = "Y" OR WS-VIA-GROUP(LS-S) = "Y"
+                    MOVE "Y" TO WS-INCL-USED(LS-I)
+                END-IF
+                IF SY-CATEGORY(LS-S) = "K"
+                    PERFORM VARYING LS-P FROM 1 BY 1
+                            UNTIL LS-P > WS-CONST-COUNT
+                        IF WS-CONST-SYM(LS-P) = LS-S
+                           AND WS-CONST-USED(LS-P) = "Y"
+                            MOVE "Y" TO WS-INCL-USED(LS-I)
+                        END-IF
+                    END-PERFORM
+                END-IF
+                IF SY-SECTION(LS-S) NOT = "W" AND NOT = "L"
+                    MOVE "Y" TO WS-INCL-OTHER(LS-I)
+                END-IF
+                PERFORM CHECK-SHARED
+                IF LS-SKIP = "Y"
+                    MOVE "Y" TO WS-INCL-OTHER(LS-I)
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > IN-COUNT
+        IF WS-INCL-ITEMS(LS-I) > 0 AND WS-INCL-USED(LS-I) = "N"
+           AND WS-INCL-OTHER(LS-I) = "N" AND IN-FROM-LINE(LS-I) > 0
+            PERFORM REPORT-COPYBOOK
         END-IF
     END-PERFORM.
+
+*> WS-CONST-USED = "Y" for each constant of the program whose name
+*> appears in its data division other than where it is declared.
+COLLECT-CONSTANT-USES.
+    MOVE 0 TO WS-CONST-COUNT
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
+        IF SY-PROGRAM(LS-S) = LS-PROGRAM AND SY-CATEGORY(LS-S) = "K"
+           AND SY-NAME-TOKEN(LS-S) > 0 AND WS-CONST-COUNT < 2000
+            ADD 1 TO WS-CONST-COUNT
+            MOVE LS-S TO WS-CONST-SYM(WS-CONST-COUNT)
+            MOVE "N" TO WS-CONST-USED(WS-CONST-COUNT)
+        END-IF
+    END-PERFORM
+    IF WS-CONST-COUNT = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE ND-FIRST(LS-PROGRAM) TO LS-CHILD
+    PERFORM UNTIL LS-CHILD = 0
+        IF ND-KIND(LS-CHILD) = "DIVN" AND ND-DETAIL(LS-CHILD) = "DATA"
+            PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-CHILD) BY 1
+                    UNTIL LS-T > ND-TOK-LAST(LS-CHILD)
+                IF TK-IS-WORD(LS-T) AND TK-KEYWORD(LS-T) = SPACE
+                   AND TK-TEXT-LEN(LS-T) <= 31
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT
+                        LS-LEN
+                    PERFORM VARYING LS-P FROM 1 BY 1
+                            UNTIL LS-P > WS-CONST-COUNT
+                        MOVE WS-CONST-SYM(LS-P) TO LS-S
+                        IF SY-NAME(LS-S) = LS-TEXT
+                           AND SY-NAME-TOKEN(LS-S) NOT = LS-T
+                            MOVE "Y" TO WS-CONST-USED(LS-P)
+                        END-IF
+                    END-PERFORM
+                END-IF
+                *> A picture sized by a constant: X(LEN).
+                IF TK-IS-PICTURE(LS-T) AND TK-TEXT-LEN(LS-T) <= 31
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT
+                        LS-LEN
+                    PERFORM VARYING LS-P FROM 1 BY 1
+                            UNTIL LS-P > WS-CONST-COUNT
+                        MOVE WS-CONST-SYM(LS-P) TO LS-S
+                        MOVE 0 TO LS-LEN
+                        INSPECT LS-TEXT TALLYING LS-LEN FOR ALL
+                            FUNCTION CONCATENATE("(" FUNCTION TRIM(
+                                SY-NAME(LS-S)) ")")
+                        IF LS-LEN > 0
+                            MOVE "Y" TO WS-CONST-USED(LS-P)
+                        END-IF
+                    END-PERFORM
+                END-IF
+            END-PERFORM
+        END-IF
+        MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+    END-PERFORM.
+
+*> Inclusion LS-I holds something other than storage entries when
+*> token LS-T is outside the program's working-storage and
+*> local-storage sections.
+CHECK-COPYBOOK-TOKEN.
+    MOVE "Y" TO LS-SKIP
+    MOVE ND-FIRST(LS-PROGRAM) TO LS-CHILD
+    PERFORM UNTIL LS-CHILD = 0
+        IF ND-KIND(LS-CHILD) = "DIVN" AND ND-DETAIL(LS-CHILD) = "DATA"
+            MOVE ND-FIRST(LS-CHILD) TO LS-CLAUSE
+            PERFORM UNTIL LS-CLAUSE = 0
+                IF ND-KIND(LS-CLAUSE) = "SECT"
+                   AND (ND-DETAIL(LS-CLAUSE) = "WORKING-STORAGE"
+                        OR ND-DETAIL(LS-CLAUSE) = "LOCAL-STORAGE")
+                   AND LS-T >= ND-TOK-FIRST(LS-CLAUSE)
+                   AND LS-T <= ND-TOK-LAST(LS-CLAUSE)
+                    MOVE "N" TO LS-SKIP
+                END-IF
+                MOVE ND-NEXT(LS-CLAUSE) TO LS-CLAUSE
+            END-PERFORM
+        END-IF
+        MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+    END-PERFORM
+    IF LS-SKIP = "Y"
+        MOVE "Y" TO WS-INCL-OTHER(LS-I)
+    END-IF.
+
+REPORT-COPYBOOK.
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET IN-FILE-ID(LS-I)
+        LS-PATH
+    *> The copybook's file name, without its directory.
+    MOVE 0 TO LS-BASE
+    PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T > 1024
+        IF LS-PATH(LS-T:1) = "/"
+            MOVE LS-T TO LS-BASE
+        END-IF
+        IF LS-PATH(LS-T:) = SPACES
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    ADD 1 TO LS-BASE
+    MOVE SPACES TO LS-MESSAGE
+    STRING "none of the items copybook " DELIMITED BY SIZE
+           LS-PATH(LS-BASE:) DELIMITED BY SPACE
+           " declares is used" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-SRC-LINE-INDEX" USING PLB-SOURCE-SET IN-FROM-FILE-ID(LS-I)
+        IN-FROM-LINE(LS-I) LS-SRC-LINE
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE-COPYBOOK
+        IN-FROM-FILE-ID(LS-I) IN-FROM-LINE(LS-I) IN-FROM-COLUMN(LS-I)
+        LS-SRC-LINE LS-MESSAGE.
 
 *> The sorted, searchable list of words in the program's environment
 *> and procedure divisions, its report clauses, and the objects of

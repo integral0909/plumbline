@@ -11,7 +11,8 @@ lines of IBM Enterprise COBOL, with their copybooks.
 `make corpus-carddemo` downloads a fixed commit
 (`59cc6c2fd7ebd7ef7925cad552a01a4b8b6e4d5e`) from GitHub, checks it
 against a known SHA-256, and checks all programs in one run, with every
-directory of copybooks and DB2 declarations on the copy path. None of
+directory of copybooks and DB2 declarations on the copy path, together
+with the application's 48 JCL members and procedures. None of
 CardDemo is added to this repository.
 
 ## Results
@@ -21,6 +22,7 @@ The run on 2026-10-01 takes about a second:
 | | |
 |---|---|
 | Programs | 44 (30,175 lines, without copybooks) |
+| JCL members and procedures | 48 |
 | Programs with input errors | 24, all for copybooks of CICS and MQ |
 
 The copybooks it cannot find are those that come with the products, not
@@ -38,8 +40,11 @@ with the application: `DFHAID` and `DFHBMSCA` (CICS), and `CMQV`,
 | PLB-M005 set-never-read | 72 |
 | PLB-C019 cics-response-not-checked | 42 |
 | PLB-C001 unreachable-code | 33 |
+| PLB-M013 unused-copybook | 30 |
 | PLB-C002 perform-and-fall-through | 23 |
 | PLB-C020 file-status-not-checked | 10 |
+| PLB-C031 string-overflow | 9 |
+| PLB-C030 value-never-used | 7 |
 | PLB-M002 alter | 4 |
 | PLB-M008 file-not-closed | 3 |
 | PLB-C007 redefines-larger | 3 |
@@ -47,6 +52,7 @@ with the application: `DFHAID` and `DFHBMSCA` (CICS), and `CMQV`,
 | PLB-C011 read-never-set | 1 |
 | PLB-C004 next-sentence-in-scope | 1 |
 | PLB-C003 fall-off-end | 1 |
+| PLB-J001 dd-missing | 1 |
 
 Some findings that were read and are true:
 
@@ -80,3 +86,27 @@ Some findings that were read and are true:
   paragraph fell into the next paragraph, and perform-and-fall-through
   reported 147 paragraphs. A GO TO in a paragraph reached only by
   `PERFORM` now stays within that PERFORM; 23 findings are left.
+
+## Findings worth a look
+
+- **PLB-C030 value-never-used.** Seven online programs move
+  `FUNCTION CURRENT-DATE` to `WS-CURDATE-DATA` twice in the routine that
+  fills the screen header, a few lines apart, with no use in between.
+  The first move is left over; the routine was copied from program to
+  program with it.
+- **PLB-M013 unused-copybook.** 30 `COPY` statements bring in record
+  layouts that their program never uses: message and user layouts in
+  the online programs (`CSMSG01Y`, `CSUSR01Y`), and file records in
+  batch programs that do not read those files (`CVCUS01Y` in
+  `CBTRN01C`).
+- **PLB-C031 string-overflow.** Nine error messages are built with
+  `STRING ... DELIMITED BY SIZE` from more text than their receiver
+  holds: in `COACTUPC` and `COACTVWC`, 81 characters go into the
+  75-character `WS-RETURN-MSG`, and the end of the CICS reason code is
+  cut off.
+- **PLB-J001 dd-missing.** The job `CBIMPORT` runs the program of that
+  name, which opens seven files for its import; the step has DDs for
+  six. `CARD-OUTPUT ASSIGN TO CARDOUT` has none, so the step fails when
+  `CBIMPORT` opens it. Every other batch step has a DD for each file its
+  program opens, and no DD that its program does not use, once the
+  paths of alternate indexes (`XREFFIL1` for `XREFFILE`) are counted.

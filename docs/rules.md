@@ -32,6 +32,15 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C024](#plb-c024-refmod-out-of-range) | refmod-out-of-range | error | Literal reference modification is outside the item |
 | [PLB-C025](#plb-c025-stop-run-in-called-program) | stop-run-in-called-program | warning | STOP RUN in a program that is called |
 | [PLB-C026](#plb-c026-varying-limit-unreachable) | varying-limit-unreachable | warning | PERFORM VARYING waits for a value its counter cannot hold |
+| [PLB-C027](#plb-c027-divide-by-zero) | divide-by-zero | error | Divisor is a literal zero |
+| [PLB-C028](#plb-c028-comparison-never-true) | comparison-never-true | warning | Data item is compared with a value it cannot hold |
+| [PLB-C029](#plb-c029-go-to-leaves-perform) | go-to-leaves-perform | warning | GO TO leaves the range of a PERFORM, which then does not return |
+| [PLB-C030](#plb-c030-value-never-used) | value-never-used | warning | Value is replaced before it is used |
+| [PLB-C031](#plb-c031-string-overflow) | string-overflow | warning | STRING always sends more than its receiver holds |
+| [PLB-J001](#plb-j001-dd-missing) | dd-missing | error | A file the step's programs open has no DD in the step |
+| [PLB-J002](#plb-j002-dd-unused) | dd-unused | note | DD is not a file of the step's programs |
+| [PLB-J003](#plb-j003-program-not-in-run) | program-not-in-run | note, off | Step runs a program that is not among those checked |
+| [PLB-J004](#plb-j004-dd-cannot-be-read) | dd-cannot-be-read | error | A file the program only reads has a DD that gives it no data |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -43,6 +52,8 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M009](#plb-m009-complex-paragraph) | complex-paragraph | note, off | Paragraph or section is more complex than the limit |
 | [PLB-M010](#plb-m010-long-paragraph) | long-paragraph | note, off | Paragraph or section has more statements than the limit |
 | [PLB-M011](#plb-m011-evaluate-without-other) | evaluate-without-other | note, off | EVALUATE has no WHEN OTHER |
+| [PLB-M012](#plb-m012-deep-nesting) | deep-nesting | note, off | Statements are nested deeper than the limit |
+| [PLB-M013](#plb-m013-unused-copybook) | unused-copybook | note | Copybook declares data the program never uses |
 | [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, off | CALL of a compiler library routine |
 | [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
@@ -627,6 +638,231 @@ checked. A binary counter can hold more than its picture says when the
 compiler does not truncate binary data (IBM `TRUNC(BIN)`, GnuCOBOL
 `-fnotrunc`). Conditions with `AND` or `OR` are not checked.
 
+## PLB-C027 divide-by-zero
+
+A division whose divisor is a literal zero:
+
+```cobol
+    DIVIDE ZERO INTO TOTAL                  *> reported
+    COMPUTE RESULT = TOTAL / 0.00           *> reported
+    DIVIDE 0 BY TOTAL GIVING RESULT         *> not reported: 0 is divided
+```
+
+Dividing by zero raises the size error condition. Without an `ON SIZE
+ERROR` phrase the receiving item is left unchanged, or the program
+stops, depending on the compiler and its options, and nothing says
+which happened. Such a division is usually a placeholder that was
+never filled in, or a constant that was meant to be a data item.
+
+The rule checks the first operand of `DIVIDE ... INTO`, the operand
+after `BY` in `DIVIDE ... BY`, and the operand after `/` in any
+expression (`COMPUTE`, conditions, subscripts). A divisor is zero when
+it is `ZERO`, `ZEROS`, `ZEROES`, or a numeric literal with only zero
+digits. A statement with `ON SIZE ERROR` handles the failure and is not
+reported; test programs divide by zero this way on purpose. Divisors
+that are data items, or constants declared with level 78 or
+`CONSTANT`, are not checked.
+
+## PLB-C028 comparison-never-true
+
+A condition that compares a data item with a literal the item cannot
+hold, so the comparison is never true:
+
+```cobol
+01  AGE      PIC 99.
+01  BALANCE  PIC 9(5).
+    ...
+    IF AGE > 99                             *> reported
+    IF BALANCE < 0                          *> reported: BALANCE has no sign
+```
+
+The code under such a condition never runs. Often the item was made
+smaller, or lost its sign, after the condition was written, and the
+check it was meant to make no longer happens.
+
+The rule checks `item op literal` in the conditions of `IF`, `PERFORM
+... UNTIL`, and `WHEN` in `EVALUATE` and `SEARCH`, with op one of `>`,
+`>=`, `=`, `<`, `<=` or their words. Like
+[PLB-C026](#plb-c026-varying-limit-unreachable), it checks integer items
+stored as decimal digits (`DISPLAY` or `PACKED-DECIMAL`), and integer
+literals. Table elements are checked through their subscripts. It does
+not report:
+
+- comparisons with `NOT`, and comparisons that are always true
+  (`IF BALANCE >= 0`), which are usually harmless checks;
+- an item that is an operand of arithmetic (`IF AGE + 1 > 99`);
+- the counter of `PERFORM VARYING`, which PLB-C026 checks;
+- a literal on the left (`IF 99 < AGE`), or an abbreviated condition
+  without a subject (`IF AGE > 10 AND < 100` checks the first part).
+
+A numeric item that holds invalid data (spaces, after a `MOVE` to its
+group) still never compares greater than its picture allows.
+
+## PLB-C029 go-to-leaves-perform
+
+A `GO TO` inside a performed range whose target is outside it:
+
+```cobol
+    PERFORM COUNT-RECORD
+    ...
+COUNT-RECORD.
+    ADD 1 TO COUNTER
+    IF COUNTER > 100
+        GO TO SUMMARY                       *> reported
+    END-IF.
+```
+
+A `PERFORM` returns when control reaches the end of its range. After
+this `GO TO` it never does: control runs on from `SUMMARY`, and the
+statement after the `PERFORM` is skipped. When the range is performed
+again later, its return point may still be set from the first time,
+so some compilers then return to the wrong place.
+
+The range is the performed paragraph or section, or `A THRU B`, and
+the procedures of `SORT` and `MERGE` count as ranges too. A `GO TO` to
+a paragraph inside the range (`GO TO READ-EXIT`) is fine. So is a
+`GO TO` to code that ends the run, directly or by falling through
+other paragraphs into `STOP RUN`, `GOBACK`, `EXIT PROGRAM`, or the end
+of the program: that is how many programs leave on an error. A target
+that itself ends with a `GO TO` is reported, even when that `GO TO`
+leads to the end of the run. Each `GO TO` is reported once, for the
+first `PERFORM` whose range it leaves.
+
+## PLB-C030 value-never-used
+
+A value given to a data item that a later statement of the same
+paragraph replaces before anything reads it:
+
+```cobol
+    MOVE FUNCTION CURRENT-DATE TO WS-CURDATE-DATA     *> reported
+    MOVE CCDA-TITLE01 TO TITLE01O
+    MOVE FUNCTION CURRENT-DATE TO WS-CURDATE-DATA
+```
+
+The first value is never used. Often the statements were copied and
+one of them should name another item; sometimes one is simply left
+over.
+
+The rule starts at a `MOVE` or `COMPUTE` and follows the statements
+after it, across sentences, to the end of the paragraph. It stops,
+keeping the value, at:
+
+- a statement that reads the item, or any storage it shares: the
+  groups it is in, its members, and items that redefine them;
+- a statement that could read it out of sight or change where control
+  goes: `PERFORM`, `CALL`, `GO TO`, I/O, `IF`, `EVALUATE`, and any
+  statement with a phrase such as `ON SIZE ERROR`.
+
+The value is reported when a `MOVE` or `COMPUTE` gives the whole item a
+new value. `STRING`, `MOVE CORRESPONDING`, and stores to part of the
+item do not replace it. Not followed at all:
+
+- clearing an item before filling it: `MOVE SPACES`, `MOVE ZERO`,
+  `MOVE LOW-VALUES`, `COMPUTE X = 0`, `INITIALIZE`;
+- table elements, condition names, and items named by `DEPENDING ON`,
+  which the table or item that depends on them reads;
+- programs with `USE FOR DEBUGGING`, whose declaratives run on
+  references that the statements do not show.
+
+## PLB-C031 string-overflow
+
+A `STRING` whose operands delimited by size are longer, together,
+than the item they go into:
+
+```cobol
+05  WS-RETURN-MSG  PIC X(75).
+    ...
+    STRING 'Account:' WS-CARD-RID-ACCT-ID-X ' not found in'
+           ' Cross ref file.  Resp:' ERROR-RESP ' Reas:' ERROR-RESP2
+           DELIMITED BY SIZE
+        INTO WS-RETURN-MSG                  *> 81 characters: reported
+```
+
+An operand `DELIMITED BY SIZE` is sent whole, so this statement always
+overflows. `STRING` stops at the end of the receiver, and without `ON
+OVERFLOW` nothing tells that the end of the text was lost (here, most
+of the reason code).
+
+The rule adds up the operands delimited by size: data items by their
+size, literals by their length, figurative constants as one
+character. Operands delimited by anything else may send any part of
+themselves and are not counted; neither are operands whose size the
+source does not show (reference modification, functions, literals
+with a prefix such as `X` or `N`). The sum is the least the statement
+sends. A `STRING` with `ON OVERFLOW` handles the case and is not
+reported, nor is a receiver with reference modification, of variable
+size, or of national usage.
+
+## PLB-J001 dd-missing
+
+The J rules check programs against the JCL that runs them, when a run
+has both: JCL files are those named `*.jcl` or `*.prc` (see
+[JCL](jcl.md)).
+
+A step that runs a program of the run, where the program, or a program
+it calls by literal name, opens a file whose DD the step does not have:
+
+```
+//RERUN    EXEC PGM=PAYUPD
+//PAYMAST  DD DSN=PAY.MASTER,DISP=SHR
+//PAYRPT   DD SYSOUT=*
+```
+
+Here PAYUPD calls PAYLOG, which opens `LOG-FILE ASSIGN TO PAYLOG`, and
+the step has no `PAYLOG` DD. The `OPEN` fails when the step runs (file status 35 for input, or an
+abend). The DD name is that of the file's `ASSIGN TO`, or its last part
+for an IBM assignment name such as `UT-S-PAYLOG`. Files that are
+`OPTIONAL`, sort files (`SD`), files no `OPEN` names, and files assigned
+to a data item or a path are not checked. A step in a procedure also
+has the DDs that job steps running the procedure add as `STEP.DDNAME`;
+with no such job step in the run, the procedure's own DDs must do.
+
+## PLB-J002 dd-unused
+
+A DD of a step that no file of the step's programs is assigned to:
+
+```
+//RERUN    EXEC PGM=PAYUPD
+//OLDFILE  DD DSN=PAY.OLD,DISP=SHR
+```
+
+when neither PAYUPD nor the programs it calls assign a file to
+`OLDFILE`.
+
+Such a DD is often left over from an earlier version of the program,
+and allocating it can hold a data set for nothing; or the program was
+meant to read it under that name. DDs the system and the runtime read
+count as used: `STEPLIB`, `JOBLIB`, names starting with `SYS`, `CEE`,
+or `SORT`, and the path of an alternate index (the file's DD name with a
+digit at its end, `PAYMAST1` for `PAYMAST`). A step whose programs
+assign a file to a name known only at run time is not checked.
+
+## PLB-J003 program-not-in-run
+
+*Off by default.* A step that runs a program the run does not have.
+Most jobs also run utilities (`IDCAMS`, `SORT`, `IEBGENER`), so the rule
+is for runs meant to hold every program of the jobs, to find a step
+whose program is missing or misspelled. Steps running programs that
+start others (`IKJEFT01` for DB2, `DFSRRC00` for IMS) are not
+followed, since the program they run is named in their input.
+
+## PLB-J004 dd-cannot-be-read
+
+A file that the step's programs only open for input, whose DD gives it
+nothing to read:
+
+```
+//NEWRATE  EXEC PGM=PAYUPD
+//RATES    DD DSN=PAY.RATES,DISP=(NEW,CATLG)
+```
+
+`DISP=NEW` creates the data set in the step, so it is empty when the
+program reads it: the first `READ` is at end. A `SYSOUT` DD is output
+for the spool and cannot be read at all. `DD DUMMY`, which reads as an
+empty file, is left alone: it is how a job leaves out an input on
+purpose. Files that a program also opens for output, `I-O`, or `EXTEND`
+are not checked.
+
 ## PLB-M001 go-to
 
 Every `GO TO` statement, reported as a note. `GO TO` makes the flow of
@@ -772,6 +1008,46 @@ A value that no `WHEN` matches does nothing, silently. Often that is
 what was meant, so the rule is for teams whose convention is that
 every `EVALUATE` says what happens to the other values, if only
 `WHEN OTHER CONTINUE`.
+
+## PLB-M012 deep-nesting
+
+*Off by default.* A statement whose body nests statements deeper than
+the limit (5 by default):
+
+```
+IF nests statements 6 levels deep (limit 5)
+```
+
+A statement inside an `IF` inside another `IF` is at level 2. Every
+statement with a body counts: `IF`, `EVALUATE`, `SEARCH`, inline
+`PERFORM`, and the phrases of `READ ... AT END` or `ADD ... ON SIZE
+ERROR`. The finding is at the outermost statement of the paragraph,
+once, however many statements inside it go too deep. Moving the inner
+levels into a paragraph of their own, or testing the exceptional cases
+first and leaving, usually flattens the code. Like the size limits,
+where the limit lies is a team's choice: `limit deep-nesting N` in
+`plumbline.conf` changes it.
+
+## PLB-M013 unused-copybook
+
+A `COPY` in working-storage or local-storage whose copybook declares
+data items, none of which the program uses:
+
+```
+none of the items copybook cvcus01y.cpy declares is used
+```
+
+The finding is at the `COPY` statement, so it can be suppressed there
+for one program while the copybook stays in use elsewhere. Items count
+as used as for [PLB-M003](#plb-m003-unused-data-item): by name in the
+procedure division or the environment division, through a member, a
+group, a condition name, or a `REDEFINES`. A constant (level 78) also
+counts as used when the data division sizes an item with it (`OCCURS
+ADDRESS-LINES`, `PIC X(NAME-LEN)`).
+
+A copybook that only copies other copybooks is judged by them. One
+that holds anything else is not reported: file or linkage entries,
+`GLOBAL` or `EXTERNAL` items, or code.
 
 ## PLB-P001 vendor-routine
 

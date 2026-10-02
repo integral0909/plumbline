@@ -72,7 +72,7 @@ are on, after `plumbline.conf` and the options are applied
 The `dump` commands show Plumbline's view of a program at each stage,
 which helps when a result is surprising: `dump lines`, `dump tokens`,
 `dump expanded`, `dump ast`, `dump symbols`, `dump flow`, `dump refs`,
-and `dump calls`.
+`dump calls`, and, for JCL, `dump jcl` (see [JCL](docs/jcl.md)).
 
 Give `check` all the programs that call each other in one run. Calls
 between them are then checked against the programs they call: the
@@ -101,13 +101,15 @@ and the targets of GO TO DEPENDING ON). `--report json` and
 ## Graphs and impact
 
 `plumbline graph` draws how a program's paragraphs perform and jump to
-each other, which programs call which, or which files include which
-copybooks, as Graphviz DOT (or JSON with `--report json`):
+each other, which programs call which, which files include which
+copybooks, or which JCL jobs run which programs, as Graphviz DOT (or
+JSON with `--report json`):
 
 ```console
 $ plumbline graph src/payroll.cbl | dot -Tsvg -o payroll.svg
 $ plumbline graph --kind calls src/*.cbl | dot -Tsvg -o calls.svg
 $ plumbline graph --kind copybooks -I copybooks src/*.cbl > copies.dot
+$ plumbline graph --kind jobs src/*.cbl jcl/*.jcl > jobs.dot
 ```
 
 `plumbline impact` answers the question before a change: what does it
@@ -146,7 +148,8 @@ line of their own.
 
 `plumbline lsp` is a language server, so editors that speak the Language
 Server Protocol can show findings as you type, with an outline, go to
-definition, and hover. See [Using Plumbline in an editor](docs/editors.md).
+definition, hover, find references, highlights, folding, rename, and
+quick fixes that suppress a finding. See [Using Plumbline in an editor](docs/editors.md).
 
 ## Configuration
 

@@ -1,2 +1,3 @@
+tests/golden/rules/c008-trailing-spaces.cob:10:26: warning: the value given to SHORT-TEXT here is replaced on line 11 before it is used [PLB-C030]
 tests/golden/rules/c008-trailing-spaces.cob:11:26: warning: MOVE truncates a 10-character literal to fit SHORT-TEXT (5 characters) [PLB-C008]
 tests/golden/rules/c008-trailing-spaces.cob:12:26: warning: MOVE truncates a 10-character literal to fit RIGHT-TEXT (5 characters) [PLB-C008]

@@ -123,6 +123,14 @@ PROCEDURE DIVISION USING PLB-RULES.
         "EVALUATE has no WHEN OTHER"
     *> A team's convention, like the size limits.
     MOVE "N" TO RL-ENABLED(RL-COUNT)
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M012"
+        "deep-nesting" "N"
+        "Statements are nested deeper than the limit"
+    MOVE 5 TO RL-LIMIT(RL-COUNT)
+    MOVE "N" TO RL-ENABLED(RL-COUNT)
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M013"
+        "unused-copybook" "N"
+        "Copybook declares data the program never uses"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-S001"
         "dynamic-sql" "N"
         "SQL text is built at run time"
@@ -156,6 +164,36 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C026"
         "varying-limit-unreachable" "W"
         "PERFORM VARYING waits for a value its counter cannot hold"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C027"
+        "divide-by-zero" "E"
+        "Divisor is a literal zero"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C028"
+        "comparison-never-true" "W"
+        "Data item is compared with a value it cannot hold"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C029"
+        "go-to-leaves-perform" "W"
+        "GO TO leaves the range of a PERFORM, which then does not return"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C030"
+        "value-never-used" "W"
+        "Value is replaced before it is used"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C031"
+        "string-overflow" "W"
+        "STRING always sends more than its receiver holds"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J001"
+        "dd-missing" "E"
+        "A file the step's programs open has no DD in the step"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J002"
+        "dd-unused" "N"
+        "DD is not a file of the step's programs"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J003"
+        "program-not-in-run" "N"
+        "Step runs a program that is not among those checked"
+    *> Most jobs also run utilities (IDCAMS, SORT, IEBGENER): on
+    *> request, for runs meant to hold every program of the jobs.
+    MOVE "N" TO RL-ENABLED(RL-COUNT)
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J004"
+        "dd-cannot-be-read" "E"
+        "A file the program only reads has a DD that gives it no data"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

@@ -168,9 +168,9 @@ check "unknown rule is a usage error"     2 "unknown rule 'PLB-X999'" -- check -
 check "invalid --fail-on level"           2 "invalid --fail-on level 'sometimes'" -- check --fail-on sometimes $rx/c001-unreachable.cob
 check "dump refs resolves qualified names" 0 '^25:10 CUST-ID OF CUSTOMER (MOVE) -> 5 CUST-ID @16 role=U$' \
     -- dump refs tests/golden/refs/resolution.cob
-check "alnum-narrowing is off by default"  0 '^$' -- check --disable move-truncation --disable read-never-set --disable set-never-read $rx/c008-move-truncation.cob
+check "alnum-narrowing is off by default"  0 '^$' -- check --disable move-truncation --disable read-never-set --disable set-never-read --disable value-never-used $rx/c008-move-truncation.cob
 check "alnum-narrowing can be enabled"     0 'c008-move-truncation.cob:16:23: note: MOVE truncates LONG-TEXT (20 characters) to fit SHORT-TEXT (5 characters) \[PLB-M004\]' \
-    -- check --enable alnum-narrowing --disable move-truncation --disable read-never-set --disable set-never-read $rx/c008-move-truncation.cob
+    -- check --enable alnum-narrowing --disable move-truncation --disable read-never-set --disable set-never-read --disable value-never-used $rx/c008-move-truncation.cob
 check "overlong file names are refused"    2 'file name longer than 512 characters' \
     -- check "$(printf 'x%.0s' $(seq 1 600)).cob"
 check "--debug includes debugging lines"  0 'continuation.cbl:5:20: alnum    "DEBUG ONLY"' \
@@ -189,7 +189,7 @@ while [ $i -le 300 ]; do
     i=$((i + 1))
 done
 printf '       01  SHARED-REC PIC X(10).\n' > "$many/shared.cpy"
-printf '       IDENTIFICATION DIVISION.\n       PROGRAM-ID. LAST.\n       DATA DIVISION.\n       WORKING-STORAGE SECTION.\n       COPY SHARED.\n       PROCEDURE DIVISION.\n           GOBACK.\n' \
+printf '       IDENTIFICATION DIVISION.\n       PROGRAM-ID. LAST.\n       DATA DIVISION.\n       WORKING-STORAGE SECTION.\n       COPY SHARED.\n       PROCEDURE DIVISION.\n           MOVE SPACES TO SHARED-REC\n           DISPLAY SHARED-REC\n           GOBACK.\n' \
     > "$many/z-last.cob"
 check "impact over more than 256 files"   0 'included by .*z-last.cob directly' \
     -- impact SHARED --no-config -I "$many" "$many"/*.cob
@@ -201,6 +201,37 @@ check "evaluate-without-other finds the EVALUATE" 0 'evaluate.cob:12:12: note: E
     -- check --no-config --enable evaluate-without-other --fail-on error tests/fixtures/rules/evaluate.cob
 check_absent "an EVALUATE with WHEN OTHER is fine" 'evaluate.cob:8:' \
     -- check --no-config --enable PLB-M011 tests/fixtures/rules/evaluate.cob
+check "deep-nesting reports the outermost statement" 0 'nesting.cob:11:5: note: IF nests statements 4 levels deep (limit 3) \[PLB-M012\]' \
+    -- check --config tests/fixtures/config/nesting.conf tests/fixtures/rules/nesting.cob
+check_absent "deep-nesting reports it once" 'nesting.cob:2[0-9]:' \
+    -- check --config tests/fixtures/config/nesting.conf tests/fixtures/rules/nesting.cob
+check "deep-nesting allows 5 levels by default" 0 '^$' \
+    -- check --no-config --enable deep-nesting tests/fixtures/rules/nesting.cob
+check "dump jcl lists steps and DDs"       0 'statements.jcl:6:     dd INFILE dsn PROD.PAYROLL.MASTER disp OLD' \
+    -- dump jcl tests/golden/jcl/statements.jcl
+check "dump jcl of a missing file"         2 'cannot read tests/golden/jcl/missing.jcl' \
+    -- dump jcl tests/golden/jcl/missing.jcl
+jx=tests/fixtures/jcl
+check "a step without a DD the program opens" 1 'payroll.jcl:11:3: error: step RERUN has no DD PAYLOG for file LOG-FILE, which PAYLOG opens \[PLB-J001\]' \
+    -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
+check "a DD no program of the step uses"  1 'payroll.jcl:14:3: note: DD OLDFILE is not a file of PAYUPD or the programs it calls \[PLB-J002\]' \
+    -- check --no-config --fail-on error $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
+check_absent "a path DD, optional, sort, and override DDs are fine" 'payroll.jcl:[4-9]:\|payproc.prc' \
+    -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
+check_absent "programs not in the run are not reported by default" 'PLB-J003' \
+    -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
+check "programs not in the run on request" 1 'payroll.jcl:19:3: note: step CLEANUP runs IEFBR14, which is not among the programs checked \[PLB-J003\]' \
+    -- check --no-config --fail-on error --enable program-not-in-run $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
+check "a read-only file on a new data set" 1 'payroll.jcl:23:3: error: DD RATES creates a new, empty data set, but PAYUPD only reads it as RATES \[PLB-J004\]' \
+    -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
+check "a read-only file on SYSOUT"        1 'payroll.jcl:28:3: error: DD RATES is SYSOUT, but PAYUPD reads it as RATES \[PLB-J004\]' \
+    -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
+check_absent "a file opened I-O on a new data set" 'payroll.jcl:27:' \
+    -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
+check "a procedure step alone needs its DDs" 1 'payproc.prc:2:3: error: step UPD has no DD PAYLOG' \
+    -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payproc.prc
+check "a JCL file that cannot be read"    1 'JL001' \
+    -- check --no-config $jx/payupd.cob $jx/missing.jcl
 check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
 check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
     -- rules --no-config --enable evaluate-without-other
@@ -340,11 +371,20 @@ check "graph of calls"                    0 '^  "MENU" -> "BILLING";$' \
 check "graph of copybooks"                0 "\"$ix/custio.cpy\" -> \"$ix/custrec.cpy\";" \
     -- graph --kind copybooks -I $ix $ix/custlook.cob $ix/billing.cob
 check "graph refuses an unknown kind"     2 "invalid --kind 'data'" -- graph --kind data $ix/menu.cob
+check "graph of jobs"                     0 '"PAYROLL (job)" -> "PAYPROC (proc)" \[label="NIGHTLY"\];' \
+    -- graph --kind jobs tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/payroll.jcl tests/fixtures/jcl/payproc.prc
+check "graph of jobs marks programs not in the run" 0 '"IEFBR14" \[style=dashed\];' \
+    -- graph --kind jobs tests/fixtures/jcl/payroll.jcl
+check "impact lists the steps that run a program" 0 'run by step UPDATE of job PAYROLL at tests/fixtures/jcl/payroll.jcl:4$' \
+    -- impact PAYUPD tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/paylog.cob tests/fixtures/jcl/payroll.jcl
+check "impact follows callers to their steps" 0 'run by step RERUN of job PAYROLL at tests/fixtures/jcl/payroll.jcl:11 through PAYUPD' \
+    -- impact PAYLOG tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/paylog.cob tests/fixtures/jcl/payroll.jcl
 check "graph refuses csv"                 2 "invalid --report format 'csv' (expected dot or json)" \
     -- graph --report csv $ix/menu.cob
-for kind in performs calls copybooks; do
+for kind in performs calls copybooks jobs; do
     n=$((n + 1))
     if "$bin" graph --kind $kind --report json -I $ix $ix/custlook.cob $ix/billing.cob $ix/menu.cob \
+            tests/fixtures/jcl/payroll.jcl \
             | python3 -m json.tool >/dev/null 2>&1; then
         echo "ok $n - graph json is valid ($kind)"
     else

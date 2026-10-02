@@ -746,13 +746,15 @@ END PROGRAM PLB-GRAPH-INCLUDES.
 *> or a program or ENTRY name; case does not matter. For a copybook,
 *> every file that includes it, directly or through other copybooks;
 *> for a program, every program that calls it, directly or through
-*> other programs. FOUND is "N" when NAME is neither.
+*> other programs, and the JCL steps that run any of them. FOUND is
+*> "N" when NAME is neither.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-IMPACT.
 DATA DIVISION.
 WORKING-STORAGE SECTION.
 COPY "plbigrc.cpy".
 COPY "plbcallc.cpy".
+COPY "plbjclc.cpy".
 COPY "plbsrcc.cpy".
 *> One entry per file of the source set.
 01  WS-FILE-VIA             PIC 9(4) COMP-5 OCCURS SS-MAX-FILES TIMES.
@@ -787,10 +789,11 @@ LINKAGE SECTION.
 COPY "plbsrc.cpy".
 COPY "plbcall.cpy".
 COPY "plbigr.cpy".
+COPY "plbjcl.cpy".
 01  LK-NAME                 PIC X ANY LENGTH.
 01  LK-FOUND                PIC X.
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-CALL-GRAPH
-        PLB-INCLUDE-GRAPH LK-NAME LK-FOUND.
+        PLB-INCLUDE-GRAPH PLB-JCL LK-NAME LK-FOUND.
     MOVE "N" TO LK-FOUND
     MOVE FUNCTION UPPER-CASE(LK-NAME) TO LS-NAME
     PERFORM VARYING LS-F FROM 1 BY 1 UNTIL LS-F > SS-FILE-COUNT
@@ -948,7 +951,53 @@ PROGRAM-IMPACT.
     END-PERFORM
     IF LS-TAIL = 1
         DISPLAY "  called by no program of the run"
-    END-IF.
+    END-IF
+    *> The steps that run the program, or a program that calls it.
+    PERFORM VARYING LS-HEAD FROM 1 BY 1 UNTIL LS-HEAD > LS-TAIL
+        MOVE WS-PROG-QUEUE(LS-HEAD) TO LS-Q
+        PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > JS-COUNT
+            IF JS-KIND(LS-E) = "P"
+               AND JS-TARGET(LS-E) = CP-NAME(CP-OWNER(LS-Q))
+                PERFORM PRINT-STEP
+            END-IF
+        END-PERFORM
+    END-PERFORM.
+
+*>   run by step STEP of job JOB (of proc PROC) at PATH:LINE
+*>   [through NAME]
+PRINT-STEP.
+    PERFORM START-OUT
+    STRING "  run by step " DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR
+    IF JS-NAME(LS-E) = SPACES
+        STRING "-" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING JS-NAME(LS-E) DELIMITED BY SPACE
+            INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    EVALUATE TRUE
+        WHEN JS-PROC(LS-E) > 0
+            STRING " of proc " DELIMITED BY SIZE
+                   JP-NAME(JS-PROC(LS-E)) DELIMITED BY SPACE
+                INTO LS-OUT WITH POINTER LS-PTR
+        WHEN JS-JOB(LS-E) > 0
+            STRING " of job " DELIMITED BY SIZE
+                   JJ-NAME(JS-JOB(LS-E)) DELIMITED BY SPACE
+                INTO LS-OUT WITH POINTER LS-PTR
+    END-EVALUATE
+    STRING " at " DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET JS-FILE-ID(LS-E)
+        LS-PATH
+    PERFORM APPEND-PATH
+    STRING ":" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    MOVE JS-LINE(LS-E) TO LS-NUM
+    PERFORM APPEND-NUM
+    IF LS-HEAD > 1
+        STRING " through " DELIMITED BY SIZE
+               CP-NAME(CP-OWNER(LS-Q)) DELIMITED BY SPACE
+            INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    PERFORM PRINT-OUT.
 
 *>   called by NAME at PATH:LINE directly | through VIA
 PRINT-CALLER.
@@ -995,3 +1044,192 @@ PRINT-OUT.
         DISPLAY LS-OUT(1:LS-LEN)
     END-IF.
 END PROGRAM PLB-IMPACT.
+
+*> PLB-GRAPH-JOBS: which jobs and procedures run which programs. A
+*> job's or procedure's steps are edges labelled with the step name:
+*> to the program it runs (EXEC PGM=), or to the procedure (EXEC
+*> PROC=). Jobs and procedures are named "NAME (job)" and "NAME
+*> (proc)", since a job often has its program's name; programs that
+*> are not in the run are drawn dashed (DOT) or have kind "external"
+*> (JSON).
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-GRAPH-JOBS.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbcallc.cpy".
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-NAME                 PIC X(40).
+01  LS-FROM                 PIC X(40).
+01  LS-TO                   PIC X(40).
+01  LS-KIND                 PIC X(8).
+01  LS-OUT                  PIC X(512).
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-FIRST-ITEM           PIC X.
+LINKAGE SECTION.
+COPY "plbcall.cpy".
+COPY "plbjcl.cpy".
+01  LK-FORMAT               PIC X(5).
+PROCEDURE DIVISION USING PLB-CALL-GRAPH PLB-JCL LK-FORMAT.
+    IF LK-FORMAT = "json"
+        DISPLAY '    {"nodes": ['
+    END-IF
+    MOVE "Y" TO LS-FIRST-ITEM
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > JJ-COUNT
+        MOVE SPACES TO LS-NAME
+        STRING JJ-NAME(LS-I) DELIMITED BY SPACE
+               " (job)" DELIMITED BY SIZE
+            INTO LS-NAME
+        MOVE "job" TO LS-KIND
+        PERFORM WRITE-NODE
+    END-PERFORM
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > JP-COUNT
+        MOVE SPACES TO LS-NAME
+        STRING JP-NAME(LS-I) DELIMITED BY SPACE
+               " (proc)" DELIMITED BY SIZE
+            INTO LS-NAME
+        MOVE "proc" TO LS-KIND
+        PERFORM WRITE-NODE
+    END-PERFORM
+    *> Each program a step runs, once.
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
+        IF JS-KIND(LS-S) = "P"
+            PERFORM FIRST-STEP-OF-PROGRAM
+            IF LS-K = LS-S
+                MOVE JS-TARGET(LS-S) TO LS-NAME
+                PERFORM PROGRAM-KIND
+                PERFORM WRITE-NODE
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LK-FORMAT = "json"
+        DISPLAY '     ],'
+        DISPLAY '     "edges": ['
+    END-IF
+    MOVE "Y" TO LS-FIRST-ITEM
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
+        IF JS-KIND(LS-S) NOT = SPACE
+            PERFORM WRITE-STEP-EDGE
+        END-IF
+    END-PERFORM
+    IF LK-FORMAT = "json"
+        DISPLAY '     ]}'
+    END-IF
+    GOBACK.
+
+*> LS-K = the first step that runs the program step LS-S runs.
+FIRST-STEP-OF-PROGRAM.
+    PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K >= LS-S
+        IF JS-KIND(LS-K) = "P" AND JS-TARGET(LS-K) = JS-TARGET(LS-S)
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+*> LS-KIND = "program" for a program of the run, else "external".
+PROGRAM-KIND.
+    MOVE "external" TO LS-KIND
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > CP-COUNT
+        IF CP-KIND(LS-I) = "P" AND CP-NAME(LS-I) = LS-NAME
+            MOVE "program" TO LS-KIND
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+WRITE-NODE.
+    MOVE SPACES TO LS-OUT
+    MOVE 1 TO LS-PTR
+    IF LK-FORMAT = "json"
+        PERFORM JSON-SEPARATOR
+        STRING '{"id": ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-NAME LS-OUT LS-PTR
+        STRING ', "kind": "' DELIMITED BY SIZE
+               LS-KIND DELIMITED BY SPACE
+               '"}' DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING '  ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-NAME LS-OUT LS-PTR
+        EVALUATE LS-KIND
+            WHEN "job"
+                STRING ' [shape=folder];' DELIMITED BY SIZE
+                    INTO LS-OUT WITH POINTER LS-PTR
+            WHEN "proc"
+                STRING ' [shape=component];' DELIMITED BY SIZE
+                    INTO LS-OUT WITH POINTER LS-PTR
+            WHEN "external"
+                STRING ' [style=dashed];' DELIMITED BY SIZE
+                    INTO LS-OUT WITH POINTER LS-PTR
+            WHEN OTHER
+                STRING ';' DELIMITED BY SIZE
+                    INTO LS-OUT WITH POINTER LS-PTR
+        END-EVALUATE
+    END-IF
+    PERFORM PRINT-OUT.
+
+*> From the step's job or procedure to its program or procedure.
+WRITE-STEP-EDGE.
+    MOVE SPACES TO LS-FROM LS-TO
+    EVALUATE TRUE
+        WHEN JS-PROC(LS-S) > 0
+            STRING JP-NAME(JS-PROC(LS-S)) DELIMITED BY SPACE
+                   " (proc)" DELIMITED BY SIZE
+                INTO LS-FROM
+        WHEN JS-JOB(LS-S) > 0
+            STRING JJ-NAME(JS-JOB(LS-S)) DELIMITED BY SPACE
+                   " (job)" DELIMITED BY SIZE
+                INTO LS-FROM
+        WHEN OTHER
+            EXIT PARAGRAPH
+    END-EVALUATE
+    IF JS-KIND(LS-S) = "R"
+        STRING JS-TARGET(LS-S) DELIMITED BY SPACE
+               " (proc)" DELIMITED BY SIZE
+            INTO LS-TO
+    ELSE
+        MOVE JS-TARGET(LS-S) TO LS-TO
+    END-IF
+    MOVE SPACES TO LS-OUT
+    MOVE 1 TO LS-PTR
+    IF LK-FORMAT = "json"
+        PERFORM JSON-SEPARATOR
+        STRING '{"from": ' DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-FROM LS-OUT LS-PTR
+        STRING ', "to": ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-TO LS-OUT LS-PTR
+        STRING ', "step": ' DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT JS-NAME(LS-S) LS-OUT
+            LS-PTR
+        STRING '}' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING '  ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-FROM LS-OUT LS-PTR
+        STRING ' -> ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-TO LS-OUT LS-PTR
+        STRING ' [label=' DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT JS-NAME(LS-S) LS-OUT
+            LS-PTR
+        STRING '];' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    PERFORM PRINT-OUT.
+
+JSON-SEPARATOR.
+    IF LS-FIRST-ITEM = "Y"
+        STRING '        ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING '       ,' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    MOVE "N" TO LS-FIRST-ITEM.
+
+PRINT-OUT.
+    CALL "PLB-STR-LENGTH" USING LS-OUT LS-LEN
+    IF LS-LEN > 0
+        DISPLAY LS-OUT(1:LS-LEN)
+    END-IF.
+END PROGRAM PLB-GRAPH-JOBS.
