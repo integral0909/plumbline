@@ -161,6 +161,13 @@ Some findings that were read and are true:
   `COPAUA0C` and `CBPAUP0C` add and subtract `S9(10)V99` amounts into
   the `S9(09)V99` totals of the pending-authorization summary
   (`CIPAUSMY`), so a large enough amount wraps a total (5 findings).
+- **PLB-K002 read-update-not-released.** `COTRN01C`, the screen that
+  shows one transaction, reads the transaction file with `UPDATE` and
+  never rewrites the record, so it holds the record's lock until the
+  task returns. The six other reads for update (in bill payment, in the
+  account update for the account and the customer, and in the card
+  update, user update, and user delete) are each paired with a
+  `REWRITE` or `DELETE`.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)
