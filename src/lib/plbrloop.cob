@@ -28,6 +28,7 @@ DATA DIVISION.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-RULE-COMPARE         PIC 9(4) COMP-5.
+01  LS-RULE-ALNUM           PIC 9(4) COMP-5.
 01  LS-COND                 PIC 9(9) COMP-5.
 01  LS-BLOCK                PIC 9(9) COMP-5.
 01  LS-SUBJECT              PIC 9(9) COMP-5.
@@ -73,6 +74,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         PLB-REFS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C026" LS-RULE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C028" LS-RULE-COMPARE
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C045" LS-RULE-ALNUM
     IF AS-COUNT = 0
         GOBACK
     END-IF
@@ -87,7 +89,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
             CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
         END-PERFORM
     END-IF
-    IF RL-ENABLED(LS-RULE-COMPARE) = "Y"
+    IF RL-ENABLED(LS-RULE-COMPARE) = "Y" OR RL-ENABLED(LS-RULE-ALNUM) = "Y"
         PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
             *> A table element holds what its entry does, so
             *> subscripts are fine; reference modification is not.
@@ -134,13 +136,17 @@ CHECK-COMPARISON.
             EXIT PARAGRAPH
         END-IF
     END-IF
+    MOVE RF-SYMBOL(LS-R) TO LS-S
+    PERFORM CHECK-ALNUM-NUMBER
+    IF RL-ENABLED(LS-RULE-COMPARE) NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
     IF ND-DETAIL(LS-COND) = "LOOP"
         PERFORM SKIP-IF-COUNTER
         IF LS-SUBJECT = 0
             EXIT PARAGRAPH
         END-IF
     END-IF
-    MOVE RF-SYMBOL(LS-R) TO LS-S
     PERFORM COUNTER-RANGE
     IF LS-LARGEST < 0
         EXIT PARAGRAPH
@@ -150,6 +156,37 @@ CHECK-COMPARISON.
         MOVE SY-NAME(LS-S) TO LS-COUNTER
         PERFORM REPORT-COMPARISON
     END-IF.
+
+*> PLB-C045 alnum-compared-to-number: an alphanumeric item (or group)
+*> compared with a numeric literal that has fewer digits than the item
+*> has characters. The comparison is of characters: 0 is "0" followed
+*> by spaces, so IF CODE = 0 is false when CODE, PIC X(3), holds "000".
+*> ZERO, which fills the item, is fine.
+CHECK-ALNUM-NUMBER.
+    IF RL-ENABLED(LS-RULE-ALNUM) NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    IF SY-CATEGORY(LS-S) NOT = "X" AND NOT = "A" AND NOT = "G"
+        EXIT PARAGRAPH
+    END-IF
+    *> PIC X COMP-X (an extension) is a binary number.
+    IF SY-USAGE(LS-S) NOT = SPACES AND SY-USAGE(LS-S) NOT = "DISPLAY"
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-VALUE-TOKEN LS-WORD LS-LEN
+    IF SY-SIZE(LS-S) <= LS-LEN
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    STRING SY-NAME(LS-S) DELIMITED BY SPACE
+           " is alphanumeric: " DELIMITED BY SIZE
+           LS-WORD(1:LS-LEN) DELIMITED BY SIZE
+           " compares as the characters " DELIMITED BY SIZE
+           LS-WORD(1:LS-LEN) DELIMITED BY SIZE
+           " followed by spaces, not as a number" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-ALNUM LS-VALUE-TOKEN LS-MESSAGE.
 
 *> LS-COND = the condition of statement RF-STMT(LS-R), or of one of
 *> its WHEN phrases, that contains the reference; 0 when the reference
