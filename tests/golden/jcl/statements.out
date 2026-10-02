@@ -2,6 +2,7 @@ tests/golden/jcl/statements.jcl:1: job PAYROLL
 tests/golden/jcl/statements.jcl:5:   step EXTRACT pgm PAYEXT
 tests/golden/jcl/statements.jcl:6:     dd INFILE dsn PROD.PAYROLL.MASTER disp OLD
 tests/golden/jcl/statements.jcl:8:     dd OUTFILE dsn PROD.PAYROLL.EXTRACT(+1) disp NEW
+tests/golden/jcl/statements.jcl:10:     dd OUTFILE dsn PROD.PAYROLL.EXTRA disp SHR concatenated
 tests/golden/jcl/statements.jcl:11:     dd REPORT sysout
 tests/golden/jcl/statements.jcl:12:     dd SYSIN in-stream data
 tests/golden/jcl/statements.jcl:14:     dd NOTHING dummy

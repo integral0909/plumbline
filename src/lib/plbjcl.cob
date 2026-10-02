@@ -368,10 +368,14 @@ ADD-STEP.
     MOVE SPACES TO LS-PARM.
 
 *> A DD of the current step. A DD without a name continues the one
-*> before it (a concatenation), and DDs before the first step
-*> (JOBLIB, JOBCAT) belong to no step.
+*> before it (a concatenation) and gets its name; DDs before the first
+*> step (JOBLIB, JOBCAT) belong to no step.
 ADD-DD.
-    IF ST-NAME = SPACES OR LS-STEP = 0 OR JD-COUNT >= JD-MAX
+    IF LS-STEP = 0 OR JD-COUNT >= JD-MAX
+        PERFORM SCAN-DD-DATA
+        EXIT PARAGRAPH
+    END-IF
+    IF ST-NAME = SPACES AND JS-DD-COUNT(LS-STEP) = 0
         PERFORM SCAN-DD-DATA
         EXIT PARAGRAPH
     END-IF
@@ -384,14 +388,20 @@ ADD-DD.
     ADD 1 TO JS-DD-COUNT(LS-STEP)
     MOVE SPACES TO JD-QUALIFIER(LS-D) JD-NAME(LS-D) JD-DSN(LS-D)
         JD-DISP(LS-D)
+    MOVE "N" TO JD-CONCAT(LS-D)
     MOVE 0 TO LS-DOT
     INSPECT ST-NAME TALLYING LS-DOT FOR CHARACTERS BEFORE "."
-    IF LS-DOT < 17 AND ST-NAME(LS-DOT + 1:1) = "."
-        MOVE ST-NAME(1:LS-DOT) TO JD-QUALIFIER(LS-D)
-        MOVE ST-NAME(LS-DOT + 2:) TO JD-NAME(LS-D)
-    ELSE
-        MOVE ST-NAME TO JD-NAME(LS-D)
-    END-IF
+    EVALUATE TRUE
+        WHEN ST-NAME = SPACES
+            MOVE "Y" TO JD-CONCAT(LS-D)
+            MOVE JD-NAME(LS-D - 1) TO JD-NAME(LS-D)
+            MOVE JD-QUALIFIER(LS-D - 1) TO JD-QUALIFIER(LS-D)
+        WHEN LS-DOT < 17 AND ST-NAME(LS-DOT + 1:1) = "."
+            MOVE ST-NAME(1:LS-DOT) TO JD-QUALIFIER(LS-D)
+            MOVE ST-NAME(LS-DOT + 2:) TO JD-NAME(LS-D)
+        WHEN OTHER
+            MOVE ST-NAME TO JD-NAME(LS-D)
+    END-EVALUATE
     MOVE "O" TO JD-KIND(LS-D)
     MOVE LK-FILE-ID TO JD-FILE-ID(LS-D)
     MOVE ST-LINE TO JD-LINE(LS-D)

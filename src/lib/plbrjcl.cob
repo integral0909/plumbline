@@ -9,6 +9,8 @@
 *>                                  among the programs of the run
 *>   PLB-J004  dd-cannot-be-read    a file the program only reads has
 *>                                  a DD that gives it no data
+*>   PLB-J005  temp-not-created     a step reads a temporary data set
+*>                                  no earlier step creates
 *>
 *> A step that runs a program of the run (EXEC PGM=name) gives that
 *> program, and the programs it calls by literal name, their files:
@@ -74,6 +76,7 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH PLB-JCL.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J002" LS-RULE-UNUSED
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J003" LS-RULE-UNKNOWN
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J004" LS-RULE-UNREADABLE
+    CALL "PLB-RULE-JCL-TEMPS" USING PLB-RULES PLB-FINDINGS PLB-JCL
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
         IF JS-KIND(LS-S) = "P"
             PERFORM CHECK-STEP
@@ -327,3 +330,92 @@ REPORT-UNKNOWN.
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE-UNKNOWN
         JS-FILE-ID(LS-S) JS-LINE(LS-S) LS-COLUMN LS-ZERO LS-MESSAGE.
 END PROGRAM PLB-RULE-JCL.
+
+*> PLB-J005 temp-not-created: a step reads a temporary data set
+*> (DSN=&&NAME with DISP=OLD or SHR) that no earlier step of its job,
+*> or of its procedure, creates. A temporary data set lives only from
+*> the step that creates it (DISP=NEW or MOD, or no DISP) to the end of
+*> the job, so the step fails with a JCL error.
+*>
+*> A job that runs a procedure before the step is not checked, since
+*> the procedure's steps may create it; nor is a DD that a job adds to
+*> a procedure's step.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-JCL-TEMPS.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-FOUND                PIC X.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+01  LS-PTR                  PIC 9(9) COMP-5.
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J005" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-KIND(LS-D) = "D" AND JD-DSN(LS-D)(1:2) = "&&"
+           AND (JD-DISP(LS-D) = "OLD" OR JD-DISP(LS-D) = "SHR")
+           AND JD-QUALIFIER(LS-D) = SPACES AND JD-STEP(LS-D) > 0
+            PERFORM CHECK-TEMP
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> An earlier step of the same job or procedure that creates the data
+*> set, or one that runs a procedure, which may.
+CHECK-TEMP.
+    MOVE JD-STEP(LS-D) TO LS-S
+    MOVE "N" TO LS-FOUND
+    PERFORM VARYING LS-T FROM 1 BY 1
+            UNTIL LS-T >= LS-S OR LS-FOUND = "Y"
+        IF (JS-JOB(LS-S) > 0 AND JS-JOB(LS-T) = JS-JOB(LS-S))
+           OR (JS-PROC(LS-S) > 0 AND JS-PROC(LS-T) = JS-PROC(LS-S))
+            IF JS-KIND(LS-T) = "R"
+                MOVE "Y" TO LS-FOUND
+            END-IF
+            PERFORM VARYING LS-E FROM JS-DD-FIRST(LS-T) BY 1
+                    UNTIL LS-E >= JS-DD-FIRST(LS-T) + JS-DD-COUNT(LS-T)
+                       OR LS-FOUND = "Y"
+                IF JD-DSN(LS-E) = JD-DSN(LS-D)
+                   AND (JD-DISP(LS-E) = "NEW" OR JD-DISP(LS-E) = "MOD"
+                        OR JD-DISP(LS-E) = SPACES)
+                    MOVE "Y" TO LS-FOUND
+                END-IF
+            END-PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-FOUND = "N"
+        PERFORM REPORT-TEMP
+    END-IF.
+
+REPORT-TEMP.
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    STRING JD-DSN(LS-D) DELIMITED BY SPACE
+           " is read with DISP=" DELIMITED BY SIZE
+           JD-DISP(LS-D) DELIMITED BY SPACE
+           ", but no earlier step of the " DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    IF JS-JOB(LS-S) > 0
+        STRING "job creates it" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    ELSE
+        STRING "procedure creates it" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
+END PROGRAM PLB-RULE-JCL-TEMPS.

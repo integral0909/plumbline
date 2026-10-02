@@ -1,0 +1,2 @@
+tests/golden/rules/j005-temp-not-created.jcl:9:3: error: &&LOST is read with DISP=OLD, but no earlier step of the job creates it [PLB-J005]
+tests/golden/rules/j005-temp-not-created.jcl:12:3: error: &&LATE is read with DISP=SHR, but no earlier step of the job creates it [PLB-J005]

@@ -38,9 +38,11 @@ The reader follows the rules of z/OS JCL:
   step runs a program (`EXEC PGM=name`) or a procedure (`EXEC
   PROC=name`, or `EXEC name`). A `DD` named `STEP.DDNAME` in a job
   overrides or adds to step `STEP` of the procedure the job step runs.
-- A `DD` without a name concatenates its data set to the one before it,
-  and is shown as part of it. `DD` statements before a job's first step
-  (`JOBLIB`, `JOBCAT`) belong to no step.
+- A `DD` without a name concatenates its data set to the one before it:
+  it gets that `DD`'s name, and `dump jcl` marks it `concatenated`, so
+  the data set graph and impact see every data set of the
+  concatenation. `DD` statements before a job's first step (`JOBLIB`,
+  `JOBCAT`) belong to no step.
 
 A step whose program starts another one records the program it runs:
 IMS's `DFSRRC00` names it in `PARM='BMP,name,...'`, and the TSO batch
@@ -66,6 +68,10 @@ other input is COBOL. A step's program is matched to a program of the
 run by name, and the programs it calls are followed through the call
 graph, so a file opened by a called subprogram also needs its DD in
 the step.
+
+One check needs no programs: a step that reads a temporary data set
+(`&&NAME`) that no earlier step of the job creates
+([PLB-J005](rules.md#plb-j005-temp-not-created)).
 
 ## Drawing the jobs
 

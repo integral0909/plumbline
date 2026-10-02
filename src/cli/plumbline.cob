@@ -3136,6 +3136,10 @@ DUMP-JCL-DD.
                JD-DISP(WS-C) DELIMITED BY SPACE
             INTO WS-OUT WITH POINTER WS-PTR
     END-IF
+    IF JD-CONCAT(WS-C) = "Y"
+        STRING " concatenated" DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER WS-PTR
+    END-IF
     DISPLAY WS-OUT(1:WS-PTR - 1).
 
 *> path:line: for a position in a JCL file.

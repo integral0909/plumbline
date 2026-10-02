@@ -253,6 +253,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J004"
         "dd-cannot-be-read" "E"
         "A file the program only reads has a DD that gives it no data"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J005"
+        "temp-not-created" "E"
+        "Temporary data set read before any step creates it"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
