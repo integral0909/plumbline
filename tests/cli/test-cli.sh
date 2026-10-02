@@ -660,6 +660,13 @@ check "graph of copybooks"                0 "\"$ix/custio.cpy\" -> \"$ix/custrec
 check "graph refuses an unknown kind"     2 "invalid --kind 'data'" -- graph --kind data $ix/menu.cob
 check "graph of jobs"                     0 '"PAYROLL (job)" -> "PAYPROC (proc)" \[label="NIGHTLY"\];' \
     -- graph --kind jobs tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/payroll.jcl tests/fixtures/jcl/payproc.prc
+cx2="tests/fixtures/cics/ordmenu.cob tests/golden/csd/orders.csd"
+check "graph of CICS starts programs from transactions" 0 '^  "ORD1 (transaction)" -> "ORDMENU" \[label="starts"\];$' \
+    -- graph --kind cics $cx2
+check "graph of CICS follows XCTL"        0 '^  "ORDMENU" -> "ORDENTRY" \[label="XCTL"\];$' \
+    -- graph --kind cics $cx2
+check "graph of CICS marks programs not in the run" 0 '^  "ORDENTRY" \[style=dashed\];$' \
+    -- graph --kind cics $cx2
 check "graph of jobs marks programs not in the run" 0 '"IEFBR14" \[style=dashed\];' \
     -- graph --kind jobs tests/fixtures/jcl/payroll.jcl
 jds="tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/paylog.cob tests/fixtures/jcl/payroll.jcl tests/fixtures/jcl/payproc.prc"
@@ -704,7 +711,7 @@ check "impact follows callers to their steps" 0 'run by step RERUN of job PAYROL
     -- impact PAYLOG tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/paylog.cob tests/fixtures/jcl/payroll.jcl
 check "graph refuses csv"                 2 "invalid --report format 'csv' (expected dot or json)" \
     -- graph --report csv $ix/menu.cob
-for kind in performs calls copybooks jobs datasets; do
+for kind in performs calls copybooks jobs datasets cics; do
     n=$((n + 1))
     if "$bin" graph --kind $kind --report json -I $ix $ix/custlook.cob $ix/billing.cob $ix/menu.cob \
             tests/fixtures/jcl/payroll.jcl \

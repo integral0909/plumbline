@@ -24,7 +24,7 @@
 *>   baseline FILE        like --baseline FILE
 *>   plumbline metrics [-I DIR]... [--format ...] [--debug]
 *>                     [--report text|json|csv] FILE...
-*>   plumbline graph [--kind performs|calls|copybooks|jobs|datasets]
+*>   plumbline graph [--kind performs|calls|copybooks|jobs|datasets|cics]
 *>                   [--report dot|json] [-I DIR]... FILE...
 *>   plumbline impact NAME [-I DIR]... FILE...
 *>   plumbline format --to fixed|free [--format ...] FILE
@@ -402,8 +402,9 @@ SHOW-USAGE.
     DISPLAY "                   (calls), the copybook graph"
     DISPLAY "                   (copybooks), what JCL jobs run"
     DISPLAY "                   (jobs), or which job steps read and"
-    DISPLAY "                   write which data sets (datasets), as"
-    DISPLAY "                   DOT or JSON"
+    DISPLAY "                   write which data sets (datasets), or"
+    DISPLAY "                   how CICS transactions, programs, maps,"
+    DISPLAY "                   and files connect (cics), as DOT or JSON"
     DISPLAY "  inventory        list the programs, jobs, transactions, and"
     DISPLAY "                   maps of the input, and how they fit together"
     DISPLAY "  layout           list the records of programs and copybooks"
@@ -811,6 +812,8 @@ GRAPH-COMMAND.
                 PLB-DATASETS
             CALL "PLB-GRAPH-DATASETS" USING PLB-JCL PLB-DATASETS
                 WS-REPORT
+        WHEN "cics"
+            CALL "PLB-GRAPH-CICS" USING PLB-CALL-GRAPH PLB-CSD WS-REPORT
     END-EVALUATE
     CALL "PLB-GRAPH-END" USING WS-REPORT
     PERFORM REPORT-DIAGNOSTICS
@@ -4630,13 +4633,13 @@ PARSE-INPUT-ARGS.
                 PERFORM NEXT-ARG
                 EVALUATE WS-ARG
                     WHEN "performs" WHEN "calls" WHEN "copybooks"
-                    WHEN "jobs" WHEN "datasets"
+                    WHEN "jobs" WHEN "datasets" WHEN "cics"
                         MOVE WS-ARG TO WS-GRAPH-KIND
                     WHEN OTHER
                         DISPLAY PLB-NAME ": invalid --kind '"
                             WS-ARG(1:WS-ARG-LEN)
                             "' (expected performs, calls, copybooks, jobs,"
-                            " or datasets)"
+                            " datasets, or cics)"
                             UPON SYSERR
                         MOVE 2 TO WS-EXIT-CODE
                 END-EVALUATE

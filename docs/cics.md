@@ -43,3 +43,25 @@ lists the resources each program's commands name.
 ```console
 $ plumbline check app/cbl/*.cbl app/csd/*.csd
 ```
+
+## Drawing the application
+
+`plumbline graph --kind cics` draws the CICS side of a run: which
+program each transaction starts, from the definitions, and what each
+program's `EXEC CICS` commands name: the programs it passes control to
+(`XCTL`, `LINK`, `LOAD`), the transactions it returns to or starts
+(`RETURN TRANSID`, `START`), the mapsets it sends and receives, and the
+files it reads and writes. Edges carry the command.
+
+```console
+$ plumbline graph --kind cics -I app/cpy -I app/cpy-bms app/cbl/*.cbl app/csd/*
+  ...
+  "CC00 (transaction)" -> "COSGN00C" [label="starts"];
+  "COSGN00C" -> "COSGN00 (mapset)" [label="RECEIVE"];
+  "COSGN00C" -> "USRSEC (file)" [label="READ"];
+  "COSGN00C" -> "COMEN01C" [label="XCTL"];
+```
+
+A program named only by a data item at run time (`XCTL PROGRAM(WS-PGM)`
+with a value the analysis cannot resolve) has no edge; the inventory
+lists the literals that may name programs.
