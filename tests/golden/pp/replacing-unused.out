@@ -1,0 +1,27 @@
+tests/golden/pp/replacing-unused.cob:3:1: word     IDENTIFICATION
+tests/golden/pp/replacing-unused.cob:3:16: word     DIVISION
+tests/golden/pp/replacing-unused.cob:3:24: period   .
+tests/golden/pp/replacing-unused.cob:4:1: word     PROGRAM-ID
+tests/golden/pp/replacing-unused.cob:4:11: period   .
+tests/golden/pp/replacing-unused.cob:4:13: word     UNUSED
+tests/golden/pp/replacing-unused.cob:4:19: period   .
+tests/golden/pp/replacing-unused.cob:5:1: word     DATA
+tests/golden/pp/replacing-unused.cob:5:6: word     DIVISION
+tests/golden/pp/replacing-unused.cob:5:14: period   .
+tests/golden/pp/replacing-unused.cob:6:1: word     WORKING-STORAGE
+tests/golden/pp/replacing-unused.cob:6:17: word     SECTION
+tests/golden/pp/replacing-unused.cob:6:24: period   .
+tests/golden/pp/copy/totals.cpy:1:1: number   01
+tests/golden/pp/replacing-unused.cob:7:38: word     GRAND-TOTAL
+tests/golden/pp/copy/totals.cpy:1:25: word     PIC
+tests/golden/pp/copy/totals.cpy:1:29: picture  S9(5)V9
+tests/golden/pp/copy/totals.cpy:1:37: word     VALUE
+tests/golden/pp/copy/totals.cpy:1:43: number   0
+tests/golden/pp/copy/totals.cpy:1:44: period   .
+tests/golden/pp/replacing-unused.cob:9:1: word     PROCEDURE
+tests/golden/pp/replacing-unused.cob:9:11: word     DIVISION
+tests/golden/pp/replacing-unused.cob:9:19: period   .
+tests/golden/pp/replacing-unused.cob:10:5: word     GOBACK
+tests/golden/pp/replacing-unused.cob:10:11: period   .
+tests/golden/pp/replacing-unused.cob:10:11: eof
+inclusion 1: tests/golden/pp/copy/totals.cpy from tests/golden/pp/replacing-unused.cob:7:1

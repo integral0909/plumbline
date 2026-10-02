@@ -39,6 +39,7 @@ The code's letters name the stage that reports it.
 | PP005 | error | Copybooks are nested too deeply. |
 | PP006 | error | A `REPLACE` statement is malformed. |
 | PP007 | error | A preprocessor table is full: too many distinct copybooks or too many tokens after expansion. |
+| PP008 | warning | A `REPLACING` rule of a `COPY` statement replaced nothing in the copybook: the pattern is misspelled, or the copybook no longer has what it names. |
 
 ## Lexer (LX)
 
