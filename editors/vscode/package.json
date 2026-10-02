@@ -1,0 +1,52 @@
+{
+  "name": "plumbline",
+  "displayName": "Plumbline",
+  "description": "COBOL static analysis: findings as you type, navigation, rename, and outline, from the Plumbline language server.",
+  "version": "0.1.0",
+  "publisher": "integral0909",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/integral0909/plumbline"
+  },
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "categories": ["Programming Languages", "Linters"],
+  "activationEvents": ["onLanguage:cobol"],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "cobol",
+        "aliases": ["COBOL", "cobol"],
+        "extensions": [".cbl", ".cob", ".cpy", ".CBL", ".COB", ".CPY"]
+      }
+    ],
+    "configuration": {
+      "title": "Plumbline",
+      "properties": {
+        "plumbline.path": {
+          "type": "string",
+          "default": "plumbline",
+          "description": "The plumbline program: a name on the PATH, or a full path."
+        },
+        "plumbline.arguments": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Options for plumbline lsp, such as [\"-I\", \"copybooks\"]."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "plumbline.restart",
+        "title": "Plumbline: Restart the language server"
+      }
+    ]
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  }
+}
