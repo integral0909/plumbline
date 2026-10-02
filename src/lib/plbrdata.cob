@@ -3,20 +3,32 @@
 *>
 *>   PLB-C007  redefines-larger
 *>   PLB-M003  unused-data-item
+*>   PLB-M013  unused-copybook
+*>   PLB-M015  packed-even-digits
 *> ---------------------------------------------------------------
 
 *> PLB-C007 redefines-larger: an item below level 01 that is larger
 *> than the item it redefines. The standard does not allow it: the
 *> extra bytes overlay whatever follows the redefined item.
+*>
+*> PLB-M015 packed-even-digits walks the same table: a packed-decimal
+*> item with an even number of digits. Packed decimal stores two
+*> digits a byte and the sign in the last half byte, so an even count
+*> leaves the first half byte unused: PIC S9(4) COMP-3 takes the 3
+*> bytes of S9(5). IBM compilers then generate extra code to clear it,
+*> and a digit can hide there that the picture does not show.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-C007.
 DATA DIVISION.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-RULE-PACKED          PIC 9(4) COMP-5.
 01  LS-S                    PIC 9(9) COMP-5.
 01  LS-R                    PIC 9(9) COMP-5.
 01  LS-TOKEN                PIC 9(9) COMP-5.
 01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-DIGITS-TEXT          PIC X(20).
+01  LS-DIGITS-LEN           PIC 9(9) COMP-5.
 01  LS-SIZE-TEXT            PIC X(20).
 01  LS-SIZE-LEN             PIC 9(9) COMP-5.
 01  LS-RSIZE-TEXT           PIC X(20).
@@ -33,6 +45,7 @@ COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-SYMBOLS
         PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C007" LS-RULE
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M015" LS-RULE-PACKED
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
         MOVE SY-REDEFINES(LS-S) TO LS-R
         IF LS-R > 0 AND SY-LEVEL(LS-S) > 1
@@ -40,8 +53,41 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-SYMBOLS
                 PERFORM REPORT-ITEM
             END-IF
         END-IF
+        IF RL-ENABLED(LS-RULE-PACKED) = "Y"
+            PERFORM CHECK-PACKED
+        END-IF
     END-PERFORM
     GOBACK.
+
+CHECK-PACKED.
+    IF SY-CATEGORY(LS-S) NOT = "9" OR SY-NAME-TOKEN(LS-S) = 0
+       OR SY-DIGITS(LS-S) = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF FUNCTION MOD(SY-DIGITS(LS-S), 2) NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    EVALUATE SY-USAGE(LS-S)
+        WHEN "COMP-3" WHEN "COMPUTATIONAL-3" WHEN "PACKED-DECIMAL"
+            CONTINUE
+        WHEN OTHER
+            EXIT PARAGRAPH
+    END-EVALUATE
+    MOVE SY-DIGITS(LS-S) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-DIGITS-TEXT LS-DIGITS-LEN
+    ADD 1 TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-SIZE-TEXT LS-SIZE-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING SY-NAME(LS-S) DELIMITED BY SPACE
+           " is packed with " DELIMITED BY SIZE
+           LS-DIGITS-TEXT(1:LS-DIGITS-LEN) DELIMITED BY SIZE
+           " digits; " DELIMITED BY SIZE
+           LS-SIZE-TEXT(1:LS-SIZE-LEN) DELIMITED BY SIZE
+           " take the same bytes" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    MOVE SY-NAME-TOKEN(LS-S) TO LS-TOKEN
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-PACKED LS-TOKEN LS-MESSAGE.
 
 REPORT-ITEM.
     MOVE SY-SIZE(LS-S) TO LS-NUM

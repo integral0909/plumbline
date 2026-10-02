@@ -232,6 +232,14 @@ check "a procedure step alone needs its DDs" 1 'payproc.prc:2:3: error: step UPD
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payproc.prc
 check "a JCL file that cannot be read"    1 'JL001' \
     -- check --no-config $jx/payupd.cob $jx/missing.jcl
+check "packed-even-digits is off by default" 0 '^$' \
+    -- check --no-config tests/fixtures/rules/packed.cob
+check "packed-even-digits finds even counts" 0 'packed.cob:7:9: note: TOTAL is packed with 4 digits; 5 take the same bytes \[PLB-M015\]' \
+    -- check --no-config --enable packed-even-digits tests/fixtures/rules/packed.cob
+check "packed-even-digits counts decimals"  0 'packed.cob:8:9: note: RATE is packed with 6 digits; 7 take the same bytes' \
+    -- check --no-config --enable packed-even-digits tests/fixtures/rules/packed.cob
+check_absent "odd counts and other usages are fine" 'packed.cob:\(9\|10\|11\):' \
+    -- check --no-config --enable packed-even-digits tests/fixtures/rules/packed.cob
 check "rules lists every rule"            0 '^PLB-C001  unreachable-code  *warning  on   ' -- rules --no-config
 check "rules shows options applied"       0 '^PLB-M011  evaluate-without-other  *note     on ' \
     -- rules --no-config --enable evaluate-without-other
