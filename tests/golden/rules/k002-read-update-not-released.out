@@ -1,0 +1,6 @@
+tests/golden/rules/k002-read-update-not-released.cob:16:17: warning: WS-ACCT-ID is read but never given a value [PLB-C011]
+tests/golden/rules/k002-read-update-not-released.cob:20:19: warning: the response of EXEC CICS REWRITE in WS-RESP is not tested before the next CICS command [PLB-C019]
+tests/golden/rules/k002-read-update-not-released.cob:23:20: warning: READ UPDATE of WS-TRAN-FILE locks the record, but the program never rewrites, deletes, or unlocks it [PLB-K002]
+tests/golden/rules/k002-read-update-not-released.cob:24:17: warning: WS-TRAN-ID is read but never given a value [PLB-C011]
+tests/golden/rules/k002-read-update-not-released.cob:24:41: warning: the response of EXEC CICS READ in WS-RESP is not tested before the next CICS command [PLB-C019]
+tests/golden/rules/k002-read-update-not-released.cob:30:47: warning: the response of EXEC CICS UNLOCK in WS-RESP is not tested before the next CICS command [PLB-C019]

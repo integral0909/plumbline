@@ -565,3 +565,197 @@ CHECK-CURSOR.
         END-IF
     END-IF.
 END PROGRAM PLB-RULE-SQL-CURSORS.
+
+*> PLB-K002 read-update-not-released: EXEC CICS READ ... UPDATE of a
+*> file that the program never rewrites, deletes, or unlocks. The
+*> record stays locked for the rest of the task (or until a SYNCPOINT),
+*> and other tasks that want it wait. A read only to look at the record
+*> needs no UPDATE.
+*>
+*> The file is the operand of FILE( ) or DATASET( ), compared as
+*> written: READ FILE(WS-FILE) is released by REWRITE FILE(WS-FILE).
+*> Statements are paired within a program, in any order.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-CICS-UPDATES.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+78  CU-MAX                      VALUE 500.
+01  WS-USES.
+    05  WS-CU-COUNT         PIC 9(4) COMP-5.
+    05  WS-CU               OCCURS CU-MAX TIMES.
+        10  WS-CU-PROGRAM   PIC 9(9) COMP-5.
+        *>   U  READ ... UPDATE   R  REWRITE, DELETE, or UNLOCK
+        10  WS-CU-KIND      PIC X.
+        10  WS-CU-FILE      PIC X(60).
+        10  WS-CU-TOKEN     PIC 9(9) COMP-5.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
+01  LS-NODE                 PIC 9(9) COMP-5.
+01  LS-DEPTH                PIC S9(9) COMP-5.
+01  LS-UP                   PIC 9(9) COMP-5.
+01  LS-PROGRAM              PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-J                    PIC 9(9) COMP-5.
+01  LS-LEVEL                PIC S9(4) COMP-5.
+01  LS-COMMAND              PIC X(31).
+01  LS-TEXT                 PIC X(60).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-FILE                 PIC X(60).
+01  LS-FILE-TOKEN           PIC 9(9) COMP-5.
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-UPDATE               PIC X.
+01  LS-FOUND                PIC X.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-RULES
+        PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K002" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+        GOBACK
+    END-IF
+    MOVE 0 TO WS-CU-COUNT
+    MOVE 1 TO LS-NODE
+    MOVE 0 TO LS-DEPTH
+    PERFORM UNTIL LS-NODE = 0
+        IF ND-KIND(LS-NODE) = "STMT" AND ND-DETAIL(LS-NODE) = "EXEC"
+            PERFORM CICS-STATEMENT
+        END-IF
+        CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
+    END-PERFORM
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > WS-CU-COUNT
+        IF WS-CU-KIND(LS-I) = "U"
+            PERFORM CHECK-RELEASED
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+CICS-STATEMENT.
+    COMPUTE LS-T = ND-TOK-FIRST(LS-NODE) + 1
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+    IF FUNCTION UPPER-CASE(LS-TEXT) NOT = "CICS"
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-T
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-COMMAND LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-COMMAND) TO LS-COMMAND
+    IF LS-COMMAND NOT = "READ" AND NOT = "REWRITE" AND NOT = "DELETE"
+       AND NOT = "UNLOCK"
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM READ-OPERANDS
+    IF LS-FILE = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-COMMAND = "READ" AND LS-UPDATE = "N"
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-CU-COUNT >= CU-MAX
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM PROGRAM-OF-NODE
+    ADD 1 TO WS-CU-COUNT
+    MOVE LS-PROGRAM TO WS-CU-PROGRAM(WS-CU-COUNT)
+    MOVE LS-FILE TO WS-CU-FILE(WS-CU-COUNT)
+    MOVE LS-FILE-TOKEN TO WS-CU-TOKEN(WS-CU-COUNT)
+    IF LS-COMMAND = "READ"
+        MOVE "U" TO WS-CU-KIND(WS-CU-COUNT)
+    ELSE
+        MOVE "R" TO WS-CU-KIND(WS-CU-COUNT)
+    END-IF.
+
+*> LS-FILE: the words inside FILE( ) or DATASET( ), upper-cased and
+*> joined by spaces; LS-UPDATE = "Y" when UPDATE is an option.
+READ-OPERANDS.
+    MOVE SPACES TO LS-FILE
+    MOVE 0 TO LS-FILE-TOKEN LS-LEVEL
+    MOVE "N" TO LS-UPDATE
+    PERFORM VARYING LS-T FROM LS-T BY 1 UNTIL LS-T > ND-TOK-LAST(LS-NODE)
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-T)
+                ADD 1 TO LS-LEVEL
+            WHEN TK-IS-RPAREN(LS-T)
+                SUBTRACT 1 FROM LS-LEVEL
+            WHEN LS-LEVEL = 0
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+                MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+                EVALUATE LS-TEXT
+                    WHEN "UPDATE"
+                        MOVE "Y" TO LS-UPDATE
+                    WHEN "FILE" WHEN "DATASET"
+                        MOVE LS-T TO LS-FILE-TOKEN
+                        PERFORM FILE-OPERAND
+                END-EVALUATE
+        END-EVALUATE
+    END-PERFORM.
+
+*> The tokens from the "(" after LS-FILE-TOKEN to its ")".
+FILE-OPERAND.
+    COMPUTE LS-I = LS-FILE-TOKEN + 1
+    IF NOT TK-IS-LPAREN(LS-I)
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 1 TO LS-PTR LS-J
+    ADD 1 TO LS-I
+    PERFORM VARYING LS-I FROM LS-I BY 1
+            UNTIL LS-I > ND-TOK-LAST(LS-NODE)
+        IF TK-IS-LPAREN(LS-I)
+            ADD 1 TO LS-J
+        END-IF
+        IF TK-IS-RPAREN(LS-I)
+            SUBTRACT 1 FROM LS-J
+        END-IF
+        IF LS-J = 0
+            EXIT PERFORM
+        END-IF
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-I LS-TEXT LS-LEN
+        IF LS-PTR > 1 AND LS-PTR < 55
+            STRING " " DELIMITED BY SIZE INTO LS-FILE WITH POINTER LS-PTR
+        END-IF
+        IF LS-PTR < 55
+            STRING FUNCTION UPPER-CASE(LS-TEXT(1:LS-LEN))
+                DELIMITED BY SIZE INTO LS-FILE WITH POINTER LS-PTR
+        END-IF
+    END-PERFORM.
+
+*> LS-PROGRAM: the PROG node around statement LS-NODE.
+PROGRAM-OF-NODE.
+    MOVE ND-PARENT(LS-NODE) TO LS-UP
+    PERFORM UNTIL LS-UP = 0
+        IF ND-KIND(LS-UP) = "PROG"
+            EXIT PERFORM
+        END-IF
+        MOVE ND-PARENT(LS-UP) TO LS-UP
+    END-PERFORM
+    MOVE LS-UP TO LS-PROGRAM.
+
+CHECK-RELEASED.
+    MOVE "N" TO LS-FOUND
+    PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J > WS-CU-COUNT
+        IF WS-CU-KIND(LS-J) = "R"
+           AND WS-CU-PROGRAM(LS-J) = WS-CU-PROGRAM(LS-I)
+           AND WS-CU-FILE(LS-J) = WS-CU-FILE(LS-I)
+            MOVE "Y" TO LS-FOUND
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-FOUND = "N"
+        MOVE SPACES TO LS-MESSAGE
+        STRING "READ UPDATE of " DELIMITED BY SIZE
+               WS-CU-FILE(LS-I) DELIMITED BY "  "
+               " locks the record, but the program never rewrites,"
+               " deletes, or unlocks it" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE WS-CU-TOKEN(LS-I) LS-MESSAGE
+    END-IF.
+END PROGRAM PLB-RULE-CICS-UPDATES.

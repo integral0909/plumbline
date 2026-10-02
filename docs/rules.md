@@ -60,6 +60,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J004](#plb-j004-dd-cannot-be-read) | dd-cannot-be-read | error | A file the program only reads has a DD that gives it no data |
 | [PLB-J005](#plb-j005-temp-not-created) | temp-not-created | error | Temporary data set read before any step creates it |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
+| [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -1265,6 +1266,30 @@ is a literal and that no statement changes. A program of the run counts
 as defined, since CICS may install it by autoinstall. Resources that
 CICS supplies are left out: queues whose names start with `C` (`CSSL`,
 `CSMT`) and programs whose names start with `DFH` or `CEE`.
+
+## PLB-K002 read-update-not-released
+
+An `EXEC CICS READ ... UPDATE` of a file that the program never
+rewrites, deletes, or unlocks:
+
+```cobol
+    EXEC CICS READ DATASET(WS-TRANSACT-FILE)    *> reported
+         INTO(TRAN-RECORD) RIDFLD(TRAN-ID) UPDATE
+         RESP(WS-RESP-CD)
+    END-EXEC
+```
+
+`UPDATE` takes an exclusive lock on the record, which CICS holds until
+`REWRITE`, `DELETE`, or `UNLOCK` of the file, or to the end of the task
+or the next `SYNCPOINT`. Other tasks that read the record for update
+wait meanwhile. A program that reads a record only to show it needs no
+`UPDATE`.
+
+The file is the operand of `FILE( )` or `DATASET( )`, compared as
+written, and the statements are paired within a program in any order:
+a `REWRITE FILE(WS-ACCT-FILE)` anywhere releases a `READ
+FILE(WS-ACCT-FILE) UPDATE`. A program that names the same file in two
+ways (a literal and a variable holding it) is reported.
 
 ## PLB-M001 go-to
 
