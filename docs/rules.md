@@ -60,6 +60,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C047](#plb-c047-foreign-index) | foreign-index | warning | Index of one table subscripts a table with entries of another length |
 | [PLB-C048](#plb-c048-sort-procedure-no-record) | sort-procedure-no-record | warning | SORT procedure never RELEASEs or RETURNs a record |
 | [PLB-C049](#plb-c049-loop-condition-unchanged) | loop-condition-unchanged | warning | PERFORM UNTIL loop never changes what its condition reads |
+| [PLB-C050](#plb-c050-record-read-at-end) | record-read-at-end | warning | AT END of a READ reads the file's record |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1349,6 +1350,29 @@ statement in the loop; a `FUNCTION`, an index name, or an unresolved
 name in the condition; a condition item in the `LINKAGE SECTION`; or a
 procedure the analysis could not resolve. `VARYING` loops are left to
 PLB-C026 and PLB-C044.
+
+## PLB-C050 record-read-at-end
+
+The `AT END` phrase of a `READ`, or of a `RETURN` from a sort file,
+reads the file's record:
+
+```cobol
+    READ IN-FILE
+        AT END
+            DISPLAY "LAST " IN-KEY          *> reported
+```
+
+When a read finds the end of the file, the record area holds nothing
+the standard defines: on some systems it still holds the last record,
+on others whatever the buffer held, and after a read of an empty file
+it was never filled. Code that works on one compiler shows a different
+last key, or garbage, on another. Keep what the end needs in
+`WORKING-STORAGE` as each record is read (`READ ... INTO` does that) and
+read the copy.
+
+Stores into the record are fine. Each item is reported once per phrase,
+and condition names count as reads of their item. Statements the phrase
+reaches through `PERFORM` are not followed.
 
 ## PLB-I001 pcb-dbd-unknown
 

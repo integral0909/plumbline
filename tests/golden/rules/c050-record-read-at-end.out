@@ -1,0 +1,3 @@
+tests/golden/rules/c050-record-read-at-end.cob:33:29: warning: AT END reads IN-KEY, in the record of IN-FILE, which is undefined at the end of the file [PLB-C050]
+tests/golden/rules/c050-record-read-at-end.cob:34:20: warning: AT END reads IN-TRAILER, in the record of IN-FILE, which is undefined at the end of the file [PLB-C050]
+tests/golden/rules/c050-record-read-at-end.cob:58:37: warning: AT END reads SORT-KEY, in the record of SORT-FILE, which is undefined at the end of the file [PLB-C050]

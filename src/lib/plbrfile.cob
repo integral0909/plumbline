@@ -6,6 +6,7 @@
 *>   PLB-C022  open-mode-mismatch
 *>   PLB-M008  file-not-closed
 *>   PLB-C048  sort-procedure-no-record
+*>   PLB-C050  record-read-at-end
 *>
 *> Each program on its own: its files (SELECT), their records (FD),
 *> the declaratives that handle their errors (USE ... ERROR or
@@ -789,3 +790,162 @@ REPORT-PROCEDURE.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-NAME-TOKEN LS-MESSAGE.
 END PROGRAM PLB-RULE-C048.
+
+*> PLB-C050 record-read-at-end: the AT END phrase of a READ (or of a
+*> RETURN from a sort file) reads the file's record:
+*>
+*>     READ IN-FILE
+*>         AT END DISPLAY "LAST KEY " IN-KEY
+*>
+*> After the end of the file the record area holds nothing the
+*> standard defines: on some systems the last record read, on others
+*> what the buffer held, and after a READ that found nothing at all,
+*> spaces or garbage. Keep what is needed from each record in
+*> WORKING-STORAGE (READ ... INTO does it) and read that copy.
+*>
+*> Stores into the record (MOVE HIGH-VALUES TO IN-KEY) are fine; reads
+*> are reported, once per item and phrase. A file's records are the
+*> entries under its FD or SD.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-C050.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+*> Reference starting at each token (0: none), for the tokens of the
+*> current file.
+01  WS-TOKEN-REF            PIC 9(9) COMP-5 OCCURS 500000 TIMES.
+*> Items already reported in the current phrase.
+78  WS-SEEN-MAX             VALUE 100.
+01  WS-SEEN-COUNT           PIC 9(4) COMP-5.
+01  WS-SEEN                 PIC 9(9) COMP-5 OCCURS WS-SEEN-MAX TIMES.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
+01  LS-NODE                 PIC 9(9) COMP-5.
+01  LS-DEPTH                PIC S9(9) COMP-5.
+01  LS-STMT                 PIC 9(9) COMP-5.
+01  LS-CHILD                PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-R                    PIC 9(9) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-UP                   PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-FD                   PIC 9(9) COMP-5.
+01  LS-FILE                 PIC X(31).
+01  LS-WORD                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-SEEN-IT              PIC X.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbsym.cpy".
+COPY "plbref.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
+        PLB-REFS PLB-RULES PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C050" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        MOVE LS-R TO WS-TOKEN-REF(RF-TOKEN(LS-R))
+    END-PERFORM
+    MOVE 1 TO LS-NODE
+    MOVE 0 TO LS-DEPTH
+    PERFORM UNTIL LS-NODE = 0
+        IF ND-KIND(LS-NODE) = "STMT"
+           AND (ND-DETAIL(LS-NODE) = "READ"
+                OR ND-DETAIL(LS-NODE) = "RETURN")
+            MOVE LS-NODE TO LS-STMT
+            PERFORM CHECK-READ
+        END-IF
+        CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
+    END-PERFORM
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        MOVE 0 TO WS-TOKEN-REF(RF-TOKEN(LS-R))
+    END-PERFORM
+    GOBACK.
+
+*> The file is the word after the verb; each AT END phrase of the
+*> statement is checked.
+CHECK-READ.
+    COMPUTE LS-T = ND-TOK-FIRST(LS-STMT) + 1
+    IF LS-T > ND-TOK-LAST(LS-STMT) OR NOT TK-IS-WORD(LS-T)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-FILE LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-FILE) TO LS-FILE
+    MOVE ND-FIRST(LS-STMT) TO LS-CHILD
+    PERFORM UNTIL LS-CHILD = 0
+        IF ND-KIND(LS-CHILD) = "BLCK" AND ND-DETAIL(LS-CHILD) = "AT-END"
+            PERFORM CHECK-PHRASE
+        END-IF
+        MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+    END-PERFORM.
+
+CHECK-PHRASE.
+    MOVE 0 TO WS-SEEN-COUNT
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-CHILD) BY 1
+            UNTIL LS-T > ND-TOK-LAST(LS-CHILD)
+        MOVE WS-TOKEN-REF(LS-T) TO LS-R
+        IF LS-R > 0
+            IF RF-KIND(LS-R) = "D" AND RF-SYMBOL(LS-R) > 0
+               AND (RF-ROLE(LS-R) = "U" OR RF-ROLE(LS-R) = "B")
+                MOVE RF-SYMBOL(LS-R) TO LS-S
+                IF SY-SECTION(LS-S) = "F"
+                    PERFORM CHECK-ITEM
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> Item LS-S is in the FILE SECTION: is its record under this file's
+*> FD or SD?
+CHECK-ITEM.
+    MOVE LS-S TO LS-UP
+    PERFORM UNTIL SY-PARENT(LS-UP) = 0
+        MOVE SY-PARENT(LS-UP) TO LS-UP
+    END-PERFORM
+    IF SY-NODE(LS-UP) = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE ND-PARENT(SY-NODE(LS-UP)) TO LS-FD
+    IF LS-FD = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF ND-KIND(LS-FD) NOT = "FD" OR ND-NAME(LS-FD) = 0
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-NAME(LS-FD) LS-WORD LS-LEN
+    IF FUNCTION UPPER-CASE(LS-WORD) NOT = LS-FILE
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "N" TO LS-SEEN-IT
+    PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K > WS-SEEN-COUNT
+        IF WS-SEEN(LS-K) = LS-S
+            MOVE "Y" TO LS-SEEN-IT
+        END-IF
+    END-PERFORM
+    IF LS-SEEN-IT = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-SEEN-COUNT < WS-SEEN-MAX
+        ADD 1 TO WS-SEEN-COUNT
+        MOVE LS-S TO WS-SEEN(WS-SEEN-COUNT)
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    STRING "AT END reads " DELIMITED BY SIZE
+           SY-NAME(LS-S) DELIMITED BY SPACE
+           ", in the record of " DELIMITED BY SIZE
+           LS-FILE DELIMITED BY SPACE
+           ", which is undefined at the end of the file"
+           DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE RF-TOKEN(LS-R) LS-MESSAGE.
+END PROGRAM PLB-RULE-C050.
