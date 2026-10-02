@@ -7,3 +7,4 @@
 78  PM-MAX                      VALUE 20000.
 78  PU-MAX                      VALUE 40000.
 78  PL-MAX                      VALUE 100000.
+78  PQ-MAX                      VALUE 40000.

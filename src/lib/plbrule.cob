@@ -139,6 +139,9 @@ PROCEDURE DIVISION USING PLB-RULES.
         "Packed-decimal item has an even number of digits"
     *> A shop's coding standard: on request.
     MOVE "N" TO RL-ENABLED(RL-COUNT)
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-Q001"
+        "sql-table-undeclared" "N"
+        "Embedded SQL uses a table the program does not declare"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-S001"
         "dynamic-sql" "N"
         "SQL text is built at run time"

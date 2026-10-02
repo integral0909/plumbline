@@ -64,6 +64,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M015](#plb-m015-packed-even-digits) | packed-even-digits | note, off | Packed-decimal item has an even number of digits |
 | [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, off | CALL of a compiler library routine |
 | [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
+| [PLB-Q001](#plb-q001-sql-table-undeclared) | sql-table-undeclared | note | Embedded SQL uses a table the program does not declare |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -1239,6 +1240,25 @@ z/OS or an environment variable (`DD_INFILE`, `dd_INFILE`, `INFILE`)
 with GnuCOBOL, so the same program reads a different file in test and
 in production. Text with a `/` or `\`, or that starts with a drive letter
 (`C:`), is a path. A path the program builds at run time is not seen.
+
+## PLB-Q001 sql-table-undeclared
+
+A table that a program uses in embedded SQL without declaring it:
+
+```
+table PAY.HISTORY is not declared in TABLES (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE)
+```
+
+`EXEC SQL DECLARE name TABLE (...)`, which DCLGEN writes for each table
+and programs bring in with `EXEC SQL INCLUDE`, lets the DB2
+precompiler check each statement's columns against the table. Without
+it a misspelled column, or a column dropped from the table since, is
+found only when the program is bound or the statement runs. The rule
+finds tables after `FROM` and `JOIN` (every table of a `FROM` list),
+`INSERT INTO`, `UPDATE`, `DELETE FROM`, and `MERGE INTO`, and reports each
+table once per program, at its first use. The catalog tables of DB2
+(`SYSIBM.*`) are left out. `dump calls` and `inventory` list the
+tables each program uses.
 
 ## PLB-S001 dynamic-sql
 

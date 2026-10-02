@@ -28,7 +28,7 @@ COPY "plbcallc.cpy".
 COPY "plbcall.cpy".
 PROCEDURE DIVISION USING PLB-CALL-GRAPH.
     MOVE 0 TO CP-COUNT CA-COUNT CC-COUNT CG-COUNT CP-DROPPED PF-COUNT
-        PM-COUNT PU-COUNT PL-COUNT
+        PM-COUNT PU-COUNT PL-COUNT PQ-COUNT
     GOBACK.
 END PROGRAM PLB-CALL-INIT.
 
@@ -74,6 +74,13 @@ LOCAL-STORAGE SECTION.
 01  LS-MAPSET-NAME          PIC X(31).
 01  LS-MAP-TOKEN            PIC 9(9) COMP-5.
 01  LS-COMMAND              PIC X(31).
+01  LS-IN-SQL               PIC X.
+01  LS-SQL-VERB             PIC X.
+01  LS-TABLE                PIC X(64).
+01  LS-TABLE-FULL           PIC X(64).
+01  LS-FOUND-COMMA          PIC X.
+01  LS-START                PIC 9(9) COMP-5.
+01  LS-END                  PIC 9(9) COMP-5.
 01  LS-QUEUE-KIND           PIC X(31).
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
@@ -127,7 +134,205 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         END-EVALUATE
     END-PERFORM
     PERFORM NOTE-LITERALS
+    PERFORM NOTE-SQL-TABLES
     GOBACK.
+
+*> SQL tables ------------------------------------------------------
+
+*> The tables of each EXEC SQL block, in any division: FROM and JOIN
+*> lists, INSERT INTO, UPDATE, DELETE FROM, MERGE INTO, and DECLARE
+*> name TABLE. A block belongs to the innermost program it is in.
+NOTE-SQL-TABLES.
+    MOVE "N" TO LS-IN-SQL
+    PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T >= TK-COUNT
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            EVALUATE TRUE
+                WHEN LS-WORD = "EXEC"
+                    COMPUTE LS-C = LS-T + 1
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C LS-TEXT
+                        LS-LEN
+                    IF LS-TEXT = "SQL"
+                        MOVE "Y" TO LS-IN-SQL
+                        PERFORM PROGRAM-OF-TOKEN
+                        MOVE SPACE TO LS-SQL-VERB
+                    END-IF
+                WHEN LS-WORD = "END-EXEC"
+                    MOVE "N" TO LS-IN-SQL
+                WHEN LS-IN-SQL = "Y" AND LS-P > 0
+                    PERFORM SQL-WORD
+            END-EVALUATE
+        END-IF
+    END-PERFORM.
+
+*> LS-P = the innermost program of the file whose tokens hold LS-T.
+PROGRAM-OF-TOKEN.
+    MOVE 0 TO LS-P
+    MOVE 0 TO LS-C
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > WS-PROG-COUNT
+        MOVE WS-PROG-NODE(LS-I) TO LS-UP
+        IF ND-TOK-FIRST(LS-UP) <= LS-T AND ND-TOK-LAST(LS-UP) >= LS-T
+           AND ND-TOK-FIRST(LS-UP) >= LS-C
+            MOVE ND-TOK-FIRST(LS-UP) TO LS-C
+            MOVE WS-PROG-INDEX(LS-I) TO LS-P
+        END-IF
+    END-PERFORM.
+
+*> A word of an SQL statement: the keywords that a table name follows.
+SQL-WORD.
+    MOVE SPACE TO LS-KIND
+    COMPUTE LS-C = LS-T + 1
+    EVALUATE LS-WORD
+        WHEN "FROM" WHEN "JOIN"
+            IF LS-SQL-VERB = "D"
+                MOVE "D" TO LS-KIND
+            ELSE
+                MOVE "S" TO LS-KIND
+            END-IF
+        WHEN "UPDATE"
+            *> Not FOR UPDATE OF column.
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C LS-TEXT LS-LEN
+            IF LS-TEXT NOT = "OF"
+                MOVE "U" TO LS-KIND
+            END-IF
+        WHEN "DELETE"
+            MOVE "D" TO LS-SQL-VERB
+        WHEN "INSERT"
+            MOVE "I" TO LS-SQL-VERB
+        WHEN "MERGE"
+            MOVE "M" TO LS-SQL-VERB
+        WHEN "INTO"
+            IF LS-SQL-VERB = "I" OR LS-SQL-VERB = "M"
+                MOVE LS-SQL-VERB TO LS-KIND
+            END-IF
+        WHEN "DECLARE"
+            PERFORM SQL-DECLARED-TABLE
+    END-EVALUATE
+    IF LS-KIND = SPACE
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM SQL-TABLE-AT-C
+    *> FROM a x, b y: the lexer keeps no commas, so a comma between two
+    *> tokens is looked for in the source.
+    IF LS-KIND = "S" OR LS-KIND = "D"
+        PERFORM UNTIL LS-C >= TK-COUNT
+            IF NOT TK-IS-WORD(LS-C)
+                EXIT PERFORM
+            END-IF
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C LS-TEXT LS-LEN
+            IF LS-TEXT = "WHERE" OR LS-TEXT = "GROUP"
+               OR LS-TEXT = "ORDER" OR LS-TEXT = "JOIN"
+               OR LS-TEXT = "END-EXEC" OR LS-TEXT = "ON"
+               OR LS-TEXT = "FETCH" OR LS-TEXT = "FOR"
+               OR LS-TEXT = "WITH" OR LS-TEXT = "UNION"
+               OR LS-TEXT = "HAVING" OR LS-TEXT = "INNER"
+               OR LS-TEXT = "LEFT" OR LS-TEXT = "RIGHT"
+               OR LS-TEXT = "FULL" OR LS-TEXT = "CROSS"
+               OR LS-TEXT = "EXCEPT" OR LS-TEXT = "INTERSECT"
+                EXIT PERFORM
+            END-IF
+            PERFORM COMMA-BEFORE-C
+            IF LS-FOUND-COMMA = "Y"
+                PERFORM SQL-TABLE-AT-C
+            ELSE
+                ADD 1 TO LS-C
+            END-IF
+        END-PERFORM
+    END-IF.
+
+*> LS-FOUND-COMMA = "Y" when the source between token LS-C and the one
+*> before it holds a comma.
+COMMA-BEFORE-C.
+    MOVE "N" TO LS-FOUND-COMMA
+    COMPUTE LS-I = LS-C - 1
+    IF LS-I < 1 OR TK-SRC-LINE(LS-C) = 0 OR TK-SRC-LINE(LS-I) = 0
+        EXIT PARAGRAPH
+    END-IF
+    *> The rest of the earlier token's line, then the start of this
+    *> token's line when it is another.
+    MOVE TK-SRC-LINE(LS-I) TO LS-SRC-LINE
+    COMPUTE LS-START = TK-COLUMN(LS-I) + TK-SPAN(LS-I)
+    IF TK-SRC-LINE(LS-C) = LS-SRC-LINE
+        COMPUTE LS-END = TK-COLUMN(LS-C) - 1
+    ELSE
+        MOVE SL-TEXT-LEN(LS-SRC-LINE) TO LS-END
+    END-IF
+    PERFORM COMMA-IN-RANGE
+    IF LS-FOUND-COMMA = "Y" OR TK-SRC-LINE(LS-C) = LS-SRC-LINE
+        EXIT PARAGRAPH
+    END-IF
+    MOVE TK-SRC-LINE(LS-C) TO LS-SRC-LINE
+    MOVE 1 TO LS-START
+    COMPUTE LS-END = TK-COLUMN(LS-C) - 1
+    PERFORM COMMA-IN-RANGE.
+
+COMMA-IN-RANGE.
+    IF LS-SRC-LINE > SS-LINE-COUNT
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-END > SL-TEXT-LEN(LS-SRC-LINE)
+        MOVE SL-TEXT-LEN(LS-SRC-LINE) TO LS-END
+    END-IF
+    PERFORM VARYING LS-K FROM LS-START BY 1 UNTIL LS-K > LS-END
+        IF SS-HEAP(SL-TEXT-OFF(LS-SRC-LINE) + LS-K - 1:1) = ","
+            MOVE "Y" TO LS-FOUND-COMMA
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+*> DECLARE name TABLE (...).
+SQL-DECLARED-TABLE.
+    PERFORM VARYING LS-K FROM LS-C BY 1 UNTIL LS-K > LS-C + 3
+                                          OR LS-K >= TK-COUNT
+        IF TK-IS-WORD(LS-K)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+            IF LS-TEXT = "TABLE"
+                MOVE "T" TO LS-KIND
+                EXIT PERFORM
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> The table named from token LS-C: a word, or word.word; LS-C is left
+*> after it. A parenthesis (a subquery) or a host variable is not one.
+SQL-TABLE-AT-C.
+    IF LS-C >= TK-COUNT OR NOT TK-IS-WORD(LS-C)
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-TABLE
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C LS-TEXT LS-LEN
+    MOVE LS-TEXT TO LS-TABLE
+    MOVE LS-C TO LS-K
+    ADD 1 TO LS-C
+    IF LS-C < TK-COUNT AND TK-IS-OPERATOR(LS-C)
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C LS-TEXT LS-LEN
+        IF LS-TEXT = "." AND TK-IS-WORD(LS-C + 1)
+            ADD 1 TO LS-C
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C LS-TEXT LS-LEN
+            STRING LS-TABLE DELIMITED BY SPACE
+                   "." DELIMITED BY SIZE
+                   LS-TEXT DELIMITED BY SPACE
+                INTO LS-TABLE-FULL
+            MOVE LS-TABLE-FULL TO LS-TABLE
+            MOVE SPACES TO LS-TABLE-FULL
+            ADD 1 TO LS-C
+        END-IF
+    END-IF
+    IF PQ-COUNT >= PQ-MAX
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO PQ-COUNT
+    MOVE LS-P TO PQ-PROGRAM(PQ-COUNT)
+    MOVE FUNCTION UPPER-CASE(LS-TABLE) TO PQ-TABLE(PQ-COUNT)
+    MOVE LS-KIND TO PQ-KIND(PQ-COUNT)
+    MOVE LS-T TO LS-I
+    MOVE LS-K TO LS-T
+    PERFORM TOKEN-POSITION
+    MOVE LS-I TO LS-T
+    MOVE LS-FILE-ID TO PQ-FILE-ID(PQ-COUNT)
+    MOVE LS-LINE TO PQ-LINE(PQ-COUNT)
+    MOVE LS-COLUMN TO PQ-COLUMN(PQ-COUNT)
+    MOVE LS-SRC-LINE TO PQ-SRC-LINE(PQ-COUNT).
 
 *> Literals that could be program names, with the program they are in.
 NOTE-LITERALS.

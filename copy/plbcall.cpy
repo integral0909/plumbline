@@ -9,8 +9,8 @@
 *> (CC) each have a list of arguments (CG). The files of each program
 *> (PF) say which DD name the job step must provide, and the maps of
 *> each program (PM) which BMS maps it sends and receives, the CICS
-*> resources (PU) its commands name, and the short literals (PL) that
-*> may name programs.
+*> resources (PU) its commands name, the short literals (PL) that
+*> may name programs, and the SQL tables (PQ) it uses or declares.
 *>
 *> Names are compared without regard to case: CP-NAME and CC-TARGET
 *> are upper-cased.
@@ -144,3 +144,15 @@
     05  PL-ENTRY                OCCURS PL-MAX TIMES.
         10  PL-PROGRAM          PIC 9(9) COMP-5.
         10  PL-NAME             PIC X(8).
+    05  PQ-COUNT                PIC 9(9) COMP-5.
+    05  PQ-ENTRY                OCCURS PQ-MAX TIMES.
+        10  PQ-PROGRAM          PIC 9(9) COMP-5.
+        *> The table as written: NAME or QUALIFIER.NAME, upper-cased.
+        10  PQ-TABLE            PIC X(64).
+        *>   S selected (FROM, JOIN)   I inserted into   U updated
+        *>   D deleted from   M merged into   T declared (DECLARE TABLE)
+        10  PQ-KIND             PIC X.
+        10  PQ-FILE-ID          PIC 9(4) COMP-5.
+        10  PQ-LINE             PIC 9(9) COMP-5.
+        10  PQ-COLUMN           PIC 9(4) COMP-5.
+        10  PQ-SRC-LINE         PIC 9(9) COMP-5.
