@@ -1,0 +1,71 @@
+*> Unit tests for src/lib/plbjson.cob.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. TEST-PLBJSON.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-VALUE                PIC X(40).
+01  WS-OUT                  PIC X(80).
+01  WS-SMALL                PIC X(8).
+01  WS-PTR                  PIC 9(9) COMP-5.
+01  WS-EXPECT-NUM           PIC S9(18) COMP-5.
+01  WS-ACTUAL-NUM           PIC S9(18) COMP-5.
+
+PROCEDURE DIVISION.
+    CALL "PLBT-BEGIN" USING "plbjson"
+    PERFORM TEST-STRING
+    PERFORM TEST-URI
+    CALL "PLBT-END"
+    STOP RUN.
+
+TO-JSON.
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    CALL "PLB-JSON-STRING" USING WS-VALUE WS-OUT WS-PTR.
+
+TEST-STRING.
+    CALL "PLBT-CASE" USING "PLB-JSON-STRING"
+    MOVE "plain text" TO WS-VALUE
+    PERFORM TO-JSON
+    CALL "PLBT-ASSERT-STR" USING "plain text is quoted"
+        '"plain text"' WS-OUT
+    MOVE 13 TO WS-EXPECT-NUM
+    MOVE WS-PTR TO WS-ACTUAL-NUM
+    CALL "PLBT-ASSERT-NUM" USING "pointer after closing quote"
+        WS-EXPECT-NUM WS-ACTUAL-NUM
+
+    MOVE 'say "hi"' TO WS-VALUE
+    PERFORM TO-JSON
+    CALL "PLBT-ASSERT-STR" USING "quotes escaped"
+        '"say \"hi\""' WS-OUT
+
+    MOVE "C:\TEMP" TO WS-VALUE
+    PERFORM TO-JSON
+    CALL "PLBT-ASSERT-STR" USING "backslash escaped"
+        '"C:\\TEMP"' WS-OUT
+
+    MOVE SPACES TO WS-VALUE
+    STRING "A" X"09" "B" X"01" DELIMITED BY SIZE INTO WS-VALUE
+    PERFORM TO-JSON
+    CALL "PLBT-ASSERT-STR" USING "control characters escaped"
+        '"A\tB\u0001"' WS-OUT
+
+    MOVE SPACES TO WS-VALUE
+    PERFORM TO-JSON
+    CALL "PLBT-ASSERT-STR" USING "blank value is empty string" '""'
+        WS-OUT
+
+    MOVE "LONGER THAN EIGHT" TO WS-VALUE
+    MOVE SPACES TO WS-SMALL
+    MOVE 1 TO WS-PTR
+    CALL "PLB-JSON-STRING" USING WS-VALUE WS-SMALL WS-PTR
+    CALL "PLBT-ASSERT-STR" USING "cut off but still closed"
+        '"LONGER"' WS-SMALL.
+
+TEST-URI.
+    CALL "PLBT-CASE" USING "PLB-URI-PATH"
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    CALL "PLB-URI-PATH" USING "src/pay roll#1.cbl" WS-OUT WS-PTR
+    CALL "PLBT-ASSERT-STR" USING "space and hash encoded"
+        "src/pay%20roll%231.cbl" WS-OUT.
+END PROGRAM TEST-PLBJSON.

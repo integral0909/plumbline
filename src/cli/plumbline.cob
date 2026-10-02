@@ -4,7 +4,8 @@
 *>   plumbline --help | --version
 *>   plumbline check [-I DIR]... [--format ...] [--debug]
 *>                   [--enable RULE]... [--disable RULE]...
-*>                   [--fail-on error|warning|note|never] FILE...
+*>                   [--fail-on error|warning|note|never]
+*>                   [--report text|json|sarif] FILE...
 *>   plumbline dump lines  [--format fixed|free|auto] FILE...
 *>   plumbline dump tokens [--format fixed|free|auto] [--debug] FILE...
 *>   plumbline dump expanded [-I DIR]... [--format ...] [--debug] FILE...
@@ -79,6 +80,7 @@ COPY "plbfind.cpy".
 01  WS-RULE                 PIC 9(4) COMP-5.
 01  WS-FAIL-ON              PIC X VALUE "W".
 01  WS-FAILING              PIC 9(9) COMP-5.
+01  WS-REPORT               PIC X(5) VALUE "text".
 
 PROCEDURE DIVISION.
 MAIN-LOGIC.
@@ -167,7 +169,8 @@ SHOW-USAGE.
     DISPLAY "  --enable RULE    enable a rule (id or name; repeatable)"
     DISPLAY "  --disable RULE   disable a rule (id or name; repeatable)"
     DISPLAY "  --fail-on LEVEL  exit 1 on findings at or above LEVEL:"
-    DISPLAY "                   error, warning (default), note, never".
+    DISPLAY "                   error, warning (default), note, never"
+    DISPLAY "  --report FORMAT  text (default), json, or sarif".
 
 *> check --------------------------------------------------------
 
@@ -188,16 +191,43 @@ CHECK-COMMAND.
             PLB-SYMBOLS PLB-FLOW PLB-RULES PLB-FINDINGS
     END-PERFORM
     CALL "PLB-FIND-SORT" USING PLB-FINDINGS
+    EVALUATE WS-REPORT
+        WHEN "json"
+            CALL "PLB-REPORT-JSON" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+                PLB-RULES PLB-FINDINGS
+        WHEN "sarif"
+            CALL "PLB-REPORT-SARIF" USING PLB-SOURCE-SET
+                PLB-DIAGNOSTICS PLB-RULES PLB-FINDINGS
+        WHEN OTHER
+            PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > FN-COUNT
+                IF FN-SUPPRESSED(WS-I) = "N"
+                    PERFORM PRINT-FINDING
+                END-IF
+            END-PERFORM
+            PERFORM REPORT-DIAGNOSTICS
+    END-EVALUATE
+    PERFORM COUNT-FAILING
+    IF WS-FAILING > 0 OR DG-ERRORS > 0
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+*> Findings at or above the --fail-on level.
+COUNT-FAILING.
     MOVE 0 TO WS-FAILING
     PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > FN-COUNT
         IF FN-SUPPRESSED(WS-I) = "N"
-            PERFORM PRINT-FINDING
+            EVALUATE TRUE
+                WHEN WS-FAIL-ON = "-"
+                    CONTINUE
+                WHEN FN-SEVERITY(WS-I) = "E"
+                    ADD 1 TO WS-FAILING
+                WHEN FN-SEVERITY(WS-I) = "W" AND WS-FAIL-ON NOT = "E"
+                    ADD 1 TO WS-FAILING
+                WHEN FN-SEVERITY(WS-I) = "N" AND WS-FAIL-ON = "N"
+                    ADD 1 TO WS-FAILING
+            END-EVALUATE
         END-IF
-    END-PERFORM
-    PERFORM REPORT-DIAGNOSTICS
-    IF WS-FAILING > 0
-        MOVE 1 TO WS-EXIT-CODE
-    END-IF.
+    END-PERFORM.
 
 *> Expand, parse, and model file WS-FILE-ID.
 ANALYZE-FILE.
@@ -215,17 +245,7 @@ PRINT-FINDING.
         WS-PATH
     CALL "PLB-FIND-FORMAT" USING PLB-RULES PLB-FINDINGS WS-I WS-PATH
         WS-OUT WS-OUT-LEN
-    DISPLAY WS-OUT(1:WS-OUT-LEN)
-    EVALUATE TRUE
-        WHEN WS-FAIL-ON = "-"
-            CONTINUE
-        WHEN FN-SEVERITY(WS-I) = "E"
-            ADD 1 TO WS-FAILING
-        WHEN FN-SEVERITY(WS-I) = "W" AND WS-FAIL-ON NOT = "E"
-            ADD 1 TO WS-FAILING
-        WHEN FN-SEVERITY(WS-I) = "N" AND WS-FAIL-ON = "N"
-            ADD 1 TO WS-FAILING
-    END-EVALUATE.
+    DISPLAY WS-OUT(1:WS-OUT-LEN).
 
 *> dump ---------------------------------------------------------
 
@@ -619,6 +639,9 @@ PARSE-INPUT-ARGS.
             WHEN WS-ARG = "--fail-on"
                 PERFORM NEXT-ARG
                 PERFORM SET-FAIL-ON
+            WHEN WS-ARG = "--report"
+                PERFORM NEXT-ARG
+                PERFORM SET-REPORT
             WHEN WS-ARG = "-I"
                 IF WS-ARG-INDEX > WS-ARG-COUNT
                     DISPLAY PLB-NAME ": -I needs a directory" UPON SYSERR
@@ -679,6 +702,19 @@ SET-FAIL-ON.
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected error, warning, note, or never)"
                 UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
+    END-EVALUATE.
+
+SET-REPORT.
+    EVALUATE WS-ARG
+        WHEN "text"
+        WHEN "json"
+        WHEN "sarif"
+            MOVE WS-ARG TO WS-REPORT
+        WHEN OTHER
+            DISPLAY PLB-NAME ": invalid --report format '"
+                WS-ARG(1:WS-ARG-LEN)
+                "' (expected text, json, or sarif)" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
     END-EVALUATE.
 
