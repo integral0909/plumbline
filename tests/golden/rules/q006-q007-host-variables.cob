@@ -7,10 +7,10 @@ WORKING-STORAGE SECTION.
     EXEC SQL DECLARE BANK.ACCOUNT TABLE
     ( ACCT_ID                        DECIMAL(11, 0) NOT NULL,
       ACCT_NAME                      VARCHAR(40) NOT NULL,
-      CITY                           CHAR(20),
-      BALANCE                        DECIMAL(9, 2),
-      VISITS                         INTEGER,
-      BRANCH                         SMALLINT
+      CITY                           CHAR(20) NOT NULL,
+      BALANCE                        DECIMAL(9, 2) NOT NULL,
+      VISITS                         INTEGER NOT NULL,
+      BRANCH                         SMALLINT NOT NULL
     ) END-EXEC.
 01  WS-ID                   PIC S9(11) COMP-3.
 01  WS-SHORT-ID             PIC S9(7) COMP-3.

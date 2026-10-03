@@ -5,3 +5,4 @@ tests/golden/rules/q001-sql-tables.cob:27:45: note: table PAY.LEAVERS is not dec
 tests/golden/rules/q001-sql-tables.cob:32:26: note: table PAY.HISTORY is not declared in TABLES (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]
 tests/golden/rules/q001-sql-tables.cob:33:9: note: SELECT * depends on every column of the table and their order; name the columns [PLB-M014]
 tests/golden/rules/q001-sql-tables.cob:38:14: warning: EXEC SQL DELETE has no WHERE: it changes every row of the table [PLB-Q004]
+tests/golden/rules/q001-sql-tables.cob:44:51: warning: column EMP_NAME can be NULL, but EMP-NAME has no indicator variable: a NULL makes the statement fail (SQLCODE -305) [PLB-Q008]
