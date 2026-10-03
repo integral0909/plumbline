@@ -109,6 +109,7 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH PLB-JCL.
     CALL "PLB-RULE-JCL-TEMPS" USING PLB-RULES PLB-FINDINGS PLB-JCL
     CALL "PLB-RULE-J007" USING PLB-RULES PLB-FINDINGS PLB-JCL
     CALL "PLB-RULE-J008" USING PLB-RULES PLB-FINDINGS PLB-JCL
+    CALL "PLB-RULE-J009" USING PLB-RULES PLB-FINDINGS PLB-JCL
     MOVE 0 TO WS-USE-COUNT
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
         IF JS-KIND(LS-S) = "P"
@@ -885,3 +886,111 @@ REPORT-UNKNOWN.
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
         LS-AT-FILE LS-AT-LINE LS-COLUMN LS-ZERO LS-MESSAGE.
 END PROGRAM PLB-RULE-J008.
+
+*> PLB-J009 referback-unresolved: a backward reference of a DD
+*> statement (DSN=*.STEP.DD, DCB=*.STEP.DD, VOL=REF=*.STEP.DD,
+*> REFDD=*.STEP.DD, or *.DD in the same step) that names a step that
+*> does not run before it, or a DD the step does not have:
+*>
+*>     //EXTRACT  EXEC PGM=ACCTEXT
+*>     //OUT      DD DSN=&&EXTRACT,DISP=(NEW,PASS)
+*>     //SORT     EXEC PGM=SORT
+*>     //SORTIN   DD DSN=*.EXTRCT.OUT,DISP=(OLD,DELETE)
+*>
+*> The system cannot resolve such a reference, and the job ends with a
+*> JCL error before any step runs. PLB-JCL-READ resolves the
+*> references (copy/plbjcl.cpy); a reference through a procedure step
+*> (*.STEP.PROCSTEP.DD) is checked as far as the step.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J009.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-R                    PIC 9(9) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-STEP-NAME            PIC X(8).
+01  LS-DD-NAME              PIC X(8).
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+01  LS-PTR                  PIC 9(9) COMP-5.
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J009" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > JR-COUNT
+        IF JR-STATE(LS-R) = "S" OR JR-STATE(LS-R) = "D"
+            PERFORM REPORT-REFERENCE
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+REPORT-REFERENCE.
+    MOVE JR-DD(LS-R) TO LS-D
+    MOVE JD-STEP(LS-D) TO LS-S
+    MOVE SPACES TO LS-STEP-NAME LS-DD-NAME
+    UNSTRING JR-TEXT(LS-R) DELIMITED BY "."
+        INTO LS-STEP-NAME LS-DD-NAME
+    END-UNSTRING
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    IF JR-KEY(LS-R) = "VOL"
+        STRING "VOL=REF" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    ELSE
+        STRING JR-KEY(LS-R) DELIMITED BY SPACE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    STRING "=*." DELIMITED BY SIZE
+           JR-TEXT(LS-R) DELIMITED BY SPACE
+           " refers to " DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    EVALUATE TRUE
+        WHEN JR-STATE(LS-R) = "S"
+            STRING "step " DELIMITED BY SIZE
+                   LS-STEP-NAME DELIMITED BY SPACE
+                   ", which does not run before this one in "
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+            PERFORM APPEND-SCOPE
+        WHEN LS-DD-NAME = SPACES
+            *> *.DD: a DD of the same step.
+            STRING "DD " DELIMITED BY SIZE
+                   LS-STEP-NAME DELIMITED BY SPACE
+                   ", which is not a DD before it in step "
+                   DELIMITED BY SIZE
+                   JS-NAME(LS-S) DELIMITED BY SPACE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+        WHEN OTHER
+            STRING "DD " DELIMITED BY SIZE
+                   LS-DD-NAME DELIMITED BY SPACE
+                   ", which step " DELIMITED BY SIZE
+                   LS-STEP-NAME DELIMITED BY SPACE
+                   " does not have" DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-EVALUATE
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
+
+*> job NAME, or procedure NAME.
+APPEND-SCOPE.
+    IF JS-PROC(LS-S) > 0
+        STRING "procedure " DELIMITED BY SIZE
+               JP-NAME(JS-PROC(LS-S)) DELIMITED BY SPACE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    ELSE
+        IF JS-JOB(LS-S) > 0
+            STRING "job " DELIMITED BY SIZE
+                   JJ-NAME(JS-JOB(LS-S)) DELIMITED BY SPACE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+        END-IF
+    END-IF.
+END PROGRAM PLB-RULE-J009.

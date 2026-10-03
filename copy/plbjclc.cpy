@@ -4,3 +4,4 @@
 78  JS-MAX                      VALUE 20000.
 78  JD-MAX                      VALUE 100000.
 78  JI-MAX                      VALUE 5000.
+78  JR-MAX                      VALUE 5000.

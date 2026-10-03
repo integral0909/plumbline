@@ -80,6 +80,18 @@
     *> The steps that IF statements test (IF STEP.RC > 4 THEN, ...):
     *> one entry for each name, with the job or procedure the IF is in
     *> and the number of steps read before it.
+    *> Backward references of DD statements, *.DD, *.STEP.DD, or
+    *> *.STEP.PROCSTEP.DD in DSN=, DCB=, VOL=REF=, and REFDD=: the DD,
+    *> the keyword, the reference without its "*.", and what it
+    *> resolved to: Y a DD before it (or, through a procedure step, a
+    *> step), S no such step before it, D no such DD in the step.
+    *> A DSN= that resolves takes the data set name of the DD it names.
+    05  JR-COUNT                PIC 9(9) COMP-5.
+    05  JR-ENTRY                OCCURS JR-MAX TIMES.
+        10  JR-DD               PIC 9(9) COMP-5.
+        10  JR-KEY              PIC X(5).
+        10  JR-TEXT             PIC X(26).
+        10  JR-STATE            PIC X.
     05  JI-COUNT                PIC 9(9) COMP-5.
     05  JI-ENTRY                OCCURS JI-MAX TIMES.
         10  JI-JOB              PIC 9(9) COMP-5.

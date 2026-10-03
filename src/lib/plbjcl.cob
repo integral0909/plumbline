@@ -28,7 +28,7 @@ LINKAGE SECTION.
 COPY "plbjclc.cpy".
 COPY "plbjcl.cpy".
 PROCEDURE DIVISION USING PLB-JCL.
-    MOVE 0 TO JJ-COUNT JP-COUNT JS-COUNT JD-COUNT JI-COUNT
+    MOVE 0 TO JJ-COUNT JP-COUNT JS-COUNT JD-COUNT JI-COUNT JR-COUNT
     GOBACK.
 END PROGRAM PLB-JCL-INIT.
 
@@ -104,6 +104,17 @@ LOCAL-STORAGE SECTION.
 01  LS-DATA-DD              PIC X(17) VALUE SPACES.
 01  LS-RUN-AT               PIC 9(4) COMP-5.
 01  LS-D                    PIC 9(9) COMP-5.
+*> Backward references: the first of this file, the one resolved, its
+*> parts, and the step and DD it names.
+01  LS-FIRST-REFERENCE      PIC 9(9) COMP-5.
+01  LS-R                    PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-REF-STEP             PIC 9(9) COMP-5.
+01  LS-PART-1               PIC X(8).
+01  LS-PART-2               PIC X(8).
+01  LS-PART-COUNT           PIC 9(4) COMP-5.
+01  LS-REF-KEY              PIC X(5).
+01  LS-REF-TEXT             PIC X(26).
 LINKAGE SECTION.
 COPY "plbjclc.cpy".
 01  LK-PATH                 PIC X ANY LENGTH.
@@ -112,6 +123,7 @@ COPY "plbjcl.cpy".
 01  LK-STATUS               PIC 9(4) COMP-5.
 PROCEDURE DIVISION USING LK-PATH LK-FILE-ID PLB-JCL LK-STATUS.
     MOVE 0 TO LK-STATUS
+    COMPUTE LS-FIRST-REFERENCE = JR-COUNT + 1
     MOVE LK-PATH TO WS-PATH
     OPEN INPUT JCL-FILE
     IF WS-STATUS NOT = "00"
@@ -137,6 +149,10 @@ PROCEDURE DIVISION USING LK-PATH LK-FILE-ID PLB-JCL LK-STATUS.
     IF ST-ACTIVE = "Y"
         PERFORM FINISH-STATEMENT
     END-IF
+    PERFORM VARYING LS-R FROM LS-FIRST-REFERENCE BY 1
+            UNTIL LS-R > JR-COUNT
+        PERFORM RESOLVE-REFERENCE
+    END-PERFORM
     GOBACK.
 
 READ-LINE.
@@ -513,6 +529,18 @@ ADD-DD.
             WHEN OP-KEY = "DSN" OR OP-KEY = "DSNAME"
                 MOVE "D" TO JD-KIND(LS-D)
                 MOVE OP-VALUE TO JD-DSN(LS-D)
+                IF OP-VALUE(1:2) = "*."
+                    MOVE "DSN" TO LS-REF-KEY
+                    MOVE OP-VALUE(3:) TO LS-REF-TEXT
+                    PERFORM NOTE-REFERENCE
+                END-IF
+            WHEN (OP-KEY = "DCB" OR OP-KEY = "REFDD")
+                 AND OP-VALUE(1:2) = "*."
+                MOVE OP-KEY TO LS-REF-KEY
+                MOVE OP-VALUE(3:) TO LS-REF-TEXT
+                PERFORM NOTE-REFERENCE
+            WHEN OP-KEY = "VOL" OR OP-KEY = "VOLUME"
+                PERFORM VOLUME-REFERENCE
             WHEN OP-KEY = "SYSOUT"
                 MOVE "S" TO JD-KIND(LS-D)
             WHEN OP-KEY = "DISP"
@@ -532,6 +560,86 @@ ADD-DD.
         PERFORM NEXT-OPERAND
     END-PERFORM
     PERFORM SCAN-DD-DATA.
+
+*> VOL=REF=*.STEP.DD, also inside VOL=(,,,REF=*.STEP.DD).
+VOLUME-REFERENCE.
+    MOVE 0 TO LS-E
+    INSPECT OP-VALUE TALLYING LS-E FOR CHARACTERS BEFORE "REF=*."
+    IF LS-E < 3990
+        MOVE "VOL" TO LS-REF-KEY
+        MOVE SPACES TO LS-REF-TEXT
+        UNSTRING OP-VALUE(LS-E + 7:) DELIMITED BY "," OR ")"
+            INTO LS-REF-TEXT
+        PERFORM NOTE-REFERENCE
+    END-IF.
+
+NOTE-REFERENCE.
+    IF JR-COUNT >= JR-MAX
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO JR-COUNT
+    MOVE LS-D TO JR-DD(JR-COUNT)
+    MOVE LS-REF-KEY TO JR-KEY(JR-COUNT)
+    MOVE LS-REF-TEXT TO JR-TEXT(JR-COUNT)
+    MOVE "Y" TO JR-STATE(JR-COUNT).
+
+*> Backward reference LS-R: *.DD names an earlier DD of the same step;
+*> *.STEP.DD a DD of an earlier step of the same job or procedure;
+*> *.STEP.PROCSTEP.DD a DD in the procedure an earlier step runs, which
+*> is not followed, so only the step is checked.
+RESOLVE-REFERENCE.
+    MOVE SPACES TO LS-PART-1 LS-PART-2
+    MOVE 1 TO LS-PART-COUNT
+    INSPECT JR-TEXT(LS-R) TALLYING LS-PART-COUNT FOR ALL "."
+    UNSTRING JR-TEXT(LS-R) DELIMITED BY "."
+        INTO LS-PART-1 LS-PART-2
+    END-UNSTRING
+    MOVE JD-STEP(JR-DD(LS-R)) TO LS-STEP
+    EVALUATE LS-PART-COUNT
+        WHEN 1
+            MOVE LS-STEP TO LS-REF-STEP
+            MOVE LS-PART-1 TO LS-PART-2
+            PERFORM FIND-REFERENCED-DD
+        WHEN 2
+        WHEN 3
+            MOVE 0 TO LS-REF-STEP
+            PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E >= LS-STEP
+                IF JS-NAME(LS-E) = LS-PART-1
+                   AND ((JS-JOB(LS-STEP) > 0
+                         AND JS-JOB(LS-E) = JS-JOB(LS-STEP))
+                        OR (JS-PROC(LS-STEP) > 0
+                            AND JS-PROC(LS-E) = JS-PROC(LS-STEP)))
+                    MOVE LS-E TO LS-REF-STEP
+                END-IF
+            END-PERFORM
+            IF LS-REF-STEP = 0
+                MOVE "S" TO JR-STATE(LS-R)
+            ELSE
+                IF LS-PART-COUNT = 2
+                    PERFORM FIND-REFERENCED-DD
+                END-IF
+            END-IF
+    END-EVALUATE.
+
+*> DD LS-PART-2 of step LS-REF-STEP, before DD JR-DD(LS-R): its data
+*> set name goes to a DSN= that names it.
+FIND-REFERENCED-DD.
+    MOVE 0 TO LS-E
+    PERFORM VARYING LS-D FROM JS-DD-FIRST(LS-REF-STEP) BY 1
+            UNTIL LS-D >= JS-DD-FIRST(LS-REF-STEP)
+                         + JS-DD-COUNT(LS-REF-STEP)
+               OR LS-D >= JR-DD(LS-R)
+        IF JD-NAME(LS-D) = LS-PART-2 AND JD-CONCAT(LS-D) = "N"
+            MOVE LS-D TO LS-E
+        END-IF
+    END-PERFORM
+    IF LS-E = 0 OR JS-DD-COUNT(LS-REF-STEP) = 0
+        MOVE "D" TO JR-STATE(LS-R)
+        EXIT PARAGRAPH
+    END-IF
+    IF JR-KEY(LS-R) = "DSN" AND JD-DSN(LS-E)(1:2) NOT = "*."
+        MOVE JD-DSN(LS-E) TO JD-DSN(JR-DD(LS-R))
+    END-IF.
 
 *> DD * and DD DATA start in-stream data, ended by DLM= if given.
 SCAN-DD-DATA.

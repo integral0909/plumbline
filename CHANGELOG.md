@@ -210,6 +210,9 @@ uses [Semantic Versioning](https://semver.org/).
   case per finding and one passing case per clean file.
 - `make fuzz` (`tools/fuzz.py`): `plumbline check` on damaged copies of
   the corpora's sources, with the bounds-checked build.
+- Rule PLB-J009 referback-unresolved. The JCL reader resolves
+  backward references (`DSN=*.STEP.DD`), and a `DSN=` reference takes
+  the data set name of the DD it names.
 - Rule PLB-J008 cond-step-unknown, for `COND` tests and `IF`
   statements. The JCL reader keeps each step's `COND` operand and the
   steps each `IF` tests.

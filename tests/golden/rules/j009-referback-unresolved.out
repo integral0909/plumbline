@@ -1,0 +1,4 @@
+tests/golden/rules/j009-referback-unresolved.jcl:17:3: error: DSN=*.EXTRCT.OUT refers to step EXTRCT, which does not run before this one in job NIGHTLY [PLB-J009]
+tests/golden/rules/j009-referback-unresolved.jcl:18:3: error: DSN=*.EXTRACT.OUTPUT refers to DD OUTPUT, which step EXTRACT does not have [PLB-J009]
+tests/golden/rules/j009-referback-unresolved.jcl:19:3: error: DSN=*.LATER refers to DD LATER, which is not a DD before it in step SORTB [PLB-J009]
+tests/golden/rules/j009-referback-unresolved.jcl:20:3: error: VOL=REF=*.REPORT.OUT refers to step REPORT, which does not run before this one in job NIGHTLY [PLB-J009]

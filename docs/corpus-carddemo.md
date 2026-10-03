@@ -234,6 +234,10 @@ Some findings that were read and are true:
   set delete it first in an `IEFBR14` step. With that step of `DUSRSECJ`
   made to create the data set instead, the step that rebuilds it is
   reported.
+- **PLB-J009 referback-unresolved.** None: CardDemo's jobs have no
+  backward references. In a copy of `TRANEXTR` with two `DSN=` changed
+  to `*.STEP10.SYSUT1` and `*.STEP10.SYSUT9`, the first takes the data
+  set of `STEP10`'s `SYSUT1` and the second is reported.
 - **PLB-J008 cond-step-unknown.** None: the 17 `COND` tests of the jobs
   name no step (`COND=(0,NE)`, `COND=(4,LT)`), nor does the one `IF`
   (`IF RC = 0 THEN` in `BLDCIDB2`). In a copy of `TRANEXTR`
