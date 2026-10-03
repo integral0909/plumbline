@@ -1,0 +1,12 @@
+* X/Open free form: the indicator is in column 1.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. XOPENFMT.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-COUNT PIC 9(3) VALUE 0.
+/ A page eject, then the procedure division.
+PROCEDURE DIVISION.
+    ADD 1 TO WS-COUNT
+D   DISPLAY "COUNT " WS-COUNT
+DISPLAY WS-COUNT
+    GOBACK.

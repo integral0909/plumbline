@@ -534,7 +534,7 @@ SHOW-USAGE.
     DISPLAY " "
     DISPLAY "Command options:"
     DISPLAY "  --format FORMAT  reference format: fixed, free, variable,"
-    DISPLAY "                   or auto (default auto)"
+    DISPLAY "                   xopen, terminal, or auto (default auto)"
     DISPLAY "  --debug          treat debugging lines as code"
     DISPLAY "  -I DIR           search DIR for copybooks (repeatable)"
     DISPLAY "  --tab-width N    tab stops every N columns (default 8)"
@@ -2499,7 +2499,8 @@ LSP-APPEND-SUPPRESS-ACTION.
     IF WS-PTR < 390
         MOVE RL-ID(FN-RULE(WS-I))(1:8) TO WS-LSP-OFFERED(WS-PTR + 1:8)
     END-IF
-    IF SL-FORMAT(FN-SRC-LINE(WS-I)) NOT = "F"
+    IF SL-FORMAT(FN-SRC-LINE(WS-I)) = "X"
+       OR SL-FORMAT(FN-SRC-LINE(WS-I)) = "V"
         MOVE 6 TO WS-LSP-INDENT
     ELSE
         COMPUTE WS-LSP-INDENT = SL-CONTENT-COL(FN-SRC-LINE(WS-I)) - 1
@@ -5880,9 +5881,14 @@ SET-MODE.
             MOVE "A" TO WS-MODE
         WHEN "variable"
             MOVE "V" TO WS-MODE
+        WHEN "xopen"
+            MOVE "O" TO WS-MODE
+        WHEN "terminal"
+            MOVE "T" TO WS-MODE
         WHEN OTHER
             DISPLAY PLB-NAME ": invalid format '" WS-ARG(1:WS-ARG-LEN)
-                "' (expected fixed, free, variable, or auto)" UPON SYSERR
+                "' (expected fixed, free, variable, xopen, terminal,"
+                " or auto)" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
     END-EVALUATE.
 
@@ -5945,6 +5951,8 @@ DUMP-ONE-LINE.
     EVALUATE SL-FORMAT(WS-I)
         WHEN "F"   MOVE "free" TO WS-FORMAT-NAME
         WHEN "V"   MOVE "var" TO WS-FORMAT-NAME
+        WHEN "O"   MOVE "xopen" TO WS-FORMAT-NAME
+        WHEN "T"   MOVE "term" TO WS-FORMAT-NAME
         WHEN OTHER MOVE "fixed" TO WS-FORMAT-NAME
     END-EVALUATE
     STRING WS-KIND-NAME " " WS-FORMAT-NAME " "

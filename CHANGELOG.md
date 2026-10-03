@@ -215,6 +215,9 @@ uses [Semantic Versioning](https://semver.org/).
 - A `Dockerfile` for a container image with Plumbline and the GnuCOBOL
   run-time library, built and run by CI when it changes.
 - docs/ci.md: running Plumbline in CI.
+- X/Open free form and ACU terminal reference formats (`--format xopen`,
+  `--format terminal`, or `>>SOURCE FORMAT XOPEN|TERMINAL`), and the
+  padding of continued literals to each format's margin.
 - Micro Focus's VARIABLE reference format, fixed with the text running
   to column 250: `--format variable`, `format variable` in
   `plumbline.conf`, or `>>SOURCE FORMAT VARIABLE`. `dump lines` names

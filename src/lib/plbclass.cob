@@ -344,13 +344,138 @@ SCAN-CONTENT.
     END-IF.
 END PROGRAM PLB-SRC-CLASSIFY-FREE.
 
+*> PLB-SRC-CLASSIFY-XOPEN and PLB-SRC-CLASSIFY-TERMINAL: free format
+*> with an indicator in column 1, as X/Open's free-form format and
+*> ACUCOBOL's terminal format have it:
+*>
+*>   X/Open    * comment   / page eject   D and a space: debugging line
+*>   terminal  * comment   \D: debugging line   - continuation line
+*>
+*> Any other line is free format from column 1.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SRC-CLASSIFY-XOPEN.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-STYLE                PIC X VALUE "O".
+LINKAGE SECTION.
+01  LK-LINE                 PIC X ANY LENGTH.
+01  LK-LENGTH               PIC 9(9) COMP-5.
+01  LK-QUOTE-IN             PIC X.
+COPY "plbcls.cpy".
+PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
+    CALL "PLB-SRC-CLASSIFY-INDICATED" USING LK-LINE LK-LENGTH
+        LK-QUOTE-IN WS-STYLE PLB-CLASSIFIED
+    GOBACK.
+END PROGRAM PLB-SRC-CLASSIFY-XOPEN.
+
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SRC-CLASSIFY-TERMINAL.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-STYLE                PIC X VALUE "T".
+LINKAGE SECTION.
+01  LK-LINE                 PIC X ANY LENGTH.
+01  LK-LENGTH               PIC 9(9) COMP-5.
+01  LK-QUOTE-IN             PIC X.
+COPY "plbcls.cpy".
+PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
+    CALL "PLB-SRC-CLASSIFY-INDICATED" USING LK-LINE LK-LENGTH
+        LK-QUOTE-IN WS-STYLE PLB-CLASSIFIED
+    GOBACK.
+END PROGRAM PLB-SRC-CLASSIFY-TERMINAL.
+
+*> PLB-SRC-CLASSIFY-INDICATED: the line in STYLE O (X/Open) or T
+*> (terminal). A debugging line is classified as free format with its
+*> marker blanked, so that its content keeps its columns.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SRC-CLASSIFY-INDICATED.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-COPY                 PIC X(1024).
+01  WS-LENGTH               PIC 9(9) COMP-5.
+01  WS-MARGIN               PIC 9(4) COMP-5.
+LINKAGE SECTION.
+01  LK-LINE                 PIC X ANY LENGTH.
+01  LK-LENGTH               PIC 9(9) COMP-5.
+01  LK-QUOTE-IN             PIC X.
+01  LK-STYLE                PIC X.
+COPY "plbcls.cpy".
+PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN LK-STYLE
+        PLB-CLASSIFIED.
+    IF LK-LENGTH = 0
+        CALL "PLB-SRC-CLASSIFY-FREE" USING LK-LINE LK-LENGTH
+            LK-QUOTE-IN PLB-CLASSIFIED
+        GOBACK
+    END-IF
+    EVALUATE TRUE
+        WHEN LK-LINE(1:1) = "*"
+            PERFORM COMMENT-LINE
+            MOVE "*" TO CL-KIND CL-INDICATOR
+        WHEN LK-LINE(1:1) = "/" AND LK-STYLE = "O"
+            PERFORM COMMENT-LINE
+            MOVE "/" TO CL-KIND CL-INDICATOR
+        WHEN LK-STYLE = "O" AND (LK-LINE(1:1) = "D" OR "d")
+             AND (LK-LENGTH = 1 OR LK-LINE(2:1) = SPACE)
+            MOVE LK-LINE TO WS-COPY
+            MOVE SPACE TO WS-COPY(1:1)
+            PERFORM DEBUGGING-LINE
+        WHEN LK-STYLE = "T" AND LK-LENGTH >= 2
+             AND LK-LINE(1:1) = "\" AND (LK-LINE(2:1) = "D" OR "d")
+            MOVE LK-LINE TO WS-COPY
+            MOVE SPACES TO WS-COPY(1:2)
+            PERFORM DEBUGGING-LINE
+        WHEN LK-STYLE = "T" AND LK-LINE(1:1) = "-"
+            PERFORM CONTINUATION-LINE
+        WHEN OTHER
+            CALL "PLB-SRC-CLASSIFY-FREE" USING LK-LINE LK-LENGTH
+                LK-QUOTE-IN PLB-CLASSIFIED
+    END-EVALUATE
+    GOBACK.
+
+COMMENT-LINE.
+    MOVE SPACE TO CL-OPEN-QUOTE CL-PROBLEM
+    MOVE "N" TO CL-AREA-A
+    MOVE 0 TO CL-CONTENT-COL CL-CONTENT-LEN
+    MOVE 1 TO CL-COMMENT-COL.
+
+*> A continuation line, as fixed format reads one: the line is put
+*> after six blanks, so that its - is in column 7, and the columns
+*> found are moved back.
+CONTINUATION-LINE.
+    MOVE SPACES TO WS-COPY
+    IF LK-LENGTH > 1000
+        MOVE 1000 TO WS-LENGTH
+    ELSE
+        MOVE LK-LENGTH TO WS-LENGTH
+    END-IF
+    MOVE LK-LINE(1:WS-LENGTH) TO WS-COPY(7:WS-LENGTH)
+    COMPUTE WS-MARGIN = WS-LENGTH + 6
+    COMPUTE WS-LENGTH = WS-LENGTH + 6
+    CALL "PLB-SRC-CLASSIFY-COLUMNS" USING WS-COPY WS-LENGTH LK-QUOTE-IN
+        WS-MARGIN PLB-CLASSIFIED
+    IF CL-CONTENT-COL > 6
+        SUBTRACT 6 FROM CL-CONTENT-COL
+    END-IF
+    IF CL-COMMENT-COL > 6
+        SUBTRACT 6 FROM CL-COMMENT-COL
+    END-IF.
+
+DEBUGGING-LINE.
+    CALL "PLB-SRC-CLASSIFY-FREE" USING WS-COPY LK-LENGTH LK-QUOTE-IN
+        PLB-CLASSIFIED
+    IF CL-KIND = "C"
+        MOVE "D" TO CL-KIND
+    END-IF
+    MOVE "D" TO CL-INDICATOR.
+END PROGRAM PLB-SRC-CLASSIFY-INDICATED.
+
 *> PLB-SRC-DIRECTIVE-FORMAT: decide whether directive TEXT switches
 *> the reference format. FORMAT receives:
-*>   "X" fixed, "F" free, "V" variable, space if TEXT is not a
-*>   format directive,
+*>   "X" fixed, "F" free, "V" variable, "O" X/Open free form, "T"
+*>   ACU terminal, space if TEXT is not a format directive,
 *>   "?" a format directive naming a format Plumbline does not read.
 *> Recognized forms (case-insensitive):
-*>   >>SOURCE [FORMAT] [IS] FIXED|FREE|VARIABLE
+*>   >>SOURCE [FORMAT] [IS] FIXED|FREE|VARIABLE|XOPEN|TERMINAL
 *>   $SET SOURCEFORMAT"FIXED"   $SET SOURCEFORMAT(FREE)   and similar
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-SRC-DIRECTIVE-FORMAT.
@@ -407,6 +532,10 @@ DECODE-FORMAT.
             MOVE "F" TO LK-FORMAT
         WHEN "VARIABLE"
             MOVE "V" TO LK-FORMAT
+        WHEN "XOPEN"
+            MOVE "O" TO LK-FORMAT
+        WHEN "TERMINAL"
+            MOVE "T" TO LK-FORMAT
         WHEN OTHER
             MOVE "?" TO LK-FORMAT
     END-EVALUATE.
