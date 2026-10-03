@@ -124,6 +124,13 @@ class LanguageServerTest(unittest.TestCase):
         start = unreachable[0]["range"]["start"]["character"]
         end = unreachable[0]["range"]["end"]["character"]
         self.assertEqual(end - start, len("AFTER-RANGE"))
+        # The code links to the rule's section of the reference, and
+        # code that never runs is tagged unnecessary.
+        self.assertTrue(unreachable[0]["codeDescription"]["href"].endswith(
+            "/docs/rules.md#plb-c001-unreachable-code"))
+        self.assertEqual(unreachable[0]["tags"], [1])
+        go_to = [d for d in params["diagnostics"] if d["code"] == "PLB-M001"]
+        self.assertNotIn("tags", go_to[0])
 
     def test_diagnostics_follow_changes(self):
         changed = self.text.replace("GO TO ABEND", "PERFORM ABEND")

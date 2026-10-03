@@ -199,6 +199,9 @@ uses [Semantic Versioning](https://semver.org/).
   call graph also keeps each program's first `EXIT PROGRAM`.
 - Rule PLB-J007 dataset-created-twice. `dump jcl` is unchanged; the
   JCL reader now keeps the normal disposition of each DD as well.
+- Language server: a finding's code links to its rule's section of the
+  reference (`codeDescription`), and unreachable code, unused data
+  items, and unused copybooks are tagged unnecessary, `ALTER` deprecated.
 - `check --report junit`: a JUnit XML test report, one failing test
   case per finding and one passing case per clean file.
 - `make fuzz` (`tools/fuzz.py`): `plumbline check` on damaged copies of
