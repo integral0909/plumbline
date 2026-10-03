@@ -351,7 +351,12 @@ class LanguageServerTest(unittest.TestCase):
                 f.write("       IDENTIFICATION DIVISION.\n"
                         "      * PROGRAM-ID. OLDNAME in a comment.\n"
                         "       PROGRAM-ID. CUSTLOOK.\n"
-                        "       PROCEDURE DIVISION.\n"
+                        "       DATA DIVISION.\n"
+                        "       LINKAGE SECTION.\n"
+                        "       01  LK-ID     PIC X(8).\n"
+                        "       01  LK-NAME   PIC X(30).\n"
+                        "       PROCEDURE DIVISION USING LK-ID\n"
+                        "               LK-NAME.     *> both\n"
                         "           GOBACK.\n")
             program = os.path.join(directory, "billing.cob")
             text = ("IDENTIFICATION DIVISION.\nPROGRAM-ID. BILLING.\n"
@@ -389,6 +394,18 @@ class LanguageServerTest(unittest.TestCase):
             self.assertEqual(reply["result"]["range"]["start"],
                              {"line": 1, "character": 13})
             reply = self.server.request("textDocument/definition", {
+                "textDocument": {"uri": uri},
+                "position": {"line": 5, "character": 11}})
+            self.assertIsNone(reply["result"])
+            # Hover: where the program is and what it takes.
+            reply = self.server.request("textDocument/hover", {
+                "textDocument": {"uri": uri},
+                "position": {"line": 3, "character": 11}})
+            value = reply["result"]["contents"]["value"]
+            self.assertIn("PROGRAM-ID. CUSTLOOK.\n"
+                          "PROCEDURE DIVISION USING LK-ID LK-NAME.", value)
+            self.assertIn(", line 3.", value)
+            reply = self.server.request("textDocument/hover", {
                 "textDocument": {"uri": uri},
                 "position": {"line": 5, "character": 11}})
             self.assertIsNone(reply["result"])
