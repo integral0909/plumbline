@@ -79,6 +79,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
+| [PLB-K004](#plb-k004-commarea-length-too-long) | commarea-length-too-long | warning | CICS command passes more bytes than its COMMAREA item has |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -1746,6 +1747,29 @@ always has one, and is not checked. Any mention of `EIBCALEN` in the
 program counts as the test, and the program's first use of the
 COMMAREA or an item in it is reported. The text of nested programs is
 their own.
+
+## PLB-K004 commarea-length-too-long
+
+An `EXEC CICS RETURN`, `XCTL`, `LINK`, or `START` whose `LENGTH` is more
+than its `COMMAREA` (or `FROM`) item:
+
+```cobol
+    EXEC CICS XCTL PROGRAM('ACCTUPD')
+        COMMAREA(WS-COMMAREA)               *> reported
+        LENGTH(LENGTH OF WS-OLD-COMMAREA)
+    END-EXEC
+```
+
+CICS copies `LENGTH` bytes from the item's address, so the bytes after
+it, whatever items they belong to, become the end of the next
+program's COMMAREA; past the end of working storage, the task can
+abend. It usually happens when the COMMAREA layout shrinks and a
+`LENGTH OF` still names the old item. Leaving `LENGTH` out lets CICS
+take the item's own length.
+
+A `LENGTH` that is a literal or `LENGTH OF` an item is checked; one in
+a data item, items of variable size, and reference modification are
+not.
 ## PLB-M001 go-to
 
 Every `GO TO` statement, reported as a note. `GO TO` makes the flow of

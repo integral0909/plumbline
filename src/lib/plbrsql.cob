@@ -7,6 +7,7 @@
 *>   PLB-M014  sql-select-star
 *>   PLB-Q005  into-count-mismatch (PLB-RULE-Q005, below)
 *>   PLB-K003  commarea-without-length (PLB-RULE-K003, below)
+*>   PLB-K004  commarea-length-too-long (PLB-RULE-K004, below)
 *>
 *> "Checked" means that a statement after the command, in the same
 *> paragraph and before the next command of the same kind, names the
@@ -1309,3 +1310,176 @@ REPORT-USE.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE RF-TOKEN(LS-R) LS-MESSAGE.
 END PROGRAM PLB-RULE-K003.
+
+*> PLB-K004 commarea-length-too-long: an EXEC CICS RETURN, XCTL, LINK,
+*> or START whose LENGTH is more than its COMMAREA (or FROM) item:
+*>
+*>     EXEC CICS XCTL PROGRAM('ACCTUPD') COMMAREA(WS-COMMAREA)
+*>         LENGTH(LENGTH OF CARDDEMO-COMMAREA) END-EXEC
+*>
+*> with CARDDEMO-COMMAREA longer than WS-COMMAREA. CICS copies LENGTH
+*> bytes from the item's address: the bytes after it, whatever other
+*> items they belong to, become the end of the next program's
+*> COMMAREA. A LENGTH that is a literal or LENGTH OF an item is
+*> checked; items of variable size and reference modification are not.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-K004.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+*> Reference starting at each token (0: none), for the tokens of the
+*> current file.
+01  WS-TOKEN-REF            PIC 9(9) COMP-5 OCCURS 500000 TIMES.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-END                  PIC 9(9) COMP-5.
+01  LS-R                    PIC 9(9) COMP-5.
+01  LS-AREA                 PIC 9(9) COMP-5.
+01  LS-AREA-TOKEN           PIC 9(9) COMP-5.
+01  LS-LENGTH               PIC 9(9) COMP-5.
+01  LS-LENGTH-OF            PIC 9(9) COMP-5.
+01  LS-TEXT                 PIC X(31).
+01  LS-COMMAND              PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-1                PIC X(12).
+01  LS-NUM-1-LEN            PIC 9(9) COMP-5.
+01  LS-NUM-2                PIC X(12).
+01  LS-NUM-2-LEN            PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbsym.cpy".
+COPY "plbref.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-SYMBOLS PLB-REFS
+        PLB-RULES PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K004" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y" OR RF-COUNT = 0
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        MOVE LS-R TO WS-TOKEN-REF(RF-TOKEN(LS-R))
+    END-PERFORM
+    PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T >= TK-COUNT
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            IF FUNCTION UPPER-CASE(LS-TEXT) = "EXEC"
+                COMPUTE LS-K = LS-T + 1
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+                IF FUNCTION UPPER-CASE(LS-TEXT) = "CICS"
+                    PERFORM CICS-BLOCK
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        MOVE 0 TO WS-TOKEN-REF(RF-TOKEN(LS-R))
+    END-PERFORM
+    GOBACK.
+
+*> The command from LS-T + 2 to END-EXEC (LS-END).
+CICS-BLOCK.
+    COMPUTE LS-END = LS-T + 2
+    PERFORM UNTIL LS-END >= TK-COUNT
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-END LS-TEXT LS-LEN
+        IF FUNCTION UPPER-CASE(LS-TEXT) = "END-EXEC"
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-END
+    END-PERFORM
+    COMPUTE LS-K = LS-T + 2
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-COMMAND LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-COMMAND) TO LS-COMMAND
+    IF LS-COMMAND NOT = "RETURN" AND LS-COMMAND NOT = "XCTL"
+       AND LS-COMMAND NOT = "LINK" AND LS-COMMAND NOT = "START"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-AREA LS-AREA-TOKEN LS-LENGTH
+    PERFORM VARYING LS-K FROM LS-K BY 1 UNTIL LS-K >= LS-END
+        IF TK-IS-WORD(LS-K) AND TK-IS-LPAREN(LS-K + 1)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+            EVALUATE LS-TEXT
+                WHEN "COMMAREA"
+                WHEN "FROM"
+                    PERFORM AREA-OPERAND
+                WHEN "LENGTH"
+                    PERFORM LENGTH-OPERAND
+            END-EVALUATE
+        END-IF
+    END-PERFORM
+    IF LS-AREA > 0 AND LS-LENGTH > SY-SIZE(LS-AREA)
+        PERFORM REPORT-LENGTH
+    END-IF.
+
+*> COMMAREA(name): a data item alone, of fixed size.
+AREA-OPERAND.
+    COMPUTE LS-R = WS-TOKEN-REF(LS-K + 2)
+    IF LS-R = 0 OR NOT TK-IS-RPAREN(LS-K + 3)
+        EXIT PARAGRAPH
+    END-IF
+    IF RF-KIND(LS-R) = "D" AND RF-SYMBOL(LS-R) > 0
+       AND RF-REFMOD(LS-R) = "N"
+        IF SY-VARIABLE(RF-SYMBOL(LS-R)) = "N"
+           AND SY-SIZE(RF-SYMBOL(LS-R)) > 0
+            MOVE RF-SYMBOL(LS-R) TO LS-AREA
+            MOVE RF-TOKEN(LS-R) TO LS-AREA-TOKEN
+        END-IF
+    END-IF.
+
+*> LENGTH(literal) or LENGTH(LENGTH OF name).
+LENGTH-OPERAND.
+    COMPUTE LS-R = LS-K + 2
+    IF TK-IS-NUMBER(LS-R) AND TK-IS-RPAREN(LS-R + 1)
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-R LS-TEXT LS-LEN
+        IF LS-TEXT(1:LS-LEN) IS NUMERIC AND LS-LEN < 10
+            COMPUTE LS-LENGTH = FUNCTION NUMVAL(LS-TEXT(1:LS-LEN))
+        END-IF
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-R LS-TEXT LS-LEN
+    IF FUNCTION UPPER-CASE(LS-TEXT) NOT = "LENGTH"
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-R
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-R LS-TEXT LS-LEN
+    IF FUNCTION UPPER-CASE(LS-TEXT) NOT = "OF"
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-LENGTH-OF = WS-TOKEN-REF(LS-R + 1)
+    IF LS-LENGTH-OF = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF RF-KIND(LS-LENGTH-OF) = "D" AND RF-SYMBOL(LS-LENGTH-OF) > 0
+       AND RF-REFMOD(LS-LENGTH-OF) = "N"
+       AND RF-SUBSCRIPTED(LS-LENGTH-OF) = "N"
+        IF SY-VARIABLE(RF-SYMBOL(LS-LENGTH-OF)) = "N"
+            MOVE SY-SIZE(RF-SYMBOL(LS-LENGTH-OF)) TO LS-LENGTH
+        END-IF
+    END-IF.
+
+REPORT-LENGTH.
+    MOVE LS-LENGTH TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-1 LS-NUM-1-LEN
+    MOVE SY-SIZE(LS-AREA) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-2 LS-NUM-2-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING LS-COMMAND DELIMITED BY SPACE
+           " passes " DELIMITED BY SIZE
+           LS-NUM-1(1:LS-NUM-1-LEN) DELIMITED BY SIZE
+           " bytes from " DELIMITED BY SIZE
+           SY-NAME(LS-AREA) DELIMITED BY SPACE
+           ", which has " DELIMITED BY SIZE
+           LS-NUM-2(1:LS-NUM-2-LEN) DELIMITED BY SIZE
+           ": the rest comes from the storage after it"
+           DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-AREA-TOKEN LS-MESSAGE.
+END PROGRAM PLB-RULE-K004.

@@ -241,6 +241,10 @@ Some findings that were read and are true:
   data sets through CardDemo's jobs use them with the same record
   lengths. With the account record of `CBACT01C` made a
   byte longer, its use through `READACCT` is reported against `INTCALC`'s.
+- **PLB-K004 commarea-length-too-long.** None: most commands leave
+  `LENGTH` out, and the rest give `LENGTH OF` their own COMMAREA item.
+  With that length changed to 20000 in a copy of `COCRDUPC`, whose
+  `WS-COMMAREA` has 2000 bytes, it is reported.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)
