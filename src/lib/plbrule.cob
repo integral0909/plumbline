@@ -388,6 +388,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J008"
         "cond-step-unknown" "W"
         "COND or IF tests a step that does not run before it"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J009"
+        "referback-unresolved" "E"
+        "Backward reference names a step or DD not before it"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

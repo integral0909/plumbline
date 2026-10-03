@@ -83,6 +83,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J006](#plb-j006-lrecl-mismatch) | lrecl-mismatch | error | DD record length differs from the program's records |
 | [PLB-J007](#plb-j007-dataset-created-twice) | dataset-created-twice | error | Data set created and cataloged again without being deleted |
 | [PLB-J008](#plb-j008-cond-step-unknown) | cond-step-unknown | warning | COND or IF tests a step that does not run before it |
+| [PLB-J009](#plb-j009-referback-unresolved) | referback-unresolved | error | Backward reference names a step or DD not before it |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -1860,6 +1861,29 @@ a step name, `EVEN` and `ONLY`, and names with symbols (`&STEP`) are
 left alone. In an `IF`, each `STEP.RC`, `STEP.ABEND`, `STEP.ABENDCC`,
 and `STEP.RUN` is checked against the steps before the `IF`; `RC` and
 `ABEND` alone name no step.
+
+## PLB-J009 referback-unresolved
+
+A backward reference of a DD statement, in `DSN=`, `DCB=`, `VOL=REF=`,
+or `REFDD=`, that names a step which does not run before it, or a DD
+the step does not have:
+
+```jcl
+//EXTRACT  EXEC PGM=ACCTEXT
+//OUT      DD DSN=&&EXTRACT,DISP=(NEW,PASS)
+//SORT     EXEC PGM=SORT
+//SORTIN   DD DSN=*.EXTRCT.OUT,DISP=(OLD,DELETE)       reported
+```
+
+The system cannot resolve the reference, and the job fails with a JCL
+error before any step runs. `*.DD` must name a DD before it in the same
+step, `*.STEP.DD` a DD of an earlier step of the same job (or
+procedure). Through a procedure step (`*.STEP.PROCSTEP.DD`) only the
+step is checked, since procedures are not expanded.
+
+A `DSN=` reference that resolves takes the data set name of the DD it
+names, so the other JCL rules, `dump jcl`, and the data set graphs see
+the data set itself rather than `*.STEP.DD`.
 ## PLB-K001 cics-resource-undefined
 
 An `EXEC CICS` command that names a file, transaction, program, mapset,
