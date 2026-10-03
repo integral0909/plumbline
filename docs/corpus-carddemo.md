@@ -266,6 +266,10 @@ Some findings that were read and are true:
 - **PLB-Q009 update-of-read-only-cursor.** None, and none of the three
   corpora has a positioned `UPDATE` or `DELETE` (`WHERE CURRENT OF`): the
   rule is only tested by its own test.
+- **PLB-Q010 cursor-undeclared.** None: the seven `OPEN`, `FETCH`, and
+  `CLOSE` statements of `COTRTLIC` name its two declared cursors. With
+  one `FETCH` of `C-TR-TYPE-BACKWARD` misspelled in a copy, the rule
+  reports it there.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)

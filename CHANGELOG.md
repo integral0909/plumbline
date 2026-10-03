@@ -205,6 +205,7 @@ uses [Semantic Versioning](https://semver.org/).
   host-variable-too-large, against the DECLARE TABLE of the file.
 - Rule PLB-Q008 null-without-indicator.
 - Rule PLB-Q009 update-of-read-only-cursor.
+- Rule PLB-Q010 cursor-undeclared.
 - `plumbline crud`: which programs create, read, update, and delete
   which DB2 tables, COBOL files, and CICS files, as text, CSV, or JSON;
   `plumbline doc` shows each program's rows, and `graph --kind crud`

@@ -1,0 +1,3 @@
+tests/golden/rules/q010-cursor-undeclared.cob:22:41: error: cursor ORDERCUR is not declared: no EXEC SQL DECLARE ORDERCUR CURSOR in the file [PLB-Q010]
+tests/golden/rules/q010-cursor-undeclared.cob:26:34: error: cursor ORDER-CURS is not declared: no EXEC SQL DECLARE ORDER-CURS CURSOR in the file [PLB-Q010]
+tests/golden/rules/q010-cursor-undeclared.cob:29:24: error: cursor ORDER-CRS is not declared: no EXEC SQL DECLARE ORDER-CRS CURSOR in the file [PLB-Q010]
