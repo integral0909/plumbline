@@ -6,7 +6,7 @@ It reads COBOL source (fixed or free format, with COPY expansion), builds
 control-flow and data-flow models of each program, and reports defects such
 as unreachable paragraphs, PERFORM fall-through, truncating MOVEs, and
 uninitialized fields. Findings can be emitted as text, JSON, SARIF, HTML,
-Markdown, or GitLab's code quality format.
+Markdown, GitLab's code quality format, JUnit XML, or Checkstyle XML.
 
 > **Status:** in development, before a first release. The front end
 > (reader, preprocessor, lexer, parser), the symbol table, the procedure
@@ -26,6 +26,15 @@ make                        # builds build/bin/plumbline
 make test                   # runs all test suites
 make coverage               # COBOL statement coverage (LCOV)
 build/bin/plumbline --help
+```
+
+Or build a container image, which holds Plumbline and the GnuCOBOL
+run-time library but no compiler, and run it on a directory mounted at
+`/work`:
+
+```sh
+docker build -t plumbline .
+docker run --rm -v "$PWD:/work" plumbline check -I copybooks src/*.cbl
 ```
 
 ## Usage

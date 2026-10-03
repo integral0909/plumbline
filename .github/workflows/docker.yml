@@ -1,0 +1,39 @@
+name: Container image
+
+# Builds the image when what goes into it changes, and checks that the
+# plumbline in it runs and analyzes a program.
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - Makefile
+      - .github/workflows/docker.yml
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - .github/workflows/docker.yml
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: Build and run the image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker build -t plumbline .
+      - run: docker run --rm plumbline --version
+      - name: Check a program mounted into the container
+        run: |
+          set +e
+          docker run --rm -v "$PWD/tests/golden/rules:/work:ro" plumbline \
+            check c001-unreachable.cob > findings.txt
+          status=$?
+          set -e
+          cat findings.txt
+          test "$status" -eq 1
+          grep -q 'PLB-C001' findings.txt

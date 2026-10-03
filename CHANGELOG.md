@@ -202,6 +202,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Language server: a finding's code links to its rule's section of the
   reference (`codeDescription`), and unreachable code, unused data
   items, and unused copybooks are tagged unnecessary, `ALTER` deprecated.
+- A `Dockerfile` for a container image with Plumbline and the GnuCOBOL
+  run-time library, built and run by CI when it changes.
 - `check --report checkstyle`: Checkstyle XML, for review tools and CI
   plugins that read it.
 - `check --report junit`: a JUnit XML test report, one failing test
