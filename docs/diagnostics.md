@@ -94,6 +94,12 @@ The code's letters name the stage that reports it.
 | BL002 | error | The file given with `--baseline` is not a Plumbline baseline. |
 | BL003 | error | The baseline has too many lines; the rest are ignored. |
 
+## Diffs (DF)
+
+| Code | Severity | Meaning |
+|------|----------|---------|
+| DF001 | error | The file given with `--diff` cannot be opened. |
+
 ## Findings (FN)
 
 | Code | Severity | Meaning |

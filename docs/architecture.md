@@ -622,8 +622,10 @@ notifications. Paths are percent-encoded as URIs.
 
 Before reporting, comments of the form `plumbline: ignore` mark the
 findings they suppress (`src/lib/plbsupp.cob`). Then a baseline, if one
-is given, marks the findings it lists (`src/lib/plbbase.cob`). Both are
-left out of every report and of the exit code.
+is given, marks the findings it lists (`src/lib/plbbase.cob`), and a
+diff, if one is given, marks those not on the lines it adds
+(`src/lib/plbdiff.cob`, which follows each hunk by its line counts).
+All three are left out of every report and of the exit code.
 
 Settings in `plumbline.conf` are read by `src/lib/plbconf.cob` and
 applied by the command line program through the same code as its

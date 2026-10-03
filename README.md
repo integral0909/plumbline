@@ -68,6 +68,7 @@ $ find src -name '*.cbl' | plumbline check -I copybooks --files-from -
 | `--fail-on error\|warning\|note\|never` | the lowest severity that fails the run |
 | `--report text\|json\|sarif\|html\|md\|codeclimate\|junit\|checkstyle` | output format (default `text`) |
 | `--baseline FILE` | do not report the findings listed in `FILE` |
+| `--diff FILE` | report only the findings on lines the unified diff in `FILE` adds or changes |
 | `--write-baseline FILE` | write the findings to `FILE` instead of reporting them |
 | `--config FILE`, `--no-config` | read settings from `FILE`, or from no file |
 
@@ -513,6 +514,21 @@ editing other parts of a file does not bring old findings back. Fixing
 a finding leaves a line that matches nothing. Write the baseline again
 from time to time so that it shrinks, and give the files to `check`
 with the same paths each time.
+
+A change can also be checked on its own lines: `--diff` takes a unified
+diff, as `git diff` writes it, and reports only the findings on the
+lines it adds or changes, so that a pull request is held to the rules
+without its author answering for the rest of the file:
+
+```console
+$ git diff -U0 origin/main > changes.diff
+$ plumbline check --diff changes.diff src/*.cbl
+```
+
+A file of the diff matches a file of the run when one path is the other,
+or its end after a slash, so a diff taken at the repository's root works
+with files named from there or from above. Input diagnostics are always
+reported.
 
 ## Documentation
 

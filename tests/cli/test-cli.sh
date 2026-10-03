@@ -984,6 +984,19 @@ check "checkstyle report lists a clean file" 0 '<file name="tests/golden/rules/c
     -- check --report checkstyle --disable PLB-C001 --disable go-to $rx/c001-unreachable.cob
 check "checkstyle report maps severities"  1 'severity="info" message="GO TO makes the flow of control hard to follow" source="plumbline.PLB-M001"' \
     -- check --report checkstyle $rx/c001-unreachable.cob
+diff_fx=tests/fixtures/diff/after-range.diff
+check "diff keeps the findings on changed lines" 1 'c001-unreachable.cob:22:1: warning: paragraph AFTER-RANGE is never executed' \
+    -- check --diff $diff_fx $rx/c001-unreachable.cob
+check_absent "diff leaves out the other findings" 'NEVER-CALLED' \
+    -- check --diff $diff_fx $rx/c001-unreachable.cob
+check "diff passes when the changed lines are clean" 0 '' \
+    -- check --diff $diff_fx --disable PLB-C001 $rx/c001-unreachable.cob
+check "diff matches a path by its end"     1 'AFTER-RANGE is never executed' \
+    -- check --diff $diff_fx ./$rx/c001-unreachable.cob
+check "diff that cannot be read"           1 'cannot open diff no-such.diff' \
+    -- check --diff no-such.diff $rx/c001-unreachable.cob
+check "diff needs a file"                  2 '\-\-diff needs a file' \
+    -- check --diff
 # A line added above the findings moves them, but leaves their
 # fingerprints as they were.
 tmp=$(mktemp -d)
