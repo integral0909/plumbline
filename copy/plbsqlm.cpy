@@ -63,7 +63,10 @@
         *> The column, and the token naming it (0 for an expression).
         10  QP-COLUMN           PIC X(31).
         10  QP-COLUMN-TOKEN     PIC 9(9) COMP-5.
-        *> The host variable's name token after its colon (0: none).
+        *> The host variable's name token after its colon (0: none),
+        *> and its indicator variable's (:HV :IND, :HV INDICATOR :IND;
+        *> 0: none).
         10  QP-HOST-TOKEN       PIC 9(9) COMP-5.
+        10  QP-INDICATOR-TOKEN  PIC 9(9) COMP-5.
     *> Entries that did not fit.
     05  QS-DROPPED              PIC 9(9) COMP-5.

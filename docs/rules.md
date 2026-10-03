@@ -108,6 +108,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q005](#plb-q005-into-count-mismatch) | into-count-mismatch | warning | INTO list and select list have different numbers of items |
 | [PLB-Q006](#plb-q006-host-variable-too-small) | host-variable-too-small | warning | FETCH or SELECT INTO a host variable too small for the column |
 | [PLB-Q007](#plb-q007-host-variable-too-large) | host-variable-too-large | warning | INSERT or UPDATE from a host variable the column cannot hold |
+| [PLB-Q008](#plb-q008-null-without-indicator) | null-without-indicator | warning | Column that can be NULL fetched without an indicator variable |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -2255,6 +2256,26 @@ decimal places, which are cut.
 An `INSERT` pairs its column list with its `VALUES`, an `UPDATE` each
 `SET column = :host`; values that are not a host variable alone are
 not compared. As for PLB-Q006, the types come from `DECLARE TABLE`.
+
+## PLB-Q008 null-without-indicator
+
+A `FETCH`, or a `SELECT ... INTO`, that puts a column declared without
+`NOT NULL` into a host variable without an indicator variable:
+
+```cobol
+    EXEC SQL DECLARE BANK.CUSTOMER TABLE
+    ( CUST_ID          INTEGER NOT NULL,
+      PHONE            CHAR(15) ...
+    EXEC SQL SELECT PHONE INTO :WS-PHONE ...     *> reported
+```
+
+A host variable cannot hold NULL; DB2 says a value is NULL through the
+indicator (`:WS-PHONE :WS-PHONE-IND`, or `INDICATOR :WS-PHONE-IND`),
+and without one the statement fails (`SQLCODE -305`) on the first row
+where the column is NULL, which may be long after the program went
+live. The column's nullability comes from the `DECLARE TABLE` of the
+file, as for PLB-Q006; select items that are expressions are not
+checked.
 ## PLB-S001 dynamic-sql
 
 SQL text that the program builds at run time and hands to the database:

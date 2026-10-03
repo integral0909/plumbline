@@ -8,6 +8,10 @@
 *>   PLB-Q007  host-variable-too-large   an INSERT or UPDATE gives a
 *>                                       column a host variable that
 *>                                       holds values it cannot take
+*>   PLB-Q008  null-without-indicator    a FETCH or SELECT INTO puts a
+*>                                       column that can be NULL into a
+*>                                       host variable without an
+*>                                       indicator variable
 *>
 *> The pairs of a column and a host variable come from the SQL model
 *> (plbsqlu); the column's type from the DECLARE TABLE statements of the
@@ -40,6 +44,7 @@ COPY "plbsqlm.cpy".
 LOCAL-STORAGE SECTION.
 01  LS-RULE-SMALL           PIC 9(4) COMP-5.
 01  LS-RULE-LARGE           PIC 9(4) COMP-5.
+01  LS-RULE-NULL            PIC 9(4) COMP-5.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-S                    PIC 9(9) COMP-5.
 01  LS-P                    PIC 9(9) COMP-5.
@@ -78,8 +83,10 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-SYMBOLS PLB-REFS
         PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q006" LS-RULE-SMALL
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q007" LS-RULE-LARGE
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q008" LS-RULE-NULL
     IF RL-ENABLED(LS-RULE-SMALL) NOT = "Y"
        AND RL-ENABLED(LS-RULE-LARGE) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-NULL) NOT = "Y"
         GOBACK
     END-IF
     CALL "PLB-SQL-MODEL-BUILD" USING PLB-SOURCE-SET PLB-TOKENS
@@ -110,7 +117,8 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-SYMBOLS PLB-REFS
     GOBACK.
 
 CHECK-STATEMENT.
-    IF RL-ENABLED(LS-RULE) NOT = "Y"
+    IF RL-ENABLED(LS-RULE) NOT = "Y" AND (LS-INTO = "N"
+       OR RL-ENABLED(LS-RULE-NULL) NOT = "Y")
         EXIT PARAGRAPH
     END-IF
     PERFORM VARYING LS-P FROM QS-PAIR-FIRST(LS-S) BY 1
@@ -134,6 +142,12 @@ CHECK-PAIR.
         EXIT PARAGRAPH
     END-IF
     MOVE RF-SYMBOL(LS-R) TO LS-HOST
+    IF LS-INTO = "Y" AND RL-ENABLED(LS-RULE-NULL) = "Y"
+        PERFORM CHECK-NULL
+    END-IF
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
     PERFORM COLUMN-NEEDS
     EVALUATE LS-KIND
         WHEN "C"
@@ -370,6 +384,25 @@ COMPARE-DIGITS.
             PERFORM REPORT-PAIR
         END-IF
     END-IF.
+
+*> PLB-Q008: a column without NOT NULL into a host variable without an
+*> indicator. When the column is NULL, DB2 cannot say so, and the
+*> statement fails (SQLCODE -305).
+CHECK-NULL.
+    IF QL-NULLS(LS-C) = "N" OR QP-INDICATOR-TOKEN(LS-P) > 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    STRING "column " DELIMITED BY SIZE
+           QL-NAME(LS-C) DELIMITED BY SPACE
+           " can be NULL, but " DELIMITED BY SIZE
+           SY-NAME(LS-HOST) DELIMITED BY SPACE
+           " has no indicator variable: a NULL makes the statement"
+           " fail (SQLCODE -305)" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-NULL QP-HOST-TOKEN(LS-P) LS-MESSAGE.
 
 *> "column NAME is TYPE(n[,s])", at LS-PTR.
 START-MESSAGE.

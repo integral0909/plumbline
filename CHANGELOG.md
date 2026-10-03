@@ -202,6 +202,7 @@ uses [Semantic Versioning](https://semver.org/).
   stored.
 - Rules PLB-Q006 host-variable-too-small and PLB-Q007
   host-variable-too-large, against the DECLARE TABLE of the file.
+- Rule PLB-Q008 null-without-indicator.
 - `dump sql`: the tables a file declares, its cursors, and the pairs of
   a column and a host variable of its SELECT, FETCH, INSERT, and UPDATE
   statements.
