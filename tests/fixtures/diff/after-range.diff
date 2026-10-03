@@ -1,0 +1,16 @@
+diff --git a/tests/golden/rules/c001-unreachable.cob b/tests/golden/rules/c001-unreachable.cob
+index 1111111..2222222 100644
+--- a/tests/golden/rules/c001-unreachable.cob
++++ b/tests/golden/rules/c001-unreachable.cob
+@@ -20,4 +20,4 @@ STEP-2.
+ STEP-EXIT.
+     EXIT.
+-AFTER-RANGE-OLD.
++AFTER-RANGE.
+     DISPLAY "ONLY REACHED IF SOMETHING FALLS OR JUMPS HERE".
+diff --git a/tests/golden/rules/other.cob b/tests/golden/rules/other.cob
+--- a/tests/golden/rules/other.cob
++++ b/tests/golden/rules/other.cob
+@@ -1 +1,2 @@
++++ a line that starts like a file header
+ IDENTIFICATION DIVISION.

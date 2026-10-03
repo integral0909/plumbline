@@ -6,7 +6,7 @@
 *>                   [--enable RULE]... [--disable RULE]...
 *>                   [--fail-on error|warning|note|never]
 *>                   [--report text|json|sarif|html|md]
-*>                   [--baseline FILE | --write-baseline FILE] FILE...
+*>                   [--baseline FILE | --write-baseline FILE] [--diff FILE] FILE...
 *>
 *> Every command first reads the settings in plumbline.conf in the
 *> current directory, if there is one, or in the file given with
@@ -186,6 +186,9 @@ COPY "plbinput.cpy".
 01  WS-BASELINE             PIC X(512) VALUE SPACES.
 01  WS-WRITE-BASELINE       PIC X(512) VALUE SPACES.
 01  WS-BASELINE-COUNT       PIC 9(9) COMP-5.
+*> check --diff FILE: report only the findings on the lines it adds.
+01  WS-DIFF                 PIC X(512) VALUE SPACES.
+01  WS-DIFF-COUNT           PIC 9(9) COMP-5.
 01  WS-COMMAND              PIC X(12).
 01  WS-FIRST                PIC X.
 01  WS-GRAPH-KIND           PIC X(10) VALUE "performs".
@@ -544,6 +547,8 @@ SHOW-USAGE.
     DISPLAY "                   metrics: text, json, or csv; for"
     DISPLAY "                   graph: dot (default) or json"
     DISPLAY "  --baseline FILE  do not report the findings listed in FILE"
+    DISPLAY "  --diff FILE      report only the findings on lines the"
+    DISPLAY "                   unified diff in FILE adds or changes"
     DISPLAY "  --write-baseline FILE"
     DISPLAY "                   write the findings to FILE instead of"
     DISPLAY "                   reporting them".
@@ -637,6 +642,10 @@ CHECK-COMMAND.
     IF WS-BASELINE NOT = SPACES
         CALL "PLB-BASELINE-APPLY" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
             PLB-RULES PLB-FINDINGS WS-BASELINE WS-BASELINE-COUNT
+    END-IF
+    IF WS-DIFF NOT = SPACES
+        CALL "PLB-DIFF-APPLY" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
+            PLB-FINDINGS WS-DIFF WS-DIFF-COUNT
     END-IF
     EVALUATE WS-REPORT
         WHEN "json"
@@ -5360,6 +5369,14 @@ PARSE-INPUT-ARGS.
                     PERFORM SUGGEST-HELP
                 ELSE
                     MOVE WS-ARG TO WS-BASELINE
+                END-IF
+            WHEN WS-ARG = "--diff"
+                PERFORM NEXT-ARG
+                IF WS-ARG-LEN = 0
+                    DISPLAY PLB-NAME ": --diff needs a file" UPON SYSERR
+                    PERFORM SUGGEST-HELP
+                ELSE
+                    MOVE WS-ARG TO WS-DIFF
                 END-IF
             WHEN WS-ARG = "--write-baseline"
                 PERFORM NEXT-ARG
