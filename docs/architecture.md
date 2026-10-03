@@ -437,6 +437,19 @@ they are written. Nothing is kept from one file to the next except
 whether a program has been written, which the caller holds so that
 programs are separated in text and in JSON.
 
+### Duplicate code
+
+`src/lib/plbdup.cob`, with its table in `copy/plbdupt.cpy`.
+
+`plumbline duplicates` reads each program once. After a file is
+analyzed, `PLB-DUP-COLLECT` hashes the body of each paragraph of at
+least the minimum length: each token's kind and characters, words in
+upper case, with a separator after each. Two polynomial hashes modulo
+different primes below 2^31 are kept, with the body's token and
+statement counts, and where the paragraph is. `PLB-DUP-PRINT` sorts
+the run's entries by token count (down) and hashes, so that a group is
+a run of equal entries, and writes each group of two or more.
+
 ### Program documentation
 
 `src/lib/plbdoc.cob`.

@@ -196,6 +196,8 @@ uses [Semantic Versioning](https://semver.org/).
   to its statement, paragraph, section, division, and program.
 - `check --report codeclimate`: Code Climate issues for GitLab's code
   quality reports, with fingerprints that survive moved lines.
+- `plumbline duplicates`: paragraphs with the same code, across the
+  programs of the run, as text or JSON.
 - `plumbline xref`: the cross-reference of each program, its data
   items and procedures with the lines that define and name them, as
   text or JSON.

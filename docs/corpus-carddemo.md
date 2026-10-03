@@ -253,6 +253,19 @@ Some findings that were read and are true:
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)
   is sensitive to, with `PROCOPT=AP`.
 
+## Duplicate code
+
+`plumbline duplicates` over the 44 programs lists 17 groups of
+paragraphs with the same code. The largest group is a paragraph that
+shows a file status, pasted into eight batch programs (`CBACT01C`,
+`CBACT02C`, `CBACT03C`, `CBACT04C`, `CBTRN02C`, and `CBTRN03C` call it
+`9910-DISPLAY-IO-STATUS`; `CBCUS01C` and `CBTRN01C`,
+`Z-DISPLAY-IO-STATUS`). The others are pairs, such as
+`1230-EDIT-ALPHANUM-REQD` in `COACTUPC` and `COTRTUPC`, and
+`3000-GET-REQUEST` in the two MQ programs. A first version also listed
+`YYYY-STORE-PFKEY` seven times: it comes from one copybook, `CSSTRPFY`,
+and paragraphs a COPY brings in are now left out.
+
 ## Program documentation
 
 `plumbline doc` over the base application's 29 programs, with its JCL,
