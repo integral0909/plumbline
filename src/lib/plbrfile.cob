@@ -8,6 +8,7 @@
 *>   PLB-C048  sort-procedure-no-record
 *>   PLB-C050  record-read-at-end
 *>   PLB-C058  read-not-handled
+*>   PLB-C059  key-error-not-handled
 *>
 *> Each program on its own: its files (SELECT), their records (FD),
 *> the declaratives that handle their errors (USE ... ERROR or
@@ -41,6 +42,10 @@ WORKING-STORAGE SECTION.
         10  FL-COVERED      PIC X.
         *> "Y" for an EXTERNAL file: other programs open and close it.
         10  FL-EXTERNAL     PIC X.
+        *> ORGANIZATION: S sequential (also LINE SEQUENTIAL), I indexed,
+        *> R relative; ACCESS MODE: S sequential, R random, D dynamic.
+        10  FL-ORGANIZATION PIC X.
+        10  FL-ACCESS       PIC X.
 01  WS-RECORDS.
     05  WS-RECORD-COUNT     PIC 9(4) COMP-5.
     05  WS-RECORD           OCCURS RC-MAX TIMES.
@@ -67,6 +72,7 @@ COPY "plbnlist.cpy".
 01  LS-RULE-MODE            PIC 9(4) COMP-5.
 01  LS-RULE-NOT-CLOSED      PIC 9(4) COMP-5.
 01  LS-RULE-NOT-HANDLED     PIC 9(4) COMP-5.
+01  LS-RULE-KEY-ERROR       PIC 9(4) COMP-5.
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-DEPTH                PIC S9(9) COMP-5.
@@ -111,6 +117,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C022" LS-RULE-MODE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M008" LS-RULE-NOT-CLOSED
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C058" LS-RULE-NOT-HANDLED
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C059" LS-RULE-KEY-ERROR
     IF AS-COUNT = 0
         GOBACK
     END-IF
@@ -199,10 +206,24 @@ ADD-FILE.
     MOVE "N" TO FL-INPUT(LS-F) FL-OUTPUT(LS-F) FL-I-O(LS-F)
         FL-EXTEND(LS-F) FL-CLOSED(LS-F) FL-COVERED(LS-F)
         FL-EXTERNAL(LS-F)
+    MOVE "S" TO FL-ORGANIZATION(LS-F) FL-ACCESS(LS-F)
     PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-CHILD) BY 1
             UNTIL LS-T >= ND-TOK-LAST(LS-CHILD)
         IF TK-IS-WORD(LS-T)
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            *> ORGANIZATION IS INDEXED, or INDEXED alone; ACCESS MODE IS
+            *> RANDOM. (RECORD KEY, RELATIVE KEY, and STATUS come later
+            *> in the clause than the word they could be taken for.)
+            EVALUATE LS-TEXT
+                WHEN "INDEXED"
+                    MOVE "I" TO FL-ORGANIZATION(LS-F)
+                WHEN "RELATIVE"
+                    PERFORM NOTE-RELATIVE
+                WHEN "RANDOM"
+                    MOVE "R" TO FL-ACCESS(LS-F)
+                WHEN "DYNAMIC"
+                    MOVE "D" TO FL-ACCESS(LS-F)
+            END-EVALUATE
             IF LS-TEXT = "STATUS"
                 COMPUTE LS-K = LS-T + 1
                 CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
@@ -217,6 +238,19 @@ ADD-FILE.
             END-IF
         END-IF
     END-PERFORM.
+
+*> RELATIVE is the organization, unless it starts RELATIVE KEY.
+NOTE-RELATIVE.
+    COMPUTE LS-K = LS-T + 1
+    IF LS-K <= ND-TOK-LAST(LS-CHILD) AND TK-IS-WORD(LS-K)
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+        IF LS-TEXT = "KEY"
+            MOVE "RELATIVE" TO LS-TEXT
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    MOVE "R" TO FL-ORGANIZATION(LS-F)
+    MOVE "RELATIVE" TO LS-TEXT.
 
 *> The 01 records of an FD or SD belong to its file.
 ADD-RECORDS.
@@ -392,9 +426,12 @@ REPORT-FINDINGS.
         IF OP-VERB(LS-I) NOT = "CLOSE"
             PERFORM CHECK-STATUS-TESTED
         END-IF
-        IF OP-VERB(LS-I) = "READ"
-            PERFORM CHECK-READ-HANDLED
-        END-IF
+        EVALUATE OP-VERB(LS-I)
+            WHEN "READ"
+                PERFORM CHECK-READ-HANDLED
+            WHEN "WRITE" WHEN "REWRITE" WHEN "DELETE" WHEN "START"
+                PERFORM CHECK-KEY-HANDLED
+        END-EVALUATE
     END-PERFORM
     PERFORM VARYING LS-F FROM 1 BY 1 UNTIL LS-F > WS-FILE-COUNT
         PERFORM CHECK-CLOSED
@@ -502,6 +539,42 @@ CHECK-READ-HANDLED.
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE-NOT-HANDLED OP-TOKEN(LS-I) LS-MESSAGE.
+
+*> PLB-C059 key-error-not-handled: WRITE, REWRITE, DELETE, or START of
+*> an indexed or relative file with no INVALID KEY phrase, of a file
+*> with no FILE STATUS and no USE declarative. A duplicate key, or a
+*> record that is not there, stops the run with an I/O error (GnuCOBOL:
+*> "record key already exists (status = 22)"). DELETE in sequential
+*> access takes no INVALID KEY and is left alone.
+CHECK-KEY-HANDLED.
+    IF RL-ENABLED(LS-RULE-KEY-ERROR) NOT = "Y"
+       OR FL-STATUS(LS-F) NOT = SPACES OR FL-COVERED(LS-F) = "Y"
+       OR FL-ORGANIZATION(LS-F) = "S"
+        EXIT PARAGRAPH
+    END-IF
+    IF OP-VERB(LS-I) = "DELETE" AND FL-ACCESS(LS-F) = "S"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE ND-FIRST(OP-STMT(LS-I)) TO LS-K
+    PERFORM UNTIL LS-K = 0
+        IF ND-KIND(LS-K) = "BLCK"
+            EVALUATE ND-DETAIL(LS-K)
+                WHEN "INVALID-KEY" WHEN "NOT-INVALID-KEY"
+                    EXIT PARAGRAPH
+            END-EVALUATE
+        END-IF
+        MOVE ND-NEXT(LS-K) TO LS-K
+    END-PERFORM
+    MOVE SPACES TO LS-MESSAGE
+    STRING "nothing handles a key error of this " DELIMITED BY SIZE
+           OP-VERB(LS-I) DELIMITED BY SPACE
+           " on " DELIMITED BY SIZE
+           FL-NAME(LS-F) DELIMITED BY SPACE
+           ": no INVALID KEY, FILE STATUS, or USE declarative, so a"
+           " duplicate or missing key stops the run" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-KEY-ERROR OP-TOKEN(LS-I) LS-MESSAGE.
 
 *> PLB-C020: the FILE STATUS of the file (or a condition name of it)
 *> is not named after the statement, before the next statement on the

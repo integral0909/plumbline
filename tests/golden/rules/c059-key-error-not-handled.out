@@ -1,0 +1,3 @@
+tests/golden/rules/c059-key-error-not-handled.cob:35:11: warning: nothing handles a key error of this WRITE on CUST-FILE: no INVALID KEY, FILE STATUS, or USE declarative, so a duplicate or missing key stops the run [PLB-C059]
+tests/golden/rules/c059-key-error-not-handled.cob:41:11: warning: nothing handles a key error of this START on CUST-FILE: no INVALID KEY, FILE STATUS, or USE declarative, so a duplicate or missing key stops the run [PLB-C059]
+tests/golden/rules/c059-key-error-not-handled.cob:42:12: warning: nothing handles a key error of this DELETE on CUST-FILE: no INVALID KEY, FILE STATUS, or USE declarative, so a duplicate or missing key stops the run [PLB-C059]

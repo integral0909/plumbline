@@ -257,6 +257,10 @@ The findings were checked by rule:
   libcob error"), and is reported there and not for file `f`, which has
   a `FILE STATUS`.
 
+- **PLB-C059 key-error-not-handled.** None in NIST. 42 in 13 of
+  GnuCOBOL's tests of indexed and relative files, which write and
+  rewrite keys they know are free or present.
+
 ## Limits
 
 - **Report Writer** is parsed and its `SOURCE`, `SUM`, and `CONTROL`
