@@ -341,7 +341,8 @@ its cursor), and, forward, an item that `INSERT` or `UPDATE` stores
 names its column (`-> column BALANCE of ACCOUNT`). `EXEC CICS` commands
 are shown the same way: `READ`, `RECEIVE`, `READQ`, and `GET` with
 `INTO` an item name the file, map, queue, or container the value comes
-from (`<- CICS READ of file "ACCTDAT"`), and `WRITE`, `REWRITE`,
+from (`<- CICS READ of file "ACCTDAT"`, or `of file LIT-ACCTFILE
+("ACCTDAT")` for an item with that `VALUE`), and `WRITE`, `REWRITE`,
 `SEND`, `WRITEQ`, and `PUT` with `FROM` it, forward, where it goes. A
 file is where the trail leaves for good. `--report json` gives the tree
 as a list of nodes (items, statements, calls, columns, and CICS

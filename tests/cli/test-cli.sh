@@ -579,7 +579,7 @@ check "lineage writes host variables with their colon" 0 'INTO :WS-ACCT-ID :WS-L
 check "lineage json has column nodes"      0 '"kind": "column", "text": "<- column BALANCE of ACCOUNT", "table": "ACCOUNT", "column": "BALANCE"' \
     -- lineage WS-NEW-BALANCE --report json $sql_lin
 crud_lin="tests/fixtures/crud/acctmnt.cob"
-check "lineage names the file a CICS READ reads" 0 '^    <- CICS READ of file LIT-ACCTFILE$' \
+check "lineage names the file a CICS READ reads" 0 '^    <- CICS READ of file LIT-ACCTFILE ("ACCTDAT")$' \
     -- lineage WS-ACCOUNT-REC $crud_lin
 check "lineage --forward names the file a CICS REWRITE writes" 0 '^    -> CICS REWRITE of file "ACCTDAT"$' \
     -- lineage WS-ACCOUNT-REC --forward $crud_lin

@@ -151,6 +151,8 @@ LOCAL-STORAGE SECTION.
 01  LS-QS                   PIC 9(9) COMP-5.
 01  LS-QP                   PIC 9(9) COMP-5.
 01  LS-QC                   PIC 9(9) COMP-5.
+*> Where the value goes after a CICS resource's name.
+01  LS-RES-PTR              PIC 9(9) COMP-5.
 *> Parentheses open in the statement text being written.
 01  LS-LEVEL                PIC 9(9) COMP-5.
 LINKAGE SECTION.
@@ -958,7 +960,9 @@ CICS-LINKS.
         INTO WS-LINK WITH POINTER WS-LINK-PTR
     PERFORM SHOW-LINK.
 
-*> The resource in the parentheses after token LS-T, as written.
+*> The resource in the parentheses after token LS-T, as written; for
+*> a data item with a literal VALUE, the value after it, as in
+*> LIT-ACCTFILE ("ACCTDAT").
 CICS-RESOURCE.
     MOVE SPACES TO WS-CICS-RESOURCE
     COMPUTE LS-N = LS-T + 2
@@ -969,9 +973,47 @@ CICS-RESOURCE.
     IF TK-IS-ALNUM(LS-N)
         STRING '"' LS-TEXT(1:LS-LEN) '"' DELIMITED BY SIZE
             INTO WS-CICS-RESOURCE
-    ELSE
-        MOVE LS-TEXT(1:LS-LEN) TO WS-CICS-RESOURCE
-    END-IF.
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-TEXT(1:LS-LEN) TO WS-CICS-RESOURCE
+    COMPUTE LS-RES-PTR = LS-LEN + 1
+    PERFORM VARYING LS-Q FROM 1 BY 1 UNTIL LS-Q > RF-COUNT
+        IF RF-TOKEN(LS-Q) = LS-N
+            IF RF-KIND(LS-Q) = "D" AND RF-SYMBOL(LS-Q) > 0
+                PERFORM RESOURCE-VALUE
+            END-IF
+            EXIT PERFORM
+        END-IF
+        IF RF-TOKEN(LS-Q) > LS-N
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+*> The literal of the VALUE clause of the item reference LS-Q names,
+*> after its name.
+RESOURCE-VALUE.
+    IF SY-NODE(RF-SYMBOL(LS-Q)) = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE ND-FIRST(SY-NODE(RF-SYMBOL(LS-Q))) TO LS-UP
+    PERFORM UNTIL LS-UP = 0
+        IF ND-KIND(LS-UP) = "CLAU" AND ND-DETAIL(LS-UP) = "VALUE"
+            PERFORM VARYING LS-N FROM ND-TOK-FIRST(LS-UP) BY 1
+                    UNTIL LS-N > ND-TOK-LAST(LS-UP)
+                IF TK-IS-ALNUM(LS-N)
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-N LS-TEXT
+                        LS-LEN
+                    STRING ' ("' DELIMITED BY SIZE
+                           FUNCTION TRIM(LS-TEXT(1:LS-LEN) TRAILING)
+                           DELIMITED BY SIZE
+                           '")' DELIMITED BY SIZE
+                        INTO WS-CICS-RESOURCE WITH POINTER LS-RES-PTR
+                    EXIT PARAGRAPH
+                END-IF
+            END-PERFORM
+        END-IF
+        MOVE ND-NEXT(LS-UP) TO LS-UP
+    END-PERFORM.
 
 *> The references inside the parentheses after token LS-T: LS-RELATED
 *> = "Y" when one is LS-ITEM or related to it.
