@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Validate a plumbline JSON, SARIF, Code Climate, or JUnit report read
-from standard input.
+"""Validate a plumbline JSON, SARIF, Code Climate, JUnit, or Checkstyle
+report read from standard input.
 
-Usage: check_report.py json|sarif|codeclimate|junit [EXPECTED-FINDINGS]
+Usage: check_report.py json|sarif|codeclimate|junit|checkstyle
+                       [EXPECTED-FINDINGS]
 
-Checks the structure the report promises (see src/lib/plbreport.cob
-and src/lib/plbjunit.cob), not just that it parses. With
-EXPECTED-FINDINGS, the number of findings (JSON), results (SARIF),
-issues (Code Climate), or failing test cases (JUnit) must match. Exits
-1 with a message on the first problem.
+Checks the structure the report promises (see src/lib/plbreport.cob,
+src/lib/plbjunit.cob, and src/lib/plbckst.cob), not just that it
+parses. With EXPECTED-FINDINGS, the number of findings (JSON), results
+(SARIF), issues (Code Climate), failing test cases (JUnit), or errors
+(Checkstyle) must match. Exits 1 with a message on the first problem.
 """
 
 import json
@@ -135,8 +136,29 @@ def check_junit(root):
     return failing
 
 
+def check_checkstyle(root):
+    require(root.tag == "checkstyle", "the root must be checkstyle")
+    names = [f.get("name") for f in root]
+    require(all(f.tag == "file" for f in root), "only file elements")
+    require(all(names), "each file needs a name")
+    require(len(names) == len(set(names)), "each file once")
+    errors = 0
+    for f in root:
+        for e in f:
+            require(e.tag == "error", f"bad element {e.tag}")
+            require(int(e.get("line")) >= 0, "bad line")
+            require(e.get("severity") in {"error", "warning", "info"},
+                    f"bad severity {e.get('severity')}")
+            require(e.get("message"), "error needs a message")
+            require(e.get("source", "").startswith("plumbline."),
+                    "source must be plumbline.CODE")
+            errors += 1
+    return errors
+
+
 CHECKS = {"json": check_json, "sarif": check_sarif,
-          "codeclimate": check_codeclimate, "junit": check_junit}
+          "codeclimate": check_codeclimate, "junit": check_junit,
+          "checkstyle": check_checkstyle}
 
 
 def main(argv):
@@ -144,7 +166,7 @@ def main(argv):
         print(__doc__, file=sys.stderr)
         return 2
     try:
-        if argv[1] == "junit":
+        if argv[1] in ("junit", "checkstyle"):
             doc = ET.fromstring(sys.stdin.buffer.read())
         else:
             doc = json.load(sys.stdin)
