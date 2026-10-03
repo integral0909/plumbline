@@ -283,6 +283,7 @@ Some findings that were read and are true:
   `INVALID KEY` phrase, or its file a `FILE STATUS`.
 - **PLB-C059 key-error-not-handled.** None, for the same reason.
 - **PLB-C060 spaces-into-numeric.** None.
+- **PLB-M020 constant-condition.** None.
 - **PLB-Q008 null-without-indicator.** None: the tables that are fetched
   from declare their columns `NOT NULL`, and the one with nullable
   columns, `AUTHFRDS`, is only inserted into, by `COPAUS2C`.

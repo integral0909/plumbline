@@ -159,6 +159,9 @@ PROCEDURE DIVISION USING PLB-RULES.
         "Comment lines that are COBOL statements"
     *> A cleanup aid rather than a defect: only on request.
     MOVE "N" TO RL-ENABLED(RL-COUNT)
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M020"
+        "constant-condition" "N"
+        "Condition compares two constants"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-Q001"
         "sql-table-undeclared" "N"
         "Embedded SQL uses a table the program does not declare"

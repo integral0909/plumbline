@@ -1,5 +1,6 @@
 *> ---------------------------------------------------------------
-*> plbrcmp: PLB-C056 self-comparison.
+*> plbrcmp: PLB-C056 self-comparison, and PLB-M020 constant-condition
+*> (below).
 *>
 *> A relation condition whose two sides are the same data item, written
 *> the same way:
@@ -262,3 +263,299 @@ REPORT-SELF.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE RF-TOKEN(LS-S) LS-MESSAGE.
 END PROGRAM PLB-RULE-C056.
+
+*> ---------------------------------------------------------------
+*> PLB-M020 constant-condition: a relation condition between two
+*> constants, literals or figurative constants:
+*>
+*>     IF 1 = 1                                     *> always true
+*>         PERFORM 900-TRACE
+*>     END-IF
+*>
+*> Its result is fixed when the program is written: a branch that
+*> always or never runs, usually left from testing or used to switch
+*> code off. When both sides are numbers, or both alphanumeric literals
+*> (compared as COBOL compares them, the shorter padded with spaces),
+*> or both the same figurative constant, the message says which way it
+*> goes. Sides that are part of an arithmetic expression (1 + X > 2)
+*> are not constants.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-M020.
+DATA DIVISION.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-NODE                 PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-U                    PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-LAST                 PIC 9(9) COMP-5.
+01  LS-TEXT                 PIC X(64).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-LEFT                 PIC X(64).
+01  LS-LEFT-LEN             PIC 9(9) COMP-5.
+01  LS-RIGHT                PIC X(64).
+01  LS-RIGHT-LEN            PIC 9(9) COMP-5.
+01  LS-KIND                 PIC X.
+01  LS-LEFT-KIND            PIC X.
+01  LS-RIGHT-KIND           PIC X.
+01  LS-OP                   PIC X(2).
+01  LS-NOT                  PIC X.
+01  LS-VALID                PIC X.
+01  LS-RESULT               PIC X(5).
+01  LS-ORDER                PIC S9 COMP-5.
+01  LS-A                    COMP-2.
+01  LS-B                    COMP-2.
+01  LS-MESSAGE              PIC X(200).
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-P                    PIC 9(9) COMP-5.
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-RULES
+        PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M020" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-NODE FROM 1 BY 1 UNTIL LS-NODE > AS-COUNT
+        IF ND-KIND(LS-NODE) = "COND"
+            PERFORM CHECK-CONDITION
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> Each constant of the condition followed by a relational operator and
+*> another constant.
+CHECK-CONDITION.
+    MOVE ND-TOK-LAST(LS-NODE) TO LS-LAST
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
+            UNTIL LS-T > LS-LAST
+        MOVE LS-T TO LS-K
+        PERFORM CONSTANT-KIND
+        IF LS-KIND NOT = SPACE
+            MOVE LS-T TO LS-K
+            PERFORM ARITHMETIC-BEFORE
+        END-IF
+        IF LS-KIND NOT = SPACE
+            MOVE LS-KIND TO LS-LEFT-KIND
+            MOVE LS-TEXT TO LS-LEFT
+            MOVE LS-LEN TO LS-LEFT-LEN
+            PERFORM READ-OPERATOR
+            IF LS-VALID = "Y"
+                MOVE LS-U TO LS-K
+                PERFORM CONSTANT-KIND
+                IF LS-KIND NOT = SPACE
+                    PERFORM ARITHMETIC-AFTER
+                END-IF
+                IF LS-KIND NOT = SPACE
+                    MOVE LS-KIND TO LS-RIGHT-KIND
+                    MOVE LS-TEXT TO LS-RIGHT
+                    MOVE LS-LEN TO LS-RIGHT-LEN
+                    PERFORM REPORT-CONSTANT
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> LS-KIND for token LS-K: N a number, A an alphanumeric literal, Z
+*> ZERO, S SPACE, H HIGH-VALUE, L LOW-VALUE, Q QUOTE, space otherwise;
+*> LS-TEXT(1:LS-LEN) its text.
+CONSTANT-KIND.
+    MOVE SPACE TO LS-KIND
+    IF LS-K > LS-LAST
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+    EVALUATE TRUE
+        WHEN TK-IS-NUMBER(LS-K)
+            MOVE "N" TO LS-KIND
+        WHEN TK-IS-ALNUM(LS-K) AND TK-PREFIX(LS-K) = SPACES
+            MOVE "A" TO LS-KIND
+        WHEN TK-IS-WORD(LS-K)
+            EVALUATE FUNCTION UPPER-CASE(LS-TEXT)
+                WHEN "ZERO" WHEN "ZEROS" WHEN "ZEROES"
+                    MOVE "Z" TO LS-KIND
+                WHEN "SPACE" WHEN "SPACES"
+                    MOVE "S" TO LS-KIND
+                WHEN "HIGH-VALUE" WHEN "HIGH-VALUES"
+                    MOVE "H" TO LS-KIND
+                WHEN "LOW-VALUE" WHEN "LOW-VALUES"
+                    MOVE "L" TO LS-KIND
+                WHEN "QUOTE" WHEN "QUOTES"
+                    MOVE "Q" TO LS-KIND
+            END-EVALUATE
+    END-EVALUATE.
+
+*> Not a constant after all when an arithmetic operator, or ALL,
+*> comes just before token LS-K.
+ARITHMETIC-BEFORE.
+    IF LS-K <= ND-TOK-FIRST(LS-NODE)
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-P = LS-K - 1
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-P LS-TEXT LS-LEN
+    PERFORM TEST-ARITHMETIC
+    IF FUNCTION UPPER-CASE(LS-TEXT) = "ALL"
+        MOVE SPACE TO LS-KIND
+    END-IF
+    IF LS-KIND NOT = SPACE
+        MOVE LS-K TO LS-U
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-U LS-TEXT LS-LEN
+    END-IF.
+
+ARITHMETIC-AFTER.
+    IF LS-K >= LS-LAST
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-P = LS-K + 1
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-P LS-TEXT LS-LEN
+    PERFORM TEST-ARITHMETIC
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN.
+
+TEST-ARITHMETIC.
+    IF LS-TEXT = "+" OR "-" OR "*" OR "/" OR "**"
+        MOVE SPACE TO LS-KIND
+    END-IF.
+
+*> After the constant at LS-T: [IS] [NOT] and an operator (= < > <= >=
+*> <>, EQUAL [TO], GREATER [THAN] [OR EQUAL [TO]], LESS ...); LS-U the
+*> token after it, LS-VALID = "Y" when there is one.
+READ-OPERATOR.
+    MOVE "N" TO LS-VALID LS-NOT
+    MOVE SPACES TO LS-OP
+    COMPUTE LS-U = LS-T + 1
+    PERFORM WORD-AT
+    IF LS-TEXT = "IS"
+        ADD 1 TO LS-U
+        PERFORM WORD-AT
+    END-IF
+    IF LS-TEXT = "NOT"
+        MOVE "Y" TO LS-NOT
+        ADD 1 TO LS-U
+        PERFORM WORD-AT
+    END-IF
+    EVALUATE LS-TEXT
+        WHEN "=" WHEN "<" WHEN ">" WHEN "<=" WHEN ">=" WHEN "<>"
+            MOVE LS-TEXT TO LS-OP
+            ADD 1 TO LS-U
+        WHEN "EQUAL"
+            MOVE "=" TO LS-OP
+            ADD 1 TO LS-U
+            PERFORM SKIP-TO
+        WHEN "GREATER"
+            MOVE ">" TO LS-OP
+            PERFORM OR-EQUAL
+        WHEN "LESS"
+            MOVE "<" TO LS-OP
+            PERFORM OR-EQUAL
+        WHEN OTHER
+            EXIT PARAGRAPH
+    END-EVALUATE
+    IF LS-U > 0 AND LS-U <= LS-LAST
+        MOVE "Y" TO LS-VALID
+    END-IF.
+
+OR-EQUAL.
+    ADD 1 TO LS-U
+    PERFORM WORD-AT
+    IF LS-TEXT = "THAN"
+        ADD 1 TO LS-U
+        PERFORM WORD-AT
+    END-IF
+    IF LS-TEXT = "OR"
+        ADD 1 TO LS-U
+        PERFORM WORD-AT
+        IF LS-TEXT NOT = "EQUAL"
+            MOVE 0 TO LS-U
+            EXIT PARAGRAPH
+        END-IF
+        MOVE "=" TO LS-OP(2:1)
+        ADD 1 TO LS-U
+        PERFORM SKIP-TO
+    END-IF.
+
+SKIP-TO.
+    PERFORM WORD-AT
+    IF LS-TEXT = "TO"
+        ADD 1 TO LS-U
+    END-IF.
+
+*> LS-TEXT: token LS-U in upper case, or spaces past the condition.
+WORD-AT.
+    MOVE SPACES TO LS-TEXT
+    IF LS-U > LS-LAST
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-U LS-TEXT LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT.
+
+*> The result when it can be told: LS-ORDER -1, 0, or 1 for left
+*> against right, then the operator.
+REPORT-CONSTANT.
+    MOVE SPACES TO LS-RESULT
+    MOVE 2 TO LS-ORDER
+    EVALUATE TRUE
+        WHEN LS-LEFT-KIND = "N" AND LS-RIGHT-KIND = "N"
+            IF FUNCTION TEST-NUMVAL(LS-LEFT(1:LS-LEFT-LEN)) = 0
+               AND FUNCTION TEST-NUMVAL(LS-RIGHT(1:LS-RIGHT-LEN)) = 0
+                COMPUTE LS-A = FUNCTION NUMVAL(LS-LEFT(1:LS-LEFT-LEN))
+                COMPUTE LS-B = FUNCTION NUMVAL(LS-RIGHT(1:LS-RIGHT-LEN))
+                EVALUATE TRUE
+                    WHEN LS-A < LS-B MOVE -1 TO LS-ORDER
+                    WHEN LS-A > LS-B MOVE 1 TO LS-ORDER
+                    WHEN OTHER       MOVE 0 TO LS-ORDER
+                END-EVALUATE
+            END-IF
+        WHEN LS-LEFT-KIND = "A" AND LS-RIGHT-KIND = "A"
+            *> The shorter is padded with spaces, as COBOL compares.
+            EVALUATE TRUE
+                WHEN LS-LEFT < LS-RIGHT MOVE -1 TO LS-ORDER
+                WHEN LS-LEFT > LS-RIGHT MOVE 1 TO LS-ORDER
+                WHEN OTHER              MOVE 0 TO LS-ORDER
+            END-EVALUATE
+        WHEN LS-LEFT-KIND = LS-RIGHT-KIND
+             AND LS-LEFT-KIND NOT = "N" AND LS-LEFT-KIND NOT = "A"
+            MOVE 0 TO LS-ORDER
+    END-EVALUATE
+    IF LS-ORDER NOT = 2
+        MOVE "false" TO LS-RESULT
+        EVALUATE TRUE
+            WHEN LS-OP = "=" AND LS-ORDER = 0
+            WHEN LS-OP = "<" AND LS-ORDER = -1
+            WHEN LS-OP = ">" AND LS-ORDER = 1
+            WHEN LS-OP = "<=" AND LS-ORDER NOT = 1
+            WHEN LS-OP = ">=" AND LS-ORDER NOT = -1
+            WHEN LS-OP = "<>" AND LS-ORDER NOT = 0
+                MOVE "true" TO LS-RESULT
+        END-EVALUATE
+        IF LS-NOT = "Y"
+            IF LS-RESULT = "true"
+                MOVE "false" TO LS-RESULT
+            ELSE
+                MOVE "true" TO LS-RESULT
+            END-IF
+        END-IF
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    STRING "the condition compares two constants" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    IF LS-RESULT NOT = SPACES
+        STRING ": it is always " DELIMITED BY SIZE
+               LS-RESULT DELIMITED BY SPACE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    ELSE
+        STRING ": it does not change" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-T LS-MESSAGE.
+END PROGRAM PLB-RULE-M020.
