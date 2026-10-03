@@ -72,9 +72,9 @@ ADD-LINE.
 
 *> A continuation line is joined to the last line added. If that line
 *> left a literal open, the literal is padded to the line's right
-*> margin, column 72 (250 in VARIABLE format; terminal format has no
-*> margin, and the literal ends where the line does), and the
-*> continuation resumes after its opening quote.
+*> margin, column 72 (250 in VARIABLE format; terminal and COBOLX
+*> formats do not pad, and the literal ends where the line does), and
+*> the continuation resumes after its opening quote.
 ADD-CONTINUATION.
     MOVE SL-LINE-NO(LS-INDEX) TO LS-LINE-NO
     IF LS-PREV-SEG = 0
@@ -94,6 +94,7 @@ ADD-CONTINUATION.
         EVALUATE SL-FORMAT(SG-LINE(LS-PREV-SEG))
             WHEN "V"   MOVE 250 TO LS-MARGIN
             WHEN "T"   MOVE 0 TO LS-MARGIN
+            WHEN "C"   MOVE 0 TO LS-MARGIN
             WHEN OTHER MOVE 72 TO LS-MARGIN
         END-EVALUATE
         COMPUTE LS-PAD = LS-MARGIN - (SG-COL(LS-PREV-SEG)

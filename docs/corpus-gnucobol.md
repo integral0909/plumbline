@@ -33,15 +33,17 @@ compiles with.
 | | First run | Now |
 |---|---:|---:|
 | Programs (in formats Plumbline reads) | 1,025 | 1,035 |
-| Programs with input errors | 44 | 1 |
+| Programs with input errors | 44 | 0 |
 | Programs with names reported as undefined or ambiguous | 136 | 3 |
 
 The first run left out ten programs in reference formats Plumbline did
-not read; all are read now. The two in Micro Focus's VARIABLE format,
-with code past column 72, the four in X/Open free form, and the four in
-ACU terminal format have no findings; the long literals of the latter,
-continued across lines, are joined as GnuCOBOL joins them (to column
-250 in VARIABLE format, to the end of the line in terminal format).
+not read, and one that switched to COBOLX format failed (RD004); all
+are read now. The two in Micro Focus's VARIABLE format, with code past
+column 72, the four in X/Open free form, the four in ACU terminal
+format, and the one in COBOLX have no input errors; their long
+literals, continued across lines, are joined as GnuCOBOL joins them
+(to column 250 in VARIABLE format, to the end of the line in terminal
+and COBOLX format).
 
 What the first run found, each fixed with a test of its own:
 
@@ -80,8 +82,6 @@ What the first run found, each fixed with a test of its own:
 
 What is left:
 
-- **COBOLX format**: one program switches to it with `>>SOURCE FORMAT
-  COBOLX`, which Plumbline does not read (RD004).
 - **`-fintrinsics=all`**: two programs name `PI` and `E` without
   `FUNCTION`, which a compiler option allows; Plumbline sees only the
   source.

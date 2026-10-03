@@ -21,10 +21,11 @@ as a name where a name can stand.
 | Free | yes |
 | Detecting which of the two a file uses | yes |
 | Variable (as fixed, with the text running to column 250) | yes, with `--format variable` or a directive |
-| Switching with `>>SOURCE [FORMAT] [IS] FIXED`/`FREE`/`VARIABLE`/`XOPEN`/`TERMINAL`, `$SET SOURCEFORMAT"..."`, `>>SET SOURCEFORMAT` | yes |
+| Switching with `>>SOURCE [FORMAT] [IS] FIXED`/`FREE`/`VARIABLE`/`XOPEN`/`TERMINAL`/`COBOLX`, `$SET SOURCEFORMAT"..."`, `>>SET SOURCEFORMAT` | yes |
 | X/Open free form (free, with `*`, `/`, and `D` in column 1) | yes, with `--format xopen` or a directive |
 | ACU terminal (free, with `*`, `\D`, and `-` continuations in column 1) | yes, with `--format terminal` or a directive |
-| COBOLX | no (diagnostic RD004) |
+| COBOLX (indicator in column 1, text to column 255) | yes, with `--format cobolx` or a directive |
+| Other formats (GnuCOBOL's `CRT`, `XCARD`) | no (diagnostic RD004) |
 | Tabs | expanded to stops every 8 columns, or `--tab-width N` |
 
 ## Compiler directives
@@ -106,7 +107,7 @@ one spelled the same way.
 
 ## Not supported
 
-- The COBOLX reference format.
+- GnuCOBOL's `CRT` and `XCARD` reference formats.
 - Compiler options that change the language, such as GnuCOBOL's
   `-fintrinsics=all` or IBM's `TRUNC(BIN)`: Plumbline sees only the
   source. Rules whose result would depend on them say so.

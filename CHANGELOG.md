@@ -215,6 +215,8 @@ uses [Semantic Versioning](https://semver.org/).
 - A `Dockerfile` for a container image with Plumbline and the GnuCOBOL
   run-time library, built and run by CI when it changes.
 - docs/ci.md: running Plumbline in CI.
+- The COBOLX reference format (`--format cobolx`, `>>SOURCE FORMAT
+  COBOLX`).
 - X/Open free form and ACU terminal reference formats (`--format xopen`,
   `--format terminal`, or `>>SOURCE FORMAT XOPEN|TERMINAL`), and the
   padding of continued literals to each format's margin.

@@ -55,7 +55,7 @@ skipped=0
 tab=$(printf '\t')
 while IFS="$tab" read -r dir program format dialect title; do
     case $format in
-        fixed|free|variable|xopen|terminal) ;;
+        fixed|free|variable|xopen|terminal|cobolx) ;;
         *) skipped=$((skipped + 1)); continue ;;
     esac
     programs=$((programs + 1))
