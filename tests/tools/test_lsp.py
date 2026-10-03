@@ -565,6 +565,57 @@ class LanguageServerTest(unittest.TestCase):
             "position": {"line": 0, "character": 0}})
         self.assertIsNone(reply["result"])
 
+    def selection_ranges(self, positions):
+        reply = self.server.request("textDocument/selectionRange", {
+            "textDocument": {"uri": URI}, "positions": positions})
+        chains = []
+        for selection in reply["result"]:
+            chain = []
+            while selection:
+                chain.append(selection["range"])
+                selection = selection.get("parent")
+            chains.append(chain)
+        return chains
+
+    def text_of(self, range_):
+        lines = self.text.splitlines()
+        start, end = range_["start"], range_["end"]
+        if start["line"] == end["line"]:
+            return lines[start["line"]][start["character"]:end["character"]]
+        return "\n".join(
+            [lines[start["line"]][start["character"]:]] +
+            lines[start["line"] + 1:end["line"]] +
+            [lines[end["line"]][:end["character"]]])
+
+    def test_selection_grows_from_a_name(self):
+        [chain] = self.selection_ranges(
+            [self.position("IF ERRORS", len("IF ") + 2)])
+        texts = [self.text_of(r) for r in chain]
+        self.assertEqual(texts[0], "ERRORS")
+        # The condition, then the IF statement, then larger units.
+        self.assertTrue(any(t.startswith("IF ERRORS") for t in texts))
+        # Each range holds the one before, and none repeats.
+        for inner, outer in zip(chain, chain[1:]):
+            self.assertNotEqual(inner, outer)
+            self.assertLessEqual(
+                (outer["start"]["line"], outer["start"]["character"]),
+                (inner["start"]["line"], inner["start"]["character"]))
+            self.assertGreaterEqual(
+                (outer["end"]["line"], outer["end"]["character"]),
+                (inner["end"]["line"], inner["end"]["character"]))
+        # The outermost is the whole program.
+        self.assertEqual(chain[-1]["start"]["line"], 1)
+
+    def test_selection_for_each_position(self):
+        chains = self.selection_ranges([
+            self.position("PERFORM INIT", len("PERFORM ")),
+            {"line": 0, "character": 0}])
+        self.assertEqual(len(chains), 2)
+        self.assertEqual(self.text_of(chains[0][0]), "INIT")
+        # Off any token: one empty range at the position.
+        self.assertEqual(chains[1], [{"start": {"line": 0, "character": 0},
+                                      "end": {"line": 0, "character": 1}}])
+
     def test_unknown_request(self):
         reply = self.server.request("textDocument/signatureHelp", {
             "textDocument": {"uri": URI},

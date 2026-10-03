@@ -16,6 +16,7 @@ shows what it reports as you work.
 | Quick fix | For a finding, a comment on the line before that suppresses its rule there (`*> plumbline: ignore unreachable-code`) |
 | Semantic highlighting | Reserved words, data names, paragraph and section names, literals, operators, and pictures, from the analysis; names where they are declared are marked as declarations |
 | Call hierarchy | For a paragraph or section, the paragraphs that PERFORM it or jump to it, and those it performs or jumps to |
+| Expand selection | From a name to its reference, condition, statement, sentence, paragraph, section, division, and program, one step at a time |
 | Folding | Programs, divisions, sections, paragraphs, and statements with a body (`IF`, `EVALUATE`, inline `PERFORM`, ...) |
 | Completion | The names of the data items (also from copybooks), paragraphs, and sections of the file, each with its picture and size or its kind |
 | Inlay hints | After each data description entry, the item's size and its offset in the record ("3 bytes at offset 8") |
