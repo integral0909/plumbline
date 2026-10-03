@@ -330,6 +330,9 @@ uses [Semantic Versioning](https://semver.org/).
   programs that is 100 findings instead of 167.
 - Checking is faster: the NIST suite in one run went from 17.2 to 9.8
   seconds.
+- The rules of embedded SQL and CICS commands run only for files with
+  `EXEC SQL` or `EXEC CICS` statements: the NIST suite, with more rules
+  than before, takes 12.7 seconds instead of 14.9.
 
 ### Fixed
 

@@ -12,7 +12,7 @@ On an Apple M1, with GnuCOBOL 3.2 and the default `make` build
 
 | Input | Lines | `plumbline check` |
 |---|---:|---:|
-| NIST COBOL-85 suite, 459 programs in one run | 345,140 | 12.4 s, 250 MB |
+| NIST COBOL-85 suite, 459 programs in one run | 345,140 | 12.0 s, 276 MB |
 | CardDemo's 29 base programs (without copybooks) with their JCL, maps, and CICS definitions | 19,496 | 1.2 s |
 | Generated program, 2,500 paragraphs (`make bench`) | 25,259 | 0.8 s |
 | Generated program, 5,000 paragraphs | 50,509 | 1.6 s |
@@ -36,6 +36,21 @@ paragraph with all those before it. A program of 80,000 lines took
 13.5 s before and 2.5 s after. Across programs, resolving each `CALL`
 compared it with every program of the run; it now reads only the
 programs of its name, through a hash.
+
+The rules grow in number, and each costs a little on every file.
+Those of embedded SQL and of CICS commands read every token of a file
+for its `EXEC` blocks, so they run only for a file whose procedure
+division has an `EXEC SQL` or `EXEC CICS` statement; on the NIST suite,
+which has none, that took the run from 14.9 to 12.7 seconds, with the
+same findings on all three corpora.
+
+Small programs that every rule calls for each node or token
+(`PLB-AST-NEXT`, `PLB-TOK-IS-WORD`, `PLB-RULE-FIND`, `PLB-STR-LENGTH`,
+...) keep their few items in `WORKING-STORAGE`: GnuCOBOL allocates and
+frees a program's `LOCAL-STORAGE` on every call, which a profile showed
+as a cost of its own. None of them is called while it runs, and none
+needs an item's `VALUE` set again on entry. That took another 7% off
+the NIST run.
 
 ## Limits
 
