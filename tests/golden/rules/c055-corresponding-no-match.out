@@ -1,0 +1,2 @@
+tests/golden/rules/c055-corresponding-no-match.cob:30:5: warning: MOVE CORRESPONDING moves nothing: no item of IN-REC corresponds to an item of OUT-REC [PLB-C055]
+tests/golden/rules/c055-corresponding-no-match.cob:34:5: warning: ADD CORRESPONDING does nothing: no numeric item of PRINT-REC corresponds to a numeric item of TOTALS [PLB-C055]

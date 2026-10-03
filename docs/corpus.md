@@ -234,6 +234,12 @@ The findings were checked by rule:
   while `FAIL-ROUTINE-WRITE THRU FAIL-ROUTINE-EX` shares the exit; jumps
   within another range are now left out, and GnuCOBOL's tests have none.
 
+- **PLB-C055 corresponding-no-match.** Two, of 89 `CORRESPONDING`
+  statements, and both meant: `MOVE CORR B-LEVEL OF A-LEVEL TO B-SET`
+  in `NC209A`, whose comment says "no moves should take place", and
+  GnuCOBOL's test `add-corresponding-no-match`, a `SUBTRACT
+  CORRESPONDING` whose namesakes are not numeric on both sides.
+
 ## Limits
 
 - **Report Writer** is parsed and its `SOURCE`, `SUM`, and `CONTROL`
