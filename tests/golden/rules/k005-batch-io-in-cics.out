@@ -1,0 +1,7 @@
+tests/golden/rules/k005-batch-io-in-cics.cob:18:12: note: WS-TODAY is given a value but never read [PLB-M005]
+tests/golden/rules/k005-batch-io-in-cics.cob:20:5: error: ACCEPT in a CICS program: a CICS task has no SYSIN or console to read; take input from the terminal or the COMMAREA [PLB-K005]
+tests/golden/rules/k005-batch-io-in-cics.cob:20:12: note: WS-USER is given a value but never read [PLB-M005]
+tests/golden/rules/k005-batch-io-in-cics.cob:21:5: error: OPEN of a COBOL file in a CICS program: CICS does not open COBOL files for its tasks; use EXEC CICS file commands [PLB-K005]
+tests/golden/rules/k005-batch-io-in-cics.cob:22:5: error: WRITE of a COBOL file in a CICS program: CICS does not open COBOL files for its tasks; use EXEC CICS file commands [PLB-K005]
+tests/golden/rules/k005-batch-io-in-cics.cob:23:5: error: CLOSE of a COBOL file in a CICS program: CICS does not open COBOL files for its tasks; use EXEC CICS file commands [PLB-K005]
+tests/golden/rules/k005-batch-io-in-cics.cob:33:12: note: WS-LINE is given a value but never read [PLB-M005]

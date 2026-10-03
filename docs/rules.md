@@ -80,6 +80,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
 | [PLB-K004](#plb-k004-commarea-length-too-long) | commarea-length-too-long | warning | CICS command passes more bytes than its COMMAREA item has |
+| [PLB-K005](#plb-k005-batch-io-in-cics) | batch-io-in-cics | error | COBOL file statement or ACCEPT in a CICS program |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -1770,6 +1771,29 @@ take the item's own length.
 A `LENGTH` that is a literal or `LENGTH OF` an item is checked; one in
 a data item, items of variable size, and reference modification are
 not.
+
+## PLB-K005 batch-io-in-cics
+
+A COBOL file statement (`OPEN`, `CLOSE`, `READ`, `WRITE`, `REWRITE`,
+`DELETE`, `START`), or an `ACCEPT` of input, in a program with
+`EXEC CICS` commands:
+
+```cobol
+    OPEN EXTEND AUDIT-FILE                  *> reported
+    WRITE AUDIT-REC                         *> reported
+    EXEC CICS RETURN END-EXEC.
+```
+
+CICS does not open COBOL files for its tasks, and a task has no SYSIN or
+console to accept from: the statement fails or abends the task. A CICS
+program reads and writes files with `EXEC CICS READ`, `WRITE`, and the
+like, writes to a transient data queue instead of a log file, and takes
+its input from the terminal or the COMMAREA. It is usually code moved
+from a batch program. `ACCEPT ... FROM DATE`, `DAY`, `DAY-OF-WEEK`, and
+`TIME` only read the clock, and are fine.
+
+A program counts as a CICS program when its own text has an `EXEC
+CICS` command; programs nested in it are checked on their own.
 ## PLB-M001 go-to
 
 Every `GO TO` statement, reported as a note. `GO TO` makes the flow of

@@ -186,6 +186,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-Q005 into-count-mismatch.
 - Rule PLB-K003 commarea-without-length.
 - Rule PLB-K004 commarea-length-too-long.
+- Rule PLB-K005 batch-io-in-cics.
 - Rule PLB-A002 record-length-conflict.
 - Rule PLB-C053 exit-program-in-main. `dump calls` is unchanged; the
   call graph also keeps each program's first `EXIT PROGRAM`.
