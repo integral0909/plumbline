@@ -372,7 +372,7 @@ PROCEDURE DIVISION USING PLB-RULES.
         "Data set created and cataloged again without being deleted"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J008"
         "cond-step-unknown" "W"
-        "COND tests a step that does not run before this one"
+        "COND or IF tests a step that does not run before it"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

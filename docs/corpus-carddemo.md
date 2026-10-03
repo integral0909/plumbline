@@ -234,7 +234,8 @@ Some findings that were read and are true:
   made to create the data set instead, the step that rebuilds it is
   reported.
 - **PLB-J008 cond-step-unknown.** None: the 17 `COND` tests of the jobs
-  name no step (`COND=(0,NE)`, `COND=(4,LT)`). In a copy of `TRANEXTR`
+  name no step (`COND=(0,NE)`, `COND=(4,LT)`), nor does the one `IF`
+  (`IF RC = 0 THEN` in `BLDCIDB2`). In a copy of `TRANEXTR`
   with step names added, a test of `STEP30` from `STEP20` and one of a
   missing `STEP35` are reported, and one of `STEP40` from `STEP50` is
   not.

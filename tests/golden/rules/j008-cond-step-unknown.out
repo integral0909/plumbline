@@ -1,3 +1,5 @@
 tests/golden/rules/j008-cond-step-unknown.jcl:8:3: warning: COND tests step EXTRCT, which is not a step of job ACCTJOB [PLB-J008]
-tests/golden/rules/j008-cond-step-unknown.jcl:10:3: warning: COND tests step REPORT, which does not run before this one: it has no return code to test yet [PLB-J008]
+tests/golden/rules/j008-cond-step-unknown.jcl:10:3: warning: COND tests step REPORT, which does not run before it: it has no return code to test yet [PLB-J008]
 tests/golden/rules/j008-cond-step-unknown.jcl:16:3: warning: COND tests step EXTRACT, which is not a step of procedure CLEANUP [PLB-J008]
+tests/golden/rules/j008-cond-step-unknown.jcl:24:3: warning: IF tests step EXTRCT, which is not a step of job CHECKS [PLB-J008]
+tests/golden/rules/j008-cond-step-unknown.jcl:24:3: warning: IF tests step LATER, which does not run before it: it has no return code to test yet [PLB-J008]

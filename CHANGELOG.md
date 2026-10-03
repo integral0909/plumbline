@@ -194,8 +194,9 @@ uses [Semantic Versioning](https://semver.org/).
   call graph also keeps each program's first `EXIT PROGRAM`.
 - Rule PLB-J007 dataset-created-twice. `dump jcl` is unchanged; the
   JCL reader now keeps the normal disposition of each DD as well.
-- Rule PLB-J008 cond-step-unknown. The JCL reader keeps each step's
-  `COND` operand.
+- Rule PLB-J008 cond-step-unknown, for `COND` tests and `IF`
+  statements. The JCL reader keeps each step's `COND` operand and the
+  steps each `IF` tests.
 - Language server: selection ranges (expand selection) from a name out
   to its statement, paragraph, section, division, and program.
 - `check --report codeclimate`: Code Climate issues for GitLab's code

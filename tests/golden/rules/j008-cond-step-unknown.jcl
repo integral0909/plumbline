@@ -15,3 +15,15 @@
 //CLEANUP  PROC
 //DELWORK  EXEC PGM=IEFBR14,COND=(0,NE,EXTRACT)
 //         PEND
+//* IF statements: fine, then a misspelled step, then a later one.
+//CHECKS   JOB (ACCT),'CHECKS',CLASS=A
+//EXTRACT  EXEC PGM=IEFBR14
+//IFOK     IF (EXTRACT.RC = 0 AND RC < 8) THEN
+//SORTX    EXEC PGM=IEFBR14
+//         ENDIF
+//IFBAD    IF (EXTRCT.RC > 4 OR
+//            EXTRACT.ABEND OR SORTX.STEP1.RC = 8 OR
+//            LATER.RUN) THEN
+//NOTIFY   EXEC PGM=IEFBR14
+//         ENDIF
+//LATER    EXEC PGM=IEFBR14

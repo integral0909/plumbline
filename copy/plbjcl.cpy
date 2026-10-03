@@ -77,3 +77,14 @@
         10  JD-RECFM            PIC X(4).
         10  JD-FILE-ID          PIC 9(4) COMP-5.
         10  JD-LINE             PIC 9(9) COMP-5.
+    *> The steps that IF statements test (IF STEP.RC > 4 THEN, ...):
+    *> one entry for each name, with the job or procedure the IF is in
+    *> and the number of steps read before it.
+    05  JI-COUNT                PIC 9(9) COMP-5.
+    05  JI-ENTRY                OCCURS JI-MAX TIMES.
+        10  JI-JOB              PIC 9(9) COMP-5.
+        10  JI-PROC             PIC 9(9) COMP-5.
+        10  JI-BEFORE           PIC 9(9) COMP-5.
+        10  JI-STEP             PIC X(8).
+        10  JI-FILE-ID          PIC 9(4) COMP-5.
+        10  JI-LINE             PIC 9(9) COMP-5.

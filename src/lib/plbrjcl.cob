@@ -716,8 +716,8 @@ REPORT-TWICE.
         JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
 END PROGRAM PLB-RULE-J007.
 
-*> PLB-J008 cond-step-unknown: a COND test of an EXEC statement names
-*> a step that is not an earlier step of the same job (or procedure):
+*> PLB-J008 cond-step-unknown: a COND test of an EXEC statement, or an
+*> IF statement, names a step that is not an earlier step of the same job (or procedure):
 *>
 *>     //LOAD     EXEC PGM=ACCTLOAD,COND=(4,LT,EXTRCT)
 *>
@@ -725,7 +725,9 @@ END PROGRAM PLB-RULE-J007.
 *> return code to compare, so the test does not do what was meant: a
 *> step renamed, removed, or moved after its test leaves one behind.
 *> In COND=(code,op,STEP.PROCSTEP) the job step is checked; tests
-*> without a step name, and EVEN and ONLY, are left alone.
+*> without a step name, and EVEN and ONLY, are left alone. The steps
+*> an IF statement tests (IF EXTRACT.RC > 4 THEN) are checked the same
+*> way, against the steps before the IF.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-J008.
 DATA DIVISION.
@@ -745,6 +747,14 @@ LOCAL-STORAGE SECTION.
 01  LS-STEP-NAME            PIC X(8).
 *>   E an earlier step   L a later step (or this one)   N none
 01  LS-WHERE                PIC X.
+*> Where the test is: COND or IF, its job or procedure, its file and
+*> line, and the steps before it (those numbered below LS-LIMIT).
+01  LS-WHAT                 PIC X(4).
+01  LS-SCOPE-JOB            PIC 9(9) COMP-5.
+01  LS-SCOPE-PROC           PIC 9(9) COMP-5.
+01  LS-AT-FILE              PIC 9(4) COMP-5.
+01  LS-AT-LINE              PIC 9(9) COMP-5.
+01  LS-LIMIT                PIC 9(9) COMP-5.
 01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
 01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
 01  LS-MESSAGE              PIC X(200).
@@ -760,8 +770,24 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
         IF JS-COND(LS-S) NOT = SPACES
            AND (JS-JOB(LS-S) > 0 OR JS-PROC(LS-S) > 0)
+            MOVE "COND" TO LS-WHAT
+            MOVE JS-JOB(LS-S) TO LS-SCOPE-JOB
+            MOVE JS-PROC(LS-S) TO LS-SCOPE-PROC
+            MOVE JS-FILE-ID(LS-S) TO LS-AT-FILE
+            MOVE JS-LINE(LS-S) TO LS-AT-LINE
+            MOVE LS-S TO LS-LIMIT
             PERFORM CHECK-COND
         END-IF
+    END-PERFORM
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > JI-COUNT
+        MOVE "IF" TO LS-WHAT
+        MOVE JI-JOB(LS-I) TO LS-SCOPE-JOB
+        MOVE JI-PROC(LS-I) TO LS-SCOPE-PROC
+        MOVE JI-FILE-ID(LS-I) TO LS-AT-FILE
+        MOVE JI-LINE(LS-I) TO LS-AT-LINE
+        COMPUTE LS-LIMIT = JI-BEFORE(LS-I) + 1
+        MOVE JI-STEP(LS-I) TO LS-NAME
+        PERFORM CHECK-NAME
     END-PERFORM
     GOBACK.
 
@@ -816,9 +842,9 @@ CHECK-NAME.
     MOVE "N" TO LS-WHERE
     PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > JS-COUNT
         IF JS-NAME(LS-E) = LS-STEP-NAME
-           AND ((JS-JOB(LS-S) > 0 AND JS-JOB(LS-E) = JS-JOB(LS-S))
-                OR (JS-PROC(LS-S) > 0 AND JS-PROC(LS-E) = JS-PROC(LS-S)))
-            IF LS-E < LS-S
+           AND ((LS-SCOPE-JOB > 0 AND JS-JOB(LS-E) = LS-SCOPE-JOB)
+                OR (LS-SCOPE-PROC > 0 AND JS-PROC(LS-E) = LS-SCOPE-PROC))
+            IF LS-E < LS-LIMIT
                 MOVE "E" TO LS-WHERE
                 EXIT PERFORM
             END-IF
@@ -832,27 +858,30 @@ CHECK-NAME.
 REPORT-UNKNOWN.
     MOVE SPACES TO LS-MESSAGE
     IF LS-WHERE = "L"
-        STRING "COND tests step " DELIMITED BY SIZE
+        STRING LS-WHAT DELIMITED BY SPACE
+               " tests step " DELIMITED BY SIZE
                LS-STEP-NAME DELIMITED BY SPACE
-               ", which does not run before this one: it has no return"
+               ", which does not run before it: it has no return"
                DELIMITED BY SIZE
                " code to test yet" DELIMITED BY SIZE
             INTO LS-MESSAGE
     ELSE
-        IF JS-PROC(LS-S) > 0
-            STRING "COND tests step " DELIMITED BY SIZE
+        IF LS-SCOPE-PROC > 0
+            STRING LS-WHAT DELIMITED BY SPACE
+               " tests step " DELIMITED BY SIZE
                    LS-STEP-NAME DELIMITED BY SPACE
                    ", which is not a step of procedure " DELIMITED BY SIZE
-                   JP-NAME(JS-PROC(LS-S)) DELIMITED BY SPACE
+                   JP-NAME(LS-SCOPE-PROC) DELIMITED BY SPACE
                 INTO LS-MESSAGE
         ELSE
-            STRING "COND tests step " DELIMITED BY SIZE
+            STRING LS-WHAT DELIMITED BY SPACE
+               " tests step " DELIMITED BY SIZE
                    LS-STEP-NAME DELIMITED BY SPACE
                    ", which is not a step of job " DELIMITED BY SIZE
-                   JJ-NAME(JS-JOB(LS-S)) DELIMITED BY SPACE
+                   JJ-NAME(LS-SCOPE-JOB) DELIMITED BY SPACE
                 INTO LS-MESSAGE
         END-IF
     END-IF
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
-        JS-FILE-ID(LS-S) JS-LINE(LS-S) LS-COLUMN LS-ZERO LS-MESSAGE.
+        LS-AT-FILE LS-AT-LINE LS-COLUMN LS-ZERO LS-MESSAGE.
 END PROGRAM PLB-RULE-J008.
