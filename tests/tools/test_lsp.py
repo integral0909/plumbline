@@ -393,6 +393,34 @@ class LanguageServerTest(unittest.TestCase):
                 "position": {"line": 5, "character": 11}})
             self.assertIsNone(reply["result"])
 
+    def test_hover_on_a_table(self):
+        program = os.path.abspath(os.path.join(
+            ROOT, "tests", "fixtures", "lineage", "acctsql.cob"))
+        uri = "file://" + program
+        with open(program) as f:
+            text = f.read()
+        self.server.notify("textDocument/didOpen", {"textDocument": {
+            "uri": uri, "languageId": "cobol", "version": 1, "text": text}})
+        self.server.receive()
+        lines = text.split("\n")
+        # On ACCOUNT in FROM ACCOUNT, and on its DECLARE TABLE.
+        for line_no, line in enumerate(lines):
+            if "FROM ACCOUNT WHERE" in line or "DECLARE ACCOUNT" in line:
+                reply = self.server.request("textDocument/hover", {
+                    "textDocument": {"uri": uri},
+                    "position": {"line": line_no,
+                                 "character": line.index("ACCOUNT") + 2}})
+                value = reply["result"]["contents"]["value"]
+                self.assertIn("Table `ACCOUNT`, 3 columns", value)
+                self.assertIn("| BALANCE | DECIMAL(9,2) | not null |", value)
+        # A word that is not a table: nothing.
+        line_no = next(i for i, l in enumerate(lines) if "FROM ACCOUNT W" in l)
+        reply = self.server.request("textDocument/hover", {
+            "textDocument": {"uri": uri},
+            "position": {"line": line_no,
+                         "character": lines[line_no].index("FROM") + 1}})
+        self.assertIsNone(reply["result"])
+
     def test_document_links_to_copybooks(self):
         with tempfile.TemporaryDirectory() as directory:
             with open(os.path.join(directory, "totals.cpy"), "w") as f:
