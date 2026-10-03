@@ -13,4 +13,11 @@ tests/golden/lexer/continuation.cbl:4:20: period   .
 tests/golden/lexer/continuation.cbl:6:12: word     STOP
 tests/golden/lexer/continuation.cbl:6:17: word     RUN
 tests/golden/lexer/continuation.cbl:6:20: period   .
-tests/golden/lexer/continuation.cbl:6:20: eof
+tests/golden/lexer/continuation.cbl:7:8: number   01
+tests/golden/lexer/continuation.cbl:7:12: word     Q
+tests/golden/lexer/continuation.cbl:7:14: word     PIC
+tests/golden/lexer/continuation.cbl:7:18: picture  X(20)
+tests/golden/lexer/continuation.cbl:7:24: word     VALUE
+tests/golden/lexer/continuation.cbl:7:30: alnum    "SAID XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX""HI"" END"
+tests/golden/lexer/continuation.cbl:8:23: period   .
+tests/golden/lexer/continuation.cbl:8:23: eof

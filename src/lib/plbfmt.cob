@@ -351,6 +351,19 @@ JOIN-CONTINUATIONS.
                 ADD 1 TO LS-POS
                 SUBTRACT 1 FROM LS-LEN
             END-IF
+            *> A doubled quote split by the margin (see plbstream): the
+            *> line before ends with a quote in column 72, and this one
+            *> starts with two; the first only resumes the literal.
+            IF SL-OPEN-QUOTE(LS-J) = SPACE AND LS-LEN > 1
+               AND LS-TEXT-LEN > 0
+               AND SL-CONTENT-COL(LS-J) + SL-CONTENT-LEN(LS-J) - 1 = 72
+               AND (LS-TEXT(LS-TEXT-LEN:1) = '"'
+                    OR LS-TEXT(LS-TEXT-LEN:1) = "'")
+               AND LS-RAW(LS-POS:1) = LS-TEXT(LS-TEXT-LEN:1)
+               AND LS-RAW(LS-POS + 1:1) = LS-TEXT(LS-TEXT-LEN:1)
+                ADD 1 TO LS-POS
+                SUBTRACT 1 FROM LS-LEN
+            END-IF
             IF LS-LEN > 0
                 MOVE LS-RAW(LS-POS:LS-LEN)
                     TO LS-TEXT(LS-TEXT-LEN + 1:LS-LEN)
