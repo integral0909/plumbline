@@ -47,6 +47,7 @@
     05  QS-ENTRY                OCCURS QS-MAX TIMES.
         *>   S SELECT INTO   F FETCH   I INSERT   U UPDATE
         *>   C a cursor's declaration (its pairs have no host variable)
+        *>   D DELETE (no pairs)
         10  QS-KIND             PIC X.
         *> The cursor of C and F.
         10  QS-CURSOR           PIC X(31).

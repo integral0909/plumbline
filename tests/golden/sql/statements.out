@@ -27,3 +27,4 @@ insert tests/golden/sql/statements.cob:39 tables BANK.ACCOUNT
 update tests/golden/sql/statements.cob:42 tables BANK.ACCOUNT
   BALANCE <- :WS-BALANCE
   ACCT_NAME <- :WS-NAME
+delete tests/golden/sql/statements.cob:47 tables BANK.ACCOUNT
