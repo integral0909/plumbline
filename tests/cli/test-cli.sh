@@ -478,6 +478,13 @@ assert items["CUST-ORDERS"]["namedBy"] == 2
 else
     echo "not ok $n - fields json"
 fi
+rl="tests/fixtures/reclen"
+check "programs disagree on a data set's record length" 1 'acctjob.jcl:7:3: warning: PROD.ACCT.EXTRACT has 350-byte records in ACCTRPT but 300-byte ones in ACCTEXT (DD on line 3) \[PLB-A002\]' \
+    -- check $rl/acctext.cob $rl/acctrpt.cob $rl/acctsum.cob $rl/acctjob.jcl
+check_absent "a use that agrees with the first is fine" 'acctjob.jcl:10:.*PLB-A002' \
+    -- check $rl/acctext.cob $rl/acctrpt.cob $rl/acctsum.cob $rl/acctjob.jcl
+check_absent "records of several lengths are not compared" 'HIST.*PLB-A002' \
+    -- check $rl/acctext.cob $rl/acctrpt.cob $rl/acctsum.cob $rl/acctjob.jcl
 ex="tests/fixtures/exitprog"
 check "EXIT PROGRAM in a program a step runs" 1 'rptmain.cob:11:12: warning: EXIT PROGRAM does nothing in RPTMAIN, which step REPORT runs as the main program: execution goes on past it; GOBACK ends the program \[PLB-C053\]' \
     -- check $ex/rptmain.cob $ex/rptcalc.cob $ex/rptjob.jcl

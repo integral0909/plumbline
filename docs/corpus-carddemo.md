@@ -237,6 +237,10 @@ Some findings that were read and are true:
   is in `CSUTLDTC`, a date check other programs call. With the `GOBACK`
   of `CBACT01C`, which job `READACCT` runs, changed to `EXIT PROGRAM`,
   it is reported. NIST and GnuCOBOL's tests come without JCL.
+- **PLB-A002 record-length-conflict.** None: the programs that share
+  data sets through CardDemo's jobs use them with the same record
+  lengths. With the account record of `CBACT01C` made a
+  byte longer, its use through `READACCT` is reported against `INTCALC`'s.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)
