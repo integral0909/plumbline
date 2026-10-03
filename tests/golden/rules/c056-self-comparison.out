@@ -1,0 +1,3 @@
+tests/golden/rules/c056-self-comparison.cob:15:29: warning: WS-OLD-BALANCE is compared with itself: the condition is always false [PLB-C056]
+tests/golden/rules/c056-self-comparison.cob:19:51: warning: WS-NEW-BALANCE is compared with itself: the condition is always true [PLB-C056]
+tests/golden/rules/c056-self-comparison.cob:23:26: warning: WS-ENTRY is compared with itself: the condition is always false [PLB-C056]

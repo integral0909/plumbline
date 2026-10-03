@@ -67,6 +67,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C053](#plb-c053-exit-program-in-main) | exit-program-in-main | warning | EXIT PROGRAM in a program a job step runs does nothing |
 | [PLB-C054](#plb-c054-go-to-into-perform-range) | go-to-into-perform-range | warning | GO TO from outside a PERFORM THRU range into its middle |
 | [PLB-C055](#plb-c055-corresponding-no-match) | corresponding-no-match | warning | MOVE, ADD, or SUBTRACT CORRESPONDING finds no items to pair |
+| [PLB-C056](#plb-c056-self-comparison) | self-comparison | warning | Data item is compared with itself |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1543,6 +1544,28 @@ in an item that has, `REDEFINES` or `OCCURS` below the group. For
 both must be elementary and numeric, so a numeric-edited item does
 not pair. The compiler accepts such a statement without a word; a
 renamed field, or a changed picture, on one side is the usual cause.
+
+## PLB-C056 self-comparison
+
+A relation condition whose two sides are the same data item, written
+the same way:
+
+```cobol
+    IF WS-OLD-BALANCE NOT = WS-OLD-BALANCE           *> reported
+        PERFORM 300-POST-CHANGE
+    END-IF
+```
+
+The condition never changes: it is always true for `=`, `>=`, and
+`<=`, and always false for `<`, `>`, and `NOT =`. A branch then never
+runs, or always does, and a loop never ends or never starts. It is
+most often a line copied from the one above with one name left as it
+was.
+
+The sides must be whole operands (`WS-COUNT + 1 > WS-COUNT` is not
+reported) and the same tokens, subscripts and reference modifiers
+included (`WS-ENTRY (WS-I) = WS-ENTRY (WS-J)` is not reported). The
+`=` of `COMPUTE` stores a value and is not a condition.
 
 ## PLB-I001 pcb-dbd-unknown
 

@@ -268,6 +268,10 @@ Some findings that were read and are true:
   `9200-WRITE-PROCESSING-EXIT`.
 - **PLB-C055 corresponding-no-match.** None: CardDemo has no
   `CORRESPONDING` statement.
+- **PLB-C056 self-comparison.** None. With the credit limit test of
+  `CBTRN02C` (`IF ACCT-CREDIT-LIMIT >= WS-TEMP-BAL`) changed to compare
+  the limit with itself in a copy, the copy's condition is reported as
+  always true.
 - **PLB-Q008 null-without-indicator.** None: the tables that are fetched
   from declare their columns `NOT NULL`, and the one with nullable
   columns, `AUTHFRDS`, is only inserted into, by `COPAUS2C`.

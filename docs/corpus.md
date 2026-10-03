@@ -240,6 +240,8 @@ The findings were checked by rule:
   GnuCOBOL's test `add-corresponding-no-match`, a `SUBTRACT
   CORRESPONDING` whose namesakes are not numeric on both sides.
 
+- **PLB-C056 self-comparison.** None in NIST or GnuCOBOL's tests.
+
 ## Limits
 
 - **Report Writer** is parsed and its `SOURCE`, `SUM`, and `CONTROL`
