@@ -194,6 +194,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C057 misleading-indentation.
 - Rule PLB-C058 read-not-handled.
 - Rule PLB-C059 key-error-not-handled.
+- Rule PLB-C060 spaces-into-numeric.
 - Rule PLB-M018 signed-to-unsigned, off by default.
 - Rule PLB-C053 exit-program-in-main. `dump calls` is unchanged; the
   call graph also keeps each program's first `EXIT PROGRAM`.

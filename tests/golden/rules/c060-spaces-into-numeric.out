@@ -1,0 +1,3 @@
+tests/golden/rules/c060-spaces-into-numeric.cob:26:20: warning: MOVE SPACES to WS-TOTALS puts spaces in its numeric item WS-COUNT, which line 27 reads before anything gives it a value [PLB-C060]
+tests/golden/rules/c060-spaces-into-numeric.cob:31:20: warning: MOVE SPACES to TOTALS-REC puts spaces in its numeric item TR-AMOUNT, which line 33 reads before anything gives it a value [PLB-C060]
+tests/golden/rules/c060-spaces-into-numeric.cob:56:20: warning: MOVE SPACES to WS-PRINT-LINE puts spaces in its numeric item PL-PAGE, which line 57 reads before anything gives it a value [PLB-C060]
