@@ -72,6 +72,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C058](#plb-c058-read-not-handled) | read-not-handled | warning | READ with no AT END, INVALID KEY, FILE STATUS, or declarative |
 | [PLB-C059](#plb-c059-key-error-not-handled) | key-error-not-handled | warning | Keyed WRITE, REWRITE, DELETE, or START with no INVALID KEY |
 | [PLB-C060](#plb-c060-spaces-into-numeric) | spaces-into-numeric | warning | Numeric item read after MOVE SPACES to its group |
+| [PLB-C061](#plb-c061-unchecked-numeric-move) | unchecked-numeric-move | note, off | Alphanumeric item moved to a numeric one without a NUMERIC test |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1671,6 +1672,30 @@ or `CALL`, or a value given to a `RENAMES` item or one under a
 binary item (`WRITE` of the record) counts too, since it copies the bad
 bytes on; a `DISPLAY` item read only with its group, as in a print
 line, shows blanks and is left alone. Branches are not told apart.
+
+## PLB-C061 unchecked-numeric-move
+
+Off by default. A `MOVE` of an alphanumeric item, or of a reference
+modification, to a numeric item, where nothing in the paragraph tests
+the one or the other with the `NUMERIC` class condition:
+
+```cobol
+    ACCEPT IN-RECORD
+    MOVE IN-AMOUNT-X TO WS-AMOUNT                  *> reported
+    ADD WS-AMOUNT TO WS-TOTAL
+```
+
+The characters are copied as they are, so spaces or letters in the
+input make a numeric item that holds no number: arithmetic on it fails
+on z/OS with a data exception (S0C7), or gives a wrong result. Test
+`IN-AMOUNT-X IS NUMERIC` before the move, or `WS-AMOUNT IS NUMERIC`
+after it, anywhere in the paragraph.
+
+Input checked in another paragraph, and data known to be digits (parts
+of `FUNCTION CURRENT-DATE`, keys built from digits), are common, so the
+rule is only run on request (`--enable unchecked-numeric-move`): on
+CardDemo it notes 53 moves, many of fields checked by a validation
+paragraph before.
 
 ## PLB-I001 pcb-dbd-unknown
 

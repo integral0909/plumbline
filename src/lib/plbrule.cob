@@ -313,6 +313,12 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C060"
         "spaces-into-numeric" "W"
         "Numeric item read after MOVE SPACES to its group"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C061"
+        "unchecked-numeric-move" "N"
+        "Alphanumeric item moved to a numeric one without a NUMERIC test"
+    *> Input is often checked in another paragraph, or known to be
+    *> digits: only on request.
+    MOVE "N" TO RL-ENABLED(RL-COUNT)
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-A002"
         "record-length-conflict" "W"
         "Programs sharing a data set disagree on its record length"

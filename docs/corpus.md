@@ -257,6 +257,10 @@ The findings were checked by rule:
   libcob error"), and is reported there and not for file `f`, which has
   a `FILE STATUS`.
 
+- **PLB-C061 unchecked-numeric-move** (off by default). Enabled, 6 in
+  NIST, in tests of moves between categories (`NC104A` moves
+  `MOVE50` to numeric items to see what they hold).
+
 - **PLB-C060 spaces-into-numeric.** One, in GnuCOBOL's test
   `compare-numeric-display-space-with-zero`, which compares numeric
   items holding spaces on purpose. None in NIST, after two changes: a
