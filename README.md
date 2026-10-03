@@ -326,7 +326,8 @@ LK-CUST-NAME  src/custlook.cob:6
 Run `lineage` on the named item to follow it into the other program. A
 file is where the trail leaves for good. `--report json` gives the tree
 as a list of nodes (items, statements, and calls), each with its id and
-its parent's.
+its parent's; a call node gives the side (`caller` or `callee`), the
+other program, the position, and the item there.
 
 ## Duplicate code
 

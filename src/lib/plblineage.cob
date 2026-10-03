@@ -50,6 +50,16 @@ COPY "plbcallc.cpy".
 *> A link to another program, as text.
 01  WS-LINK                 PIC X(512).
 01  WS-LINK-PTR             PIC 9(9) COMP-5.
+*> The same in fields, for JSON: "caller" or "callee", the other
+*> program, the place among its arguments or parameters, the item
+*> there (blank when the program has no parameter there), and, for a
+*> caller, the CALL's file and line.
+01  WS-LINK-SIDE            PIC X(6).
+01  WS-LINK-PROGRAM         PIC X(31).
+01  WS-LINK-POSITION        PIC 9(9) COMP-5.
+01  WS-LINK-NAME            PIC X(31).
+01  WS-LINK-FILE-ID         PIC 9(4) COMP-5.
+01  WS-LINK-LINE            PIC 9(9) COMP-5.
 *> "Y" for an item already expanded.
 01  WS-SEEN                 PIC X OCCURS 100000 TIMES.
 *> The work stack: an item (I) or a statement (S), its depth, and for
@@ -628,6 +638,12 @@ CALLER-LINK.
     STRING LS-NUM-TEXT(1:LS-NUM-LEN) ": " DELIMITED BY SIZE
            CG-TEXT(CC-ARG-FIRST(LS-C) + LS-ARG - 1) DELIMITED BY SPACE
         INTO WS-LINK WITH POINTER WS-LINK-PTR
+    MOVE "caller" TO WS-LINK-SIDE
+    MOVE CP-NAME(CC-FROM(LS-C)) TO WS-LINK-PROGRAM
+    MOVE LS-ARG TO WS-LINK-POSITION
+    MOVE CG-TEXT(CC-ARG-FIRST(LS-C) + LS-ARG - 1) TO WS-LINK-NAME
+    MOVE CC-FILE-ID(LS-C) TO WS-LINK-FILE-ID
+    MOVE CC-LINE(LS-C) TO WS-LINK-LINE
     PERFORM SHOW-LINK.
 
 *> CALL statement LS-STMT passes item LS-ITEM, or a group it is in, or
@@ -662,8 +678,12 @@ CALLEE-ARGUMENT.
     IF LS-ARG = 0
         EXIT PARAGRAPH
     END-IF
-    MOVE SPACES TO WS-LINK
+    MOVE SPACES TO WS-LINK WS-LINK-NAME
     MOVE 1 TO WS-LINK-PTR
+    MOVE "callee" TO WS-LINK-SIDE
+    MOVE CC-SPELLING(LS-C) TO WS-LINK-PROGRAM
+    MOVE LS-ARG TO WS-LINK-POSITION
+    MOVE 0 TO WS-LINK-FILE-ID WS-LINK-LINE
     MOVE LS-ARG TO LS-NUM
     CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
     IF CC-TO(LS-C) = 0
@@ -674,6 +694,7 @@ CALLEE-ARGUMENT.
             INTO WS-LINK WITH POINTER WS-LINK-PTR
     ELSE
         MOVE CP-OWNER(CC-TO(LS-C)) TO LS-P
+        MOVE CP-NAME(LS-P) TO WS-LINK-PROGRAM
         STRING "-> parameter " LS-NUM-TEXT(1:LS-NUM-LEN) " of "
                DELIMITED BY SIZE
                CP-NAME(LS-P) DELIMITED BY SPACE
@@ -683,12 +704,14 @@ CALLEE-ARGUMENT.
                    CA-NAME(CP-PARAM-FIRST(CC-TO(LS-C)) + LS-ARG - 1)
                    DELIMITED BY SPACE
                 INTO WS-LINK WITH POINTER WS-LINK-PTR
+            MOVE CA-NAME(CP-PARAM-FIRST(CC-TO(LS-C)) + LS-ARG - 1)
+                TO WS-LINK-NAME
         END-IF
     END-IF
     PERFORM SHOW-LINK.
 
 *> WS-LINK one level below the current node, as a line or a JSON node
-*> of kind "call".
+*> of kind "call" with its fields.
 SHOW-LINK.
     IF LK-FORMAT = "json"
         MOVE LS-OWN-NODE TO LS-PARENT
@@ -696,6 +719,35 @@ SHOW-LINK.
         STRING '"kind": "call", "text": ' DELIMITED BY SIZE
             INTO WS-LINE WITH POINTER LS-PTR
         CALL "PLB-JSON-STRING" USING WS-LINK WS-LINE LS-PTR
+        STRING ', "side": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        CALL "PLB-JSON-STRING" USING WS-LINK-SIDE WS-LINE LS-PTR
+        STRING ', "program": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        CALL "PLB-JSON-STRING" USING WS-LINK-PROGRAM WS-LINE LS-PTR
+        STRING ', "position": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        MOVE WS-LINK-POSITION TO LS-NUM
+        PERFORM APPEND-NUM
+        STRING ', "name": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        IF WS-LINK-NAME = SPACES
+            STRING "null" DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        ELSE
+            CALL "PLB-JSON-STRING" USING WS-LINK-NAME WS-LINE LS-PTR
+        END-IF
+        IF WS-LINK-LINE > 0
+            CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET
+                WS-LINK-FILE-ID WS-PATH
+            STRING ', "file": ' DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+            CALL "PLB-JSON-STRING" USING WS-PATH WS-LINE LS-PTR
+            STRING ', "line": ' DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+            MOVE WS-LINK-LINE TO LS-NUM
+            PERFORM APPEND-NUM
+        END-IF
         STRING "}" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
         PERFORM END-NODE
     ELSE

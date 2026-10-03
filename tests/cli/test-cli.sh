@@ -559,6 +559,9 @@ by_id = {node["id"]: node for node in nodes}
 calls = [node for node in nodes if node["kind"] == "call"]
 assert len(calls) == 2
 assert [by_id[c["parent"]]["name"] for c in calls] == ["LK-CUST-NAME", "LK-CUST-ID"]
+assert calls[0]["side"] == "caller" and calls[0]["program"] == "BILLING"
+assert calls[0]["position"] == 2 and calls[0]["name"] == "CUST-NAME"
+assert calls[0]["file"].endswith("billing.cob") and calls[0]["line"] == 9
 '; then
     echo "ok $n - lineage json call nodes"
 else
