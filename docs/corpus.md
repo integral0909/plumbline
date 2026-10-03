@@ -261,6 +261,11 @@ The findings were checked by rule:
   NIST, in tests of moves between categories (`NC104A` moves
   `MOVE50` to numeric items to see what they hold).
 
+- **PLB-M020 constant-condition.** None in NIST. 8 in 4 of GnuCOBOL's
+  tests, which compare constants on purpose: of the bit and hex
+  functions, of abbreviated conditions, and of comparisons under the
+  default collating sequence.
+
 - **PLB-C060 spaces-into-numeric.** One, in GnuCOBOL's test
   `compare-numeric-display-space-with-zero`, which compares numeric
   items holding spaces on purpose. None in NIST, after two changes: a

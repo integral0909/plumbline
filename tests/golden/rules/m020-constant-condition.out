@@ -1,0 +1,4 @@
+tests/golden/rules/m020-constant-condition.cob:10:8: note: the condition compares two constants: it is always true [PLB-M020]
+tests/golden/rules/m020-constant-condition.cob:13:8: note: the condition compares two constants: it is always false [PLB-M020]
+tests/golden/rules/m020-constant-condition.cob:16:8: note: the condition compares two constants: it is always false [PLB-M020]
+tests/golden/rules/m020-constant-condition.cob:20:8: note: the condition compares two constants: it does not change [PLB-M020]
