@@ -73,6 +73,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C059](#plb-c059-key-error-not-handled) | key-error-not-handled | warning | Keyed WRITE, REWRITE, DELETE, or START with no INVALID KEY |
 | [PLB-C060](#plb-c060-spaces-into-numeric) | spaces-into-numeric | warning | Numeric item read after MOVE SPACES to its group |
 | [PLB-C061](#plb-c061-unchecked-numeric-move) | unchecked-numeric-move | note, off | Alphanumeric item moved to a numeric one without a NUMERIC test |
+| [PLB-C062](#plb-c062-varying-subscript-out-of-range) | varying-subscript-out-of-range | error | PERFORM VARYING counter used as a subscript goes outside the table |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1698,6 +1699,38 @@ of `FUNCTION CURRENT-DATE`, keys built from digits), are common, so the
 rule is only run on request (`--enable unchecked-numeric-move`): on
 CardDemo it notes 53 moves, many of fields checked by a validation
 paragraph before.
+
+## PLB-C062 varying-subscript-out-of-range
+
+The counter of a `PERFORM VARYING` loop, used as a subscript in the
+loop, takes a value outside the table:
+
+```cobol
+01  LINES-TABLE.
+    05  LINE-ENTRY      PIC X(10) OCCURS 20.
+    ...
+    PERFORM VARYING IX FROM 1 BY 1 UNTIL IX > 25
+        DISPLAY LINE-ENTRY(IX)                     *> reported
+    END-PERFORM
+```
+
+`IX` reaches 25, past the 20 entries; `FROM 0` gives a subscript of 0
+on the first pass. Without subscript checking (the default of most
+compilers), the program reads or overwrites the storage after the table.
+
+The rule works out the counter's values from a `VARYING` or `AFTER`
+phrase written with integers: `FROM` a number, `BY` a positive number
+(or no `BY`), and `UNTIL` the counter `>`, `>=`, or `=` a number (`=`
+with `BY 1` only), with nothing else in the condition. It checks each
+subscript in the loop that is the counter, or the counter plus or minus
+a number, against the `OCCURS` of its dimension. The counter can be a
+data item or an index. The loop is the inline body, or the paragraphs
+from the procedure through its `THRU`.
+
+A loop is left alone when it may not run as written: `WITH TEST AFTER`;
+a statement in the loop changes the counter (PLB-C044 reports that);
+or an `IF`, `EVALUATE`, `PERFORM`, or `SEARCH` in the loop tests the
+counter, other than in a subscript, which may guard the reference.
 
 ## PLB-I001 pcb-dbd-unknown
 
