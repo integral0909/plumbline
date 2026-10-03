@@ -556,6 +556,8 @@ check "crud takes a CICS file from a VALUE" 0 '^ACCTMNT   cics-file  ACCTDAT  *-
     -- crud $crud_fx
 check "crud as CSV"                       0 '^ACCTMNT,table,BANK.AUDIT,Y,N,N,Y$' \
     -- crud --report csv $crud_fx
+check "doc shows the tables and files a program uses" 0 '^| `BANK.AUDIT` | DB2 table | yes |  |  | yes |$' \
+    -- doc $crud_fx
 n=$((n + 1))
 if "$bin" crud --report json $crud_fx | python3 -c '
 import json, sys
