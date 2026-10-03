@@ -578,6 +578,15 @@ check "lineage writes host variables with their colon" 0 'INTO :WS-ACCT-ID :WS-L
     -- lineage WS-LIMIT $sql_lin
 check "lineage json has column nodes"      0 '"kind": "column", "text": "<- column BALANCE of ACCOUNT", "table": "ACCOUNT", "column": "BALANCE"' \
     -- lineage WS-NEW-BALANCE --report json $sql_lin
+crud_lin="tests/fixtures/crud/acctmnt.cob"
+check "lineage names the file a CICS READ reads" 0 '^    <- CICS READ of file LIT-ACCTFILE$' \
+    -- lineage WS-ACCOUNT-REC $crud_lin
+check "lineage --forward names the file a CICS REWRITE writes" 0 '^    -> CICS REWRITE of file "ACCTDAT"$' \
+    -- lineage WS-ACCOUNT-REC --forward $crud_lin
+check "lineage writes literals with their quotes" 0 'EXEC CICS REWRITE FILE ("ACCTDAT") FROM (WS-ACCOUNT-REC) END-EXEC  (line 33)$' \
+    -- lineage WS-ACCOUNT-REC --forward $crud_lin
+check "lineage json has cics nodes"        0 '"kind": "cics", "text": "-> CICS REWRITE of file \\"ACCTDAT\\"", "command": "REWRITE", "resource": "file", "name": "\\"ACCTDAT\\""' \
+    -- lineage WS-ACCOUNT-REC --forward --report json $crud_lin
 check "lineage of an unknown item"         1 'no data item named NOPE in the input' \
     -- lineage NOPE $lin
 check "lineage needs a name"               2 'lineage needs a data item name' \

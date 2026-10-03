@@ -496,7 +496,11 @@ An `EXEC SQL` statement's frame builds the file's SQL model
 statement by its `EXEC` token, and, for each pair whose host variable
 is the item or related to it, shows the column as a leaf: backward for
 `SELECT INTO` and `FETCH` (whose table is that of its cursor's
-declaration), forward for `INSERT` and `UPDATE`.
+declaration), forward for `INSERT` and `UPDATE`. An `EXEC CICS`
+statement's frame reads the command and its options from the tokens:
+the resource (`FILE` or `DATASET`, `MAP`, `QUEUE` or `QNAME`,
+`CONTAINER`) and the references inside `INTO( )` (backward) or
+`FROM( )` (forward).
 
 ### Duplicate code
 
