@@ -300,6 +300,8 @@ COPY "plbinput.cpy".
 01  WS-LSP-SEVERITY         PIC X.
 01  WS-LSP-TEXT-PATH        PIC X(512).
 01  WS-LSP-NAME             PIC X(31).
+*> textDocument/hover: the text of a table's hover.
+01  WS-LSP-HOVER            PIC X(4096).
 01  WS-LSP-PIC              PIC X(64).
 01  WS-LSP-KIND-NUM         PIC 9(4) COMP-5.
 78  LSP-DOC-MAX             VALUE 64.
@@ -3537,8 +3539,11 @@ LSP-HOVER.
         EXIT PARAGRAPH
     END-IF
     IF WS-LSP-SYMBOL = 0
-        STRING "null}" DELIMITED BY SIZE
-            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        PERFORM LSP-HOVER-SQL-TABLE
+        IF WS-FOUND = "N"
+            STRING "null}" DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        END-IF
         PERFORM LSP-SEND-OUT
         EXIT PARAGRAPH
     END-IF
@@ -3632,6 +3637,96 @@ LSP-HOVER-SQL-COLUMN.
             END-IF
         END-PERFORM
     END-PERFORM.
+
+*> A table name in embedded SQL, where a statement uses it or DECLARE
+*> TABLE declares it: the table's columns, from the declaration.
+*>     Table `ACCOUNT`, 3 columns:
+*>     | ACCT_ID | CHAR(8) | not null |
+*> WS-FOUND = "Y" when the hover was written.
+LSP-HOVER-SQL-TABLE.
+    MOVE "N" TO WS-FOUND
+    IF WS-LSP-TOKEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF NOT TK-IS-WORD(WS-LSP-TOKEN)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-SQL-MODEL-BUILD" USING PLB-SOURCE-SET PLB-TOKENS
+        PLB-SQL-MODEL
+    *> Inside an SQL statement of the model, or the declaration itself.
+    MOVE "N" TO WS-LSP-SEEN
+    PERFORM VARYING WS-SQL-S FROM 1 BY 1 UNTIL WS-SQL-S > QS-COUNT
+        IF QS-TOKEN(WS-SQL-S) <= WS-LSP-TOKEN
+           AND QS-END(WS-SQL-S) >= WS-LSP-TOKEN
+            MOVE "Y" TO WS-LSP-SEEN
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-LSP-TOKEN WS-LSP-NAME
+        WS-TOKEN-LEN
+    MOVE FUNCTION UPPER-CASE(WS-LSP-NAME) TO WS-LSP-NAME
+    MOVE 0 TO WS-SQL-C
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > QT-COUNT
+        *> QT-TOKEN is the EXEC of EXEC SQL DECLARE [qualifier.]name.
+        IF QT-SHORT(WS-I) = WS-LSP-NAME
+           AND (WS-LSP-SEEN = "Y"
+                OR (WS-LSP-TOKEN > QT-TOKEN(WS-I)
+                    AND WS-LSP-TOKEN <= QT-TOKEN(WS-I) + 5))
+            MOVE WS-I TO WS-SQL-C
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF WS-SQL-C = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO WS-LSP-HOVER
+    MOVE 1 TO WS-PTR
+    MOVE QT-COL-COUNT(WS-SQL-C) TO WS-NUM
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    STRING "Table `" DELIMITED BY SIZE
+           QT-NAME(WS-SQL-C) DELIMITED BY SPACE
+           "`, " WS-NUM-TEXT(1:WS-NUM-LEN) " columns:\n\n"
+           "| Column | Type | |\n|---|---|---|" DELIMITED BY SIZE
+        INTO WS-LSP-HOVER WITH POINTER WS-PTR
+    PERFORM VARYING WS-J FROM QT-COL-FIRST(WS-SQL-C) BY 1
+            UNTIL WS-J >= QT-COL-FIRST(WS-SQL-C) + QT-COL-COUNT(WS-SQL-C)
+               OR WS-PTR > 3900
+        STRING "\n| " DELIMITED BY SIZE
+               QL-NAME(WS-J) DELIMITED BY SPACE
+               " | " DELIMITED BY SIZE
+               QL-TYPE(WS-J) DELIMITED BY SPACE
+            INTO WS-LSP-HOVER WITH POINTER WS-PTR
+        IF QL-LENGTH(WS-J) > 0
+            MOVE QL-LENGTH(WS-J) TO WS-NUM
+            CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+            STRING "(" WS-NUM-TEXT(1:WS-NUM-LEN) DELIMITED BY SIZE
+                INTO WS-LSP-HOVER WITH POINTER WS-PTR
+            IF QL-SCALE(WS-J) > 0
+                MOVE QL-SCALE(WS-J) TO WS-NUM
+                CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT
+                    WS-NUM-LEN
+                STRING "," WS-NUM-TEXT(1:WS-NUM-LEN) DELIMITED BY SIZE
+                    INTO WS-LSP-HOVER WITH POINTER WS-PTR
+            END-IF
+            STRING ")" DELIMITED BY SIZE
+                INTO WS-LSP-HOVER WITH POINTER WS-PTR
+        END-IF
+        IF QL-NULLS(WS-J) = "N"
+            STRING " | not null |" DELIMITED BY SIZE
+                INTO WS-LSP-HOVER WITH POINTER WS-PTR
+        ELSE
+            STRING " | |" DELIMITED BY SIZE
+                INTO WS-LSP-HOVER WITH POINTER WS-PTR
+        END-IF
+    END-PERFORM
+    STRING '{"contents":{"kind":"markdown","value":"' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    *> Already JSON-safe: names, types, numbers, and \n escapes.
+    COMPUTE WS-LEN = WS-PTR - 1
+    STRING WS-LSP-HOVER(1:WS-LEN) DELIMITED BY SIZE
+           '"}}}' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE "Y" TO WS-FOUND.
 
 LSP-APPEND-SQL-COLUMN.
     STRING "\n\nColumn `" DELIMITED BY SIZE
