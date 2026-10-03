@@ -455,3 +455,91 @@ APPEND-BOOL-D.
         STRING "false" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
     END-IF.
 END PROGRAM PLB-CRUD-PRINT.
+
+*> PLB-CRUD-DOC: the rows of program PROGRAM, for its page of
+*> plumbline doc:
+*>     ## Tables and files
+*>
+*>     | Resource | Kind | Create | Read | Update | Delete |
+*>     |---|---|:-:|:-:|:-:|:-:|
+*>     | `ACCTDAT` | CICS file |  | yes | yes |  |
+*> Nothing when the program uses none.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-CRUD-DOC.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-LINE                 PIC X(1024).
+LOCAL-STORAGE SECTION.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-ROWS                 PIC 9(9) COMP-5.
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-PROGRAM              PIC X(31).
+LINKAGE SECTION.
+COPY "plbcrud.cpy".
+01  LK-PROGRAM              PIC X ANY LENGTH.
+PROCEDURE DIVISION USING PLB-CRUD LK-PROGRAM.
+    MOVE FUNCTION UPPER-CASE(LK-PROGRAM) TO LS-PROGRAM
+    MOVE 0 TO LS-ROWS
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > CX-COUNT
+        IF CX-PROGRAM(LS-E) = LS-PROGRAM
+            IF LS-ROWS = 0
+                DISPLAY "## Tables and files"
+                DISPLAY " "
+                DISPLAY "| Resource | Kind | Create | Read | Update |"
+                    " Delete |"
+                DISPLAY "|---|---|:-:|:-:|:-:|:-:|"
+            END-IF
+            ADD 1 TO LS-ROWS
+            PERFORM WRITE-ROW
+        END-IF
+    END-PERFORM
+    IF LS-ROWS > 0
+        DISPLAY " "
+    END-IF
+    GOBACK.
+
+WRITE-ROW.
+    MOVE SPACES TO WS-LINE
+    MOVE 1 TO LS-PTR
+    STRING "| `" DELIMITED BY SIZE
+           CX-NAME(LS-E) DELIMITED BY SPACE
+           "` | " DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    EVALUATE CX-KIND(LS-E)
+        WHEN "T"
+            STRING "DB2 table" DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        WHEN "F"
+            STRING "file" DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        WHEN OTHER
+            STRING "CICS file" DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+    END-EVALUATE
+    STRING " |" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+    IF CX-CREATE(LS-E) = "Y"
+        STRING " yes |" DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+    ELSE
+        STRING "  |" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+    END-IF
+    IF CX-READ(LS-E) = "Y"
+        STRING " yes |" DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+    ELSE
+        STRING "  |" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+    END-IF
+    IF CX-UPDATE(LS-E) = "Y"
+        STRING " yes |" DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+    ELSE
+        STRING "  |" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+    END-IF
+    IF CX-DELETE(LS-E) = "Y"
+        STRING " yes |" DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+    ELSE
+        STRING "  |" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+    END-IF
+    DISPLAY WS-LINE(1:LS-PTR - 1).
+END PROGRAM PLB-CRUD-DOC.
