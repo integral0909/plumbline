@@ -1,0 +1,885 @@
+*> ---------------------------------------------------------------
+*> plbsqlu: helpers for the embedded SQL rules.
+*> ---------------------------------------------------------------
+
+*> PLB-SQL-COMMA-BETWEEN: COMMA = "Y" when the source text between
+*> tokens FROM and TO holds a comma. Commas separate items of SQL lists
+*> (select lists, INTO lists, column definitions), but to COBOL they
+*> are separators and leave no token, so the text is read: after the
+*> first token on its line, and, when the second is on another line,
+*> before it on its own.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SQL-COMMA-BETWEEN.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-LINE-TEXT            PIC X(4096).
+LOCAL-STORAGE SECTION.
+01  LS-J                    PIC 9(9) COMP-5.
+01  LS-LINE-LEN             PIC 9(9) COMP-5.
+01  LS-SCAN-LINE            PIC 9(9) COMP-5.
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+01  LK-FROM                 PIC 9(9) COMP-5.
+01  LK-TO                   PIC 9(9) COMP-5.
+01  LK-COMMA                PIC X.
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS LK-FROM
+        LK-TO LK-COMMA.
+    PERFORM COMMA-BETWEEN
+    GOBACK.
+
+COMMA-BETWEEN.
+    MOVE "N" TO LK-COMMA
+    IF TK-SRC-LINE(LK-FROM) = 0 OR TK-SRC-LINE(LK-TO) = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE TK-SRC-LINE(LK-FROM) TO LS-SCAN-LINE
+    CALL "PLB-SRC-LINE-TEXT" USING PLB-SOURCE-SET LS-SCAN-LINE
+        WS-LINE-TEXT LS-LINE-LEN
+    COMPUTE LS-J = TK-COLUMN(LK-FROM) + TK-SPAN(LK-FROM)
+    IF TK-SRC-LINE(LK-TO) = LS-SCAN-LINE
+        PERFORM VARYING LS-J FROM LS-J BY 1
+                UNTIL LS-J >= TK-COLUMN(LK-TO) OR LS-J > LS-LINE-LEN
+            IF WS-LINE-TEXT(LS-J:1) = ","
+                MOVE "Y" TO LK-COMMA
+                EXIT PARAGRAPH
+            END-IF
+        END-PERFORM
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-J FROM LS-J BY 1
+            UNTIL LS-J > SL-CONTENT-COL(LS-SCAN-LINE)
+                         + SL-CONTENT-LEN(LS-SCAN-LINE) - 1
+               OR LS-J > LS-LINE-LEN
+        IF WS-LINE-TEXT(LS-J:1) = ","
+            MOVE "Y" TO LK-COMMA
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    MOVE TK-SRC-LINE(LK-TO) TO LS-SCAN-LINE
+    CALL "PLB-SRC-LINE-TEXT" USING PLB-SOURCE-SET LS-SCAN-LINE
+        WS-LINE-TEXT LS-LINE-LEN
+    PERFORM VARYING LS-J FROM SL-CONTENT-COL(LS-SCAN-LINE) BY 1
+            UNTIL LS-J >= TK-COLUMN(LK-TO) OR LS-J > LS-LINE-LEN
+        IF WS-LINE-TEXT(LS-J:1) = ","
+            MOVE "Y" TO LK-COMMA
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM.
+END PROGRAM PLB-SQL-COMMA-BETWEEN.
+
+*> PLB-SQL-MODEL-BUILD: the tables, cursors, and statements of the
+*> file's EXEC SQL blocks (copy/plbsqlm.cpy). Declarations come first,
+*> wherever they are, so that a FETCH finds its cursor.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SQL-MODEL-BUILD.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+*> The items of the list being split: first and last token of each.
+78  WS-ITEM-MAX                 VALUE 1000.
+01  WS-ITEM-COUNT           PIC 9(9) COMP-5.
+01  WS-ITEM-FIRST           PIC 9(9) COMP-5 OCCURS WS-ITEM-MAX TIMES.
+01  WS-ITEM-LAST            PIC 9(9) COMP-5 OCCURS WS-ITEM-MAX TIMES.
+*> A second list: the select list while the INTO list is split.
+01  WS-SAVED-COUNT          PIC 9(9) COMP-5.
+01  WS-SAVED-COLUMN         PIC X(31) OCCURS WS-ITEM-MAX TIMES.
+01  WS-SAVED-TOKEN          PIC 9(9) COMP-5 OCCURS WS-ITEM-MAX TIMES.
+LOCAL-STORAGE SECTION.
+01  LS-PASS                 PIC 9.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-J                    PIC 9(9) COMP-5.
+01  LS-C                    PIC 9(9) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-END                  PIC 9(9) COMP-5.
+01  LS-FROM                 PIC 9(9) COMP-5.
+01  LS-TO                   PIC 9(9) COMP-5.
+01  LS-DEPTH                PIC S9(9) COMP-5.
+01  LS-STOP                 PIC 9(9) COMP-5.
+01  LS-COMMA                PIC X.
+01  LS-PREV                 PIC 9(9) COMP-5.
+01  LS-TEXT                 PIC X(64).
+01  LS-WORD                 PIC X(64).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-NAME                 PIC X(64).
+01  LS-NAME-PTR             PIC 9(9) COMP-5.
+01  LS-COLUMN               PIC X(31).
+01  LS-COLUMN-TOKEN         PIC 9(9) COMP-5.
+01  LS-HOST-TOKEN           PIC 9(9) COMP-5.
+01  LS-COMMAND              PIC X(31).
+01  LS-NUMBER               PIC 9(9) COMP-5.
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbsqlm.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-SQL-MODEL.
+    MOVE 0 TO QT-COUNT QL-COUNT QS-COUNT QP-COUNT QS-DROPPED
+    PERFORM VARYING LS-PASS FROM 1 BY 1 UNTIL LS-PASS > 2
+        PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T >= TK-COUNT
+            IF TK-IS-WORD(LS-T)
+                MOVE LS-T TO LS-K
+                PERFORM UPPER-WORD
+                IF LS-WORD = "EXEC"
+                    COMPUTE LS-K = LS-T + 1
+                    PERFORM UPPER-WORD
+                    IF LS-WORD = "SQL"
+                        PERFORM SQL-BLOCK
+                    END-IF
+                END-IF
+            END-IF
+        END-PERFORM
+    END-PERFORM
+    GOBACK.
+
+*> LS-WORD: token LS-K in upper case (spaces when not a word).
+UPPER-WORD.
+    MOVE SPACES TO LS-WORD
+    IF LS-K >= 1 AND LS-K <= TK-COUNT
+        IF TK-IS-WORD(LS-K)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-WORD
+        END-IF
+    END-IF.
+
+*> The statement from LS-T to END-EXEC (LS-END).
+SQL-BLOCK.
+    COMPUTE LS-END = LS-T + 2
+    PERFORM UNTIL LS-END >= TK-COUNT
+        MOVE LS-END TO LS-K
+        PERFORM UPPER-WORD
+        IF LS-WORD = "END-EXEC"
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-END
+    END-PERFORM
+    COMPUTE LS-K = LS-T + 2
+    PERFORM UPPER-WORD
+    MOVE LS-WORD TO LS-COMMAND
+    EVALUATE TRUE
+        WHEN LS-PASS = 1 AND LS-COMMAND = "DECLARE"
+            PERFORM DECLARATION
+        WHEN LS-PASS = 2 AND LS-COMMAND = "SELECT"
+            PERFORM SELECT-INTO
+        WHEN LS-PASS = 2 AND LS-COMMAND = "FETCH"
+            PERFORM FETCH-INTO
+        WHEN LS-PASS = 2 AND LS-COMMAND = "INSERT"
+            PERFORM INSERT-VALUES
+        WHEN LS-PASS = 2 AND LS-COMMAND = "UPDATE"
+            PERFORM UPDATE-SET
+    END-EVALUATE.
+
+*> LS-NAME: the name at LS-K, with its qualifiers (A.B.C), in upper
+*> case; LS-K moves past it. Spaces when LS-K is not a word.
+READ-NAME.
+    MOVE SPACES TO LS-NAME
+    MOVE 1 TO LS-NAME-PTR
+    PERFORM UPPER-WORD
+    IF LS-WORD = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    STRING LS-WORD DELIMITED BY SPACE
+        INTO LS-NAME WITH POINTER LS-NAME-PTR
+    ADD 1 TO LS-K
+    PERFORM UNTIL LS-K >= LS-END
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+        IF NOT TK-IS-OPERATOR(LS-K) OR LS-TEXT NOT = "."
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-K
+        PERFORM UPPER-WORD
+        IF LS-WORD = SPACES
+            EXIT PERFORM
+        END-IF
+        STRING "." LS-WORD DELIMITED BY SPACE
+            INTO LS-NAME WITH POINTER LS-NAME-PTR
+        ADD 1 TO LS-K
+    END-PERFORM.
+
+*> DECLARE name TABLE (columns), or DECLARE name ... CURSOR ... FOR
+*> SELECT list FROM ...
+DECLARATION.
+    ADD 1 TO LS-K
+    PERFORM READ-NAME
+    IF LS-NAME = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM UPPER-WORD
+    IF LS-WORD = "TABLE"
+        PERFORM TABLE-DECLARATION
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-K FROM LS-K BY 1 UNTIL LS-K >= LS-END
+        PERFORM UPPER-WORD
+        IF LS-WORD = "SELECT"
+            EXIT PERFORM
+        END-IF
+        IF LS-WORD = "STATEMENT"
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    IF LS-K >= LS-END
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM NEW-STATEMENT
+    IF LS-S = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "C" TO QS-KIND(LS-S)
+    MOVE LS-NAME TO QS-CURSOR(LS-S)
+    PERFORM SELECT-LIST
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > WS-SAVED-COUNT
+        MOVE WS-SAVED-COLUMN(LS-I) TO LS-COLUMN
+        MOVE WS-SAVED-TOKEN(LS-I) TO LS-COLUMN-TOKEN
+        MOVE 0 TO LS-HOST-TOKEN
+        PERFORM ADD-PAIR
+    END-PERFORM
+    PERFORM FROM-TABLES.
+
+*> (name type[(n[,s])] [NOT NULL] ..., ...)
+TABLE-DECLARATION.
+    IF QT-COUNT >= QT-MAX
+        ADD 1 TO QS-DROPPED
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO QT-COUNT
+    MOVE LS-NAME TO QT-NAME(QT-COUNT)
+    MOVE LS-NAME TO QT-SHORT(QT-COUNT)
+    PERFORM VARYING LS-I FROM 64 BY -1 UNTIL LS-I < 1
+        IF LS-NAME(LS-I:1) = "."
+            MOVE SPACES TO QT-SHORT(QT-COUNT)
+            MOVE LS-NAME(LS-I + 1:) TO QT-SHORT(QT-COUNT)
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    COMPUTE QT-TOKEN(QT-COUNT) = LS-T
+    COMPUTE QT-COL-FIRST(QT-COUNT) = QL-COUNT + 1
+    MOVE 0 TO QT-COL-COUNT(QT-COUNT)
+    ADD 1 TO LS-K
+    IF LS-K >= LS-END OR NOT TK-IS-LPAREN(LS-K)
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-FROM = LS-K + 1
+    PERFORM MATCHING-PAREN
+    MOVE LS-STOP TO LS-TO
+    PERFORM SPLIT-LIST
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > WS-ITEM-COUNT
+        PERFORM COLUMN-DEFINITION
+    END-PERFORM.
+
+*> LS-STOP: the parenthesis that closes the one before LS-FROM.
+MATCHING-PAREN.
+    MOVE 1 TO LS-DEPTH
+    PERFORM VARYING LS-STOP FROM LS-FROM BY 1 UNTIL LS-STOP >= LS-END
+        IF TK-IS-LPAREN(LS-STOP)
+            ADD 1 TO LS-DEPTH
+        END-IF
+        IF TK-IS-RPAREN(LS-STOP)
+            SUBTRACT 1 FROM LS-DEPTH
+            IF LS-DEPTH = 0
+                EXIT PERFORM
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> Item LS-I of a table's column list.
+COLUMN-DEFINITION.
+    IF QL-COUNT >= QL-MAX
+        ADD 1 TO QS-DROPPED
+        EXIT PARAGRAPH
+    END-IF
+    MOVE WS-ITEM-FIRST(LS-I) TO LS-K
+    PERFORM UPPER-WORD
+    IF LS-WORD = SPACES OR LS-WORD = "PRIMARY" OR LS-WORD = "FOREIGN"
+       OR LS-WORD = "CONSTRAINT" OR LS-WORD = "UNIQUE"
+       OR LS-WORD = "CHECK"
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO QL-COUNT QT-COL-COUNT(QT-COUNT)
+    MOVE QT-COUNT TO QL-TABLE(QL-COUNT)
+    MOVE LS-WORD TO QL-NAME(QL-COUNT)
+    MOVE LS-K TO QL-TOKEN(QL-COUNT)
+    MOVE 0 TO QL-LENGTH(QL-COUNT) QL-SCALE(QL-COUNT)
+    MOVE "Y" TO QL-NULLS(QL-COUNT)
+    ADD 1 TO LS-K
+    PERFORM UPPER-WORD
+    EVALUATE LS-WORD
+        WHEN "CHARACTER"
+        WHEN "CHAR"
+            MOVE "CHAR" TO QL-TYPE(QL-COUNT)
+        WHEN "DEC"
+        WHEN "NUMERIC"
+        WHEN "DECIMAL"
+            MOVE "DECIMAL" TO QL-TYPE(QL-COUNT)
+        WHEN "INT"
+        WHEN "INTEGER"
+            MOVE "INTEGER" TO QL-TYPE(QL-COUNT)
+        WHEN OTHER
+            MOVE LS-WORD TO QL-TYPE(QL-COUNT)
+    END-EVALUATE
+    *> The rest: VARYING, a length or precision and scale, NOT NULL.
+    PERFORM VARYING LS-K FROM LS-K BY 1
+            UNTIL LS-K > WS-ITEM-LAST(LS-I)
+        PERFORM UPPER-WORD
+        EVALUATE TRUE
+            WHEN LS-WORD = "VARYING" AND QL-TYPE(QL-COUNT) = "CHAR"
+                MOVE "VARCHAR" TO QL-TYPE(QL-COUNT)
+            WHEN LS-WORD = "NOT"
+                MOVE "N" TO QL-NULLS(QL-COUNT)
+            WHEN TK-IS-NUMBER(LS-K)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+                IF LS-LEN > 0 AND LS-LEN < 10
+                   AND LS-TEXT(1:LS-LEN) IS NUMERIC
+                    MOVE FUNCTION NUMVAL(LS-TEXT(1:LS-LEN))
+                        TO LS-NUMBER
+                    IF QL-LENGTH(QL-COUNT) = 0
+                        MOVE LS-NUMBER TO QL-LENGTH(QL-COUNT)
+                    ELSE
+                        IF QL-SCALE(QL-COUNT) = 0
+                            MOVE LS-NUMBER TO QL-SCALE(QL-COUNT)
+                        END-IF
+                    END-IF
+                END-IF
+        END-EVALUATE
+    END-PERFORM.
+
+*> Split tokens LS-FROM to LS-TO - 1 at their top-level commas:
+*> WS-ITEM-FIRST and WS-ITEM-LAST of each item.
+SPLIT-LIST.
+    MOVE 0 TO WS-ITEM-COUNT LS-DEPTH
+    IF LS-FROM >= LS-TO
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 1 TO WS-ITEM-COUNT
+    MOVE LS-FROM TO WS-ITEM-FIRST(1)
+    PERFORM VARYING LS-J FROM LS-FROM BY 1 UNTIL LS-J >= LS-TO
+        IF LS-J > LS-FROM AND LS-DEPTH = 0
+            COMPUTE LS-PREV = LS-J - 1
+            CALL "PLB-SQL-COMMA-BETWEEN" USING PLB-SOURCE-SET PLB-TOKENS
+                LS-PREV LS-J LS-COMMA
+            IF LS-COMMA = "Y" AND WS-ITEM-COUNT < WS-ITEM-MAX
+                MOVE LS-PREV TO WS-ITEM-LAST(WS-ITEM-COUNT)
+                ADD 1 TO WS-ITEM-COUNT
+                MOVE LS-J TO WS-ITEM-FIRST(WS-ITEM-COUNT)
+            END-IF
+        END-IF
+        IF TK-IS-LPAREN(LS-J)
+            ADD 1 TO LS-DEPTH
+        END-IF
+        IF TK-IS-RPAREN(LS-J)
+            SUBTRACT 1 FROM LS-DEPTH
+        END-IF
+    END-PERFORM
+    COMPUTE WS-ITEM-LAST(WS-ITEM-COUNT) = LS-TO - 1.
+
+*> LS-STOP: the first token from LS-K that is, outside parentheses,
+*> one of the words that end a list (FROM, INTO, WHERE, ...), or
+*> LS-END.
+LIST-END.
+    MOVE 0 TO LS-DEPTH
+    PERFORM VARYING LS-STOP FROM LS-K BY 1 UNTIL LS-STOP >= LS-END
+        IF TK-IS-LPAREN(LS-STOP)
+            ADD 1 TO LS-DEPTH
+        END-IF
+        IF TK-IS-RPAREN(LS-STOP)
+            SUBTRACT 1 FROM LS-DEPTH
+        END-IF
+        IF LS-DEPTH = 0 AND TK-IS-WORD(LS-STOP)
+            MOVE LS-STOP TO LS-J
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-J LS-TEXT LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+            EVALUATE LS-TEXT
+                WHEN "FROM" WHEN "INTO" WHEN "WHERE" WHEN "GROUP"
+                WHEN "ORDER" WHEN "HAVING" WHEN "UNION" WHEN "FOR"
+                WHEN "WITH" WHEN "FETCH" WHEN "OPTIMIZE" WHEN "SET"
+                WHEN "VALUES" WHEN "QUERYNO" WHEN "SKIP"
+                    EXIT PERFORM
+            END-EVALUATE
+        END-IF
+    END-PERFORM.
+
+*> The select list after SELECT at LS-K: WS-SAVED-COLUMN of each
+*> item, its column or spaces for an expression. LS-K ends at the
+*> word after the list.
+SELECT-LIST.
+    ADD 1 TO LS-K
+    PERFORM UPPER-WORD
+    IF LS-WORD = "DISTINCT" OR LS-WORD = "ALL"
+        ADD 1 TO LS-K
+    END-IF
+    MOVE LS-K TO LS-FROM
+    PERFORM LIST-END
+    MOVE LS-STOP TO LS-TO
+    PERFORM SPLIT-LIST
+    MOVE 0 TO WS-SAVED-COUNT
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > WS-ITEM-COUNT
+        PERFORM ITEM-COLUMN
+        ADD 1 TO WS-SAVED-COUNT
+        MOVE LS-COLUMN TO WS-SAVED-COLUMN(WS-SAVED-COUNT)
+        MOVE LS-COLUMN-TOKEN TO WS-SAVED-TOKEN(WS-SAVED-COUNT)
+    END-PERFORM
+    MOVE LS-STOP TO LS-K.
+
+*> LS-COLUMN: the column of item LS-I when it is one, qualified or
+*> not, with or without an alias (T.COL, COL AS X, COL X); spaces
+*> for an expression or *.
+ITEM-COLUMN.
+    MOVE SPACES TO LS-COLUMN
+    MOVE 0 TO LS-COLUMN-TOKEN
+    MOVE WS-ITEM-FIRST(LS-I) TO LS-K
+    MOVE LS-END TO LS-C
+    MOVE WS-ITEM-LAST(LS-I) TO LS-END
+    ADD 1 TO LS-END
+    PERFORM READ-NAME
+    MOVE LS-C TO LS-END
+    IF LS-NAME = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    *> After the name: nothing, AS alias, or an alias.
+    IF LS-K <= WS-ITEM-LAST(LS-I)
+        PERFORM UPPER-WORD
+        IF LS-WORD = "AS"
+            ADD 1 TO LS-K
+            PERFORM UPPER-WORD
+        END-IF
+        IF LS-WORD = SPACES OR LS-K NOT = WS-ITEM-LAST(LS-I)
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    *> The column is the name's last part; its token the one before
+    *> the alias, or the item's last.
+    MOVE SPACES TO LS-COLUMN
+    PERFORM VARYING LS-J FROM 64 BY -1 UNTIL LS-J < 1
+        IF LS-NAME(LS-J:1) = "."
+            MOVE LS-NAME(LS-J + 1:) TO LS-COLUMN
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-COLUMN = SPACES
+        MOVE LS-NAME TO LS-COLUMN
+    END-IF
+    MOVE WS-ITEM-FIRST(LS-I) TO LS-COLUMN-TOKEN
+    PERFORM VARYING LS-J FROM WS-ITEM-FIRST(LS-I) BY 1
+            UNTIL LS-J > WS-ITEM-LAST(LS-I)
+        IF TK-IS-WORD(LS-J)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-J LS-TEXT LS-LEN
+            IF FUNCTION UPPER-CASE(LS-TEXT) = LS-COLUMN
+                MOVE LS-J TO LS-COLUMN-TOKEN
+                EXIT PERFORM
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> LS-HOST-TOKEN: the name after the colon when item LS-I is a host
+*> variable (:NAME, with an indicator or not); 0 otherwise.
+ITEM-HOST.
+    MOVE 0 TO LS-HOST-TOKEN
+    MOVE WS-ITEM-FIRST(LS-I) TO LS-J
+    IF NOT TK-IS-COLON(LS-J) OR LS-J >= WS-ITEM-LAST(LS-I)
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-J
+    IF TK-IS-WORD(LS-J)
+        MOVE LS-J TO LS-HOST-TOKEN
+    END-IF.
+
+*> The tables after FROM (or INTO, UPDATE): QS-TABLE of statement LS-S.
+FROM-TABLES.
+    PERFORM VARYING LS-K FROM LS-K BY 1 UNTIL LS-K >= LS-END
+        PERFORM UPPER-WORD
+        IF LS-WORD = "FROM"
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-K >= LS-END
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-K
+    MOVE LS-K TO LS-FROM
+    PERFORM LIST-END
+    MOVE LS-STOP TO LS-TO
+    PERFORM SPLIT-LIST
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > WS-ITEM-COUNT
+        MOVE WS-ITEM-FIRST(LS-I) TO LS-K
+        PERFORM READ-NAME
+        PERFORM ADD-TABLE
+        *> T1 JOIN T2 ON ...: the tables after each JOIN too.
+        PERFORM VARYING LS-C FROM LS-K BY 1
+                UNTIL LS-C > WS-ITEM-LAST(LS-I)
+            MOVE LS-C TO LS-K
+            PERFORM UPPER-WORD
+            IF LS-WORD = "JOIN"
+                COMPUTE LS-K = LS-C + 1
+                PERFORM READ-NAME
+                PERFORM ADD-TABLE
+            END-IF
+        END-PERFORM
+    END-PERFORM.
+
+ADD-TABLE.
+    IF LS-NAME NOT = SPACES AND QS-TABLE-COUNT(LS-S) < 4
+        ADD 1 TO QS-TABLE-COUNT(LS-S)
+        MOVE LS-NAME TO QS-TABLE(LS-S, QS-TABLE-COUNT(LS-S))
+    END-IF.
+
+*> LS-S: a new statement for the block at LS-T, or 0 when the table
+*> is full.
+NEW-STATEMENT.
+    MOVE 0 TO LS-S
+    IF QS-COUNT >= QS-MAX
+        ADD 1 TO QS-DROPPED
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO QS-COUNT
+    MOVE QS-COUNT TO LS-S
+    MOVE SPACES TO QS-CURSOR(LS-S)
+    MOVE LS-T TO QS-TOKEN(LS-S)
+    MOVE LS-END TO QS-END(LS-S)
+    MOVE 0 TO QS-TABLE-COUNT(LS-S) QS-PAIR-COUNT(LS-S)
+    COMPUTE QS-PAIR-FIRST(LS-S) = QP-COUNT + 1.
+
+ADD-PAIR.
+    IF QP-COUNT >= QP-MAX
+        ADD 1 TO QS-DROPPED
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO QP-COUNT QS-PAIR-COUNT(LS-S)
+    MOVE LS-COLUMN TO QP-COLUMN(QP-COUNT)
+    MOVE LS-COLUMN-TOKEN TO QP-COLUMN-TOKEN(QP-COUNT)
+    MOVE LS-HOST-TOKEN TO QP-HOST-TOKEN(QP-COUNT).
+
+*> SELECT list INTO hosts FROM ...
+SELECT-INTO.
+    PERFORM SELECT-LIST
+    PERFORM UPPER-WORD
+    IF LS-WORD NOT = "INTO"
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM NEW-STATEMENT
+    IF LS-S = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "S" TO QS-KIND(LS-S)
+    ADD 1 TO LS-K
+    MOVE LS-K TO LS-FROM
+    PERFORM LIST-END
+    MOVE LS-STOP TO LS-TO
+    PERFORM SPLIT-LIST
+    PERFORM PAIR-SAVED-WITH-HOSTS
+    MOVE LS-TO TO LS-K
+    PERFORM FROM-TABLES.
+
+*> Select item i with INTO item i, as far as both lists go.
+PAIR-SAVED-WITH-HOSTS.
+    PERFORM VARYING LS-I FROM 1 BY 1
+            UNTIL LS-I > WS-ITEM-COUNT OR LS-I > WS-SAVED-COUNT
+        PERFORM ITEM-HOST
+        IF LS-HOST-TOKEN > 0
+            MOVE WS-SAVED-COLUMN(LS-I) TO LS-COLUMN
+            MOVE WS-SAVED-TOKEN(LS-I) TO LS-COLUMN-TOKEN
+            PERFORM ADD-PAIR
+        END-IF
+    END-PERFORM.
+
+*> FETCH [orientation] [FROM] cursor INTO hosts: the cursor is the
+*> last word before INTO; its declaration gives the select list.
+FETCH-INTO.
+    MOVE SPACES TO LS-COLUMN
+    PERFORM VARYING LS-K FROM LS-K BY 1 UNTIL LS-K >= LS-END
+        PERFORM UPPER-WORD
+        IF LS-WORD = "INTO"
+            EXIT PERFORM
+        END-IF
+        IF LS-WORD NOT = SPACES
+            MOVE LS-WORD TO LS-COLUMN
+        END-IF
+    END-PERFORM
+    IF LS-K >= LS-END OR LS-COLUMN = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    *> The cursor's select list, as saved items.
+    MOVE 0 TO WS-SAVED-COUNT LS-C
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > QS-COUNT
+        IF QS-KIND(LS-I) = "C" AND QS-CURSOR(LS-I) = LS-COLUMN
+            MOVE LS-I TO LS-C
+        END-IF
+    END-PERFORM
+    IF LS-C = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-I FROM QS-PAIR-FIRST(LS-C) BY 1
+            UNTIL LS-I >= QS-PAIR-FIRST(LS-C) + QS-PAIR-COUNT(LS-C)
+        ADD 1 TO WS-SAVED-COUNT
+        MOVE QP-COLUMN(LS-I) TO WS-SAVED-COLUMN(WS-SAVED-COUNT)
+        MOVE QP-COLUMN-TOKEN(LS-I) TO WS-SAVED-TOKEN(WS-SAVED-COUNT)
+    END-PERFORM
+    PERFORM NEW-STATEMENT
+    IF LS-S = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "F" TO QS-KIND(LS-S)
+    MOVE QS-CURSOR(LS-C) TO QS-CURSOR(LS-S)
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > QS-TABLE-COUNT(LS-C)
+        MOVE QS-TABLE(LS-C, LS-I) TO QS-TABLE(LS-S, LS-I)
+    END-PERFORM
+    MOVE QS-TABLE-COUNT(LS-C) TO QS-TABLE-COUNT(LS-S)
+    ADD 1 TO LS-K
+    MOVE LS-K TO LS-FROM
+    MOVE LS-END TO LS-TO
+    PERFORM SPLIT-LIST
+    PERFORM PAIR-SAVED-WITH-HOSTS.
+
+*> INSERT INTO table (columns) VALUES (items): column i with item i.
+INSERT-VALUES.
+    ADD 1 TO LS-K
+    PERFORM UPPER-WORD
+    IF LS-WORD NOT = "INTO"
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-K
+    PERFORM READ-NAME
+    IF LS-NAME = SPACES OR LS-K >= LS-END OR NOT TK-IS-LPAREN(LS-K)
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM NEW-STATEMENT
+    IF LS-S = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "I" TO QS-KIND(LS-S)
+    PERFORM ADD-TABLE
+    *> The column list: each item a column name.
+    COMPUTE LS-FROM = LS-K + 1
+    PERFORM MATCHING-PAREN
+    MOVE LS-STOP TO LS-TO
+    PERFORM SPLIT-LIST
+    MOVE 0 TO WS-SAVED-COUNT
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > WS-ITEM-COUNT
+        ADD 1 TO WS-SAVED-COUNT
+        MOVE WS-ITEM-FIRST(LS-I) TO LS-K
+        PERFORM UPPER-WORD
+        MOVE LS-WORD TO WS-SAVED-COLUMN(WS-SAVED-COUNT)
+        MOVE LS-K TO WS-SAVED-TOKEN(WS-SAVED-COUNT)
+    END-PERFORM
+    COMPUTE LS-K = LS-TO + 1
+    PERFORM UPPER-WORD
+    IF LS-WORD NOT = "VALUES"
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-K
+    IF LS-K >= LS-END OR NOT TK-IS-LPAREN(LS-K)
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-FROM = LS-K + 1
+    PERFORM MATCHING-PAREN
+    MOVE LS-STOP TO LS-TO
+    PERFORM SPLIT-LIST
+    PERFORM PAIR-SAVED-WITH-HOSTS.
+
+*> UPDATE table SET column = :host, ... [WHERE ...]
+UPDATE-SET.
+    ADD 1 TO LS-K
+    PERFORM READ-NAME
+    IF LS-NAME = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM NEW-STATEMENT
+    IF LS-S = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "U" TO QS-KIND(LS-S)
+    PERFORM ADD-TABLE
+    PERFORM VARYING LS-K FROM LS-K BY 1 UNTIL LS-K >= LS-END
+        PERFORM UPPER-WORD
+        IF LS-WORD = "SET"
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-K >= LS-END
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-K
+    MOVE LS-K TO LS-FROM
+    PERFORM LIST-END
+    MOVE LS-STOP TO LS-TO
+    PERFORM SPLIT-LIST
+    *> Each item: column = :host, and nothing more.
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > WS-ITEM-COUNT
+        MOVE WS-ITEM-FIRST(LS-I) TO LS-K
+        PERFORM UPPER-WORD
+        COMPUTE LS-J = LS-K + 1
+        IF LS-WORD NOT = SPACES AND LS-J < WS-ITEM-LAST(LS-I)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-J LS-TEXT LS-LEN
+            IF LS-TEXT = "="
+               AND TK-IS-COLON(LS-J + 1)
+               AND LS-J + 2 = WS-ITEM-LAST(LS-I)
+                MOVE LS-WORD TO LS-COLUMN
+                MOVE LS-K TO LS-COLUMN-TOKEN
+                COMPUTE LS-HOST-TOKEN = LS-J + 2
+                PERFORM ADD-PAIR
+            END-IF
+        END-IF
+    END-PERFORM.
+END PROGRAM PLB-SQL-MODEL-BUILD.
+
+*> PLB-SQL-MODEL-PRINT: the model, for plumbline dump sql:
+*>     table CARDDEMO.ACCOUNT path:line
+*>       column ACCT_ID DECIMAL(11) not null
+*>     select path:line tables ACCOUNT
+*>       ACCT_ID <- :WS-ACCT-ID
+*>     cursor C1 path:line tables ACCOUNT
+*>       ACCT_ID
+*> A pair without a column is shown as (expression).
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SQL-MODEL-PRINT.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-LINE                 PIC X(1024).
+01  WS-PATH                 PIC X(512).
+LOCAL-STORAGE SECTION.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-J                    PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-TEXT                 PIC X(64).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbsqlm.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-SQL-MODEL.
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > QT-COUNT
+        PERFORM PRINT-TABLE
+    END-PERFORM
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > QS-COUNT
+        PERFORM PRINT-STATEMENT
+    END-PERFORM
+    GOBACK.
+
+PRINT-TABLE.
+    MOVE SPACES TO WS-LINE
+    MOVE 1 TO LS-PTR
+    STRING "table " DELIMITED BY SIZE
+           QT-NAME(LS-I) DELIMITED BY SPACE
+           " " DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    MOVE QT-TOKEN(LS-I) TO LS-T
+    PERFORM APPEND-POSITION
+    DISPLAY WS-LINE(1:LS-PTR - 1)
+    PERFORM VARYING LS-J FROM QT-COL-FIRST(LS-I) BY 1
+            UNTIL LS-J >= QT-COL-FIRST(LS-I) + QT-COL-COUNT(LS-I)
+        MOVE SPACES TO WS-LINE
+        MOVE 1 TO LS-PTR
+        STRING "  column " DELIMITED BY SIZE
+               QL-NAME(LS-J) DELIMITED BY SPACE
+               " " DELIMITED BY SIZE
+               QL-TYPE(LS-J) DELIMITED BY SPACE
+            INTO WS-LINE WITH POINTER LS-PTR
+        IF QL-LENGTH(LS-J) > 0
+            STRING "(" DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+            MOVE QL-LENGTH(LS-J) TO LS-NUM
+            PERFORM APPEND-NUM
+            IF QL-SCALE(LS-J) > 0
+                STRING "," DELIMITED BY SIZE
+                    INTO WS-LINE WITH POINTER LS-PTR
+                MOVE QL-SCALE(LS-J) TO LS-NUM
+                PERFORM APPEND-NUM
+            END-IF
+            STRING ")" DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        END-IF
+        IF QL-NULLS(LS-J) = "N"
+            STRING " not null" DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        END-IF
+        DISPLAY WS-LINE(1:LS-PTR - 1)
+    END-PERFORM.
+
+PRINT-STATEMENT.
+    MOVE SPACES TO WS-LINE
+    MOVE 1 TO LS-PTR
+    EVALUATE QS-KIND(LS-I)
+        WHEN "S"
+            STRING "select " DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        WHEN "F"
+            STRING "fetch " DELIMITED BY SIZE
+                   QS-CURSOR(LS-I) DELIMITED BY SPACE
+                   " " DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        WHEN "I"
+            STRING "insert " DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        WHEN "U"
+            STRING "update " DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        WHEN OTHER
+            STRING "cursor " DELIMITED BY SIZE
+                   QS-CURSOR(LS-I) DELIMITED BY SPACE
+                   " " DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+    END-EVALUATE
+    MOVE QS-TOKEN(LS-I) TO LS-T
+    PERFORM APPEND-POSITION
+    IF QS-TABLE-COUNT(LS-I) > 0
+        STRING " tables" DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        PERFORM VARYING LS-J FROM 1 BY 1
+                UNTIL LS-J > QS-TABLE-COUNT(LS-I)
+            STRING " " DELIMITED BY SIZE
+                   QS-TABLE(LS-I, LS-J) DELIMITED BY SPACE
+                INTO WS-LINE WITH POINTER LS-PTR
+        END-PERFORM
+    END-IF
+    DISPLAY WS-LINE(1:LS-PTR - 1)
+    PERFORM VARYING LS-J FROM QS-PAIR-FIRST(LS-I) BY 1
+            UNTIL LS-J >= QS-PAIR-FIRST(LS-I) + QS-PAIR-COUNT(LS-I)
+        MOVE SPACES TO WS-LINE
+        MOVE 1 TO LS-PTR
+        STRING "  " DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+        IF QP-COLUMN(LS-J) = SPACES
+            STRING "(expression)" DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        ELSE
+            STRING QP-COLUMN(LS-J) DELIMITED BY SPACE
+                INTO WS-LINE WITH POINTER LS-PTR
+        END-IF
+        IF QP-HOST-TOKEN(LS-J) > 0
+            MOVE QP-HOST-TOKEN(LS-J) TO LS-T
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            STRING " <- :" LS-TEXT(1:LS-LEN) DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        END-IF
+        DISPLAY WS-LINE(1:LS-PTR - 1)
+    END-PERFORM.
+
+*> PATH:LINE of token LS-T.
+APPEND-POSITION.
+    IF LS-T = 0 OR TK-SRC-LINE(LS-T) = 0
+        STRING "?" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET
+        SL-FILE-ID(TK-SRC-LINE(LS-T)) WS-PATH
+    CALL "PLB-STR-LENGTH" USING WS-PATH LS-LEN
+    IF LS-LEN > 0
+        STRING WS-PATH(1:LS-LEN) ":" DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+    END-IF
+    MOVE SL-LINE-NO(TK-SRC-LINE(LS-T)) TO LS-NUM
+    PERFORM APPEND-NUM.
+
+APPEND-NUM.
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR.
+END PROGRAM PLB-SQL-MODEL-PRINT.

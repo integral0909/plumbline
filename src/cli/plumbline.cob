@@ -84,6 +84,7 @@ COPY "plbjcl.cpy".
 COPY "plbdset.cpy".
 COPY "plbfld.cpy".
 COPY "plbdupt.cpy".
+COPY "plbsqlm.cpy".
 COPY "plbbmsc.cpy".
 COPY "plbbms.cpy".
 COPY "plbcsdc.cpy".
@@ -415,6 +416,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline dump flow [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump refs [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump calls [-I DIR]... [--format FORMAT] [--debug] FILE..."
+    DISPLAY "       plumbline dump sql [-I DIR]... [--format FORMAT] [--debug] FILE..."
     DISPLAY "       plumbline dump jcl FILE..."
     DISPLAY "       plumbline dump bms FILE..."
     DISPLAY "       plumbline dump csd FILE..."
@@ -471,6 +473,8 @@ SHOW-USAGE.
     DISPLAY "  dump flow        show paragraphs, sections, and control flow"
     DISPLAY "  dump refs        show what each name in the procedures refers to"
     DISPLAY "  dump calls       show programs, their parameters, and CALLs"
+    DISPLAY "  dump sql         show the tables, cursors, and host variables"
+    DISPLAY "                   of embedded SQL"
     DISPLAY "  dump jcl         show the jobs, steps, and DD statements of JCL"
     DISPLAY "  dump bms         show the maps and fields of CICS BMS sources"
     DISPLAY "  dump csd         show the CICS resources DFHCSDUP input defines"
@@ -3517,6 +3521,7 @@ DUMP-COMMAND.
        AND WS-ARG NOT = "refs" AND WS-ARG NOT = "calls"
        AND WS-ARG NOT = "jcl" AND WS-ARG NOT = "bms"
        AND WS-ARG NOT = "csd" AND WS-ARG NOT = "ims"
+       AND WS-ARG NOT = "sql"
         IF WS-ARG-LEN = 0
             DISPLAY PLB-NAME ": dump: missing what to dump"
                 UPON SYSERR
@@ -3565,6 +3570,8 @@ DUMP-COMMAND.
         PERFORM DUMP-FLOW
     WHEN "refs"
         PERFORM DUMP-REFS
+    WHEN "sql"
+        PERFORM DUMP-SQL
     WHEN "calls"
         PERFORM DUMP-CALLS
     WHEN OTHER
@@ -3836,6 +3843,21 @@ DUMP-ONE-EDGE.
 
 *> One line per reference:
 *>     line:column NAME [(VERB)] -> what [flags] [role=R]
+*> The embedded SQL of each file: its tables, cursors, and the pairs of
+*> a column and a host variable of its statements.
+DUMP-SQL.
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
+    MOVE WS-MODE TO PO-FORMAT
+    MOVE WS-DEBUG TO PO-DEBUG
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        PERFORM ANALYZE-FILE
+        CALL "PLB-SQL-MODEL-BUILD" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-SQL-MODEL
+        CALL "PLB-SQL-MODEL-PRINT" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-SQL-MODEL
+    END-PERFORM.
+
 DUMP-REFS.
     MOVE SS-FILE-COUNT TO WS-MAIN-FILES
     MOVE WS-MODE TO PO-FORMAT

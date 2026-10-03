@@ -196,6 +196,11 @@ uses [Semantic Versioning](https://semver.org/).
   to its statement, paragraph, section, division, and program.
 - `check --report codeclimate`: Code Climate issues for GitLab's code
   quality reports, with fingerprints that survive moved lines.
+- Rules PLB-Q006 host-variable-too-small and PLB-Q007
+  host-variable-too-large, against the DECLARE TABLE of the file.
+- `dump sql`: the tables a file declares, its cursors, and the pairs of
+  a column and a host variable of its SELECT, FETCH, INSERT, and UPDATE
+  statements.
 - `plumbline duplicates`: paragraphs with the same code, across the
   programs of the run, as text or JSON.
 - `plumbline xref`: the cross-reference of each program, its data
