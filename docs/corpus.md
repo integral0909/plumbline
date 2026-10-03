@@ -257,6 +257,17 @@ The findings were checked by rule:
   libcob error"), and is reported there and not for file `f`, which has
   a `FILE STATUS`.
 
+- **PLB-C060 spaces-into-numeric.** One, in GnuCOBOL's test
+  `compare-numeric-display-space-with-zero`, which compares numeric
+  items holding spaces on purpose. None in NIST, after two changes: a
+  first version reported `MOVE SPACE TO TEST-RESULTS` followed by
+  `DISPLAY TEST-RESULTS`, a print line whose numeric `DISPLAY` items
+  only show blanks, and `NC252A`, which gives the item its value
+  through a `RENAMES` item. A version that reported every `MOVE SPACES`
+  to a group with packed items, without following the paragraph,
+  reported 9 cases in GnuCOBOL's tests that clear a record and then read
+  into it or fill it.
+
 - **PLB-C059 key-error-not-handled.** None in NIST. 42 in 13 of
   GnuCOBOL's tests of indexed and relative files, which write and
   rewrite keys they know are free or present.

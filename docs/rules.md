@@ -71,6 +71,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C057](#plb-c057-misleading-indentation) | misleading-indentation | warning | Statement indented as if inside an IF a period has ended |
 | [PLB-C058](#plb-c058-read-not-handled) | read-not-handled | warning | READ with no AT END, INVALID KEY, FILE STATUS, or declarative |
 | [PLB-C059](#plb-c059-key-error-not-handled) | key-error-not-handled | warning | Keyed WRITE, REWRITE, DELETE, or START with no INVALID KEY |
+| [PLB-C060](#plb-c060-spaces-into-numeric) | spaces-into-numeric | warning | Numeric item read after MOVE SPACES to its group |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1639,6 +1640,37 @@ A duplicate key, or a key that is not in the file, then stops the run
 with an I/O error; GnuCOBOL says `libcob: error: record key already
 exists (status = 22)`. `DELETE` in sequential access takes no
 `INVALID KEY` phrase and is left alone.
+
+## PLB-C060 spaces-into-numeric
+
+`MOVE SPACES` to a group, and then a read of one of its numeric items
+before anything gives it a value:
+
+```cobol
+01  WS-TOTALS.
+    05  WS-COUNT        PIC S9(7) COMP-3.
+    05  WS-NAME         PIC X(20).
+    ...
+    MOVE SPACES TO WS-TOTALS                       *> reported
+    ADD 1 TO WS-COUNT
+```
+
+A group move copies the spaces byte for byte. In a packed-decimal or
+zoned-decimal item they are not a valid number, and the first
+arithmetic on it fails on z/OS with a data exception (S0C7); in a
+binary item they are a meaningless number. The compiler rejects `MOVE
+SPACES` to the numeric item itself, but not to its group. `INITIALIZE`
+gives each item a value of its kind.
+
+Clearing a record with spaces and then filling it, or reading into it,
+is common and fine, so the statements after the `MOVE` are followed to
+the end of the paragraph: one that gives the item (or a group around
+it) a value ends the search for it, and a `READ`, `RETURN`, `PERFORM`,
+or `CALL`, or a value given to a `RENAMES` item or one under a
+`REDEFINES`, ends it for all. A read of a group around a packed or
+binary item (`WRITE` of the record) counts too, since it copies the bad
+bytes on; a `DISPLAY` item read only with its group, as in a print
+line, shows blanks and is left alone. Branches are not told apart.
 
 ## PLB-I001 pcb-dbd-unknown
 
