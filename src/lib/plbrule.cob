@@ -154,6 +154,11 @@ PROCEDURE DIVISION USING PLB-RULES.
     *> Like PLB-M016: most signed items moved this way (identifiers,
     *> codes) are never negative, so this rule is only run on request.
     MOVE "N" TO RL-ENABLED(RL-COUNT)
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-M019"
+        "commented-out-code" "N"
+        "Comment lines that are COBOL statements"
+    *> A cleanup aid rather than a defect: only on request.
+    MOVE "N" TO RL-ENABLED(RL-COUNT)
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-Q001"
         "sql-table-undeclared" "N"
         "Embedded SQL uses a table the program does not declare"

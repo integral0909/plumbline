@@ -784,6 +784,13 @@ check "signed-to-alphanumeric when enabled" 0 'MOVE of signed BALANCE to alphanu
     -- check --no-config --enable signed-to-alphanumeric --fail-on never $rx/c039-decimal-to-alphanumeric.cob
 check "signed-to-unsigned when enabled"   1 'signlost.cob:13:27: note: MOVE of signed WS-ADJUSTMENT to unsigned WS-REPORT-AMOUNT drops its sign: -5 is stored as 5 \[PLB-M018\]' \
     -- check --enable signed-to-unsigned --fail-on note tests/fixtures/signs/signlost.cob
+co_fx=tests/fixtures/comments/oldcode.cbl
+check "commented-out-code when enabled"    1 'oldcode.cbl:11:7: note: 3 lines of commented-out code \[PLB-M019\]' \
+    -- check --enable commented-out-code --fail-on note $co_fx
+check_absent "commented-out-code leaves prose alone" 'oldcode.cbl:1[67]:' \
+    -- check --enable commented-out-code --fail-on note $co_fx
+check_absent "commented-out-code is off by default" 'PLB-M019' \
+    -- check $co_fx
 nm_fx=tests/fixtures/numeric/nummove.cob
 check "unchecked-numeric-move when enabled" 1 'nummove.cob:18:25: note: MOVE of alphanumeric IN-AMOUNT-X to numeric WS-AMOUNT, which nothing in the paragraph tests with NUMERIC \[PLB-C061\]' \
     -- check --enable unchecked-numeric-move --fail-on note $nm_fx
