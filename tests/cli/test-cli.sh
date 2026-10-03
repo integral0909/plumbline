@@ -728,6 +728,12 @@ check "vendor-routine when enabled"       0 'CBL_DELETE_FILE is a library routin
     -- check --no-config --enable vendor-routine --fail-on never $rx/p001-p002-portability.cob
 check "signed-to-alphanumeric when enabled" 0 'MOVE of signed BALANCE to alphanumeric TEXT-OUT drops its sign: -5 and 5 give the same text \[PLB-M016\]' \
     -- check --no-config --enable signed-to-alphanumeric --fail-on never $rx/c039-decimal-to-alphanumeric.cob
+check "signed-to-unsigned when enabled"   1 'signlost.cob:13:27: note: MOVE of signed WS-ADJUSTMENT to unsigned WS-REPORT-AMOUNT drops its sign: -5 is stored as 5 \[PLB-M018\]' \
+    -- check --enable signed-to-unsigned --fail-on note tests/fixtures/signs/signlost.cob
+check_absent "signed-to-unsigned is off by default" 'PLB-M018' \
+    -- check tests/fixtures/signs/signlost.cob
+check_absent "signed receivers keep the sign" 'to unsigned WS-SIGNED-COPY\|to unsigned WS-EDITED' \
+    -- check --enable signed-to-unsigned tests/fixtures/signs/signlost.cob
 check "limit needs a measuring rule"      2 "rule 'go-to' has no limit" \
     -- check --config $cfx/no-limit.conf tests/golden/metrics/complexity.cob
 check "limit needs a number"              2 "invalid limit 'many'" \
