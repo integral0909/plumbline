@@ -217,6 +217,7 @@ uses [Semantic Versioning](https://semver.org/).
 - docs/ci.md: running Plumbline in CI.
 - `metrics`: Halstead's measures and the maintainability index of each
   program, in text, JSON, and CSV.
+- `doc` gives each program's maintainability index with its size.
 - `check --diff FILE`: report only the findings on the lines a unified
   diff adds or changes.
 - `check --report checkstyle`: Checkstyle XML, for review tools and CI

@@ -436,7 +436,7 @@ check "doc places nested programs"        0 '^Nested in \*\*OUTER\*\* (common). 
     -- doc $dx/calls/scopes.cob
 check "doc lists callers of nested programs" 0 '^- called by OUTER$' \
     -- doc $dx/calls/scopes.cob
-check "doc writes a line of one statement" 0 '^9 lines, 1 statement, complexity 1.$' \
+check "doc writes a line of one statement" 0 '^9 lines, 1 statement, complexity 1, maintainability index 70 of 100.$' \
     -- doc $dx/calls/scopes.cob
 check "doc writes the size of a one-byte record" 0 '^### COUNTER (1 byte)$' \
     -- doc $dx/metrics/complexity.cob
