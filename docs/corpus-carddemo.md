@@ -248,6 +248,10 @@ Some findings that were read and are true:
 - **PLB-K005 batch-io-in-cics.** None: no program with CICS commands
   has COBOL file statements or an `ACCEPT` of input.
   An `ACCEPT` added to a copy of `COMEN01C` is reported.
+- **PLB-Q006 and PLB-Q007.** None: the DB2 programs use the host
+  variables of their DCLGEN copybooks, which match the tables. With the
+  text of the VARCHAR structure for `TR_DESCRIPTION` made 40 characters
+  in a copy of `DCLTRTYP`, the `SELECT` of `COTRTUPC` is reported.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)

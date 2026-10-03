@@ -105,6 +105,8 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q003](#plb-q003-cursor-not-opened) | cursor-not-opened | error | SQL cursor is fetched or closed but never opened |
 | [PLB-Q004](#plb-q004-sql-no-where) | sql-no-where | warning | SQL UPDATE or DELETE without WHERE changes every row |
 | [PLB-Q005](#plb-q005-into-count-mismatch) | into-count-mismatch | warning | INTO list and select list have different numbers of items |
+| [PLB-Q006](#plb-q006-host-variable-too-small) | host-variable-too-small | warning | FETCH or SELECT INTO a host variable too small for the column |
+| [PLB-Q007](#plb-q007-host-variable-too-large) | host-variable-too-large | warning | INSERT or UPDATE from a host variable the column cannot hold |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -2174,6 +2176,53 @@ one. A cursor is matched by name with its `DECLARE` anywhere in the
 file. Select lists with `*` at their top level, cursors for prepared
 statements, and host structures (a group item, which stands for its
 fields) are not counted.
+
+## PLB-Q006 host-variable-too-small
+
+A `FETCH`, or a `SELECT ... INTO`, that puts a column into a host
+variable too small for the column's values, by the column's type in
+the `DECLARE TABLE` of the file (a DCLGEN copybook, usually):
+
+```cobol
+    EXEC SQL DECLARE BANK.ACCOUNT TABLE
+    ( ACCT_ID          DECIMAL(11, 0) NOT NULL,
+      ACCT_NAME        VARCHAR(40) NOT NULL ...
+01  WS-SHORT-ID        PIC S9(7) COMP-3.
+    EXEC SQL SELECT ACCT_ID INTO :WS-SHORT-ID ...   *> reported
+```
+
+A character value longer than the host variable is cut, with only
+`SQLWARN1` to say so; a number with more integer digits than the host
+variable has makes the statement fail (`SQLCODE -304`); decimal places
+the host variable lacks are cut. It usually follows a change to the
+table that the program's own copy of the layout missed.
+
+Compared are `CHAR` and `VARCHAR` columns with alphanumeric host
+variables, or VARCHAR structures (two items of level 49, the length
+and the text); `DECIMAL` columns with numeric ones, by integer digits
+and decimal places; and `SMALLINT`, `INTEGER`, and `BIGINT` with
+numeric ones, which need 4, 9, and 18 digits when binary and 5, 10,
+and 19 otherwise. A column is looked for in the statement's tables,
+then in all declared tables, where its name must be unique. Select
+items that are expressions, and other types, are not compared.
+
+## PLB-Q007 host-variable-too-large
+
+An `INSERT` or `UPDATE` that gives a column a host variable holding
+values the column cannot take: more characters than a `CHAR` or
+`VARCHAR` column (`SQLCODE -404` when a value is that long), more
+integer digits than a `DECIMAL` column (`SQLCODE -302`), or more
+decimal places, which are cut.
+
+```cobol
+01  WS-LONG-CITY       PIC X(25).
+    EXEC SQL INSERT INTO BANK.ACCOUNT (CITY)
+        VALUES (:WS-LONG-CITY) END-EXEC          *> CITY is CHAR(20)
+```
+
+An `INSERT` pairs its column list with its `VALUES`, an `UPDATE` each
+`SET column = :host`; values that are not a host variable alone are
+not compared. As for PLB-Q006, the types come from `DECLARE TABLE`.
 ## PLB-S001 dynamic-sql
 
 SQL text that the program builds at run time and hands to the database:
