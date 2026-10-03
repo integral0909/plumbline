@@ -266,6 +266,8 @@ Some findings that were read and are true:
   the inner `PERFORM` is left unfinished and the outer range returns.
   `COCRDUPC` does the same from `9300-CHECK-CHANGE-IN-REC` to
   `9200-WRITE-PROCESSING-EXIT`.
+- **PLB-C055 corresponding-no-match.** None: CardDemo has no
+  `CORRESPONDING` statement.
 - **PLB-Q008 null-without-indicator.** None: the tables that are fetched
   from declare their columns `NOT NULL`, and the one with nullable
   columns, `AUTHFRDS`, is only inserted into, by `COPAUS2C`.

@@ -66,6 +66,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C052](#plb-c052-string-overlap) | string-overlap | warning | STRING or UNSTRING sends from storage it receives into |
 | [PLB-C053](#plb-c053-exit-program-in-main) | exit-program-in-main | warning | EXIT PROGRAM in a program a job step runs does nothing |
 | [PLB-C054](#plb-c054-go-to-into-perform-range) | go-to-into-perform-range | warning | GO TO from outside a PERFORM THRU range into its middle |
+| [PLB-C055](#plb-c055-corresponding-no-match) | corresponding-no-match | warning | MOVE, ADD, or SUBTRACT CORRESPONDING finds no items to pair |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1517,6 +1518,31 @@ other side of PLB-C029, a `GO TO` that leaves a range.
 A `GO TO` that stays within some other `PERFORM` range, as when two
 ranges share an exit paragraph, is not reported; each `GO TO` is
 reported once.
+
+## PLB-C055 corresponding-no-match
+
+A `MOVE`, `ADD`, or `SUBTRACT CORRESPONDING` whose two groups have no
+pair of items that correspond, so that it does nothing:
+
+```cobol
+01  IN-REC.
+    05  CUST-ID         PIC X(8).
+    05  CUST-NAME       PIC X(30).
+01  OUT-REC.
+    05  CUSTOMER-ID     PIC X(8).
+    05  NAME            PIC X(30).
+    ...
+    MOVE CORRESPONDING IN-REC TO OUT-REC        *> reported
+```
+
+Two items correspond when they have the same name and the same
+qualifiers up to the two groups. FILLER, condition names, `RENAMES`
+and `USAGE INDEX` items do not count, nor do items that have, or are
+in an item that has, `REDEFINES` or `OCCURS` below the group. For
+`MOVE` one of the two must be elementary; for `ADD` and `SUBTRACT`
+both must be elementary and numeric, so a numeric-edited item does
+not pair. The compiler accepts such a statement without a word; a
+renamed field, or a changed picture, on one side is the usual cause.
 
 ## PLB-I001 pcb-dbd-unknown
 
