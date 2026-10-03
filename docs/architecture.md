@@ -453,6 +453,19 @@ split at the commas of the source text between their tokens
 (`PLB-SQL-COMMA-BETWEEN`), outside parentheses. `dump sql` prints the
 model.
 
+### CRUD matrix
+
+`src/lib/plbcrud.cob`, with its table in `copy/plbcrud.cpy`.
+
+`plumbline crud` reads each program once. `PLB-CRUD-COLLECT` takes the
+tables of each SQL statement from the SQL model, the COBOL file
+statements from the syntax tree (a record's FD is the `FD` node above
+its symbol's), and the CICS file commands with their `FILE` or
+`DATASET` operand, whose item is replaced by the literal of its
+`VALUE` clause when it has one. Each use is entered for the innermost
+program around it, one row per program, kind, and resource, with a
+flag for each operation; `PLB-CRUD-PRINT` sorts the rows.
+
 ### Data lineage
 
 `src/lib/plblineage.cob`.

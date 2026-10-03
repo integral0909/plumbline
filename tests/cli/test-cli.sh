@@ -545,6 +545,29 @@ check "lineage of an unknown item"         1 'no data item named NOPE in the inp
     -- lineage NOPE $lin
 check "lineage needs a name"               2 'lineage needs a data item name' \
     -- lineage
+crud_fx="tests/fixtures/crud/acctmnt.cob"
+check "crud reads tables through cursors and updates them" 0 '^ACCTMNT   table      BANK.ACCOUNT  *- R U -$' \
+    -- crud $crud_fx
+check "crud counts inserts and deletes"   0 '^ACCTMNT   table      BANK.AUDIT  *C - - D$' \
+    -- crud $crud_fx
+check "crud finds a file by its record"  0 '^ACCTMNT   file       HIST-FILE  *C - - -$' \
+    -- crud $crud_fx
+check "crud takes a CICS file from a VALUE" 0 '^ACCTMNT   cics-file  ACCTDAT  *- R U -$' \
+    -- crud $crud_fx
+check "crud as CSV"                       0 '^ACCTMNT,table,BANK.AUDIT,Y,N,N,Y$' \
+    -- crud --report csv $crud_fx
+n=$((n + 1))
+if "$bin" crud --report json $crud_fx | python3 -c '
+import json, sys
+rows = {(r["kind"], r["resource"]): r for r in json.load(sys.stdin)["crud"]}
+assert rows[("cics-file", "ACCTDAT")]["update"] is True
+assert rows[("table", "BANK.ACCOUNT")]["create"] is False
+assert len(rows) == 4
+'; then
+    echo "ok $n - crud json"
+else
+    failed=$((failed + 1)); echo "not ok $n - crud json"
+fi
 xx="-I tests/fixtures/xref tests/fixtures/xref/acctupd.cob"
 check "xref heads each program"           0 '^ACCTUPD (tests/fixtures/xref/acctupd.cob:2)$' \
     -- xref $xx

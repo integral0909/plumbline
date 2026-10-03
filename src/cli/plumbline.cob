@@ -45,6 +45,7 @@
 *>   plumbline fields [--report text|json] [--unused] [OPTION]... FILE...
 *>   plumbline xref [--report text|json] [OPTION]... FILE...
 *>   plumbline duplicates [--min-tokens N] [--report text|json] [OPTION]... FILE...
+*>   plumbline crud [--report text|csv|json] [OPTION]... FILE...
 *>   plumbline lineage NAME [--depth N] [--forward] [--report text|json] [OPTION]... FILE...
 *>   plumbline dump jcl FILE...
 *>   plumbline dump bms FILE...
@@ -86,6 +87,7 @@ COPY "plbdset.cpy".
 COPY "plbfld.cpy".
 COPY "plbdupt.cpy".
 COPY "plbsqlm.cpy".
+COPY "plbcrud.cpy".
 COPY "plbbmsc.cpy".
 COPY "plbbms.cpy".
 COPY "plbcsdc.cpy".
@@ -373,6 +375,9 @@ MAIN-LOGIC.
             WHEN "lineage"
                 MOVE "lineage" TO WS-COMMAND
                 PERFORM LINEAGE-COMMAND
+            WHEN "crud"
+                MOVE "crud" TO WS-COMMAND
+                PERFORM CRUD-COMMAND
             WHEN OTHER
                 IF WS-ARG(1:1) = "-"
                     PERFORM UNKNOWN-OPTION
@@ -418,6 +423,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline fields [--report text|json] [--unused] [OPTION]... FILE..."
     DISPLAY "       plumbline xref [--report text|json] [OPTION]... FILE..."
     DISPLAY "       plumbline duplicates [--min-tokens N] [--report text|json] [OPTION]... FILE..."
+    DISPLAY "       plumbline crud [--report text|csv|json] [OPTION]... FILE..."
     DISPLAY "       plumbline lineage NAME [--depth N] [--forward] [--report text|json] [OPTION]... FILE..."
     DISPLAY "       plumbline format --to fixed|free [--check] FILE..."
     DISPLAY "       plumbline lsp [OPTION]..."
@@ -468,6 +474,9 @@ SHOW-USAGE.
     DISPLAY "  duplicates       list paragraphs with the same code, in one"
     DISPLAY "                   program or across programs (--min-tokens:"
     DISPLAY "                   the smallest body counted, default 50)"
+    DISPLAY "  crud             list which programs create, read, update,"
+    DISPLAY "                   and delete which DB2 tables, files, and"
+    DISPLAY "                   CICS files"
     DISPLAY "  lineage NAME     show the statements that give data item NAME"
     DISPLAY "                   its value and the items they read, and"
     DISPLAY "                   theirs, to --depth (3); --forward: where"
@@ -980,6 +989,37 @@ LINEAGE-COMMAND.
             WS-IMPACT-NAME(1:WS-PATH-LEN) " in the input" UPON SYSERR
         MOVE 1 TO WS-EXIT-CODE
     END-IF
+    IF DG-ERRORS > 0
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+*> crud: the CRUD matrix of the run.
+CRUD-COMMAND.
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM ADD-INPUTS
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
+    MOVE WS-MODE TO PO-FORMAT
+    MOVE WS-DEBUG TO PO-DEBUG
+    CALL "PLB-CRUD-INIT" USING PLB-CRUD
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        PERFORM START-INPUT
+        IF SF-LOADED(WS-FILE-ID) = "Y"
+            PERFORM ANALYZE-FILE
+            CALL "PLB-CRUD-COLLECT" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-AST PLB-SYMBOLS PLB-CRUD
+            PERFORM END-INPUT
+        END-IF
+    END-PERFORM
+    CALL "PLB-CRUD-PRINT" USING PLB-CRUD WS-REPORT
+    IF CX-DROPPED > 0
+        DISPLAY PLB-NAME ": " CX-DROPPED " uses did not fit and are"
+            " left out" UPON SYSERR
+    END-IF
+    PERFORM REPORT-DIAGNOSTICS
     IF DG-ERRORS > 0
         MOVE 1 TO WS-EXIT-CODE
     END-IF.
@@ -5383,13 +5423,15 @@ SET-REPORT.
              AND WS-COMMAND NOT = "rules" AND WS-COMMAND NOT = "inventory"
              AND WS-COMMAND NOT = "fields" AND WS-COMMAND NOT = "xref"
              AND WS-COMMAND NOT = "duplicates" AND WS-COMMAND NOT = "lineage"
+             AND WS-COMMAND NOT = "crud"
              AND WS-COMMAND NOT = "layout"
             MOVE WS-ARG TO WS-REPORT
         WHEN (WS-ARG = "html" OR WS-ARG = "md" OR WS-ARG = "codeclimate")
              AND WS-COMMAND = "check"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "csv"
-             AND (WS-COMMAND = "metrics" OR WS-COMMAND = "layout")
+             AND (WS-COMMAND = "metrics" OR WS-COMMAND = "layout"
+                  OR WS-COMMAND = "crud")
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "dot" AND WS-COMMAND = "graph"
             MOVE WS-ARG TO WS-REPORT
@@ -5400,7 +5442,7 @@ SET-REPORT.
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected dot or json)" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
-        WHEN WS-COMMAND = "metrics"
+        WHEN WS-COMMAND = "metrics" OR WS-COMMAND = "crud"
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected text, json, or csv)" UPON SYSERR

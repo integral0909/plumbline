@@ -271,6 +271,17 @@ Some findings that were read and are true:
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)
   is sensitive to, with `PROCOPT=AP`.
 
+## CRUD matrix
+
+`plumbline crud` over the 44 programs gives 86 rows: the batch
+programs' files, the online programs' CICS files (`ACCTDAT`,
+`CARDDAT`, `CARDAIX`, `CCXREF`, `CUSTDAT`, `CXACAIX`, `TRANSACT`, and
+`USRSEC`, the names the CICS definitions give, found through items such
+as `LIT-ACCTFILENAME`), and the DB2 extension's tables. `COTRTUPC` is
+the one program that creates, reads, updates, and deletes
+`CARDDEMO.TRANSACTION_TYPE`; `COUSR01C` to `COUSR03C` split the user
+file `USRSEC` between them (create, read and update, read and delete).
+
 ## Duplicate code
 
 `plumbline duplicates` over the 44 programs lists 17 groups of
