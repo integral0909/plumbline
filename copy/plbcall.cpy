@@ -48,6 +48,11 @@
         10  CP-STOP-LINE        PIC 9(9) COMP-5.
         10  CP-STOP-COLUMN      PIC 9(4) COMP-5.
         10  CP-STOP-SRC-LINE    PIC 9(9) COMP-5.
+        *> The same for its first EXIT PROGRAM.
+        10  CP-EXIT-FILE-ID     PIC 9(4) COMP-5.
+        10  CP-EXIT-LINE        PIC 9(9) COMP-5.
+        10  CP-EXIT-COLUMN      PIC 9(4) COMP-5.
+        10  CP-EXIT-SRC-LINE    PIC 9(9) COMP-5.
     05  CA-COUNT                PIC 9(9) COMP-5.
     05  CA-ENTRY                OCCURS CA-MAX TIMES.
         10  CA-NAME             PIC X(31).

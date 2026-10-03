@@ -478,6 +478,13 @@ assert items["CUST-ORDERS"]["namedBy"] == 2
 else
     echo "not ok $n - fields json"
 fi
+ex="tests/fixtures/exitprog"
+check "EXIT PROGRAM in a program a step runs" 1 'rptmain.cob:11:12: warning: EXIT PROGRAM does nothing in RPTMAIN, which step REPORT runs as the main program: execution goes on past it; GOBACK ends the program \[PLB-C053\]' \
+    -- check $ex/rptmain.cob $ex/rptcalc.cob $ex/rptjob.jcl
+check_absent "EXIT PROGRAM in a called program" 'rptcalc.cob:.*PLB-C053' \
+    -- check $ex/rptmain.cob $ex/rptcalc.cob $ex/rptjob.jcl
+check_absent "EXIT PROGRAM without JCL"       'PLB-C053' \
+    -- check $ex/rptmain.cob $ex/rptcalc.cob
 xx="-I tests/fixtures/xref tests/fixtures/xref/acctupd.cob"
 check "xref heads each program"           0 '^ACCTUPD (tests/fixtures/xref/acctupd.cob:2)$' \
     -- xref $xx

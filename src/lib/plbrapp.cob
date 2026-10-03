@@ -4,6 +4,8 @@
 *>
 *>   PLB-A001  unused-program   a program nothing in the run calls,
 *>                              runs, starts, or names
+*>   PLB-C053  exit-program-in-main  EXIT PROGRAM in a program a job
+*>                              step runs (PLB-RULE-C053, below)
 *>
 *> A program is in use when another program of the run calls it
 *> (CALL, or EXEC CICS XCTL, LINK, or LOAD with a constant name), a JCL
@@ -188,3 +190,79 @@ REPORT-PROGRAM.
         CP-FILE-ID(LS-P) CP-LINE(LS-P) CP-COLUMN(LS-P) CP-SRC-LINE(LS-P)
         LS-MESSAGE.
 END PROGRAM PLB-RULE-APPLICATION.
+
+*> PLB-C053 exit-program-in-main: EXIT PROGRAM in a program that a
+*> job step runs (EXEC PGM=name) and that no program of the run calls.
+*> In a main program EXIT PROGRAM does nothing: execution goes on with
+*> the next statement, through the paragraphs that follow, instead of
+*> ending. GOBACK ends a main program and returns from a called one.
+*>
+*> A program run through another (DFSRRC00 for IMS, a DB2 RUN PROGRAM)
+*> is called by it, and nested programs only run when called; neither
+*> is reported. CICS programs are not run by job steps.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-C053.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbcallc.cpy".
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-P                    PIC 9(9) COMP-5.
+01  LS-C                    PIC 9(9) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-STEP                 PIC 9(9) COMP-5.
+01  LS-NAME                 PIC X(8).
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbcall.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C053" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y" OR JS-COUNT = 0
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+        IF CP-KIND(LS-P) = "P" AND CP-PARENT(LS-P) = 0
+           AND CP-EXIT-LINE(LS-P) > 0 AND CP-NAME(LS-P) NOT = SPACES
+            PERFORM CHECK-PROGRAM
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+CHECK-PROGRAM.
+    *> Called by a program of the run: EXIT PROGRAM returns.
+    PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > CC-COUNT
+        IF CC-TO(LS-C) > 0
+            IF CP-OWNER(CC-TO(LS-C)) = LS-P
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+    END-PERFORM
+    *> A step that runs it directly.
+    MOVE 0 TO LS-STEP
+    MOVE CP-NAME(LS-P) TO LS-NAME
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
+        IF JS-KIND(LS-S) = "P" AND JS-TARGET(LS-S) = LS-NAME
+           AND JS-INNER(LS-S) = SPACES
+            MOVE LS-S TO LS-STEP
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-STEP = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    STRING "EXIT PROGRAM does nothing in " DELIMITED BY SIZE
+           CP-NAME(LS-P) DELIMITED BY SPACE
+           ", which step " DELIMITED BY SIZE
+           JS-NAME(LS-STEP) DELIMITED BY SPACE
+           " runs as the main program: execution goes on past it;"
+           " GOBACK ends the program" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        CP-EXIT-FILE-ID(LS-P) CP-EXIT-LINE(LS-P) CP-EXIT-COLUMN(LS-P)
+        CP-EXIT-SRC-LINE(LS-P) LS-MESSAGE.
+END PROGRAM PLB-RULE-C053.

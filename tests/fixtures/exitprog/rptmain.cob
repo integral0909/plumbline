@@ -1,0 +1,14 @@
+      * Run by step REPORT of RPTJOB: EXIT PROGRAM does nothing here.
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. RPTMAIN.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  WS-TOTAL                PIC 9(7) VALUE 0.
+       PROCEDURE DIVISION.
+       MAIN-LINE.
+           CALL "RPTCALC" USING WS-TOTAL
+           DISPLAY WS-TOTAL
+           EXIT PROGRAM.
+       AFTER-EXIT.
+           DISPLAY "RUNS AFTER EXIT PROGRAM"
+           GOBACK.

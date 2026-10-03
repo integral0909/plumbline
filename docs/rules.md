@@ -63,6 +63,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C050](#plb-c050-record-read-at-end) | record-read-at-end | warning | AT END of a READ reads the file's record |
 | [PLB-C051](#plb-c051-duplicate-if-condition) | duplicate-if-condition | warning | ELSE IF repeats a condition the chain already tested |
 | [PLB-C052](#plb-c052-string-overlap) | string-overlap | warning | STRING or UNSTRING sends from storage it receives into |
+| [PLB-C053](#plb-c053-exit-program-in-main) | exit-program-in-main | warning | EXIT PROGRAM in a program a job step runs does nothing |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1426,6 +1427,29 @@ of a `STRING`, or the receivers of an `UNSTRING` with their `DELIMITER
 IN` and `COUNT IN` items. `POINTER` and `TALLYING` items, and names in
 subscripts, are not compared. Storage is shared through the same name,
 a group and its items, or `REDEFINES`, as in PLB-C046.
+
+## PLB-C053 exit-program-in-main
+
+`EXIT PROGRAM` in a program that a job step runs (`EXEC PGM=name`) and
+that no program of the run calls:
+
+```cobol
+MAIN-LINE.
+    PERFORM PROCESS-FILE
+    EXIT PROGRAM.                           *> reported
+CLOSE-DOWN.
+    ...
+```
+
+`EXIT PROGRAM` returns to a caller; in a main program, which has none,
+it does nothing, and execution goes on with the next statement, into
+the paragraphs that follow. `GOBACK` ends a main program and returns
+from a called one, so it is right in both.
+
+The rule needs the JCL that runs the program among the inputs. A
+program a step runs through another (IMS's `DFSRRC00`, a DB2 `RUN
+PROGRAM`) is called by it, and a nested program only runs when called;
+neither is reported.
 
 ## PLB-I001 pcb-dbd-unknown
 
