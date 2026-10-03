@@ -541,6 +541,29 @@ assert any(node.get("seen") for node in nodes)
 else
     failed=$((failed + 1)); echo "not ok $n - lineage json"
 fi
+calls_fx="tests/fixtures/calls/billing.cob tests/fixtures/calls/custlook.cob"
+check "lineage names the caller's argument of a LINKAGE item" 0 \
+    '^  <- argument 2 of CALL "CUSTLOOK" in BILLING  tests/fixtures/calls/billing.cob:9: CUST-NAME$' \
+    -- lineage LK-CUST-NAME $calls_fx
+check "lineage --forward names the parameter a CALL passes to" 0 \
+    '^    -> parameter 1 of CUSTLOOK: LK-CUST-ID$' \
+    -- lineage CUST-ID --forward $calls_fx
+check "lineage --forward with the program called not in the run" 0 \
+    '^    -> argument 1 of CUSTLOOK, which is not in the run$' \
+    -- lineage CUST-ID --forward tests/fixtures/calls/billing.cob
+n=$((n + 1))
+if "$bin" lineage LK-CUST-NAME --report json $calls_fx | python3 -c '
+import json, sys
+nodes = json.load(sys.stdin)["lineage"]
+by_id = {node["id"]: node for node in nodes}
+calls = [node for node in nodes if node["kind"] == "call"]
+assert len(calls) == 2
+assert [by_id[c["parent"]]["name"] for c in calls] == ["LK-CUST-NAME", "LK-CUST-ID"]
+'; then
+    echo "ok $n - lineage json call nodes"
+else
+    failed=$((failed + 1)); echo "not ok $n - lineage json call nodes"
+fi
 check "lineage of an unknown item"         1 'no data item named NOPE in the input' \
     -- lineage NOPE $lin
 check "lineage needs a name"               2 'lineage needs a data item name' \

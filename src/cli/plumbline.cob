@@ -960,7 +960,8 @@ LAYOUT-COMMAND.
     END-IF.
 
 *> lineage NAME: where data item NAME gets its value, or where the value
-*> goes, in each program that has an item of that name.
+*> goes, in each program that has an item of that name, and the calls
+*> it crosses to other programs of the run.
 LINEAGE-COMMAND.
     PERFORM NEXT-ARG
     IF WS-ARG-LEN = 0 OR WS-ARG(1:1) = "-"
@@ -974,9 +975,9 @@ LINEAGE-COMMAND.
         EXIT PARAGRAPH
     END-IF
     PERFORM ADD-INPUTS
-    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
-    MOVE WS-MODE TO PO-FORMAT
-    MOVE WS-DEBUG TO PO-DEBUG
+    *> The call graph of the whole run first, for the trail through
+    *> CALL arguments.
+    PERFORM ANALYZE-RUN
     MOVE "N" TO WS-FOUND
     MOVE "B" TO WS-LINEAGE-ACTION
     PERFORM CALL-LINEAGE
@@ -1036,7 +1037,8 @@ CRUD-COMMAND.
 
 CALL-LINEAGE.
     CALL "PLB-LINEAGE-FILE" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
-        PLB-SYMBOLS PLB-REFS WS-IMPACT-NAME WS-LINEAGE-DEPTH
+        PLB-SYMBOLS PLB-REFS PLB-CALL-GRAPH WS-IMPACT-NAME
+        WS-LINEAGE-DEPTH
         WS-LINEAGE-DIRECTION WS-FOUND WS-REPORT WS-LINEAGE-ACTION.
 
 *> duplicates: paragraphs with the same code across the run.
