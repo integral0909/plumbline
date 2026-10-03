@@ -453,6 +453,20 @@ split at the commas of the source text between their tokens
 (`PLB-SQL-COMMA-BETWEEN`), outside parentheses. `dump sql` prints the
 model.
 
+### Data lineage
+
+`src/lib/plblineage.cob`.
+
+`plumbline lineage` reads each program once and traces each item of
+the name in it. The tree is walked with an explicit stack of items and
+statements, since COBOL paragraphs do not recurse: an item's frame
+pushes the statements that give it a value (the references with a
+storing role to it, a group it is in, or an item in it, and the READs
+of its file for a record), in reverse source order so that they come
+off in order; a statement's frame pushes the items it reads. Forward,
+the roles swap. An item is marked seen when it is expanded, and later
+frames of it print "see above".
+
 ### Duplicate code
 
 `src/lib/plbdup.cob`, with its table in `copy/plbdupt.cpy`.

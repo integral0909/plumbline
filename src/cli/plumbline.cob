@@ -45,6 +45,7 @@
 *>   plumbline fields [--report text|json] [--unused] [OPTION]... FILE...
 *>   plumbline xref [--report text|json] [OPTION]... FILE...
 *>   plumbline duplicates [--min-tokens N] [--report text|json] [OPTION]... FILE...
+*>   plumbline lineage NAME [--depth N] [--forward] [--report text|json] [OPTION]... FILE...
 *>   plumbline dump jcl FILE...
 *>   plumbline dump bms FILE...
 *>   plumbline dump csd FILE...
@@ -154,6 +155,11 @@ COPY "plbinput.cpy".
 01  WS-XREF-ANY             PIC X.
 *> plumbline duplicates: the smallest paragraph body, in tokens.
 01  WS-DUP-MIN              PIC 9(9) COMP-5 VALUE 50.
+*> plumbline lineage: how many statements deep, and B(ackward) or
+*> F(orward).
+01  WS-LINEAGE-DEPTH        PIC 9(9) COMP-5 VALUE 3.
+01  WS-LINEAGE-DIRECTION    PIC X VALUE "B".
+01  WS-LINEAGE-ACTION       PIC X.
 01  WS-U                    PIC 9(9) COMP-5.
 01  WS-E                    PIC 9(9) COMP-5.
 01  WS-RULE                 PIC 9(4) COMP-5.
@@ -360,6 +366,9 @@ MAIN-LOGIC.
             WHEN "duplicates"
                 MOVE "duplicates" TO WS-COMMAND
                 PERFORM DUPLICATES-COMMAND
+            WHEN "lineage"
+                MOVE "lineage" TO WS-COMMAND
+                PERFORM LINEAGE-COMMAND
             WHEN OTHER
                 IF WS-ARG(1:1) = "-"
                     PERFORM UNKNOWN-OPTION
@@ -405,6 +414,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline fields [--report text|json] [--unused] [OPTION]... FILE..."
     DISPLAY "       plumbline xref [--report text|json] [OPTION]... FILE..."
     DISPLAY "       plumbline duplicates [--min-tokens N] [--report text|json] [OPTION]... FILE..."
+    DISPLAY "       plumbline lineage NAME [--depth N] [--forward] [--report text|json] [OPTION]... FILE..."
     DISPLAY "       plumbline format --to fixed|free [--check] FILE..."
     DISPLAY "       plumbline lsp [OPTION]..."
     DISPLAY "       plumbline rules [--report text|json] [OPTION]..."
@@ -454,6 +464,10 @@ SHOW-USAGE.
     DISPLAY "  duplicates       list paragraphs with the same code, in one"
     DISPLAY "                   program or across programs (--min-tokens:"
     DISPLAY "                   the smallest body counted, default 50)"
+    DISPLAY "  lineage NAME     show the statements that give data item NAME"
+    DISPLAY "                   its value and the items they read, and"
+    DISPLAY "                   theirs, to --depth (3); --forward: where"
+    DISPLAY "                   its value goes"
     DISPLAY "  impact NAME      list what includes copybook NAME or"
     DISPLAY "                   calls program NAME, directly or not,"
     DISPLAY "                   where data item NAME is used, or which"
@@ -921,6 +935,55 @@ LAYOUT-COMMAND.
     IF DG-ERRORS > 0
         MOVE 1 TO WS-EXIT-CODE
     END-IF.
+
+*> lineage NAME: where data item NAME gets its value, or where the value
+*> goes, in each program that has an item of that name.
+LINEAGE-COMMAND.
+    PERFORM NEXT-ARG
+    IF WS-ARG-LEN = 0 OR WS-ARG(1:1) = "-"
+        DISPLAY PLB-NAME ": lineage needs a data item name" UPON SYSERR
+        PERFORM SUGGEST-HELP
+        EXIT PARAGRAPH
+    END-IF
+    MOVE WS-ARG TO WS-IMPACT-NAME
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM ADD-INPUTS
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
+    MOVE WS-MODE TO PO-FORMAT
+    MOVE WS-DEBUG TO PO-DEBUG
+    MOVE "N" TO WS-FOUND
+    MOVE "B" TO WS-LINEAGE-ACTION
+    PERFORM CALL-LINEAGE
+    MOVE "F" TO WS-LINEAGE-ACTION
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        PERFORM START-INPUT
+        IF SF-LOADED(WS-FILE-ID) = "Y"
+            PERFORM ANALYZE-FILE
+            PERFORM CALL-LINEAGE
+            PERFORM END-INPUT
+        END-IF
+    END-PERFORM
+    MOVE "E" TO WS-LINEAGE-ACTION
+    PERFORM CALL-LINEAGE
+    PERFORM REPORT-DIAGNOSTICS
+    IF WS-FOUND = "N"
+        CALL "PLB-STR-LENGTH" USING WS-IMPACT-NAME WS-PATH-LEN
+        DISPLAY PLB-NAME ": no data item named "
+            WS-IMPACT-NAME(1:WS-PATH-LEN) " in the input" UPON SYSERR
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF
+    IF DG-ERRORS > 0
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+CALL-LINEAGE.
+    CALL "PLB-LINEAGE-FILE" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
+        PLB-SYMBOLS PLB-REFS WS-IMPACT-NAME WS-LINEAGE-DEPTH
+        WS-LINEAGE-DIRECTION WS-FOUND WS-REPORT WS-LINEAGE-ACTION.
 
 *> duplicates: paragraphs with the same code across the run.
 DUPLICATES-COMMAND.
@@ -4918,6 +4981,20 @@ PARSE-INPUT-ARGS.
                 END-IF
             WHEN WS-ARG = "--unused" AND WS-COMMAND = "fields"
                 MOVE "Y" TO WS-FIELDS-UNUSED
+            WHEN WS-ARG = "--forward" AND WS-COMMAND = "lineage"
+                MOVE "F" TO WS-LINEAGE-DIRECTION
+            WHEN WS-ARG = "--depth" AND WS-COMMAND = "lineage"
+                PERFORM NEXT-ARG
+                IF WS-ARG-LEN > 0 AND WS-ARG-LEN < 4
+                   AND WS-ARG(1:WS-ARG-LEN) IS NUMERIC
+                    COMPUTE WS-LINEAGE-DEPTH =
+                        FUNCTION NUMVAL(WS-ARG(1:WS-ARG-LEN))
+                ELSE
+                    DISPLAY PLB-NAME ": invalid --depth '"
+                        WS-ARG(1:WS-ARG-LEN) "' (expected a number)"
+                        UPON SYSERR
+                    MOVE 2 TO WS-EXIT-CODE
+                END-IF
             WHEN WS-ARG = "--min-tokens" AND WS-COMMAND = "duplicates"
                 PERFORM NEXT-ARG
                 IF WS-ARG-LEN > 0 AND WS-ARG-LEN < 7
@@ -5248,7 +5325,7 @@ SET-REPORT.
         WHEN WS-ARG = "sarif" AND WS-COMMAND NOT = "metrics"
              AND WS-COMMAND NOT = "rules" AND WS-COMMAND NOT = "inventory"
              AND WS-COMMAND NOT = "fields" AND WS-COMMAND NOT = "xref"
-             AND WS-COMMAND NOT = "duplicates"
+             AND WS-COMMAND NOT = "duplicates" AND WS-COMMAND NOT = "lineage"
              AND WS-COMMAND NOT = "layout"
             MOVE WS-ARG TO WS-REPORT
         WHEN (WS-ARG = "html" OR WS-ARG = "md" OR WS-ARG = "codeclimate")
@@ -5278,7 +5355,7 @@ SET-REPORT.
             MOVE 2 TO WS-EXIT-CODE
         WHEN WS-COMMAND = "rules" OR WS-COMMAND = "inventory"
              OR WS-COMMAND = "fields" OR WS-COMMAND = "xref"
-             OR WS-COMMAND = "duplicates"
+             OR WS-COMMAND = "duplicates" OR WS-COMMAND = "lineage"
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected text or json)" UPON SYSERR
