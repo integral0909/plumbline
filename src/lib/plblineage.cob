@@ -33,6 +33,14 @@
 *> parameter of the program called. Run lineage again on the other
 *> program's item to follow it there.
 *>
+*> Embedded SQL is where a trail leaves for the database: an item
+*> given its value by SELECT ... INTO or FETCH names the column it
+*> comes from, and one that INSERT or UPDATE stores names its column:
+*>
+*>     WS-BALANCE  src/acct.cob:12
+*>       EXEC SQL SELECT BALANCE INTO :WS-BALANCE FROM ACCOUNT ...
+*>         <- column BALANCE of ACCOUNT
+*>
 *> As JSON, the tree is a list of nodes, each with its id and its
 *> parent's (0 for the item asked about):
 *>     {"lineage": [
@@ -47,7 +55,13 @@ PROGRAM-ID. PLB-LINEAGE-FILE.
 DATA DIVISION.
 WORKING-STORAGE SECTION.
 COPY "plbcallc.cpy".
-*> A link to another program, as text.
+*> The embedded SQL of the file, built when a trail first meets it.
+COPY "plbsqlm.cpy".
+01  WS-SQL-BUILT            PIC X VALUE "N".
+*> A link to another program, or to a column, as text; for JSON, its
+*> kind: "call" or "column".
+01  WS-LINK-KIND            PIC X(6).
+01  WS-LINK-TABLE           PIC X(64).
 01  WS-LINK                 PIC X(512).
 01  WS-LINK-PTR             PIC 9(9) COMP-5.
 *> The same in fields, for JSON: "caller" or "callee", the other
@@ -120,6 +134,11 @@ LOCAL-STORAGE SECTION.
 *> The node of the item or statement shown: the parent of what is
 *> below it.
 01  LS-OWN-NODE             PIC 9(9) COMP-5.
+01  LS-QS                   PIC 9(9) COMP-5.
+01  LS-QP                   PIC 9(9) COMP-5.
+01  LS-QC                   PIC 9(9) COMP-5.
+*> Parentheses open in the statement text being written.
+01  LS-LEVEL                PIC 9(9) COMP-5.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -163,6 +182,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
             GOBACK
     END-EVALUATE
     MOVE FUNCTION UPPER-CASE(LK-NAME) TO LS-WANT
+    MOVE "N" TO WS-SQL-BUILT
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
         IF SY-NAME(LS-S) = LS-WANT AND SY-NAME-TOKEN(LS-S) > 0
             IF LK-FOUND = "Y" AND LK-FORMAT NOT = "json"
@@ -432,6 +452,9 @@ SHOW-STATEMENT.
     IF LK-DIRECTION = "F" AND ND-DETAIL(LS-STMT) = "CALL"
         PERFORM CALLEE-LINK
     END-IF
+    IF ND-DETAIL(LS-STMT) = "EXEC"
+        PERFORM SQL-LINKS
+    END-IF
     *> The other items of the statement: what it reads, backward, and
     *> what it gives values to, forward.
     MOVE 0 TO WS-FOUND-COUNT
@@ -511,10 +534,14 @@ APPEND-STATEMENT-TEXT.
         END-IF
     END-IF
     MOVE LS-PTR TO LS-Q
+    MOVE 0 TO LS-LEVEL
     PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-STMT) BY 1
             UNTIL LS-T > LS-N
         IF TK-IS-PERIOD(LS-T)
             EXIT PERFORM
+        END-IF
+        IF TK-IS-RPAREN(LS-T) AND LS-LEVEL > 0
+            SUBTRACT 1 FROM LS-LEVEL
         END-IF
         CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
         IF LS-PTR - LS-Q + LS-LEN > 72
@@ -522,8 +549,10 @@ APPEND-STATEMENT-TEXT.
                 INTO WS-LINE WITH POINTER LS-PTR
             EXIT PERFORM
         END-IF
+        *> A colon in parentheses separates a reference modifier; one
+        *> outside them starts a host variable (:WS-ID).
         IF LS-T > ND-TOK-FIRST(LS-STMT) AND NOT TK-IS-RPAREN(LS-T)
-           AND NOT TK-IS-COLON(LS-T)
+           AND NOT (TK-IS-COLON(LS-T) AND LS-LEVEL > 0)
             IF LS-T > 1
                 IF NOT TK-IS-LPAREN(LS-T - 1) AND NOT TK-IS-COLON(LS-T - 1)
                     STRING " " DELIMITED BY SIZE
@@ -534,6 +563,9 @@ APPEND-STATEMENT-TEXT.
         IF LS-LEN > 0
             STRING LS-TEXT(1:LS-LEN) DELIMITED BY SIZE
                 INTO WS-LINE WITH POINTER LS-PTR
+        END-IF
+        IF TK-IS-LPAREN(LS-T)
+            ADD 1 TO LS-LEVEL
         END-IF
     END-PERFORM.
 
@@ -638,6 +670,7 @@ CALLER-LINK.
     STRING LS-NUM-TEXT(1:LS-NUM-LEN) ": " DELIMITED BY SIZE
            CG-TEXT(CC-ARG-FIRST(LS-C) + LS-ARG - 1) DELIMITED BY SPACE
         INTO WS-LINK WITH POINTER WS-LINK-PTR
+    MOVE "call" TO WS-LINK-KIND
     MOVE "caller" TO WS-LINK-SIDE
     MOVE CP-NAME(CC-FROM(LS-C)) TO WS-LINK-PROGRAM
     MOVE LS-ARG TO WS-LINK-POSITION
@@ -680,6 +713,7 @@ CALLEE-ARGUMENT.
     END-IF
     MOVE SPACES TO WS-LINK WS-LINK-NAME
     MOVE 1 TO WS-LINK-PTR
+    MOVE "call" TO WS-LINK-KIND
     MOVE "callee" TO WS-LINK-SIDE
     MOVE CC-SPELLING(LS-C) TO WS-LINK-PROGRAM
     MOVE LS-ARG TO WS-LINK-POSITION
@@ -710,9 +744,141 @@ CALLEE-ARGUMENT.
     END-IF
     PERFORM SHOW-LINK.
 
+*> EXEC SQL statement LS-STMT moves the value of LS-ITEM (or of a group
+*> it is in, or an item in it) between a host variable and a column:
+*> backward, SELECT INTO and FETCH name the column the value comes
+*> from; forward, INSERT and UPDATE the column it goes to.
+SQL-LINKS.
+    IF WS-SQL-BUILT = "N"
+        CALL "PLB-SQL-MODEL-BUILD" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-SQL-MODEL
+        MOVE "Y" TO WS-SQL-BUILT
+    END-IF
+    MOVE 0 TO LS-QS
+    PERFORM VARYING LS-Q FROM 1 BY 1 UNTIL LS-Q > QS-COUNT
+        IF QS-TOKEN(LS-Q) = ND-TOK-FIRST(LS-STMT)
+            MOVE LS-Q TO LS-QS
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-QS = 0
+        EXIT PARAGRAPH
+    END-IF
+    EVALUATE TRUE
+        WHEN LK-DIRECTION = "B"
+             AND (QS-KIND(LS-QS) = "S" OR QS-KIND(LS-QS) = "F")
+            CONTINUE
+        WHEN LK-DIRECTION = "F"
+             AND (QS-KIND(LS-QS) = "I" OR QS-KIND(LS-QS) = "U")
+            CONTINUE
+        WHEN OTHER
+            EXIT PARAGRAPH
+    END-EVALUATE
+    PERFORM SQL-TABLE
+    PERFORM VARYING LS-QP FROM QS-PAIR-FIRST(LS-QS) BY 1
+            UNTIL LS-QP >= QS-PAIR-FIRST(LS-QS) + QS-PAIR-COUNT(LS-QS)
+        IF QP-HOST-TOKEN(LS-QP) > 0
+            PERFORM SQL-PAIR
+        END-IF
+    END-PERFORM.
+
+*> WS-LINK-TABLE: the table of statement LS-QS; for a FETCH, that of
+*> its cursor's declaration. Spaces when there is none, or several.
+SQL-TABLE.
+    MOVE SPACES TO WS-LINK-TABLE
+    MOVE LS-QS TO LS-QC
+    IF QS-KIND(LS-QS) = "F"
+        MOVE 0 TO LS-QC
+        PERFORM VARYING LS-Q FROM 1 BY 1 UNTIL LS-Q > QS-COUNT
+            IF QS-KIND(LS-Q) = "C" AND QS-CURSOR(LS-Q) = QS-CURSOR(LS-QS)
+                MOVE LS-Q TO LS-QC
+                EXIT PERFORM
+            END-IF
+        END-PERFORM
+    END-IF
+    IF LS-QC > 0
+        IF QS-TABLE-COUNT(LS-QC) = 1
+            MOVE QS-TABLE(LS-QC, 1) TO WS-LINK-TABLE
+        END-IF
+    END-IF.
+
+*> Pair LS-QP, when its host variable is LS-ITEM or related to it.
+SQL-PAIR.
+    MOVE 0 TO LS-R
+    PERFORM VARYING LS-Q FROM 1 BY 1 UNTIL LS-Q > RF-COUNT
+        IF RF-TOKEN(LS-Q) = QP-HOST-TOKEN(LS-QP)
+            MOVE LS-Q TO LS-R
+            EXIT PERFORM
+        END-IF
+        IF RF-TOKEN(LS-Q) > QP-HOST-TOKEN(LS-QP)
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-R = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF RF-KIND(LS-R) NOT = "D" OR RF-SYMBOL(LS-R) = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM TEST-RELATED
+    IF LS-RELATED = "N"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "column" TO WS-LINK-KIND
+    MOVE QP-COLUMN(LS-QP) TO WS-LINK-NAME
+    MOVE SPACES TO WS-LINK
+    MOVE 1 TO WS-LINK-PTR
+    IF LK-DIRECTION = "B"
+        STRING "<- " DELIMITED BY SIZE
+            INTO WS-LINK WITH POINTER WS-LINK-PTR
+    ELSE
+        STRING "-> " DELIMITED BY SIZE
+            INTO WS-LINK WITH POINTER WS-LINK-PTR
+    END-IF
+    IF QP-COLUMN(LS-QP) = SPACES
+        STRING "an expression of the select list" DELIMITED BY SIZE
+            INTO WS-LINK WITH POINTER WS-LINK-PTR
+    ELSE
+        STRING "column " DELIMITED BY SIZE
+               QP-COLUMN(LS-QP) DELIMITED BY SPACE
+            INTO WS-LINK WITH POINTER WS-LINK-PTR
+        IF WS-LINK-TABLE NOT = SPACES
+            STRING " of " DELIMITED BY SIZE
+                   WS-LINK-TABLE DELIMITED BY SPACE
+                INTO WS-LINK WITH POINTER WS-LINK-PTR
+        END-IF
+    END-IF
+    PERFORM SHOW-LINK.
+
 *> WS-LINK one level below the current node, as a line or a JSON node
-*> of kind "call" with its fields.
+*> of kind "call" or "column" with its fields.
 SHOW-LINK.
+    IF LK-FORMAT = "json" AND WS-LINK-KIND = "column"
+        MOVE LS-OWN-NODE TO LS-PARENT
+        PERFORM START-NODE
+        STRING '"kind": "column", "text": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        CALL "PLB-JSON-STRING" USING WS-LINK WS-LINE LS-PTR
+        STRING ', "table": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        IF WS-LINK-TABLE = SPACES
+            STRING "null" DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        ELSE
+            CALL "PLB-JSON-STRING" USING WS-LINK-TABLE WS-LINE LS-PTR
+        END-IF
+        STRING ', "column": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        IF WS-LINK-NAME = SPACES
+            STRING "null" DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        ELSE
+            CALL "PLB-JSON-STRING" USING WS-LINK-NAME WS-LINE LS-PTR
+        END-IF
+        STRING "}" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+        PERFORM END-NODE
+        EXIT PARAGRAPH
+    END-IF
     IF LK-FORMAT = "json"
         MOVE LS-OWN-NODE TO LS-PARENT
         PERFORM START-NODE

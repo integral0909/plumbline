@@ -567,6 +567,17 @@ assert calls[0]["file"].endswith("billing.cob") and calls[0]["line"] == 9
 else
     failed=$((failed + 1)); echo "not ok $n - lineage json call nodes"
 fi
+sql_lin="tests/fixtures/lineage/acctsql.cob"
+check "lineage names the column a SELECT INTO reads" 0 '^        <- column BALANCE of ACCOUNT$' \
+    -- lineage WS-NEW-BALANCE $sql_lin
+check "lineage finds a FETCH's table in its cursor" 0 '^        <- column CREDIT_LIMIT of ACCOUNT$' \
+    -- lineage WS-NEW-BALANCE $sql_lin
+check "lineage --forward names the column UPDATE stores" 0 '^        -> column BALANCE of ACCOUNT$' \
+    -- lineage WS-LIMIT --forward $sql_lin
+check "lineage writes host variables with their colon" 0 'INTO :WS-ACCT-ID :WS-LIMIT END-EXEC  (line 22)$' \
+    -- lineage WS-LIMIT $sql_lin
+check "lineage json has column nodes"      0 '"kind": "column", "text": "<- column BALANCE of ACCOUNT", "table": "ACCOUNT", "column": "BALANCE"' \
+    -- lineage WS-NEW-BALANCE --report json $sql_lin
 check "lineage of an unknown item"         1 'no data item named NOPE in the input' \
     -- lineage NOPE $lin
 check "lineage needs a name"               2 'lineage needs a data item name' \

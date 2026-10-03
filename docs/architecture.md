@@ -491,6 +491,13 @@ group it is in, or an item in it, and shows the parameter there. The
 other program's statements are not followed: they belong to another
 file's analysis.
 
+An `EXEC SQL` statement's frame builds the file's SQL model
+(`PLB-SQL-MODEL-BUILD`) the first time it is needed, finds the
+statement by its `EXEC` token, and, for each pair whose host variable
+is the item or related to it, shows the column as a leaf: backward for
+`SELECT INTO` and `FETCH` (whose table is that of its cursor's
+declaration), forward for `INSERT` and `UPDATE`.
+
 ### Duplicate code
 
 `src/lib/plbdup.cob`, with its table in `copy/plbdupt.cpy`.
