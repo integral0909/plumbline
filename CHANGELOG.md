@@ -199,6 +199,9 @@ uses [Semantic Versioning](https://semver.org/).
   call graph also keeps each program's first `EXIT PROGRAM`.
 - Rule PLB-J007 dataset-created-twice. `dump jcl` is unchanged; the
   JCL reader now keeps the normal disposition of each DD as well.
+- Language server: go to definition from `CALL "NAME"` to the program
+  called, in the same file, another open file, or `NAME.cbl` or
+  `NAME.cob` in the file's directory.
 - Language server: a finding's code links to its rule's section of the
   reference (`codeDescription`), and unreachable code, unused data
   items, and unused copybooks are tagged unnecessary, `ALTER` deprecated.

@@ -2130,16 +2130,114 @@ LSP-DEFINITION.
             MOVE ND-NAME(FU-NODE(WS-LSP-UNIT)) TO WS-LSP-TOKEN
             PERFORM LSP-APPEND-LOCATION
         WHEN OTHER
-            PERFORM LSP-COPYBOOK-AT-LINE
-            IF WS-I > 0
-                PERFORM LSP-APPEND-COPYBOOK
-            ELSE
-                STRING "null" DELIMITED BY SIZE
-                    INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+            PERFORM LSP-CALL-DEFINITION
+            IF WS-FOUND = "N"
+                PERFORM LSP-COPYBOOK-AT-LINE
+                IF WS-I > 0
+                    PERFORM LSP-APPEND-COPYBOOK
+                ELSE
+                    STRING "null" DELIMITED BY SIZE
+                        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+                END-IF
             END-IF
     END-EVALUATE
     STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
     PERFORM LSP-SEND-OUT.
+
+*> The program a CALL "NAME" at the position calls: a program of the
+*> same document, then one of the other open documents, then a file
+*> NAME.cbl or NAME.cob (or in upper case) in the document's directory.
+*> WS-FOUND = "Y" when its location was written.
+LSP-CALL-DEFINITION.
+    MOVE "N" TO WS-FOUND
+    IF WS-LSP-TOKEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF NOT TK-IS-ALNUM(WS-LSP-TOKEN) OR WS-LSP-TOKEN < 2
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE WS-TOK = WS-LSP-TOKEN - 1
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-TOK WS-LSP-NAME WS-TOKEN-LEN
+    IF FUNCTION UPPER-CASE(WS-LSP-NAME) NOT = "CALL"
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-LSP-TOKEN WS-LSP-NAME
+        WS-TOKEN-LEN
+    MOVE FUNCTION UPPER-CASE(WS-LSP-NAME) TO WS-LSP-NAME
+    *> A program of the document (a nested or a following one).
+    PERFORM VARYING WS-NODE FROM 1 BY 1 UNTIL WS-NODE > AS-COUNT
+        IF ND-KIND(WS-NODE) = "PROG" AND ND-NAME(WS-NODE) > 0
+            MOVE ND-NAME(WS-NODE) TO WS-TOK
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-TOK
+                WS-LSP-QUALIFIER WS-TOKEN-LEN
+            IF FUNCTION UPPER-CASE(WS-LSP-QUALIFIER) = WS-LSP-NAME
+               AND TK-SRC-LINE(WS-TOK) > 0
+                MOVE WS-TOK TO WS-LSP-TOKEN
+                PERFORM LSP-APPEND-LOCATION
+                MOVE "Y" TO WS-FOUND
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+    END-PERFORM
+    *> Another open document, from the copy of its text.
+    PERFORM VARYING WS-LSP-SLOT FROM 1 BY 1
+            UNTIL WS-LSP-SLOT > LSP-DOC-MAX
+        IF DOC-URI(WS-LSP-SLOT) NOT = SPACES
+           AND WS-LSP-SLOT NOT = WS-LSP-DOC-INDEX
+            CALL "PLB-FIND-PROGRAM-ID" USING DOC-TEMP(WS-LSP-SLOT)
+                WS-LSP-NAME WS-LSP-LINE WS-LSP-CHAR
+            IF WS-LSP-LINE > 0
+                MOVE DOC-URI(WS-LSP-SLOT) TO WS-LSP-TEXT-PATH
+                PERFORM LSP-APPEND-FOUND-PROGRAM
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+    END-PERFORM
+    *> A file named after the program beside the document.
+    IF DOC-DIR(WS-LSP-DOC-INDEX) = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING WS-K FROM 1 BY 1 UNTIL WS-K > 4
+        MOVE SPACES TO WS-PATH
+        EVALUATE WS-K
+            WHEN 1
+                STRING FUNCTION TRIM(DOC-DIR(WS-LSP-DOC-INDEX)) "/"
+                       FUNCTION TRIM(WS-LSP-NAME) ".cbl"
+                       DELIMITED BY SIZE INTO WS-PATH
+            WHEN 2
+                STRING FUNCTION TRIM(DOC-DIR(WS-LSP-DOC-INDEX)) "/"
+                       FUNCTION TRIM(WS-LSP-NAME) ".cob"
+                       DELIMITED BY SIZE INTO WS-PATH
+            WHEN 3
+                STRING FUNCTION TRIM(DOC-DIR(WS-LSP-DOC-INDEX)) "/"
+                       FUNCTION LOWER-CASE(FUNCTION TRIM(WS-LSP-NAME))
+                       ".cbl" DELIMITED BY SIZE INTO WS-PATH
+            WHEN 4
+                STRING FUNCTION TRIM(DOC-DIR(WS-LSP-DOC-INDEX)) "/"
+                       FUNCTION LOWER-CASE(FUNCTION TRIM(WS-LSP-NAME))
+                       ".cob" DELIMITED BY SIZE INTO WS-PATH
+        END-EVALUATE
+        CALL "PLB-FIND-PROGRAM-ID" USING WS-PATH WS-LSP-NAME
+            WS-LSP-LINE WS-LSP-CHAR
+        IF WS-LSP-LINE > 0
+            MOVE SPACES TO WS-LSP-TEXT-PATH
+            STRING "file://" DELIMITED BY SIZE
+                   WS-PATH DELIMITED BY SPACE
+                INTO WS-LSP-TEXT-PATH
+            PERFORM LSP-APPEND-FOUND-PROGRAM
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+*> The location WS-LSP-TEXT-PATH (a URI), WS-LSP-LINE, WS-LSP-CHAR.
+LSP-APPEND-FOUND-PROGRAM.
+    MOVE 0 TO WS-LSP-TOKEN
+    STRING '{"uri":' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    CALL "PLB-JSON-STRING" USING WS-LSP-TEXT-PATH WS-LSP-OUT WS-LSP-PTR
+    STRING ',"range":' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-APPEND-RANGE
+    STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE "Y" TO WS-FOUND.
 
 *> WS-I: the inclusion made by a COPY statement of the document on the
 *> line of the position, at or before its character, or 0. The COPY

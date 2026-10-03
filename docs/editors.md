@@ -9,7 +9,7 @@ shows what it reports as you work.
 | Diagnostics | Findings and input problems, underlined where they are, updated on every change; each finding's rule id links to its section of the rule reference, and unreachable code, unused data items, and unused copybooks are faded out, as editors show unnecessary code |
 | Outline | Programs, sections, paragraphs, and data items of the file |
 | Workspace symbols | The same names in every open file, found by part of the name |
-| Go to definition | From a data name to its declaration (also in a copybook), from a paragraph or section name to the paragraph or section, and from a `COPY` statement to its copybook |
+| Go to definition | From a data name to its declaration (also in a copybook), from a paragraph or section name to the paragraph or section, from a `COPY` statement to its copybook, and from the program name of a `CALL "NAME"` to the program: in the same file, in another open file, or in `NAME.cbl` or `NAME.cob` beside the file |
 | Hover | A data item's level, picture, usage, size, offset, and record, and for a host variable of embedded SQL the column it is fetched from or stored in, with its type; a paragraph's or section's lines, statements, complexity, the `PERFORM` and `GO TO` statements naming it, and whether it ever runs |
 | Find references | Every reference to a data item (also in copybooks), or every `PERFORM`, `GO TO`, `ALTER`, and `SORT` procedure naming a paragraph or section of the same program |
 | Highlight | The same references in the open file, with reads and writes of a data item told apart |

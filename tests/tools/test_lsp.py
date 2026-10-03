@@ -344,6 +344,55 @@ class LanguageServerTest(unittest.TestCase):
                 "position": {"line": 4, "character": 1}})
             self.assertIsNone(reply["result"])
 
+    def test_definition_of_a_called_program(self):
+        with tempfile.TemporaryDirectory() as directory:
+            # A program file beside the caller, found by its name.
+            with open(os.path.join(directory, "custlook.cbl"), "w") as f:
+                f.write("       IDENTIFICATION DIVISION.\n"
+                        "      * PROGRAM-ID. OLDNAME in a comment.\n"
+                        "       PROGRAM-ID. CUSTLOOK.\n"
+                        "       PROCEDURE DIVISION.\n"
+                        "           GOBACK.\n")
+            program = os.path.join(directory, "billing.cob")
+            text = ("IDENTIFICATION DIVISION.\nPROGRAM-ID. BILLING.\n"
+                    "PROCEDURE DIVISION.\n"
+                    "    CALL \"CUSTLOOK\"\n"
+                    "    CALL \"ARCHIVE\"\n"
+                    "    CALL \"NOWHERE\"\n"
+                    "    GOBACK.\n")
+            uri = "file://" + os.path.realpath(program)
+            self.server.notify("textDocument/didOpen", {"textDocument": {
+                "uri": uri, "languageId": "cobol", "version": 1,
+                "text": text}})
+            self.server.receive()
+            # Another open document that is the program called.
+            archive = "file://" + os.path.realpath(
+                os.path.join(directory, "elsewhere.cob"))
+            self.server.notify("textDocument/didOpen", {"textDocument": {
+                "uri": archive, "languageId": "cobol", "version": 1,
+                "text": "IDENTIFICATION DIVISION.\n"
+                        "PROGRAM-ID. \"archive\".\n"
+                        "PROCEDURE DIVISION.\n    GOBACK.\n"}})
+            self.server.receive()
+            reply = self.server.request("textDocument/definition", {
+                "textDocument": {"uri": uri},
+                "position": {"line": 3, "character": 11}})
+            # A file system may ignore case: either spelling is the file.
+            self.assertTrue(
+                reply["result"]["uri"].lower().endswith("/custlook.cbl"))
+            self.assertEqual(reply["result"]["range"]["start"],
+                             {"line": 2, "character": 19})
+            reply = self.server.request("textDocument/definition", {
+                "textDocument": {"uri": uri},
+                "position": {"line": 4, "character": 11}})
+            self.assertEqual(reply["result"]["uri"], archive)
+            self.assertEqual(reply["result"]["range"]["start"],
+                             {"line": 1, "character": 13})
+            reply = self.server.request("textDocument/definition", {
+                "textDocument": {"uri": uri},
+                "position": {"line": 5, "character": 11}})
+            self.assertIsNone(reply["result"])
+
     def test_document_links_to_copybooks(self):
         with tempfile.TemporaryDirectory() as directory:
             with open(os.path.join(directory, "totals.cpy"), "w") as f:
