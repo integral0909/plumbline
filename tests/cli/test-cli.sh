@@ -787,7 +787,7 @@ check "metrics start ends at the first paragraph" 0 '^"tests/fixtures/metrics/st
     -- metrics --report csv tests/fixtures/metrics/start.cob
 check "metrics refuses sarif"             2 "invalid --report format 'sarif' (expected text, json, or csv)" \
     -- metrics --report sarif $mx/complexity.cob
-check "check refuses csv"                 2 "invalid --report format 'csv' (expected text, json, sarif, html, md, or codeclimate)" \
+check "check refuses csv"                 2 "invalid --report format 'csv' (expected text, json, sarif, html, md, codeclimate, or junit)" \
     -- check --report csv $mx/complexity.cob
 n=$((n + 1))
 if "$bin" metrics --report json $mx/complexity.cob $rx/c001-unreachable.cob | python3 -m json.tool >/dev/null 2>&1; then
@@ -935,6 +935,14 @@ check "codeclimate maps severities"       1 '"check_name": "PLB-M001", .*"catego
     -- check --report codeclimate $rx/c001-unreachable.cob
 check "codeclimate reports diagnostics"   1 '"check_name": "PP001", .*"severity": "critical"' \
     -- check --report codeclimate tests/fixtures/report/alike.cob
+check_report "junit report is valid"       junit 3 -- check --report junit $rx/c001-unreachable.cob
+check_report "junit report passes a clean file" junit 0 -- check --report junit --disable PLB-C001 --disable go-to $rx/c001-unreachable.cob
+check "junit report names a clean file"    0 '<testcase classname="tests/golden/rules/c001-unreachable.cob" name="no findings"/>' \
+    -- check --report junit --disable PLB-C001 --disable go-to $rx/c001-unreachable.cob
+check "junit report fails on a finding"    1 '<testcase classname=".*c001-unreachable.cob" name="PLB-M001 go-to at 11:9">' \
+    -- check --report junit $rx/c001-unreachable.cob
+check "junit report errs on an error diagnostic" 1 '<error type="error" message="copybook .* not found">' \
+    -- check --report junit tests/fixtures/report/alike.cob
 # A line added above the findings moves them, but leaves their
 # fingerprints as they were.
 tmp=$(mktemp -d)

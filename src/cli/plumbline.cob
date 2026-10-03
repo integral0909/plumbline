@@ -532,7 +532,7 @@ SHOW-USAGE.
     DISPLAY "  --fail-on LEVEL  exit 1 on findings at or above LEVEL:"
     DISPLAY "                   error, warning (default), note, never"
     DISPLAY "  --report FORMAT  text (default), json, sarif, html, md,"
-    DISPLAY "                   or codeclimate; for"
+    DISPLAY "                   codeclimate, or junit; for"
     DISPLAY "                   metrics: text, json, or csv; for"
     DISPLAY "                   graph: dot (default) or json"
     DISPLAY "  --baseline FILE  do not report the findings listed in FILE"
@@ -646,6 +646,9 @@ CHECK-COMMAND.
         WHEN "codeclimate"
             CALL "PLB-REPORT-CODECLIMATE" USING PLB-SOURCE-SET
                 PLB-DIAGNOSTICS PLB-RULES PLB-FINDINGS
+        WHEN "junit"
+            CALL "PLB-REPORT-JUNIT" USING PLB-SOURCE-SET
+                PLB-DIAGNOSTICS PLB-RULES PLB-FINDINGS WS-MAIN-FILES
         WHEN OTHER
             PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > FN-COUNT
                 IF FN-SUPPRESSED(WS-I) = "N"
@@ -5442,7 +5445,8 @@ SET-REPORT.
              AND WS-COMMAND NOT = "crud"
              AND WS-COMMAND NOT = "layout"
             MOVE WS-ARG TO WS-REPORT
-        WHEN (WS-ARG = "html" OR WS-ARG = "md" OR WS-ARG = "codeclimate")
+        WHEN (WS-ARG = "html" OR WS-ARG = "md" OR WS-ARG = "codeclimate"
+              OR WS-ARG = "junit")
              AND WS-COMMAND = "check"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "csv"
@@ -5478,7 +5482,8 @@ SET-REPORT.
         WHEN OTHER
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
-                "' (expected text, json, sarif, html, md, or codeclimate)"
+                "' (expected text, json, sarif, html, md, codeclimate,"
+                " or junit)"
                 UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
     END-EVALUATE.
