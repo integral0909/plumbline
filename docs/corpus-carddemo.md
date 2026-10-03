@@ -233,6 +233,11 @@ Some findings that were read and are true:
   set delete it first in an `IEFBR14` step. With that step of `DUSRSECJ`
   made to create the data set instead, the step that rebuilds it is
   reported.
+- **PLB-J008 cond-step-unknown.** None: the 17 `COND` tests of the jobs
+  name no step (`COND=(0,NE)`, `COND=(4,LT)`). In a copy of `TRANEXTR`
+  with step names added, a test of `STEP30` from `STEP20` and one of a
+  missing `STEP35` are reported, and one of `STEP40` from `STEP50` is
+  not.
 - **PLB-C053 exit-program-in-main.** None. CardDemo's one `EXIT PROGRAM`
   is in `CSUTLDTC`, a date check other programs call. With the `GOBACK`
   of `CBACT01C`, which job `READACCT` runs, changed to `EXIT PROGRAM`,
