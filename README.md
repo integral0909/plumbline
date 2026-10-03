@@ -136,8 +136,10 @@ and the targets of GO TO DEPENDING ON). `--report json` and
 `plumbline graph` draws how a program's paragraphs perform and jump to
 each other, which programs call which, which files include which
 copybooks, which JCL jobs run which programs, which job steps read
-and write which data sets, or how CICS transactions, programs, maps,
-and files connect, as Graphviz DOT (or JSON with `--report json`):
+and write which data sets, how CICS transactions, programs, maps, and
+files connect, or which programs create, read, update, and delete
+which tables and files, as Graphviz DOT (or JSON with `--report
+json`):
 
 ```console
 $ plumbline graph src/payroll.cbl | dot -Tsvg -o payroll.svg
@@ -146,6 +148,7 @@ $ plumbline graph --kind copybooks -I copybooks src/*.cbl > copies.dot
 $ plumbline graph --kind jobs src/*.cbl jcl/*.jcl > jobs.dot
 $ plumbline graph --kind datasets src/*.cbl jcl/*.jcl > datasets.dot
 $ plumbline graph --kind cics src/*.cbl csd/*.csd > cics.dot
+$ plumbline graph --kind crud -I copybooks src/*.cbl > crud.dot
 ```
 
 `plumbline impact` answers the question before a change: what does it
