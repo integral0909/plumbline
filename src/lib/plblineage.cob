@@ -88,6 +88,13 @@ COPY "plbsqlm.cpy".
 01  WS-LINK-NAME            PIC X(31).
 01  WS-LINK-FILE-ID         PIC 9(4) COMP-5.
 01  WS-LINK-LINE            PIC 9(9) COMP-5.
+*> DOT draws each item and statement once, so that the trails that
+*> meet show as one graph: their nodes (0: not drawn yet).
+01  WS-ITEM-NODE            PIC 9(9) COMP-5 OCCURS 100000 TIMES.
+01  WS-STMT-NODE            PIC 9(9) COMP-5 OCCURS 400000 TIMES.
+01  WS-DOT-LINE             PIC X(2048).
+01  WS-DOT-PTR              PIC 9(9) COMP-5.
+01  WS-DOT-TEXT             PIC X(1024).
 *> "Y" for an item already expanded.
 01  WS-SEEN                 PIC X OCCURS 100000 TIMES.
 *> The work stack: an item (I) or a statement (S), its depth, and for
@@ -148,6 +155,8 @@ LOCAL-STORAGE SECTION.
 *> The node of the item or statement shown: the parent of what is
 *> below it.
 01  LS-OWN-NODE             PIC 9(9) COMP-5.
+*> DOT: the node of the item, statement, or link written.
+01  LS-DOT-ID               PIC 9(9) COMP-5.
 01  LS-QS                   PIC 9(9) COMP-5.
 01  LS-QP                   PIC 9(9) COMP-5.
 01  LS-QC                   PIC 9(9) COMP-5.
@@ -182,10 +191,17 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         WHEN "B"
             MOVE 0 TO WS-NODE-ID
             MOVE "N" TO WS-ANY-NODE
-            IF LK-FORMAT = "json"
-                DISPLAY "{"
-                DISPLAY '  "lineage": ['
-            END-IF
+            EVALUATE LK-FORMAT
+                WHEN "json"
+                    DISPLAY "{"
+                    DISPLAY '  "lineage": ['
+                WHEN "dot"
+                    *> strict: a statement reached twice from the same
+                    *> item is one edge.
+                    DISPLAY "strict digraph lineage {"
+                    DISPLAY "  rankdir=LR;"
+                    DISPLAY "  node [shape=box];"
+            END-EVALUATE
             GOBACK
         WHEN "E"
             IF LK-FORMAT = "json"
@@ -195,13 +211,16 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
                 DISPLAY "  ]"
                 DISPLAY "}"
             END-IF
+            IF LK-FORMAT = "dot"
+                DISPLAY "}"
+            END-IF
             GOBACK
     END-EVALUATE
     MOVE FUNCTION UPPER-CASE(LK-NAME) TO LS-WANT
     MOVE "N" TO WS-SQL-BUILT
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
         IF SY-NAME(LS-S) = LS-WANT AND SY-NAME-TOKEN(LS-S) > 0
-            IF LK-FOUND = "Y" AND LK-FORMAT NOT = "json"
+            IF LK-FOUND = "Y" AND LK-FORMAT = "text"
                 DISPLAY " "
             END-IF
             MOVE "Y" TO LK-FOUND
@@ -214,7 +233,13 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
 TRACE-ITEM.
     PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > SY-COUNT
         MOVE "N" TO WS-SEEN(LS-I)
+        MOVE 0 TO WS-ITEM-NODE(LS-I)
     END-PERFORM
+    IF LK-FORMAT = "dot"
+        PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > AS-COUNT
+            MOVE 0 TO WS-STMT-NODE(LS-I)
+        END-PERFORM
+    END-IF
     MOVE 1 TO WS-STACK-COUNT
     MOVE "I" TO WS-ST-KIND(1)
     MOVE LS-S TO WS-ST-ID(1)
@@ -237,12 +262,16 @@ TRACE-ITEM.
 *> Item LS-ITEM at depth LS-DEPTH: its line, then its statements on
 *> the stack, unless it was shown before or the depth is reached.
 SHOW-ITEM.
-    IF LK-FORMAT = "json"
-        PERFORM JSON-ITEM
-    ELSE
-        PERFORM TEXT-ITEM
-    END-IF
-    MOVE WS-NODE-ID TO LS-OWN-NODE
+    EVALUATE LK-FORMAT
+        WHEN "json"
+            PERFORM JSON-ITEM
+            MOVE WS-NODE-ID TO LS-OWN-NODE
+        WHEN "dot"
+            PERFORM DOT-ITEM
+            MOVE LS-DOT-ID TO LS-OWN-NODE
+        WHEN OTHER
+            PERFORM TEXT-ITEM
+    END-EVALUATE
     IF WS-SEEN(LS-ITEM) = "Y" OR LS-DEPTH >= LK-DEPTH * 2
         EXIT PARAGRAPH
     END-IF
@@ -459,12 +488,16 @@ SORT-FOUND.
 *> Statement LS-STMT, reached from item LS-ITEM: its text and line,
 *> then the items it reads (backward) or gives values to (forward).
 SHOW-STATEMENT.
-    IF LK-FORMAT = "json"
-        PERFORM JSON-STATEMENT
-    ELSE
-        PERFORM TEXT-STATEMENT
-    END-IF
-    MOVE WS-NODE-ID TO LS-OWN-NODE
+    EVALUATE LK-FORMAT
+        WHEN "json"
+            PERFORM JSON-STATEMENT
+            MOVE WS-NODE-ID TO LS-OWN-NODE
+        WHEN "dot"
+            PERFORM DOT-STATEMENT
+            MOVE LS-DOT-ID TO LS-OWN-NODE
+        WHEN OTHER
+            PERFORM TEXT-STATEMENT
+    END-EVALUATE
     IF LK-DIRECTION = "F" AND ND-DETAIL(LS-STMT) = "CALL"
         PERFORM CALLEE-LINK
     END-IF
@@ -1036,6 +1069,10 @@ CICS-OPERAND.
 *> WS-LINK one level below the current node, as a line or a JSON node
 *> of kind "call", "column", or "cics" with its fields.
 SHOW-LINK.
+    IF LK-FORMAT = "dot"
+        PERFORM DOT-LINK
+        EXIT PARAGRAPH
+    END-IF
     IF LK-FORMAT = "json" AND WS-LINK-KIND = "cics"
         MOVE LS-OWN-NODE TO LS-PARENT
         PERFORM START-NODE
@@ -1125,4 +1162,133 @@ SHOW-LINK.
             INTO WS-LINE WITH POINTER LS-PTR
         DISPLAY WS-LINE(1:LS-PTR - 1)
     END-IF.
+*> DOT ---------------------------------------------------------------
+
+*> The item's node, drawn the first time: its name and place.
+DOT-ITEM.
+    IF WS-ITEM-NODE(LS-ITEM) > 0
+        MOVE WS-ITEM-NODE(LS-ITEM) TO LS-DOT-ID
+        PERFORM DOT-EDGE
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO WS-NODE-ID
+    MOVE WS-NODE-ID TO LS-DOT-ID WS-ITEM-NODE(LS-ITEM)
+    PERFORM DOT-START
+    MOVE SY-NAME(LS-ITEM) TO WS-DOT-TEXT
+    PERFORM DOT-APPEND
+    MOVE SPACES TO WS-LINE
+    MOVE 1 TO LS-PTR
+    MOVE SY-NAME-TOKEN(LS-ITEM) TO LS-T
+    PERFORM APPEND-POSITION
+    PERFORM DOT-SECOND-LINE
+    STRING '"];' DELIMITED BY SIZE INTO WS-DOT-LINE WITH POINTER WS-DOT-PTR
+    PERFORM DOT-PRINT
+    PERFORM DOT-EDGE.
+
+*> The statement's node, drawn the first time: its text and line.
+DOT-STATEMENT.
+    IF WS-STMT-NODE(LS-STMT) > 0
+        MOVE WS-STMT-NODE(LS-STMT) TO LS-DOT-ID
+        PERFORM DOT-EDGE
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO WS-NODE-ID
+    MOVE WS-NODE-ID TO LS-DOT-ID WS-STMT-NODE(LS-STMT)
+    PERFORM DOT-START
+    MOVE SPACES TO WS-LINE
+    MOVE 1 TO LS-PTR
+    PERFORM APPEND-STATEMENT-TEXT
+    MOVE WS-LINE(1:LS-PTR - 1) TO WS-DOT-TEXT
+    PERFORM DOT-APPEND
+    MOVE SPACES TO WS-LINE
+    MOVE 1 TO LS-PTR
+    STRING "line " DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+    MOVE ND-TOK-FIRST(LS-STMT) TO LS-T
+    MOVE 0 TO LS-NUM
+    IF TK-SRC-LINE(LS-T) > 0
+        MOVE SL-LINE-NO(TK-SRC-LINE(LS-T)) TO LS-NUM
+    END-IF
+    PERFORM APPEND-NUM
+    PERFORM DOT-SECOND-LINE
+    STRING '", shape=plaintext];' DELIMITED BY SIZE
+        INTO WS-DOT-LINE WITH POINTER WS-DOT-PTR
+    PERFORM DOT-PRINT
+    PERFORM DOT-EDGE.
+
+*> A call, column, or CICS resource: a node of its own each time.
+DOT-LINK.
+    MOVE LS-OWN-NODE TO LS-PARENT
+    ADD 1 TO WS-NODE-ID
+    MOVE WS-NODE-ID TO LS-DOT-ID
+    PERFORM DOT-START
+    *> The edge's direction says what the arrow of the text does.
+    IF WS-LINK(1:3) = "<- " OR WS-LINK(1:3) = "-> "
+        MOVE WS-LINK(4:WS-LINK-PTR - 4) TO WS-DOT-TEXT
+    ELSE
+        MOVE WS-LINK(1:WS-LINK-PTR - 1) TO WS-DOT-TEXT
+    END-IF
+    PERFORM DOT-APPEND
+    STRING '", shape=ellipse, style=dashed];' DELIMITED BY SIZE
+        INTO WS-DOT-LINE WITH POINTER WS-DOT-PTR
+    PERFORM DOT-PRINT
+    PERFORM DOT-EDGE.
+
+*>   nID [label="
+DOT-START.
+    MOVE SPACES TO WS-DOT-LINE
+    MOVE 1 TO WS-DOT-PTR
+    MOVE LS-DOT-ID TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING "  n" LS-NUM-TEXT(1:LS-NUM-LEN) ' [label="' DELIMITED BY SIZE
+        INTO WS-DOT-LINE WITH POINTER WS-DOT-PTR.
+
+*> WS-LINE up to LS-PTR as the label's second line.
+DOT-SECOND-LINE.
+    STRING "\n" DELIMITED BY SIZE INTO WS-DOT-LINE WITH POINTER WS-DOT-PTR
+    MOVE SPACES TO WS-DOT-TEXT
+    IF LS-PTR > 1
+        MOVE WS-LINE(1:LS-PTR - 1) TO WS-DOT-TEXT
+    END-IF
+    PERFORM DOT-APPEND.
+
+*> WS-DOT-TEXT, without its trailing spaces, with " and \ escaped.
+DOT-APPEND.
+    CALL "PLB-STR-LENGTH" USING WS-DOT-TEXT LS-LEN
+    PERFORM VARYING LS-Q FROM 1 BY 1 UNTIL LS-Q > LS-LEN
+        IF WS-DOT-TEXT(LS-Q:1) = '"' OR WS-DOT-TEXT(LS-Q:1) = "\"
+            STRING "\" DELIMITED BY SIZE
+                INTO WS-DOT-LINE WITH POINTER WS-DOT-PTR
+        END-IF
+        STRING WS-DOT-TEXT(LS-Q:1) DELIMITED BY SIZE
+            INTO WS-DOT-LINE WITH POINTER WS-DOT-PTR
+    END-PERFORM.
+
+DOT-PRINT.
+    DISPLAY WS-DOT-LINE(1:WS-DOT-PTR - 1).
+
+*> The edge between the node and its parent, in the direction the
+*> value moves: from what gives it (backward) to what is given.
+DOT-EDGE.
+    IF LS-PARENT = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO WS-DOT-LINE
+    MOVE 1 TO WS-DOT-PTR
+    IF LK-DIRECTION = "B"
+        MOVE LS-DOT-ID TO LS-NUM
+    ELSE
+        MOVE LS-PARENT TO LS-NUM
+    END-IF
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING "  n" LS-NUM-TEXT(1:LS-NUM-LEN) " -> n" DELIMITED BY SIZE
+        INTO WS-DOT-LINE WITH POINTER WS-DOT-PTR
+    IF LK-DIRECTION = "B"
+        MOVE LS-PARENT TO LS-NUM
+    ELSE
+        MOVE LS-DOT-ID TO LS-NUM
+    END-IF
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING LS-NUM-TEXT(1:LS-NUM-LEN) ";" DELIMITED BY SIZE
+        INTO WS-DOT-LINE WITH POINTER WS-DOT-PTR
+    PERFORM DOT-PRINT.
 END PROGRAM PLB-LINEAGE-FILE.

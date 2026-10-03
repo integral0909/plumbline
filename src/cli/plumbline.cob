@@ -424,7 +424,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline xref [--report text|json] [OPTION]... FILE..."
     DISPLAY "       plumbline duplicates [--min-tokens N] [--report text|json] [OPTION]... FILE..."
     DISPLAY "       plumbline crud [--report text|csv|json] [OPTION]... FILE..."
-    DISPLAY "       plumbline lineage NAME [--depth N] [--forward] [--report text|json] [OPTION]... FILE..."
+    DISPLAY "       plumbline lineage NAME [--depth N] [--forward] [--report text|json|dot] [OPTION]... FILE..."
     DISPLAY "       plumbline format --to fixed|free [--check] FILE..."
     DISPLAY "       plumbline lsp [OPTION]..."
     DISPLAY "       plumbline rules [--report text|json] [OPTION]..."
@@ -5453,7 +5453,8 @@ SET-REPORT.
              AND (WS-COMMAND = "metrics" OR WS-COMMAND = "layout"
                   OR WS-COMMAND = "crud")
             MOVE WS-ARG TO WS-REPORT
-        WHEN WS-ARG = "dot" AND WS-COMMAND = "graph"
+        WHEN WS-ARG = "dot"
+             AND (WS-COMMAND = "graph" OR WS-COMMAND = "lineage")
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "md" AND WS-COMMAND = "layout"
             MOVE WS-ARG TO WS-REPORT
@@ -5472,9 +5473,14 @@ SET-REPORT.
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected text, json, csv, or md)" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
+        WHEN WS-COMMAND = "lineage"
+            DISPLAY PLB-NAME ": invalid --report format '"
+                WS-ARG(1:WS-ARG-LEN)
+                "' (expected text, json, or dot)" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
         WHEN WS-COMMAND = "rules" OR WS-COMMAND = "inventory"
              OR WS-COMMAND = "fields" OR WS-COMMAND = "xref"
-             OR WS-COMMAND = "duplicates" OR WS-COMMAND = "lineage"
+             OR WS-COMMAND = "duplicates"
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected text or json)" UPON SYSERR

@@ -502,6 +502,14 @@ the resource (`FILE` or `DATASET`, `MAP`, `QUEUE` or `QNAME`,
 `CONTAINER`) and the references inside `INTO( )` (backward) or
 `FROM( )` (forward).
 
+With `--report dot` the frames write Graphviz nodes and edges instead
+of lines. Each item and statement is drawn once, at its first frame
+(`WS-ITEM-NODE`, `WS-STMT-NODE`), and later frames only add an edge to
+it, so trails that meet are one graph; `strict digraph` merges the
+edges drawn twice. Edges point from what gives a value to what is
+given it: from child to parent backward, from parent to child
+forward.
+
 ### Duplicate code
 
 `src/lib/plbdup.cob`, with its table in `copy/plbdupt.cpy`.
