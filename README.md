@@ -260,6 +260,27 @@ CBACT02C (app/cbl/CBACT02C.cbl:23)
 The references are those of the procedure division: an item named only
 in a data division clause, such as `FILE STATUS`, shows none.
 
+## CRUD matrix
+
+`plumbline crud` lists which programs create, read, update, and delete
+which DB2 tables, COBOL files, and CICS files:
+
+```console
+$ plumbline crud -I app/cpy app/cbl/*.cbl
+COACTUPC  cics-file  ACCTDAT                                     - R U -
+COTRTUPC  table      CARDDEMO.TRANSACTION_TYPE                   C R U D
+CBTRN02C  file       TCATBAL-FILE                                C R U -
+...
+```
+
+Tables count `INSERT`, `SELECT` and cursors, `UPDATE`, and `DELETE`;
+COBOL files `WRITE`, `READ` and `START`, `REWRITE`, and `DELETE`, a
+`WRITE` or `REWRITE` through the FD of its record; CICS files the
+`WRITE`, `READ` (and browsing), `REWRITE`, and `DELETE` commands, by
+their `FILE` or `DATASET`, which may be an item whose `VALUE` names the
+file. `--report csv` and `--report json` give the same rows for a
+spreadsheet or a tool.
+
 ## Data lineage
 
 `plumbline lineage NAME` shows where a data item's value comes from:

@@ -172,6 +172,8 @@ SQL-BLOCK.
             PERFORM INSERT-VALUES
         WHEN LS-PASS = 2 AND LS-COMMAND = "UPDATE"
             PERFORM UPDATE-SET
+        WHEN LS-PASS = 2 AND LS-COMMAND = "DELETE"
+            PERFORM DELETE-FROM
     END-EVALUATE.
 
 *> LS-NAME: the name at LS-K, with its qualifiers (A.B.C), in upper
@@ -742,6 +744,23 @@ UPDATE-SET.
             END-IF
         END-IF
     END-PERFORM.
+*> DELETE FROM table ...: a statement with its table and no pairs.
+DELETE-FROM.
+    ADD 1 TO LS-K
+    PERFORM UPPER-WORD
+    IF LS-WORD = "FROM"
+        ADD 1 TO LS-K
+    END-IF
+    PERFORM READ-NAME
+    IF LS-NAME = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM NEW-STATEMENT
+    IF LS-S = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "D" TO QS-KIND(LS-S)
+    PERFORM ADD-TABLE.
 END PROGRAM PLB-SQL-MODEL-BUILD.
 
 *> PLB-SQL-MODEL-PRINT: the model, for plumbline dump sql:
@@ -840,6 +859,9 @@ PRINT-STATEMENT.
                 INTO WS-LINE WITH POINTER LS-PTR
         WHEN "U"
             STRING "update " DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        WHEN "D"
+            STRING "delete " DELIMITED BY SIZE
                 INTO WS-LINE WITH POINTER LS-PTR
         WHEN OTHER
             STRING "cursor " DELIMITED BY SIZE
