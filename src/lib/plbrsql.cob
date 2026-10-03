@@ -835,7 +835,6 @@ WORKING-STORAGE SECTION.
         10  WS-QK-NAME      PIC X(31).
         *> Columns of its SELECT list; 0 when not known.
         10  WS-QK-COLUMNS   PIC 9(4) COMP-5.
-01  WS-LINE-TEXT            PIC X(4096).
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-T                    PIC 9(9) COMP-5.
@@ -853,12 +852,8 @@ LOCAL-STORAGE SECTION.
 01  LS-A                    PIC 9(9) COMP-5.
 01  LS-B                    PIC 9(9) COMP-5.
 01  LS-I                    PIC 9(9) COMP-5.
-*> COMMA-BETWEEN's own position, apart from its callers' loops.
-01  LS-J                    PIC 9(9) COMP-5.
-01  LS-LINE-LEN             PIC 9(9) COMP-5.
 01  LS-SCAN-FROM            PIC 9(9) COMP-5.
 01  LS-SCAN-TO              PIC 9(9) COMP-5.
-01  LS-SCAN-LINE            PIC 9(9) COMP-5.
 01  LS-TEXT                 PIC X(31).
 01  LS-NAME                 PIC X(31).
 01  LS-LEN                  PIC 9(9) COMP-5.
@@ -1116,46 +1111,10 @@ REPORT-MISMATCH.
         PLB-FINDINGS LS-RULE LS-A LS-MESSAGE.
 
 *> LS-COMMA = "Y" when the source text between tokens LS-SCAN-FROM and
-*> LS-SCAN-TO holds a comma: after the first on its line, and before
-*> the second on its line when they are on different lines.
+*> LS-SCAN-TO holds a comma (see plbsqlu).
 COMMA-BETWEEN.
-    MOVE "N" TO LS-COMMA
-    IF TK-SRC-LINE(LS-SCAN-FROM) = 0 OR TK-SRC-LINE(LS-SCAN-TO) = 0
-        EXIT PARAGRAPH
-    END-IF
-    MOVE TK-SRC-LINE(LS-SCAN-FROM) TO LS-SCAN-LINE
-    CALL "PLB-SRC-LINE-TEXT" USING PLB-SOURCE-SET LS-SCAN-LINE
-        WS-LINE-TEXT LS-LINE-LEN
-    COMPUTE LS-J = TK-COLUMN(LS-SCAN-FROM) + TK-SPAN(LS-SCAN-FROM)
-    IF TK-SRC-LINE(LS-SCAN-TO) = LS-SCAN-LINE
-        PERFORM VARYING LS-J FROM LS-J BY 1
-                UNTIL LS-J >= TK-COLUMN(LS-SCAN-TO) OR LS-J > LS-LINE-LEN
-            IF WS-LINE-TEXT(LS-J:1) = ","
-                MOVE "Y" TO LS-COMMA
-                EXIT PARAGRAPH
-            END-IF
-        END-PERFORM
-        EXIT PARAGRAPH
-    END-IF
-    PERFORM VARYING LS-J FROM LS-J BY 1
-            UNTIL LS-J > SL-CONTENT-COL(LS-SCAN-LINE)
-                         + SL-CONTENT-LEN(LS-SCAN-LINE) - 1
-               OR LS-J > LS-LINE-LEN
-        IF WS-LINE-TEXT(LS-J:1) = ","
-            MOVE "Y" TO LS-COMMA
-            EXIT PARAGRAPH
-        END-IF
-    END-PERFORM
-    MOVE TK-SRC-LINE(LS-SCAN-TO) TO LS-SCAN-LINE
-    CALL "PLB-SRC-LINE-TEXT" USING PLB-SOURCE-SET LS-SCAN-LINE
-        WS-LINE-TEXT LS-LINE-LEN
-    PERFORM VARYING LS-J FROM SL-CONTENT-COL(LS-SCAN-LINE) BY 1
-            UNTIL LS-J >= TK-COLUMN(LS-SCAN-TO) OR LS-J > LS-LINE-LEN
-        IF WS-LINE-TEXT(LS-J:1) = ","
-            MOVE "Y" TO LS-COMMA
-            EXIT PARAGRAPH
-        END-IF
-    END-PERFORM.
+    CALL "PLB-SQL-COMMA-BETWEEN" USING PLB-SOURCE-SET PLB-TOKENS
+        LS-SCAN-FROM LS-SCAN-TO LS-COMMA.
 END PROGRAM PLB-RULE-Q005.
 
 *> PLB-K003 commarea-without-length: a CICS program that uses
