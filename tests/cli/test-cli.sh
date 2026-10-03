@@ -742,8 +742,12 @@ check "dynamic-call is off by default"    0 '^$' -- check --disable call-argumen
 check "dump calls lists parameters"       0 '^  parameter LK-CUST-ID reference 8$' -- dump calls $cx/custlook.cob
 check "help lists dump calls"             0 'dump calls' -- --help
 check "dump lines needs files"            2 'no input files' -- dump lines
-check "invalid --format value"            2 "invalid format 'cobolx' (expected fixed, free, variable, xopen, terminal, or auto)" \
-    -- dump lines --format cobolx $fx/fixed-basic.cbl
+check "invalid --format value"            2 "invalid format 'crt' (expected fixed, free, variable, xopen, terminal, cobolx, or auto)" \
+    -- dump lines --format crt $fx/fixed-basic.cbl
+check "cobolx format from a directive"     0 'cobolx.cob:4: debug     cblx  - DISPLAY "SHOWN WHEN DEBUGGING"$' \
+    -- dump lines tests/fixtures/reader/cobolx.cob
+check "cobolx format joins a continued literal" 0 'alnum    "FIRST PART AND SECOND PART"$' \
+    -- dump tokens tests/fixtures/reader/cobolx.cob
 check "variable format reads past column 72" 0 'variable.cbl:6: code      var   A PROCEDURE DIVISION.*TO WS-RESULT-OF-THE-COMPUTATION$' \
     -- dump lines --format variable tests/fixtures/reader/variable.cbl
 check "variable format from a directive"   0 'variable-directive.cbl:7: code      var' \

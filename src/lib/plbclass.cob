@@ -350,6 +350,8 @@ END PROGRAM PLB-SRC-CLASSIFY-FREE.
 *>
 *>   X/Open    * comment   / page eject   D and a space: debugging line
 *>   terminal  * comment   \D: debugging line   - continuation line
+*>   COBOLX    * comment   / page eject   D: debugging line
+*>             - continuation line; the text ends at column 255
 *>
 *> Any other line is free format from column 1.
 IDENTIFICATION DIVISION.
@@ -384,8 +386,27 @@ PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
     GOBACK.
 END PROGRAM PLB-SRC-CLASSIFY-TERMINAL.
 
-*> PLB-SRC-CLASSIFY-INDICATED: the line in STYLE O (X/Open) or T
-*> (terminal). A debugging line is classified as free format with its
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SRC-CLASSIFY-COBOLX.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-STYLE                PIC X VALUE "C".
+01  WS-LENGTH               PIC 9(9) COMP-5.
+LINKAGE SECTION.
+01  LK-LINE                 PIC X ANY LENGTH.
+01  LK-LENGTH               PIC 9(9) COMP-5.
+01  LK-QUOTE-IN             PIC X.
+COPY "plbcls.cpy".
+PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
+    *> Columns past 255 are not part of the program.
+    MOVE FUNCTION MIN(LK-LENGTH, 255) TO WS-LENGTH
+    CALL "PLB-SRC-CLASSIFY-INDICATED" USING LK-LINE WS-LENGTH
+        LK-QUOTE-IN WS-STYLE PLB-CLASSIFIED
+    GOBACK.
+END PROGRAM PLB-SRC-CLASSIFY-COBOLX.
+
+*> PLB-SRC-CLASSIFY-INDICATED: the line in STYLE O (X/Open), T
+*> (terminal), or C (COBOLX). A debugging line is classified as free format with its
 *> marker blanked, so that its content keeps its columns.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-SRC-CLASSIFY-INDICATED.
@@ -411,7 +432,7 @@ PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN LK-STYLE
         WHEN LK-LINE(1:1) = "*"
             PERFORM COMMENT-LINE
             MOVE "*" TO CL-KIND CL-INDICATOR
-        WHEN LK-LINE(1:1) = "/" AND LK-STYLE = "O"
+        WHEN LK-LINE(1:1) = "/" AND (LK-STYLE = "O" OR LK-STYLE = "C")
             PERFORM COMMENT-LINE
             MOVE "/" TO CL-KIND CL-INDICATOR
         WHEN LK-STYLE = "O" AND (LK-LINE(1:1) = "D" OR "d")
@@ -424,7 +445,11 @@ PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN LK-STYLE
             MOVE LK-LINE TO WS-COPY
             MOVE SPACES TO WS-COPY(1:2)
             PERFORM DEBUGGING-LINE
-        WHEN LK-STYLE = "T" AND LK-LINE(1:1) = "-"
+        WHEN LK-STYLE = "C" AND (LK-LINE(1:1) = "D" OR "d")
+            MOVE LK-LINE TO WS-COPY
+            MOVE SPACE TO WS-COPY(1:1)
+            PERFORM DEBUGGING-LINE
+        WHEN (LK-STYLE = "T" OR LK-STYLE = "C") AND LK-LINE(1:1) = "-"
             PERFORM CONTINUATION-LINE
         WHEN OTHER
             CALL "PLB-SRC-CLASSIFY-FREE" USING LK-LINE LK-LENGTH
@@ -472,10 +497,10 @@ END PROGRAM PLB-SRC-CLASSIFY-INDICATED.
 *> PLB-SRC-DIRECTIVE-FORMAT: decide whether directive TEXT switches
 *> the reference format. FORMAT receives:
 *>   "X" fixed, "F" free, "V" variable, "O" X/Open free form, "T"
-*>   ACU terminal, space if TEXT is not a format directive,
+*>   ACU terminal, "C" COBOLX, space if TEXT is not a format directive,
 *>   "?" a format directive naming a format Plumbline does not read.
 *> Recognized forms (case-insensitive):
-*>   >>SOURCE [FORMAT] [IS] FIXED|FREE|VARIABLE|XOPEN|TERMINAL
+*>   >>SOURCE [FORMAT] [IS] FIXED|FREE|VARIABLE|XOPEN|TERMINAL|COBOLX
 *>   $SET SOURCEFORMAT"FIXED"   $SET SOURCEFORMAT(FREE)   and similar
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-SRC-DIRECTIVE-FORMAT.
@@ -536,6 +561,8 @@ DECODE-FORMAT.
             MOVE "O" TO LK-FORMAT
         WHEN "TERMINAL"
             MOVE "T" TO LK-FORMAT
+        WHEN "COBOLX"
+            MOVE "C" TO LK-FORMAT
         WHEN OTHER
             MOVE "?" TO LK-FORMAT
     END-EVALUATE.
