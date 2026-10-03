@@ -109,6 +109,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M016](#plb-m016-signed-to-alphanumeric) | signed-to-alphanumeric | note, off | MOVE of a signed integer to an alphanumeric item |
 | [PLB-M017](#plb-m017-two-digit-year) | two-digit-year | note | ACCEPT FROM DATE or DAY gives a two-digit year |
 | [PLB-M018](#plb-m018-signed-to-unsigned) | signed-to-unsigned | note, off | MOVE of a signed number to an unsigned one drops its sign |
+| [PLB-M019](#plb-m019-commented-out-code) | commented-out-code | note, off | Comment lines that are COBOL statements |
 | [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, off | CALL of a compiler library routine |
 | [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
 | [PLB-Q001](#plb-q001-sql-table-undeclared) | sql-table-undeclared | note | Embedded SQL uses a table the program does not declare |
@@ -2336,6 +2337,30 @@ rule is off unless asked for: on the corpora it reports 91 moves in the
 NIST suite, 8 in GnuCOBOL's tests, and 107 in CardDemo (packed account
 ids, MQ completion codes). Turned on for a program that handles money,
 it finds the moves to look at.
+
+## PLB-M019 commented-out-code
+
+Off by default. Comment lines that are COBOL statements rather than
+prose:
+
+```cobol
+      *    MOVE WS-OLD-RATE TO WS-RATE
+      *    PERFORM 300-APPLY-DISCOUNT.
+```
+
+Code kept in comments is never compiled and soon wrong: the names it
+uses are renamed and the logic around it changes, and each reader has
+to make out whether it still matters. Version control keeps old code.
+
+A comment line counts when its text starts with a statement's verb, has
+no lower-case letters, has a hyphenated name or a period at its end,
+and has at most one plain word (one that is not a reserved word of the
+statement, a hyphenated name, a number, or in a literal), so that
+`MOVE OLD VALUES TO NON-DISPLAY FIELDS` reads as prose. A run of such
+lines, with up to two blank or other comment lines between them, is
+reported once at its first line. Only the program's own lines are read,
+not its copybooks'. Enabled, it notes 69 runs in CardDemo; NIST's
+programs keep many variants of their tests in comments (1,579 runs).
 ## PLB-P001 vendor-routine
 
 *Off by default.* A CALL of a library routine that comes with some
