@@ -543,3 +543,168 @@ WRITE-ROW.
     END-IF
     DISPLAY WS-LINE(1:LS-PTR - 1).
 END PROGRAM PLB-CRUD-DOC.
+
+*> PLB-GRAPH-CRUD: the CRUD matrix as a graph, DOT or JSON (within the
+*> frame PLB-GRAPH-BEGIN and PLB-GRAPH-END write): a node for each
+*> program and for each resource, named "NAME (table)", "NAME (file)",
+*> or "NAME (cics-file)", and an edge from a program to each resource it
+*> uses, labelled with its operations (CRUD, RU, R, ...).
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-GRAPH-CRUD.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-OUT                  PIC X(1024).
+*> The nodes drawn so far, each once.
+01  WS-NODE-COUNT           PIC 9(9) COMP-5.
+01  WS-NODE                 PIC X(80) OCCURS 20000 TIMES.
+LOCAL-STORAGE SECTION.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-FIRST-ITEM           PIC X.
+01  LS-NAME                 PIC X(80).
+01  LS-KIND                 PIC X(10).
+01  LS-LABEL                PIC X(4).
+01  LS-LABEL-PTR            PIC 9(4) COMP-5.
+01  LS-FOUND                PIC X.
+LINKAGE SECTION.
+COPY "plbcrud.cpy".
+01  LK-FORMAT               PIC X(5).
+PROCEDURE DIVISION USING PLB-CRUD LK-FORMAT.
+    MOVE 0 TO WS-NODE-COUNT
+    IF LK-FORMAT = "json"
+        DISPLAY '    {"nodes": ['
+    END-IF
+    MOVE "Y" TO LS-FIRST-ITEM
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > CX-COUNT
+        MOVE CX-PROGRAM(LS-E) TO LS-NAME
+        MOVE "program" TO LS-KIND
+        PERFORM WRITE-NODE
+        PERFORM RESOURCE-NAME
+        PERFORM WRITE-NODE
+    END-PERFORM
+    IF LK-FORMAT = "json"
+        DISPLAY '     ],'
+        DISPLAY '     "edges": ['
+    END-IF
+    MOVE "Y" TO LS-FIRST-ITEM
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > CX-COUNT
+        PERFORM WRITE-EDGE
+    END-PERFORM
+    IF LK-FORMAT = "json"
+        DISPLAY '     ]}'
+    END-IF
+    GOBACK.
+
+*> LS-NAME and LS-KIND of the resource of row LS-E.
+RESOURCE-NAME.
+    EVALUATE CX-KIND(LS-E)
+        WHEN "T" MOVE "table" TO LS-KIND
+        WHEN "F" MOVE "file" TO LS-KIND
+        WHEN OTHER MOVE "cics-file" TO LS-KIND
+    END-EVALUATE
+    MOVE SPACES TO LS-NAME
+    STRING CX-NAME(LS-E) DELIMITED BY SPACE
+           " (" DELIMITED BY SIZE
+           LS-KIND DELIMITED BY SPACE
+           ")" DELIMITED BY SIZE
+        INTO LS-NAME.
+
+*> Node LS-NAME of kind LS-KIND, when not drawn yet.
+WRITE-NODE.
+    MOVE "N" TO LS-FOUND
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > WS-NODE-COUNT
+        IF WS-NODE(LS-I) = LS-NAME
+            MOVE "Y" TO LS-FOUND
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-FOUND = "Y" OR WS-NODE-COUNT >= 20000
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO WS-NODE-COUNT
+    MOVE LS-NAME TO WS-NODE(WS-NODE-COUNT)
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO LS-PTR
+    IF LK-FORMAT = "json"
+        PERFORM JSON-SEPARATOR
+        STRING '{"id": ' DELIMITED BY SIZE INTO WS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-NAME WS-OUT LS-PTR
+        STRING ', "kind": "' DELIMITED BY SIZE
+               LS-KIND DELIMITED BY SPACE
+               '"}' DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING '  ' DELIMITED BY SIZE INTO WS-OUT WITH POINTER LS-PTR
+        CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-NAME WS-OUT LS-PTR
+        IF LS-KIND = "program"
+            STRING ';' DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER LS-PTR
+        ELSE
+            STRING ' [shape=cylinder];' DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER LS-PTR
+        END-IF
+    END-IF
+    PERFORM PRINT-OUT.
+
+*> Program of row LS-E -> its resource, labelled with the operations.
+WRITE-EDGE.
+    MOVE SPACES TO LS-LABEL
+    MOVE 1 TO LS-LABEL-PTR
+    IF CX-CREATE(LS-E) = "Y"
+        STRING "C" DELIMITED BY SIZE INTO LS-LABEL WITH POINTER LS-LABEL-PTR
+    END-IF
+    IF CX-READ(LS-E) = "Y"
+        STRING "R" DELIMITED BY SIZE INTO LS-LABEL WITH POINTER LS-LABEL-PTR
+    END-IF
+    IF CX-UPDATE(LS-E) = "Y"
+        STRING "U" DELIMITED BY SIZE INTO LS-LABEL WITH POINTER LS-LABEL-PTR
+    END-IF
+    IF CX-DELETE(LS-E) = "Y"
+        STRING "D" DELIMITED BY SIZE INTO LS-LABEL WITH POINTER LS-LABEL-PTR
+    END-IF
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO LS-PTR
+    IF LK-FORMAT = "json"
+        PERFORM JSON-SEPARATOR
+        STRING '{"from": ' DELIMITED BY SIZE INTO WS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING '  ' DELIMITED BY SIZE INTO WS-OUT WITH POINTER LS-PTR
+    END-IF
+    MOVE CX-PROGRAM(LS-E) TO LS-NAME
+    CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-NAME WS-OUT LS-PTR
+    IF LK-FORMAT = "json"
+        STRING ', "to": ' DELIMITED BY SIZE INTO WS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING ' -> ' DELIMITED BY SIZE INTO WS-OUT WITH POINTER LS-PTR
+    END-IF
+    PERFORM RESOURCE-NAME
+    CALL "PLB-GRAPH-QUOTED" USING LK-FORMAT LS-NAME WS-OUT LS-PTR
+    IF LK-FORMAT = "json"
+        STRING ', "operations": "' DELIMITED BY SIZE
+               LS-LABEL DELIMITED BY SPACE
+               '"}' DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING ' [label="' DELIMITED BY SIZE
+               LS-LABEL DELIMITED BY SPACE
+               '"];' DELIMITED BY SIZE
+            INTO WS-OUT WITH POINTER LS-PTR
+    END-IF
+    PERFORM PRINT-OUT.
+
+JSON-SEPARATOR.
+    IF LS-FIRST-ITEM = "Y"
+        STRING '        ' DELIMITED BY SIZE INTO WS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING '       ,' DELIMITED BY SIZE INTO WS-OUT WITH POINTER LS-PTR
+    END-IF
+    MOVE "N" TO LS-FIRST-ITEM.
+
+PRINT-OUT.
+    CALL "PLB-STR-LENGTH" USING WS-OUT LS-LEN
+    IF LS-LEN > 0
+        DISPLAY WS-OUT(1:LS-LEN)
+    END-IF.
+END PROGRAM PLB-GRAPH-CRUD.

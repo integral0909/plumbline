@@ -458,7 +458,10 @@ SHOW-USAGE.
     DISPLAY "                   (jobs), or which job steps read and"
     DISPLAY "                   write which data sets (datasets), or"
     DISPLAY "                   how CICS transactions, programs, maps,"
-    DISPLAY "                   and files connect (cics), as DOT or JSON"
+    DISPLAY "                   and files connect (cics), or which"
+    DISPLAY "                   programs create, read, update, and"
+    DISPLAY "                   delete which tables and files (crud),"
+    DISPLAY "                   as DOT or JSON"
     DISPLAY "  inventory        list the programs, jobs, transactions, and"
     DISPLAY "                   maps of the input, and how they fit together"
     DISPLAY "  layout           list the records of programs and copybooks"
@@ -854,6 +857,10 @@ ANALYZE-RUN.
                     PLB-TOKENS PLB-AST PLB-SYMBOLS PLB-REFS
                     PLB-DATA-USES WS-IMPACT-NAME
             END-IF
+            IF WS-COMMAND = "graph" AND WS-GRAPH-KIND = "crud"
+                CALL "PLB-CRUD-COLLECT" USING PLB-SOURCE-SET PLB-TOKENS
+                    PLB-AST PLB-SYMBOLS PLB-CRUD
+            END-IF
             IF WS-COMMAND = "graph" AND WS-GRAPH-KIND = "performs"
                 CALL "PLB-GRAPH-PERFORMS" USING PLB-SOURCE-SET
                     PLB-TOKENS PLB-AST PLB-FLOW WS-REPORT WS-FIRST
@@ -870,6 +877,7 @@ GRAPH-COMMAND.
     END-IF
     PERFORM ADD-INPUTS
     CALL "PLB-GRAPH-START" USING WS-REPORT WS-GRAPH-KIND
+    CALL "PLB-CRUD-INIT" USING PLB-CRUD
     PERFORM ANALYZE-RUN
     EVALUATE WS-GRAPH-KIND
         WHEN "calls"
@@ -887,6 +895,8 @@ GRAPH-COMMAND.
                 WS-REPORT
         WHEN "cics"
             CALL "PLB-GRAPH-CICS" USING PLB-CALL-GRAPH PLB-CSD WS-REPORT
+        WHEN "crud"
+            CALL "PLB-GRAPH-CRUD" USING PLB-CRUD WS-REPORT
     END-EVALUATE
     CALL "PLB-GRAPH-END" USING WS-REPORT
     PERFORM REPORT-DIAGNOSTICS
@@ -5114,13 +5124,13 @@ PARSE-INPUT-ARGS.
                 PERFORM NEXT-ARG
                 EVALUATE WS-ARG
                     WHEN "performs" WHEN "calls" WHEN "copybooks"
-                    WHEN "jobs" WHEN "datasets" WHEN "cics"
+                    WHEN "jobs" WHEN "datasets" WHEN "cics" WHEN "crud"
                         MOVE WS-ARG TO WS-GRAPH-KIND
                     WHEN OTHER
                         DISPLAY PLB-NAME ": invalid --kind '"
                             WS-ARG(1:WS-ARG-LEN)
                             "' (expected performs, calls, copybooks, jobs,"
-                            " datasets, or cics)"
+                            " datasets, cics, or crud)"
                             UPON SYSERR
                         MOVE 2 TO WS-EXIT-CODE
                 END-EVALUATE

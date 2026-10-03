@@ -837,9 +837,11 @@ check "impact lists the steps that run a program" 0 'run by step UPDATE of job P
     -- impact PAYUPD tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/paylog.cob tests/fixtures/jcl/payroll.jcl
 check "impact follows callers to their steps" 0 'run by step RERUN of job PAYROLL at tests/fixtures/jcl/payroll.jcl:11 through PAYUPD' \
     -- impact PAYLOG tests/fixtures/jcl/payupd.cob tests/fixtures/jcl/paylog.cob tests/fixtures/jcl/payroll.jcl
+check "graph of the CRUD matrix"          0 '^  "ACCTMNT" -> "BANK.AUDIT (table)" \[label="CD"\];$' \
+    -- graph --kind crud tests/fixtures/crud/acctmnt.cob
 check "graph refuses csv"                 2 "invalid --report format 'csv' (expected dot or json)" \
     -- graph --report csv $ix/menu.cob
-for kind in performs calls copybooks jobs datasets cics; do
+for kind in performs calls copybooks jobs datasets cics crud; do
     n=$((n + 1))
     if "$bin" graph --kind $kind --report json -I $ix $ix/custlook.cob $ix/billing.cob $ix/menu.cob \
             tests/fixtures/jcl/payroll.jcl \
