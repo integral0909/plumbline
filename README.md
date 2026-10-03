@@ -63,7 +63,7 @@ $ find src -name '*.cbl' | plumbline check -I copybooks --files-from -
 | `--files-from LIST` | also analyze the files listed in `LIST`, one per line (`-` for standard input) |
 | `-D NAME`, `--define NAME` | `NAME` is defined for conditional compilation |
 | `--tab-width N` | tab stops every `N` columns (default 8), as `cobc -ftab-width` |
-| `--format fixed\|free\|auto` | reference format of the sources (default `auto`) |
+| `--format fixed\|free\|variable\|auto` | reference format of the sources (default `auto`); `variable` is fixed with the text running to column 250 |
 | `--enable RULE`, `--disable RULE` | turn a rule on or off, by id or name |
 | `--fail-on error\|warning\|note\|never` | the lowest severity that fails the run |
 | `--report text\|json\|sarif\|html\|md\|codeclimate\|junit\|checkstyle` | output format (default `text`) |

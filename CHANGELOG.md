@@ -215,6 +215,10 @@ uses [Semantic Versioning](https://semver.org/).
 - A `Dockerfile` for a container image with Plumbline and the GnuCOBOL
   run-time library, built and run by CI when it changes.
 - docs/ci.md: running Plumbline in CI.
+- Micro Focus's VARIABLE reference format, fixed with the text running
+  to column 250: `--format variable`, `format variable` in
+  `plumbline.conf`, or `>>SOURCE FORMAT VARIABLE`. `dump lines` names
+  such lines `var`.
 - `plumbline summary`: one row per program with its size, complexity,
   maintainability index, and findings by severity, as text, Markdown,
   CSV, or JSON.
