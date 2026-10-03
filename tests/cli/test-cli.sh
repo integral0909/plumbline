@@ -516,6 +516,21 @@ assert [p["name"] for p in group["paragraphs"]] == ["ADD-TAX", "COMPUTE-TAX"]
 else
     failed=$((failed + 1)); echo "not ok $n - duplicates json"
 fi
+lin="tests/fixtures/lineage/rpt.cob"
+check "lineage shows what gives an item its value" 0 '^  ADD WS-AMOUNT WS-TAX TO WS-TOTAL  (line 23)$' \
+    -- lineage WS-TOTAL $lin
+check "lineage follows a record to its READ" 0 '^          READ IN-FILE  (line 20)$' \
+    -- lineage WS-TOTAL $lin
+check "lineage shows an item once"         0 '^        WS-AMOUNT  tests/fixtures/lineage/rpt.cob:13  (see above)$' \
+    -- lineage WS-TOTAL $lin
+check_absent "lineage stops at --depth"    'MOVE IN-AMT' \
+    -- lineage WS-TOTAL --depth 1 $lin
+check "lineage --forward shows where a value goes" 0 '^          MOVE WS-TOTAL TO RL-TOTAL  (line 24)$' \
+    -- lineage IN-AMT --forward $lin
+check "lineage of an unknown item"         1 'no data item named NOPE in the input' \
+    -- lineage NOPE $lin
+check "lineage needs a name"               2 'lineage needs a data item name' \
+    -- lineage
 xx="-I tests/fixtures/xref tests/fixtures/xref/acctupd.cob"
 check "xref heads each program"           0 '^ACCTUPD (tests/fixtures/xref/acctupd.cob:2)$' \
     -- xref $xx

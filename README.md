@@ -260,6 +260,32 @@ CBACT02C (app/cbl/CBACT02C.cbl:23)
 The references are those of the procedure division: an item named only
 in a data division clause, such as `FILE STATUS`, shows none.
 
+## Data lineage
+
+`plumbline lineage NAME` shows where a data item's value comes from:
+each statement that gives it a value (or gives one to a group it is in,
+or to an item in it), the items that statement reads, the statements
+that give those their values, and so on, three statements deep by
+default (`--depth N`). A record of a file goes back to the `READ` of
+the file. `--forward` shows where the value goes instead: the
+statements that read the item and the items they give values to.
+
+```console
+$ plumbline lineage WS-TOTAL src/rpt.cob
+WS-TOTAL  src/rpt.cob:15
+  ADD WS-AMOUNT WS-TAX TO WS-TOTAL  (line 23)
+    WS-AMOUNT  src/rpt.cob:13
+      MOVE IN-AMT TO WS-AMOUNT  (line 21)
+        IN-AMT  src/rpt.cob:11
+          READ IN-FILE  (line 20)
+    WS-TAX  src/rpt.cob:14
+      COMPUTE WS-TAX = WS-AMOUNT * 0.25  (line 22)
+        WS-AMOUNT  src/rpt.cob:13  (see above)
+```
+
+An item already shown is not expanded again. The trail stays in the
+program: a `CALL` argument or a file is where it leaves.
+
 ## Duplicate code
 
 `plumbline duplicates` finds paragraphs with the same code, in one
