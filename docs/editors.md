@@ -21,7 +21,7 @@ shows what it reports as you work.
 | Completion | The names of the data items (also from copybooks), paragraphs, and sections of the file, each with its picture and size or its kind |
 | Inlay hints | After each data description entry, the item's size and its offset in the record ("3 bytes at offset 8") |
 | Document links | The name in each `COPY` statement, linked to the copybook it includes |
-| Code lens | Above each section and paragraph, how many `PERFORM` and `GO TO` statements name it, or "no PERFORM or GO TO" |
+| Code lens | Above each section and paragraph, how many `PERFORM` and `GO TO` statements name it, or "no PERFORM or GO TO"; above each record (01 or 77), how many references read it or an item in it, give them values, or pass them to a `CALL` ("2 reads, 1 write"), or "never referenced" |
 | Rename | A data item, paragraph, or section, at its declaration and every reference, in the open file and its copybooks. The new name must be a user-defined word. A name written in a `COPY ... REPLACING` phrase is not changed. |
 
 The server reads `plumbline.conf` in the directory the editor starts it
