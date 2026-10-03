@@ -202,6 +202,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Language server: a finding's code links to its rule's section of the
   reference (`codeDescription`), and unreachable code, unused data
   items, and unused copybooks are tagged unnecessary, `ALTER` deprecated.
+- `check --report checkstyle`: Checkstyle XML, for review tools and CI
+  plugins that read it.
 - `check --report junit`: a JUnit XML test report, one failing test
   case per finding and one passing case per clean file.
 - `make fuzz` (`tools/fuzz.py`): `plumbline check` on damaged copies of

@@ -57,7 +57,7 @@ $ find src -name '*.cbl' | plumbline check -I copybooks --files-from -
 | `--format fixed\|free\|auto` | reference format of the sources (default `auto`) |
 | `--enable RULE`, `--disable RULE` | turn a rule on or off, by id or name |
 | `--fail-on error\|warning\|note\|never` | the lowest severity that fails the run |
-| `--report text\|json\|sarif\|html\|md\|codeclimate\|junit` | output format (default `text`) |
+| `--report text\|json\|sarif\|html\|md\|codeclimate\|junit\|checkstyle` | output format (default `text`) |
 | `--baseline FILE` | do not report the findings listed in `FILE` |
 | `--write-baseline FILE` | write the findings to `FILE` instead of reporting them |
 | `--config FILE`, `--no-config` | read settings from `FILE`, or from no file |
@@ -99,6 +99,12 @@ without either a passing one.
 ```console
 $ plumbline check --report junit --fail-on never src/*.cbl > plumbline-junit.xml
 ```
+
+`--report checkstyle` writes Checkstyle XML, the format that review
+tools such as reviewdog and CI plugins such as Jenkins Warnings NG read
+from many linters: a `file` element for each file checked, with an
+`error` for each finding and diagnostic (severity `error`, `warning`,
+or `info` for notes, and source `plumbline.PLB-C001`).
 
 In all of them, input diagnostics are part of the report rather than
 printed to standard error.

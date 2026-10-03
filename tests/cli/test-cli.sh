@@ -815,7 +815,7 @@ check "metrics start ends at the first paragraph" 0 '^"tests/fixtures/metrics/st
     -- metrics --report csv tests/fixtures/metrics/start.cob
 check "metrics refuses sarif"             2 "invalid --report format 'sarif' (expected text, json, or csv)" \
     -- metrics --report sarif $mx/complexity.cob
-check "check refuses csv"                 2 "invalid --report format 'csv' (expected text, json, sarif, html, md, codeclimate, or junit)" \
+check "check refuses csv"                 2 "invalid --report format 'csv' (expected text, json, sarif, html, md, codeclimate, junit, or checkstyle)" \
     -- check --report csv $mx/complexity.cob
 n=$((n + 1))
 if "$bin" metrics --report json $mx/complexity.cob $rx/c001-unreachable.cob | python3 -m json.tool >/dev/null 2>&1; then
@@ -971,6 +971,12 @@ check "junit report fails on a finding"    1 '<testcase classname=".*c001-unreac
     -- check --report junit $rx/c001-unreachable.cob
 check "junit report errs on an error diagnostic" 1 '<error type="error" message="copybook .* not found">' \
     -- check --report junit tests/fixtures/report/alike.cob
+check_report "checkstyle report is valid"  checkstyle 3 -- check --report checkstyle $rx/c001-unreachable.cob
+check_report "checkstyle report has diagnostics" checkstyle 5 -- check --report checkstyle tests/fixtures/report/alike.cob
+check "checkstyle report lists a clean file" 0 '<file name="tests/golden/rules/c001-unreachable.cob"/>' \
+    -- check --report checkstyle --disable PLB-C001 --disable go-to $rx/c001-unreachable.cob
+check "checkstyle report maps severities"  1 'severity="info" message="GO TO makes the flow of control hard to follow" source="plumbline.PLB-M001"' \
+    -- check --report checkstyle $rx/c001-unreachable.cob
 # A line added above the findings moves them, but leaves their
 # fingerprints as they were.
 tmp=$(mktemp -d)

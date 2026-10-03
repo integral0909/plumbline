@@ -532,7 +532,7 @@ SHOW-USAGE.
     DISPLAY "  --fail-on LEVEL  exit 1 on findings at or above LEVEL:"
     DISPLAY "                   error, warning (default), note, never"
     DISPLAY "  --report FORMAT  text (default), json, sarif, html, md,"
-    DISPLAY "                   codeclimate, or junit; for"
+    DISPLAY "                   codeclimate, junit, or checkstyle; for"
     DISPLAY "                   metrics: text, json, or csv; for"
     DISPLAY "                   graph: dot (default) or json"
     DISPLAY "  --baseline FILE  do not report the findings listed in FILE"
@@ -648,6 +648,9 @@ CHECK-COMMAND.
                 PLB-DIAGNOSTICS PLB-RULES PLB-FINDINGS
         WHEN "junit"
             CALL "PLB-REPORT-JUNIT" USING PLB-SOURCE-SET
+                PLB-DIAGNOSTICS PLB-RULES PLB-FINDINGS WS-MAIN-FILES
+        WHEN "checkstyle"
+            CALL "PLB-REPORT-CHECKSTYLE" USING PLB-SOURCE-SET
                 PLB-DIAGNOSTICS PLB-RULES PLB-FINDINGS WS-MAIN-FILES
         WHEN OTHER
             PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > FN-COUNT
@@ -5466,7 +5469,7 @@ SET-REPORT.
              AND WS-COMMAND NOT = "layout"
             MOVE WS-ARG TO WS-REPORT
         WHEN (WS-ARG = "html" OR WS-ARG = "md" OR WS-ARG = "codeclimate"
-              OR WS-ARG = "junit")
+              OR WS-ARG = "junit" OR WS-ARG = "checkstyle")
              AND WS-COMMAND = "check"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "csv"
@@ -5509,7 +5512,7 @@ SET-REPORT.
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected text, json, sarif, html, md, codeclimate,"
-                " or junit)"
+                " junit, or checkstyle)"
                 UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
     END-EVALUATE.
