@@ -75,6 +75,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J006](#plb-j006-lrecl-mismatch) | lrecl-mismatch | error | DD record length differs from the program's records |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
+| [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -1641,6 +1642,34 @@ a `REWRITE FILE(WS-ACCT-FILE)` anywhere releases a `READ
 FILE(WS-ACCT-FILE) UPDATE`. A program that names the same file in two
 ways (a literal and a variable holding it) is reported.
 
+
+## PLB-K003 commarea-without-length
+
+A transaction program that uses `DFHCOMMAREA` but never looks at
+`EIBCALEN`:
+
+```cobol
+LINKAGE SECTION.
+01  DFHCOMMAREA.
+    05  CA-ACCOUNT-ID       PIC X(11).
+PROCEDURE DIVISION.
+    MOVE CA-ACCOUNT-ID TO WS-ACCOUNT-ID     *> reported
+    ...
+    EXEC CICS RETURN TRANSID('AVIW') COMMAREA(WS-STATE) END-EXEC.
+```
+
+The first time a user starts the transaction there is no COMMAREA:
+`EIBCALEN` is 0 and `DFHCOMMAREA` has no storage, so the first
+reference abends the task or reads whatever is at that address. Test
+`EIBCALEN = 0` first and set the state up instead.
+
+Transaction programs are those that return with `EXEC CICS RETURN
+TRANSID`, the pseudo-conversational return that has the terminal start
+them again; a program only `LINK`ed or `XCTL`ed to with a COMMAREA
+always has one, and is not checked. Any mention of `EIBCALEN` in the
+program counts as the test, and the program's first use of the
+COMMAREA or an item in it is reported. The text of nested programs is
+their own.
 ## PLB-M001 go-to
 
 Every `GO TO` statement, reported as a note. `GO TO` makes the flow of

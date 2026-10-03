@@ -223,6 +223,12 @@ Some findings that were read and are true:
   select lists, commas at the start of continuation lines included. With
   one host variable taken out of a `FETCH` in a copy of `COTRTLIC`, it
   is reported.
+- **PLB-K003 commarea-without-length.** None. The 21 programs that have
+  a `DFHCOMMAREA` and return with `TRANSID` all test `EIBCALEN`. A first
+  version, which checked every program with a COMMAREA, reported
+  `COPAUS2C`, which `COPAUS1C` only `LINK`s to with a COMMAREA; the rule
+  now checks transaction programs only. With `EIBCALEN` renamed away in
+  a copy of `COMEN01C`, its use of the COMMAREA is reported.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)

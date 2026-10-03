@@ -6,6 +6,7 @@
 *>   PLB-S001  dynamic-sql
 *>   PLB-M014  sql-select-star
 *>   PLB-Q005  into-count-mismatch (PLB-RULE-Q005, below)
+*>   PLB-K003  commarea-without-length (PLB-RULE-K003, below)
 *>
 *> "Checked" means that a statement after the command, in the same
 *> paragraph and before the next command of the same kind, names the
@@ -1154,3 +1155,157 @@ COMMA-BETWEEN.
         END-IF
     END-PERFORM.
 END PROGRAM PLB-RULE-Q005.
+
+*> PLB-K003 commarea-without-length: a CICS program that uses
+*> DFHCOMMAREA but never looks at EIBCALEN.
+*>
+*>     LINKAGE SECTION.
+*>     01  DFHCOMMAREA.
+*>         05  CA-ACCOUNT-ID       PIC X(11).
+*>     PROCEDURE DIVISION.
+*>         MOVE CA-ACCOUNT-ID TO WS-ACCOUNT-ID
+*>
+*> When a transaction starts without a COMMAREA (its first time, from a
+*> terminal), EIBCALEN is 0 and DFHCOMMAREA has no storage: the
+*> reference abends the task (ASRA), or reads whatever is at that
+*> address. Programs test EIBCALEN = 0 first, and set their state up
+*> instead. A mention of EIBCALEN anywhere in the program counts as the
+*> test; each program's first use of DFHCOMMAREA or an item in it is
+*> reported.
+*>
+*> Only transaction programs are checked: those that end with EXEC
+*> CICS RETURN TRANSID, the pseudo-conversational return that has the
+*> terminal start them again. A program that is only LINKed or XCTLed
+*> to with a COMMAREA always has one.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-K003.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-NEST-COUNT           PIC 9(4) COMP-5.
+01  WS-NEST                 PIC 9(9) COMP-5 OCCURS 100 TIMES.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-R                    PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-UP                   PIC 9(9) COMP-5.
+01  LS-PROGRAM              PIC 9(9) COMP-5.
+01  LS-FOUND                PIC X.
+01  LS-IN-RETURN            PIC X.
+01  LS-N                    PIC 9(9) COMP-5.
+01  LS-MOVED                PIC X.
+01  LS-WORD                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbsym.cpy".
+COPY "plbref.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
+        PLB-REFS PLB-RULES PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K003" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
+        IF SY-NAME(LS-S) = "DFHCOMMAREA" AND SY-SECTION(LS-S) = "K"
+           AND SY-PARENT(LS-S) = 0 AND SY-PROGRAM(LS-S) > 0
+            MOVE SY-PROGRAM(LS-S) TO LS-PROGRAM
+            PERFORM CHECK-PROGRAM
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+CHECK-PROGRAM.
+    *> Any EIBCALEN in the program's text counts as the test; a RETURN
+    *> with TRANSID makes it a transaction program.
+    MOVE "N" TO LS-FOUND LS-IN-RETURN
+    PERFORM NESTED-PROGRAMS
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-PROGRAM) BY 1
+            UNTIL LS-T > ND-TOK-LAST(LS-PROGRAM)
+        PERFORM SKIP-NESTED
+        IF LS-T <= ND-TOK-LAST(LS-PROGRAM) AND TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD
+            EVALUATE LS-WORD
+                WHEN "EIBCALEN"
+                    EXIT PARAGRAPH
+                WHEN "RETURN"
+                    MOVE "Y" TO LS-IN-RETURN
+                WHEN "END-EXEC"
+                    MOVE "N" TO LS-IN-RETURN
+                WHEN "TRANSID"
+                    IF LS-IN-RETURN = "Y"
+                        MOVE "Y" TO LS-FOUND
+                    END-IF
+            END-EVALUATE
+        END-IF
+    END-PERFORM
+    IF LS-FOUND = "N"
+        EXIT PARAGRAPH
+    END-IF
+    *> The first reference to the COMMAREA or an item in it.
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        IF RF-KIND(LS-R) = "D" AND RF-SYMBOL(LS-R) > 0
+            MOVE RF-SYMBOL(LS-R) TO LS-UP
+            PERFORM UNTIL SY-PARENT(LS-UP) = 0
+                MOVE SY-PARENT(LS-UP) TO LS-UP
+            END-PERFORM
+            IF LS-UP = LS-S
+                PERFORM REPORT-USE
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> The programs nested in this one (direct children of its node), whose
+*> text is their own.
+NESTED-PROGRAMS.
+    MOVE 0 TO WS-NEST-COUNT
+    MOVE ND-FIRST(LS-PROGRAM) TO LS-N
+    PERFORM UNTIL LS-N = 0
+        IF ND-KIND(LS-N) = "PROG" AND WS-NEST-COUNT < 100
+            ADD 1 TO WS-NEST-COUNT
+            MOVE LS-N TO WS-NEST(WS-NEST-COUNT)
+        END-IF
+        MOVE ND-NEXT(LS-N) TO LS-N
+    END-PERFORM.
+
+*> At the first token of a nested program, LS-T moves past its last.
+SKIP-NESTED.
+    MOVE "Y" TO LS-MOVED
+    PERFORM UNTIL LS-MOVED = "N"
+        MOVE "N" TO LS-MOVED
+        PERFORM VARYING LS-N FROM 1 BY 1 UNTIL LS-N > WS-NEST-COUNT
+            IF ND-TOK-FIRST(WS-NEST(LS-N)) = LS-T
+                COMPUTE LS-T = ND-TOK-LAST(WS-NEST(LS-N)) + 1
+                MOVE "Y" TO LS-MOVED
+                EXIT PERFORM
+            END-IF
+        END-PERFORM
+    END-PERFORM.
+
+REPORT-USE.
+    MOVE SPACES TO LS-MESSAGE
+    IF RF-SYMBOL(LS-R) = LS-S
+        STRING "the program uses DFHCOMMAREA but never tests EIBCALEN;"
+               " started without a COMMAREA, it abends here"
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    ELSE
+        STRING "the program uses " DELIMITED BY SIZE
+               SY-NAME(RF-SYMBOL(LS-R)) DELIMITED BY SPACE
+               " of DFHCOMMAREA but never tests EIBCALEN; started"
+               " without a COMMAREA, it abends here" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    END-IF
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE RF-TOKEN(LS-R) LS-MESSAGE.
+END PROGRAM PLB-RULE-K003.
