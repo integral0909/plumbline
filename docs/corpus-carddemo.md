@@ -273,6 +273,8 @@ Some findings that were read and are true:
   `CBTRN02C` (`IF ACCT-CREDIT-LIMIT >= WS-TEMP-BAL`) changed to compare
   the limit with itself in a copy, the copy's condition is reported as
   always true.
+- **PLB-C057 misleading-indentation.** None: CardDemo ends its `IF`
+  statements with `END-IF`.
 - **PLB-Q008 null-without-indicator.** None: the tables that are fetched
   from declare their columns `NOT NULL`, and the one with nullable
   columns, `AUTHFRDS`, is only inserted into, by `COPAUS2C`.

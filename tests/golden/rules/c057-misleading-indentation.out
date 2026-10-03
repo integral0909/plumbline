@@ -1,0 +1,4 @@
+tests/golden/rules/c057-misleading-indentation.cob:15:9: warning: DISPLAY is indented as if inside the IF on line 13, but the period on line 14 ended it, so the statement is not part of it [PLB-C057]
+tests/golden/rules/c057-misleading-indentation.cob:21:9: warning: ADD is indented as if inside the IF on line 17, but the period on line 20 ended it, so the statement is not part of it [PLB-C057]
+tests/golden/rules/c057-misleading-indentation.cob:28:9: note: GO TO makes the flow of control hard to follow [PLB-M001]
+tests/golden/rules/c057-misleading-indentation.cob:34:9: warning: DISPLAY is indented as if inside the PERFORM on line 31, but the period on line 33 ended it, so the statement is not part of it [PLB-C057]

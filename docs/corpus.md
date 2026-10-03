@@ -242,6 +242,14 @@ The findings were checked by rule:
 
 - **PLB-C056 self-comparison.** None in NIST or GnuCOBOL's tests.
 
+- **PLB-C057 misleading-indentation.** 8, all in NIST and all as
+  described: in `NC109M`, `PERFORM PRINT-DETAIL` sits under `MOVE ... TO
+  RE-MARK.` at the depth of the `IF` body, and in `NC176A`, `ADD 1 TO
+  REC-CT` follows the period of an `ELSE` branch at its depth. A first
+  version also reported 12 cases of `IF ... GO TO X.` followed by
+  indented code, the "else" style; an `IF` without `ELSE` whose body
+  leaves is now left alone. GnuCOBOL's tests have none.
+
 ## Limits
 
 - **Report Writer** is parsed and its `SOURCE`, `SUM`, and `CONTROL`
