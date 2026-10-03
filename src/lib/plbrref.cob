@@ -7,10 +7,23 @@
 *> ---------------------------------------------------------------
 
 *> PLB-C009 undefined-name and PLB-C010 ambiguous-name.
+*>
+*> In a file where a COPY statement names a copybook that was not
+*> found, an undeclared name is most likely declared there: each such
+*> name is reported once, at its first reference, with the missing
+*> copybook, rather than at every reference.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-NAMES.
 DATA DIVISION.
+WORKING-STORAGE SECTION.
+*> The names reported once, in a file with a missing copybook.
+78  WS-ONCE-MAX                 VALUE 5000.
+01  WS-ONCE-COUNT           PIC 9(9) COMP-5.
+01  WS-ONCE                 PIC X(120) OCCURS WS-ONCE-MAX TIMES.
 LOCAL-STORAGE SECTION.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-SEEN                 PIC X.
+01  LS-MISSING              PIC X(80).
 01  LS-RULE-UNDEFINED       PIC 9(4) COMP-5.
 01  LS-RULE-AMBIGUOUS       PIC 9(4) COMP-5.
 01  LS-R                    PIC 9(9) COMP-5.
@@ -26,22 +39,33 @@ COPY "plbsrc.cpy".
 COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
 COPY "plbref.cpy".
+COPY "plbincl.cpy".
 COPY "plbrules.cpy".
 COPY "plbfind.cpy".
-PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-REFS PLB-RULES
-        PLB-FINDINGS.
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-REFS
+        PLB-INCLUSIONS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C009" LS-RULE-UNDEFINED
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C010" LS-RULE-AMBIGUOUS
+    MOVE 0 TO WS-ONCE-COUNT
+    PERFORM MISSING-TEXT
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
         EVALUATE RF-KIND(LS-R)
             WHEN "U"
                 PERFORM NAME-TEXT
-                STRING LS-TEXT DELIMITED BY "  "
-                       " is not declared" DELIMITED BY SIZE
-                    INTO LS-MESSAGE
-                CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET
-                    PLB-TOKENS PLB-RULES PLB-FINDINGS LS-RULE-UNDEFINED
-                    RF-TOKEN(LS-R) LS-MESSAGE
+                IF IM-COUNT > 0
+                    PERFORM TEST-SEEN
+                ELSE
+                    MOVE "N" TO LS-SEEN
+                END-IF
+                IF LS-SEEN = "N"
+                    STRING LS-TEXT DELIMITED BY "  "
+                           " is not declared" DELIMITED BY SIZE
+                           LS-MISSING DELIMITED BY "  "
+                        INTO LS-MESSAGE
+                    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET
+                        PLB-TOKENS PLB-RULES PLB-FINDINGS
+                        LS-RULE-UNDEFINED RF-TOKEN(LS-R) LS-MESSAGE
+                END-IF
             WHEN "A"
                 PERFORM NAME-TEXT
                 STRING LS-TEXT DELIMITED BY "  "
@@ -54,6 +78,37 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-REFS PLB-RULES
         END-EVALUATE
     END-PERFORM
     GOBACK.
+
+*> LS-MISSING: what the message adds when copybooks are missing.
+MISSING-TEXT.
+    MOVE SPACES TO LS-MISSING
+    EVALUATE TRUE
+        WHEN IM-COUNT = 1
+            STRING "; copybook " DELIMITED BY SIZE
+                   IM-NAME(1) DELIMITED BY SPACE
+                   ", which was not found, may declare it"
+                   DELIMITED BY SIZE
+                INTO LS-MISSING
+        WHEN IM-COUNT > 1
+            STRING "; a copybook that was not found (" DELIMITED BY SIZE
+                   IM-NAME(1) DELIMITED BY SPACE
+                   ", ...) may declare it" DELIMITED BY SIZE
+                INTO LS-MISSING
+    END-EVALUATE.
+
+*> LS-SEEN = "Y" when LS-TEXT was reported before; else it is noted.
+TEST-SEEN.
+    MOVE "N" TO LS-SEEN
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > WS-ONCE-COUNT
+        IF WS-ONCE(LS-I) = LS-TEXT
+            MOVE "Y" TO LS-SEEN
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    IF WS-ONCE-COUNT < WS-ONCE-MAX
+        ADD 1 TO WS-ONCE-COUNT
+        MOVE LS-TEXT TO WS-ONCE(WS-ONCE-COUNT)
+    END-IF.
 
 *> LS-TEXT = the name with its qualifiers, as in "A OF B".
 NAME-TEXT.

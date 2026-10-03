@@ -1,0 +1,3 @@
+tests/golden/rules/c009-missing-copybook.cob:7:5: warning: MQ-CONSTANTS is never referenced [PLB-M003]
+tests/golden/rules/c009-missing-copybook.cob:12:22: error: MQCC-OK is not declared; copybook CMQVNONE, which was not found, may declare it [PLB-C009]
+tests/golden/rules/c009-missing-copybook.cob:15:56: error: MQCC-WARNING is not declared; copybook CMQVNONE, which was not found, may declare it [PLB-C009]

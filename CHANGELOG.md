@@ -298,6 +298,9 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- In a file with a copybook that was not found, PLB-C009 reports each
+  undeclared name once, naming the missing copybook; on CardDemo's MQ
+  programs that is 100 findings instead of 167.
 - Checking is faster: the NIST suite in one run went from 17.2 to 9.8
   seconds.
 

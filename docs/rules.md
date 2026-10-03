@@ -418,7 +418,14 @@ A qualified reference that matches no item is reported with its
 qualifiers, as in `KEY-FIELD OF NO-SUCH-GROUP is not declared`.
 
 Undefined names usually mean a typing mistake or a missing copybook. If
-a `COPY` failed (see the `PP001` diagnostic), fix that first.
+a `COPY` failed (see the `PP001` diagnostic), fix that first. Until
+then, in a file with a copybook that was not found, each undeclared name
+is reported once, at its first reference, with the copybook that may
+declare it, rather than at every reference:
+
+```text
+mqput.cbl:12:22: error: MQCC-OK is not declared; copybook CMQV, which was not found, may declare it [PLB-C009]
+```
 
 ## PLB-C010 ambiguous-name
 

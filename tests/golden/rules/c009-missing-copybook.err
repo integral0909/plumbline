@@ -1,0 +1,1 @@
+tests/golden/rules/c009-missing-copybook.cob:8:5: error: copybook 'CMQVNONE' not found [PP001]
