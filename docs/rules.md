@@ -7,6 +7,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | Id | Name | Default | Summary |
 |----|------|---------|---------|
 | [PLB-A001](#plb-a001-unused-program) | unused-program | note | Program is not called, run by a job, or started by a transaction |
+| [PLB-A002](#plb-a002-record-length-conflict) | record-length-conflict | warning | Programs sharing a data set disagree on its record length |
 | [PLB-B001](#plb-b001-map-fields-overlap) | map-fields-overlap | error | Two fields of a BMS map share screen positions |
 | [PLB-B002](#plb-b002-field-outside-map) | field-outside-map | error | A BMS field ends past the end of its map |
 | [PLB-B003](#plb-b003-map-not-in-mapset) | map-not-in-mapset | error | Program sends or receives a map its mapset does not define |
@@ -157,6 +158,31 @@ how programs start: with JCL or CICS resource definitions among its
 inputs. Give the run all of the application's programs, jobs, and
 definitions, or the programs started from the rest are reported.
 
+
+## PLB-A002 record-length-conflict
+
+Two programs whose files are the same data set, through the DDs of the
+steps that run them, but whose records for it have different lengths:
+
+```
+//EXTRACT  EXEC PGM=ACCTEXT       FD ACCT-OUT: 01 record of 300 bytes
+//EXTOUT   DD DSN=PROD.ACCT.EXTRACT,DISP=(NEW,CATLG,DELETE)
+//REPORT   EXEC PGM=ACCTRPT       FD ACCT-IN: 01 record of 350 bytes
+//EXTIN    DD DSN=PROD.ACCT.EXTRACT,DISP=SHR    <- reported
+```
+
+One of them was compiled with an old copy of the layout. The reader's
+`OPEN` fails (file status 39), or, where the system does not check, it
+reads each record shifted against its fields. The two programs can be
+in different jobs: every job and program of the run counts.
+
+The first use of a data set in the run, usually the step that creates
+it, sets its length, and each use that differs is reported once, at its
+DD. Data sets are compared by name without a generation
+(`PAY.HISTORY(+1)` is `PAY.HISTORY`), temporary ones (`&&NAME`) only
+within their job. Only files of fixed length count: not those whose
+records differ in length, vary (`RECORD VARYING`, `OCCURS DEPENDING ON`),
+or are read through a DD with `RECFM=V` or `U`, nor sort files.
 ## PLB-B001 map-fields-overlap
 
 The B rules check CICS BMS maps, given to `check` as `*.bms` files (see

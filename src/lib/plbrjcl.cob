@@ -46,12 +46,28 @@ COPY "plbjclc.cpy".
         10  WS-SD-NAME      PIC X(8).
         10  WS-SD-USED      PIC X.
         10  WS-SD-ENTRY     PIC 9(9) COMP-5.
+*> The program files that steps give a data set to, for PLB-A002: the
+*> data set without a generation, the job or procedure of a temporary
+*> one, the record length, the program, and the DD.
+78  US-MAX                      VALUE 5000.
+01  WS-USES.
+    05  WS-USE-COUNT        PIC 9(9) COMP-5.
+    05  WS-USE              OCCURS US-MAX TIMES.
+        10  WS-USE-KEY      PIC X(44).
+        10  WS-USE-JOB      PIC 9(18) COMP-5.
+        10  WS-USE-SIZE     PIC 9(9) COMP-5.
+        10  WS-USE-PROGRAM  PIC 9(9) COMP-5.
+        10  WS-USE-DD       PIC 9(9) COMP-5.
 LOCAL-STORAGE SECTION.
 01  LS-RULE-MISSING         PIC 9(4) COMP-5.
 01  LS-RULE-UNUSED          PIC 9(4) COMP-5.
 01  LS-RULE-UNKNOWN         PIC 9(4) COMP-5.
 01  LS-RULE-UNREADABLE      PIC 9(4) COMP-5.
 01  LS-RULE-LRECL           PIC 9(4) COMP-5.
+01  LS-RULE-CONFLICT        PIC 9(4) COMP-5.
+01  LS-U                    PIC 9(9) COMP-5.
+01  LS-C-TEXT               PIC X(20).
+01  LS-C-LEN                PIC 9(9) COMP-5.
 01  LS-ASA                  PIC 9(4) COMP-5.
 01  LS-NUM                  PIC S9(18) COMP-5.
 01  LS-A-TEXT               PIC X(20).
@@ -89,13 +105,20 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH PLB-JCL.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J003" LS-RULE-UNKNOWN
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J004" LS-RULE-UNREADABLE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J006" LS-RULE-LRECL
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-A002" LS-RULE-CONFLICT
     CALL "PLB-RULE-JCL-TEMPS" USING PLB-RULES PLB-FINDINGS PLB-JCL
     CALL "PLB-RULE-J007" USING PLB-RULES PLB-FINDINGS PLB-JCL
+    MOVE 0 TO WS-USE-COUNT
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
         IF JS-KIND(LS-S) = "P"
             PERFORM CHECK-STEP
         END-IF
     END-PERFORM
+    IF RL-ENABLED(LS-RULE-CONFLICT) = "Y"
+        PERFORM VARYING LS-U FROM 2 BY 1 UNTIL LS-U > WS-USE-COUNT
+            PERFORM CHECK-USE
+        END-PERFORM
+    END-IF
     GOBACK.
 
 CHECK-STEP.
@@ -266,6 +289,7 @@ CHECK-FILE.
             MOVE "Y" TO WS-SD-USED(LS-I) LS-FOUND
             PERFORM CHECK-READABLE
             PERFORM CHECK-LRECL
+            PERFORM NOTE-USE
         END-IF
     END-PERFORM
     IF LS-FOUND = "Y" OR PF-OPTIONAL(LS-F) = "Y" OR PF-SORT(LS-F) = "Y"
@@ -288,6 +312,86 @@ CHECK-FILE.
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE-MISSING
         JS-FILE-ID(LS-S) JS-LINE(LS-S) LS-COLUMN LS-ZERO LS-MESSAGE.
+
+*> PLB-A002 record-length-conflict: two programs whose files, through
+*> the DDs of the steps that run them, are the same data set, and whose
+*> records for it have different lengths:
+*>
+*>     //EXTRACT EXEC PGM=ACCTEXT   FD ACCT-OUT, 01 record of 300 bytes
+*>     //OUT     DD DSN=PROD.ACCT.EXTRACT,...
+*>     //REPORT  EXEC PGM=ACCTRPT   FD ACCT-IN, 01 record of 350 bytes
+*>     //IN      DD DSN=PROD.ACCT.EXTRACT,DISP=SHR
+*>
+*> One of them has an old copy of the layout: the reader fails to open
+*> the file (status 39), or reads each record shifted against its
+*> fields. Data sets are compared by name without a generation
+*> (PAY.HISTORY(+1) is PAY.HISTORY), and temporary ones (&&NAME)
+*> within their job. Only files of fixed length count: not those whose
+*> records differ in length or vary, not DDs with RECFM V or U, and not
+*> sort files.
+*>
+*> NOTE-USE keeps the file of LS-F through DD LS-D (WS-SD-ENTRY of
+*> LS-I); CHECK-USE compares use LS-U with the first of its data set.
+NOTE-USE.
+    MOVE WS-SD-ENTRY(LS-I) TO LS-D
+    IF JD-KIND(LS-D) NOT = "D" OR PF-SORT(LS-F) = "Y"
+       OR PF-VARIABLE(LS-F) = "Y" OR PF-RECORD-SIZE(LS-F) = 0
+       OR JD-RECFM(LS-D)(1:1) = "V" OR JD-RECFM(LS-D)(1:1) = "U"
+       OR WS-USE-COUNT >= US-MAX
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO WS-USE-COUNT
+    MOVE SPACES TO WS-USE-KEY(WS-USE-COUNT)
+    UNSTRING JD-DSN(LS-D) DELIMITED BY "("
+        INTO WS-USE-KEY(WS-USE-COUNT)
+    END-UNSTRING
+    MOVE 0 TO WS-USE-JOB(WS-USE-COUNT)
+    IF JD-DSN(LS-D)(1:2) = "&&"
+        COMPUTE WS-USE-JOB(WS-USE-COUNT) =
+            JS-JOB(LS-S) + 100000 * JS-PROC(LS-S)
+    END-IF
+    MOVE PF-RECORD-SIZE(LS-F) TO WS-USE-SIZE(WS-USE-COUNT)
+    MOVE PF-PROGRAM(LS-F) TO WS-USE-PROGRAM(WS-USE-COUNT)
+    MOVE LS-D TO WS-USE-DD(WS-USE-COUNT).
+
+*> The first use of the data set, usually the step that creates it,
+*> sets the length: a later use that agrees with it is not reported
+*> for disagreeing with another one that does not.
+CHECK-USE.
+    PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K >= LS-U
+        IF WS-USE-KEY(LS-K) = WS-USE-KEY(LS-U)
+           AND WS-USE-JOB(LS-K) = WS-USE-JOB(LS-U)
+            IF WS-USE-SIZE(LS-K) NOT = WS-USE-SIZE(LS-U)
+                PERFORM REPORT-CONFLICT
+            END-IF
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+REPORT-CONFLICT.
+    MOVE WS-USE-SIZE(LS-U) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-A-TEXT LS-A-LEN
+    MOVE WS-USE-SIZE(LS-K) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-B-TEXT LS-B-LEN
+    MOVE JD-LINE(WS-USE-DD(LS-K)) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-C-TEXT LS-C-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING WS-USE-KEY(LS-U) DELIMITED BY SPACE
+           " has " DELIMITED BY SIZE
+           LS-A-TEXT(1:LS-A-LEN) DELIMITED BY SIZE
+           "-byte records in " DELIMITED BY SIZE
+           CP-NAME(WS-USE-PROGRAM(LS-U)) DELIMITED BY SPACE
+           " but " DELIMITED BY SIZE
+           LS-B-TEXT(1:LS-B-LEN) DELIMITED BY SIZE
+           "-byte ones in " DELIMITED BY SIZE
+           CP-NAME(WS-USE-PROGRAM(LS-K)) DELIMITED BY SPACE
+           " (DD on line " DELIMITED BY SIZE
+           LS-C-TEXT(1:LS-C-LEN) DELIMITED BY SIZE
+           ")" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    MOVE WS-USE-DD(LS-U) TO LS-D
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE-CONFLICT
+        JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
 
 *> PLB-J006: the DD of file LS-F (WS-SD-ENTRY of LS-I) gives a record
 *> length the program's records do not have. With a fixed format

@@ -113,8 +113,11 @@
         10  PF-I-O              PIC X.
         10  PF-EXTEND           PIC X.
         *> The largest record of the file's FD (or SD), in bytes; 0
-        *> when unknown.
+        *> when unknown. PF-VARIABLE is "Y" when its records differ in
+        *> length: records of several sizes, one with OCCURS DEPENDING
+        *> ON, or RECORD VARYING.
         10  PF-RECORD-SIZE      PIC 9(9) COMP-5.
+        10  PF-VARIABLE         PIC X.
         *> Where the file is named in its SELECT.
         10  PF-FILE-ID          PIC 9(4) COMP-5.
         10  PF-LINE             PIC 9(9) COMP-5.

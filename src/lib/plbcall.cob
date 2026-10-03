@@ -63,6 +63,7 @@ LOCAL-STORAGE SECTION.
 01  LS-REC                  PIC 9(9) COMP-5.
 01  LS-SYM                  PIC 9(9) COMP-5.
 01  LS-FD-NAME              PIC X(31).
+01  LS-SMALLEST             PIC 9(9) COMP-5.
 01  LS-LIMIT                PIC 9(9) COMP-5.
 01  LS-DEPTH                PIC 9(9) COMP-5.
 01  LS-SIZE                 PIC 9(9) COMP-5.
@@ -452,6 +453,7 @@ ADD-FILE.
 *> same name in the program of the SELECT (node LS-N).
 RECORD-SIZE.
     MOVE 0 TO PF-RECORD-SIZE(PF-COUNT)
+    MOVE "N" TO PF-VARIABLE(PF-COUNT)
     MOVE LS-N TO LS-FD-UP
     PERFORM PROG-ABOVE
     MOVE LS-FD-UP TO LS-SEL-PROG
@@ -470,8 +472,10 @@ RECORD-SIZE.
         END-IF
     END-PERFORM.
 
-*> The 01 records of FD node LS-FD, by their symbols.
+*> The 01 records of FD node LS-FD, by their symbols; RECORD VARYING
+*> among the clauses before them.
 FD-RECORDS.
+    MOVE 0 TO LS-SMALLEST
     MOVE ND-FIRST(LS-FD) TO LS-REC
     PERFORM UNTIL LS-REC = 0
         IF ND-KIND(LS-REC) = "DATA"
@@ -480,12 +484,34 @@ FD-RECORDS.
                     IF SY-SIZE(LS-SYM) > PF-RECORD-SIZE(PF-COUNT)
                         MOVE SY-SIZE(LS-SYM) TO PF-RECORD-SIZE(PF-COUNT)
                     END-IF
+                    IF LS-SMALLEST = 0 OR SY-SIZE(LS-SYM) < LS-SMALLEST
+                        MOVE SY-SIZE(LS-SYM) TO LS-SMALLEST
+                    END-IF
+                    IF SY-VARIABLE(LS-SYM) = "Y"
+                        MOVE "Y" TO PF-VARIABLE(PF-COUNT)
+                    END-IF
                     EXIT PERFORM
                 END-IF
             END-PERFORM
         END-IF
         MOVE ND-NEXT(LS-REC) TO LS-REC
-    END-PERFORM.
+    END-PERFORM
+    *> The FD's own clauses, up to its period: RECORD VARYING, or
+    *> RECORD ... DEPENDING ON.
+    PERFORM VARYING LS-REC FROM ND-TOK-FIRST(LS-FD) BY 1
+            UNTIL LS-REC > ND-TOK-LAST(LS-FD) OR TK-IS-PERIOD(LS-REC)
+        IF TK-IS-WORD(LS-REC)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-REC LS-FD-NAME
+                LS-LEN
+            IF FUNCTION UPPER-CASE(LS-FD-NAME) = "VARYING"
+               OR FUNCTION UPPER-CASE(LS-FD-NAME) = "DEPENDING"
+                MOVE "Y" TO PF-VARIABLE(PF-COUNT)
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-SMALLEST NOT = PF-RECORD-SIZE(PF-COUNT)
+        MOVE "Y" TO PF-VARIABLE(PF-COUNT)
+    END-IF.
 
 *> LS-FD-UP: the PROG node above node LS-FD-UP.
 PROG-ABOVE.
