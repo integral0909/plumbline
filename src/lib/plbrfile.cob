@@ -7,6 +7,7 @@
 *>   PLB-M008  file-not-closed
 *>   PLB-C048  sort-procedure-no-record
 *>   PLB-C050  record-read-at-end
+*>   PLB-C058  read-not-handled
 *>
 *> Each program on its own: its files (SELECT), their records (FD),
 *> the declaratives that handle their errors (USE ... ERROR or
@@ -65,6 +66,7 @@ COPY "plbnlist.cpy".
 01  LS-RULE-NOT-OPENED      PIC 9(4) COMP-5.
 01  LS-RULE-MODE            PIC 9(4) COMP-5.
 01  LS-RULE-NOT-CLOSED      PIC 9(4) COMP-5.
+01  LS-RULE-NOT-HANDLED     PIC 9(4) COMP-5.
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-DEPTH                PIC S9(9) COMP-5.
@@ -108,6 +110,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C021" LS-RULE-NOT-OPENED
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C022" LS-RULE-MODE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M008" LS-RULE-NOT-CLOSED
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C058" LS-RULE-NOT-HANDLED
     IF AS-COUNT = 0
         GOBACK
     END-IF
@@ -389,6 +392,9 @@ REPORT-FINDINGS.
         IF OP-VERB(LS-I) NOT = "CLOSE"
             PERFORM CHECK-STATUS-TESTED
         END-IF
+        IF OP-VERB(LS-I) = "READ"
+            PERFORM CHECK-READ-HANDLED
+        END-IF
     END-PERFORM
     PERFORM VARYING LS-F FROM 1 BY 1 UNTIL LS-F > WS-FILE-COUNT
         PERFORM CHECK-CLOSED
@@ -464,6 +470,38 @@ APPEND-MODE.
         STRING " and " DELIMITED BY SIZE INTO LS-MODES WITH POINTER LS-PTR
     END-IF
     STRING LS-TEXT DELIMITED BY SPACE INTO LS-MODES WITH POINTER LS-PTR.
+
+*> PLB-C058 read-not-handled: a READ with no AT END or INVALID KEY
+*> phrase, of a file with no FILE STATUS and no USE declarative. When
+*> the file ends, or the record is not there, nothing handles it, and
+*> the run stops with an I/O error (GnuCOBOL: "end of file (status =
+*> 10)"). A READ inside another I/O statement's AT END is not special:
+*> each READ needs its own handling.
+CHECK-READ-HANDLED.
+    IF RL-ENABLED(LS-RULE-NOT-HANDLED) NOT = "Y"
+       OR FL-STATUS(LS-F) NOT = SPACES OR FL-COVERED(LS-F) = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE ND-FIRST(OP-STMT(LS-I)) TO LS-K
+    PERFORM UNTIL LS-K = 0
+        IF ND-KIND(LS-K) = "BLCK"
+            EVALUATE ND-DETAIL(LS-K)
+                WHEN "AT-END" WHEN "NOT-AT-END"
+                WHEN "INVALID-KEY" WHEN "NOT-INVALID-KEY"
+                    EXIT PARAGRAPH
+            END-EVALUATE
+        END-IF
+        MOVE ND-NEXT(LS-K) TO LS-K
+    END-PERFORM
+    MOVE SPACES TO LS-MESSAGE
+    STRING "nothing handles the end of " DELIMITED BY SIZE
+           FL-NAME(LS-F) DELIMITED BY SPACE
+           " or a record not found: no AT END or INVALID KEY, FILE"
+           " STATUS, or USE declarative, so the run stops there"
+           DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-NOT-HANDLED OP-TOKEN(LS-I) LS-MESSAGE.
 
 *> PLB-C020: the FILE STATUS of the file (or a condition name of it)
 *> is not named after the statement, before the next statement on the
