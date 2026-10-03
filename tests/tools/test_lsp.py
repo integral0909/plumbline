@@ -561,6 +561,12 @@ class LanguageServerTest(unittest.TestCase):
         self.assertEqual(lenses[self.position("NEVER-CALLED.")["line"]],
                          "no PERFORM or GO TO")
         self.assertNotIn(self.position("MAIN-LINE.")["line"] - 1, lenses)
+        # Records: ERRORS is read once and set once; ADD ... TO COUNTER
+        # both reads it and gives it a value.
+        self.assertEqual(lenses[self.position("01  ERRORS")["line"]],
+                         "1 read, 1 write")
+        self.assertEqual(lenses[self.position("01  COUNTER")["line"]],
+                         "2 reads, 2 writes")
 
     def test_folding_ranges(self):
         reply = self.server.request("textDocument/foldingRange",

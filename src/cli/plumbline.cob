@@ -280,6 +280,12 @@ COPY "plbinput.cpy".
 *> textDocument/codeLens: PERFORM and GO TO statements naming a unit.
 01  WS-LSP-PERFORMS         PIC 9(9) COMP-5.
 01  WS-LSP-GOTOS            PIC 9(9) COMP-5.
+*> textDocument/codeLens: the references to each record.
+01  WS-LENS-READS           PIC 9(9) COMP-5 OCCURS 100000 TIMES.
+01  WS-LENS-WRITES          PIC 9(9) COMP-5 OCCURS 100000 TIMES.
+01  WS-LENS-PASSED          PIC 9(9) COMP-5 OCCURS 100000 TIMES.
+01  WS-LENS-FIRST           PIC X.
+01  WS-LENS-WORD            PIC X(8).
 *> textDocument/codeAction: the rules already offered for the line.
 01  WS-LSP-OFFERED          PIC X(400).
 01  WS-LSP-INDENT           PIC 9(4) COMP-5.
@@ -3174,8 +3180,10 @@ LSP-APPEND-LINK.
 
 *> textDocument/codeLens: above each section and paragraph of the
 *> document, how many PERFORM and GO TO statements name it (a PERFORM
-*> ... THRU counts for its first procedure), or that none does. The
-*> lenses are plain text: their command does nothing.
+*> ... THRU counts for its first procedure), or that none does; above
+*> each record (01 or 77) declared in the document, how many references
+*> read it or an item in it, give them values, or pass them to a CALL.
+*> The lenses are plain text: their command does nothing.
 LSP-CODE-LENSES.
     PERFORM LSP-FIND-DOCUMENT
     PERFORM LSP-START-RESPONSE
@@ -3186,6 +3194,13 @@ LSP-CODE-LENSES.
         PERFORM VARYING WS-U FROM 1 BY 1 UNTIL WS-U > FU-COUNT
             IF FU-KIND(WS-U) = "P" OR FU-KIND(WS-U) = "S"
                 PERFORM LSP-APPEND-LENS
+            END-IF
+        END-PERFORM
+        PERFORM LSP-RECORD-USES
+        PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > SY-COUNT
+            IF SY-PARENT(WS-I) = 0 AND SY-NAME-TOKEN(WS-I) > 0
+               AND SY-CATEGORY(WS-I) NOT = "C"
+                PERFORM LSP-APPEND-RECORD-LENS
             END-IF
         END-PERFORM
     END-IF
@@ -3248,6 +3263,90 @@ LSP-APPEND-LENS.
     END-EVALUATE
     STRING '","command":""}}' DELIMITED BY SIZE
         INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
+*> For each record, the references to it or an item in it, by what
+*> they do: WS-LENS-READS, WS-LENS-WRITES, and WS-LENS-PASSED (a CALL
+*> BY REFERENCE, which may do either). Each reference is counted for
+*> the record it is in, found by going up from its item.
+LSP-RECORD-USES.
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > SY-COUNT
+        MOVE 0 TO WS-LENS-READS(WS-I) WS-LENS-WRITES(WS-I)
+            WS-LENS-PASSED(WS-I)
+    END-PERFORM
+    PERFORM VARYING WS-J FROM 1 BY 1 UNTIL WS-J > RF-COUNT
+        IF RF-KIND(WS-J) = "D" AND RF-SYMBOL(WS-J) > 0
+            MOVE RF-SYMBOL(WS-J) TO WS-K
+            PERFORM UNTIL SY-PARENT(WS-K) = 0
+                MOVE SY-PARENT(WS-K) TO WS-K
+            END-PERFORM
+            EVALUATE RF-ROLE(WS-J)
+                WHEN "U"
+                    ADD 1 TO WS-LENS-READS(WS-K)
+                WHEN "D"
+                    ADD 1 TO WS-LENS-WRITES(WS-K)
+                WHEN "B"
+                    ADD 1 TO WS-LENS-READS(WS-K) WS-LENS-WRITES(WS-K)
+                WHEN "X"
+                    ADD 1 TO WS-LENS-PASSED(WS-K)
+            END-EVALUATE
+        END-IF
+    END-PERFORM.
+
+*> The lens of record WS-I, when its name is in the document:
+*> "2 reads, 1 write, 1 CALL", or "never referenced".
+LSP-APPEND-RECORD-LENS.
+    MOVE SY-NAME-TOKEN(WS-I) TO WS-LSP-TOKEN
+    IF TK-FILE-ID(WS-LSP-TOKEN) NOT = 1
+       OR TK-SRC-LINE(WS-LSP-TOKEN) = 0
+       OR WS-LSP-PTR > LSP-SIZE - 1024
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST
+    MOVE SL-LINE-NO(TK-SRC-LINE(WS-LSP-TOKEN)) TO WS-LSP-LINE
+    MOVE TK-COLUMN(WS-LSP-TOKEN) TO WS-LSP-CHAR
+    STRING '{"range":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-APPEND-RANGE
+    STRING ',"command":{"title":"' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-LENS-READS(WS-I) = 0 AND WS-LENS-WRITES(WS-I) = 0
+       AND WS-LENS-PASSED(WS-I) = 0
+        STRING "never referenced" DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    ELSE
+        MOVE "Y" TO WS-LENS-FIRST
+        MOVE WS-LENS-READS(WS-I) TO WS-NUM
+        MOVE "read" TO WS-LENS-WORD
+        PERFORM LSP-APPEND-LENS-COUNT
+        MOVE WS-LENS-WRITES(WS-I) TO WS-NUM
+        MOVE "write" TO WS-LENS-WORD
+        PERFORM LSP-APPEND-LENS-COUNT
+        MOVE WS-LENS-PASSED(WS-I) TO WS-NUM
+        MOVE "CALL" TO WS-LENS-WORD
+        PERFORM LSP-APPEND-LENS-COUNT
+    END-IF
+    STRING '","command":""}}' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
+*> ", N words" (no comma first; nothing for 0; no s for 1).
+LSP-APPEND-LENS-COUNT.
+    IF WS-NUM = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LENS-FIRST = "N"
+        STRING ", " DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LENS-FIRST
+    PERFORM LSP-APPEND-NUM
+    STRING " " DELIMITED BY SIZE
+           WS-LENS-WORD DELIMITED BY SPACE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF WS-NUM > 1
+        STRING "s" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF.
 
 *> Renaming ---------------------------------------------------------
 
