@@ -459,3 +459,52 @@ PROCEDURE DIVISION USING LK-PATH LK-TEXT LK-LENGTH LK-STATUS.
     MOVE 0 TO LK-STATUS
     GOBACK.
 END PROGRAM PLB-LSP-WRITE-FILE.
+
+*> PLB-JSON-FIND-NTH: OFFSET = where the N-th "KEY" (N from 1) starts
+*> in BUFFER(1:LENGTH), or 0 when there are fewer; PLB-JSON-GET from
+*> there reads its value, such as the line of the N-th position of a
+*> list.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-JSON-FIND-NTH.
+DATA DIVISION.
+LOCAL-STORAGE SECTION.
+01  LS-KEY                  PIC X(66).
+01  LS-KEY-LEN              PIC 9(9) COMP-5.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-SEEN                 PIC 9(9) COMP-5.
+01  LS-MATCH                PIC X.
+LINKAGE SECTION.
+01  LK-BUFFER               PIC X ANY LENGTH.
+01  LK-LENGTH               PIC 9(9) COMP-5.
+01  LK-NAME                 PIC X ANY LENGTH.
+01  LK-N                    PIC 9(9) COMP-5.
+01  LK-OFFSET               PIC 9(9) COMP-5.
+PROCEDURE DIVISION USING LK-BUFFER LK-LENGTH LK-NAME LK-N LK-OFFSET.
+    MOVE 0 TO LK-OFFSET
+    MOVE SPACES TO LS-KEY
+    STRING '"' DELIMITED BY SIZE
+           LK-NAME DELIMITED BY SPACE
+           '"' DELIMITED BY SIZE
+        INTO LS-KEY
+    CALL "PLB-STR-LENGTH" USING LS-KEY LS-KEY-LEN
+    MOVE 0 TO LS-SEEN
+    PERFORM VARYING LS-I FROM 1 BY 1
+            UNTIL LS-I + LS-KEY-LEN - 1 > LK-LENGTH
+        MOVE "Y" TO LS-MATCH
+        PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K > LS-KEY-LEN
+            IF LK-BUFFER(LS-I + LS-K - 1:1) NOT = LS-KEY(LS-K:1)
+                MOVE "N" TO LS-MATCH
+                EXIT PERFORM
+            END-IF
+        END-PERFORM
+        IF LS-MATCH = "Y"
+            ADD 1 TO LS-SEEN
+            IF LS-SEEN = LK-N
+                MOVE LS-I TO LK-OFFSET
+                GOBACK
+            END-IF
+        END-IF
+    END-PERFORM
+    GOBACK.
+END PROGRAM PLB-JSON-FIND-NTH.

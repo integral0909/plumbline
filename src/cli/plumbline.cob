@@ -204,6 +204,21 @@ COPY "plbinput.cpy".
 01  WS-LSP-LINE             PIC 9(9) COMP-5.
 01  WS-LSP-CHAR             PIC 9(9) COMP-5.
 01  WS-LSP-TOKEN            PIC 9(9) COMP-5.
+*> textDocument/selectionRange: the position being answered, the
+*> nodes that contain its token, and the range written last.
+01  WS-SEL-N                PIC 9(9) COMP-5.
+01  WS-SEL-K                PIC 9(9) COMP-5.
+01  WS-SEL-NODE             PIC 9(9) COMP-5.
+01  WS-SEL-CHILD            PIC 9(9) COMP-5.
+01  WS-SEL-DEPTH            PIC 9(9) COMP-5.
+01  WS-SEL-PATH             PIC 9(9) COMP-5 OCCURS 200 TIMES.
+01  WS-SEL-FIRST            PIC 9(9) COMP-5.
+01  WS-SEL-LAST             PIC 9(9) COMP-5.
+01  WS-SEL-PREV-FIRST       PIC 9(9) COMP-5.
+01  WS-SEL-PREV-LAST        PIC 9(9) COMP-5.
+01  WS-SEL-OPEN             PIC 9(9) COMP-5.
+01  WS-SEL-OFFSET           PIC 9(9) COMP-5.
+01  WS-SEL-REST             PIC 9(9) COMP-5.
 01  WS-LSP-SYMBOL           PIC 9(9) COMP-5.
 01  WS-LSP-UNIT             PIC 9(9) COMP-5.
 *> textDocument/documentHighlight rather than references, and whether
@@ -1318,6 +1333,8 @@ LSP-MESSAGE.
             PERFORM LSP-CODE-LENSES
         WHEN "textDocument/documentLink"
             PERFORM LSP-DOCUMENT-LINKS
+        WHEN "textDocument/selectionRange"
+            PERFORM LSP-SELECTION-RANGES
         WHEN "textDocument/inlayHint"
             PERFORM LSP-INLAY-HINTS
         WHEN "textDocument/completion"
@@ -1360,6 +1377,7 @@ LSP-INITIALIZE.
            '"documentLinkProvider":{"resolveProvider":false},'
            DELIMITED BY SIZE
            '"inlayHintProvider":true,' DELIMITED BY SIZE
+           '"selectionRangeProvider":true,' DELIMITED BY SIZE
            '"completionProvider":{"triggerCharacters":["-"]},'
            DELIMITED BY SIZE
            '"callHierarchyProvider":true,' DELIMITED BY SIZE
@@ -1736,6 +1754,171 @@ LSP-TARGET.
             MOVE WS-U TO WS-LSP-UNIT
         END-IF
     END-PERFORM.
+
+*> textDocument/selectionRange: for each position, the token there and
+*> the syntax tree nodes around it, innermost first, each the parent of
+*> the one before: a name, its reference, its statement, the sentence,
+*> the paragraph, the section, the division, the program. A node whose
+*> range is the one before's is left out; one that starts or ends in a
+*> copybook is cut to the document's own tokens.
+LSP-SELECTION-RANGES.
+    PERFORM LSP-FIND-DOCUMENT
+    IF WS-LSP-DOC-INDEX > 0
+        PERFORM LSP-ANALYZE
+    END-IF
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":[' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE 1 TO WS-SEL-N
+    PERFORM UNTIL WS-SEL-N = 0
+        *> The N-th line and character of the list of positions.
+        CALL "PLB-JSON-FIND-NTH" USING WS-LSP-IN WS-LSP-IN-LEN "line"
+            WS-SEL-N WS-SEL-OFFSET
+        IF WS-SEL-OFFSET = 0
+            MOVE 0 TO WS-SEL-N
+        ELSE
+            COMPUTE WS-SEL-REST = WS-LSP-IN-LEN - WS-SEL-OFFSET + 1
+            CALL "PLB-JSON-GET" USING
+                WS-LSP-IN(WS-SEL-OFFSET:WS-SEL-REST) WS-SEL-REST "line"
+                WS-LSP-KIND WS-LSP-VALUE WS-LSP-VALUE-LEN
+            COMPUTE WS-LSP-LINE = FUNCTION NUMVAL(WS-LSP-VALUE) + 1
+            CALL "PLB-JSON-FIND-NTH" USING WS-LSP-IN WS-LSP-IN-LEN
+                "character" WS-SEL-N WS-SEL-OFFSET
+            MOVE 1 TO WS-LSP-CHAR
+            IF WS-SEL-OFFSET > 0
+                COMPUTE WS-SEL-REST = WS-LSP-IN-LEN - WS-SEL-OFFSET + 1
+                CALL "PLB-JSON-GET" USING
+                    WS-LSP-IN(WS-SEL-OFFSET:WS-SEL-REST) WS-SEL-REST
+                    "character" WS-LSP-KIND WS-LSP-VALUE
+                    WS-LSP-VALUE-LEN
+                COMPUTE WS-LSP-CHAR = FUNCTION NUMVAL(WS-LSP-VALUE) + 1
+            END-IF
+            IF WS-SEL-N > 1
+                STRING "," DELIMITED BY SIZE
+                    INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+            END-IF
+            PERFORM LSP-SELECTION-RANGE
+            ADD 1 TO WS-SEL-N
+        END-IF
+    END-PERFORM
+    STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> The selection range at WS-LSP-LINE and WS-LSP-CHAR. Off any token,
+*> an empty range there.
+LSP-SELECTION-RANGE.
+    MOVE 0 TO WS-LSP-TOKEN
+    IF WS-LSP-DOC-INDEX > 0
+        PERFORM VARYING WS-TOK FROM 1 BY 1 UNTIL WS-TOK > TK-COUNT
+            IF TK-FILE-ID(WS-TOK) = 1 AND TK-SRC-LINE(WS-TOK) > 0
+                IF SL-LINE-NO(TK-SRC-LINE(WS-TOK)) = WS-LSP-LINE
+                   AND TK-COLUMN(WS-TOK) <= WS-LSP-CHAR
+                   AND TK-COLUMN(WS-TOK) + TK-SPAN(WS-TOK) > WS-LSP-CHAR
+                    MOVE WS-TOK TO WS-LSP-TOKEN
+                    EXIT PERFORM
+                END-IF
+            END-IF
+        END-PERFORM
+    END-IF
+    IF WS-LSP-TOKEN = 0
+        STRING '{"range":' DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        PERFORM LSP-APPEND-RANGE
+        STRING "}" DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        EXIT PARAGRAPH
+    END-IF
+    *> The nodes that contain the token, from the root down.
+    MOVE 0 TO WS-SEL-DEPTH
+    MOVE 1 TO WS-SEL-NODE
+    PERFORM UNTIL WS-SEL-NODE = 0 OR WS-SEL-DEPTH >= 200
+        ADD 1 TO WS-SEL-DEPTH
+        MOVE WS-SEL-NODE TO WS-SEL-PATH(WS-SEL-DEPTH)
+        MOVE ND-FIRST(WS-SEL-NODE) TO WS-SEL-CHILD
+        MOVE 0 TO WS-SEL-NODE
+        PERFORM UNTIL WS-SEL-CHILD = 0
+            IF ND-TOK-FIRST(WS-SEL-CHILD) <= WS-LSP-TOKEN
+               AND ND-TOK-LAST(WS-SEL-CHILD) >= WS-LSP-TOKEN
+                MOVE WS-SEL-CHILD TO WS-SEL-NODE
+                EXIT PERFORM
+            END-IF
+            MOVE ND-NEXT(WS-SEL-CHILD) TO WS-SEL-CHILD
+        END-PERFORM
+    END-PERFORM
+    *> The token, then the nodes from the innermost out.
+    MOVE WS-LSP-TOKEN TO WS-SEL-FIRST WS-SEL-LAST
+    MOVE 0 TO WS-SEL-OPEN
+    PERFORM LSP-SELECTION-LEVEL
+    PERFORM VARYING WS-SEL-K FROM WS-SEL-DEPTH BY -1 UNTIL WS-SEL-K < 1
+        MOVE WS-SEL-PATH(WS-SEL-K) TO WS-SEL-NODE
+        PERFORM LSP-SELECTION-NODE-SPAN
+        IF WS-SEL-FIRST NOT = WS-SEL-PREV-FIRST
+           OR WS-SEL-LAST NOT = WS-SEL-PREV-LAST
+            STRING ',"parent":' DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+            PERFORM LSP-SELECTION-LEVEL
+        END-IF
+    END-PERFORM
+    PERFORM WS-SEL-OPEN TIMES
+        STRING "}" DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-PERFORM.
+
+*> {"range": from token WS-SEL-FIRST to the end of WS-SEL-LAST, left
+*> open for its parent.
+LSP-SELECTION-LEVEL.
+    STRING '{"range":{"start":{"line":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-NUM = SL-LINE-NO(TK-SRC-LINE(WS-SEL-FIRST)) - 1
+    PERFORM LSP-APPEND-NUM
+    STRING ',"character":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-NUM = TK-COLUMN(WS-SEL-FIRST) - 1
+    PERFORM LSP-APPEND-NUM
+    STRING '},"end":{"line":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-NUM = SL-LINE-NO(TK-SRC-LINE(WS-SEL-LAST)) - 1
+    PERFORM LSP-APPEND-NUM
+    STRING ',"character":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-NUM = TK-COLUMN(WS-SEL-LAST) - 1 + TK-SPAN(WS-SEL-LAST)
+    PERFORM LSP-APPEND-NUM
+    STRING '}}' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    ADD 1 TO WS-SEL-OPEN
+    MOVE WS-SEL-FIRST TO WS-SEL-PREV-FIRST
+    MOVE WS-SEL-LAST TO WS-SEL-PREV-LAST.
+
+*> WS-SEL-FIRST and WS-SEL-LAST: the first and last tokens of node
+*> WS-SEL-NODE that are the document's own text: not a copybook's, and
+*> not the end of the file, which has no width. A node with none keeps
+*> the range before it.
+LSP-SELECTION-NODE-SPAN.
+    MOVE WS-SEL-PREV-FIRST TO WS-SEL-FIRST
+    MOVE WS-SEL-PREV-LAST TO WS-SEL-LAST
+    PERFORM VARYING WS-TOK FROM ND-TOK-FIRST(WS-SEL-NODE) BY 1
+            UNTIL WS-TOK > ND-TOK-LAST(WS-SEL-NODE)
+        IF TK-FILE-ID(WS-TOK) = 1 AND TK-SRC-LINE(WS-TOK) > 0
+           AND TK-SPAN(WS-TOK) > 0
+            MOVE WS-TOK TO WS-SEL-FIRST
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    PERFORM VARYING WS-TOK FROM ND-TOK-LAST(WS-SEL-NODE) BY -1
+            UNTIL WS-TOK < ND-TOK-FIRST(WS-SEL-NODE) OR WS-TOK = 0
+        IF TK-FILE-ID(WS-TOK) = 1 AND TK-SRC-LINE(WS-TOK) > 0
+           AND TK-SPAN(WS-TOK) > 0
+            MOVE WS-TOK TO WS-SEL-LAST
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    *> Each range holds the one inside it, even where a node's tokens
+    *> stop short of its last child's (a program's closing period).
+    IF WS-SEL-FIRST > WS-SEL-PREV-FIRST
+        MOVE WS-SEL-PREV-FIRST TO WS-SEL-FIRST
+    END-IF
+    IF WS-SEL-LAST < WS-SEL-PREV-LAST
+        MOVE WS-SEL-PREV-LAST TO WS-SEL-LAST
+    END-IF.
 
 LSP-DEFINITION.
     PERFORM LSP-POSITION
