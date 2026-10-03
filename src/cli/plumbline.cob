@@ -44,6 +44,7 @@
 *>   plumbline doc [OPTION]... FILE...
 *>   plumbline fields [--report text|json] [--unused] [OPTION]... FILE...
 *>   plumbline xref [--report text|json] [OPTION]... FILE...
+*>   plumbline duplicates [--min-tokens N] [--report text|json] [OPTION]... FILE...
 *>   plumbline dump jcl FILE...
 *>   plumbline dump bms FILE...
 *>   plumbline dump csd FILE...
@@ -82,6 +83,7 @@ COPY "plbfldc.cpy".
 COPY "plbjcl.cpy".
 COPY "plbdset.cpy".
 COPY "plbfld.cpy".
+COPY "plbdupt.cpy".
 COPY "plbbmsc.cpy".
 COPY "plbbms.cpy".
 COPY "plbcsdc.cpy".
@@ -149,6 +151,8 @@ COPY "plbinput.cpy".
 01  WS-FIELDS-UNUSED        PIC X VALUE "N".
 *> plumbline xref: "Y" once a program has been listed.
 01  WS-XREF-ANY             PIC X.
+*> plumbline duplicates: the smallest paragraph body, in tokens.
+01  WS-DUP-MIN              PIC 9(9) COMP-5 VALUE 50.
 01  WS-U                    PIC 9(9) COMP-5.
 01  WS-E                    PIC 9(9) COMP-5.
 01  WS-RULE                 PIC 9(4) COMP-5.
@@ -352,6 +356,9 @@ MAIN-LOGIC.
             WHEN "xref"
                 MOVE "xref" TO WS-COMMAND
                 PERFORM XREF-COMMAND
+            WHEN "duplicates"
+                MOVE "duplicates" TO WS-COMMAND
+                PERFORM DUPLICATES-COMMAND
             WHEN OTHER
                 IF WS-ARG(1:1) = "-"
                     PERFORM UNKNOWN-OPTION
@@ -396,6 +403,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline doc [OPTION]... FILE..."
     DISPLAY "       plumbline fields [--report text|json] [--unused] [OPTION]... FILE..."
     DISPLAY "       plumbline xref [--report text|json] [OPTION]... FILE..."
+    DISPLAY "       plumbline duplicates [--min-tokens N] [--report text|json] [OPTION]... FILE..."
     DISPLAY "       plumbline format --to fixed|free [--check] FILE..."
     DISPLAY "       plumbline lsp [OPTION]..."
     DISPLAY "       plumbline rules [--report text|json] [OPTION]..."
@@ -441,6 +449,9 @@ SHOW-USAGE.
     DISPLAY "                   those no program names)"
     DISPLAY "  xref             list the data items and paragraphs of each"
     DISPLAY "                   program with the lines that name them"
+    DISPLAY "  duplicates       list paragraphs with the same code, in one"
+    DISPLAY "                   program or across programs (--min-tokens:"
+    DISPLAY "                   the smallest body counted, default 50)"
     DISPLAY "  impact NAME      list what includes copybook NAME or"
     DISPLAY "                   calls program NAME, directly or not,"
     DISPLAY "                   where data item NAME is used, or which"
@@ -901,6 +912,37 @@ LAYOUT-COMMAND.
     CALL "PLB-LAYOUT-END" USING WS-REPORT
     IF WS-LAYOUT-WRAPPER NOT = SPACES
         CALL "CBL_DELETE_FILE" USING WS-LAYOUT-WRAPPER
+    END-IF
+    PERFORM REPORT-DIAGNOSTICS
+    IF DG-ERRORS > 0
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+*> duplicates: paragraphs with the same code across the run.
+DUPLICATES-COMMAND.
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM ADD-INPUTS
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
+    MOVE WS-MODE TO PO-FORMAT
+    MOVE WS-DEBUG TO PO-DEBUG
+    CALL "PLB-DUP-INIT" USING PLB-DUPLICATES
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        PERFORM START-INPUT
+        IF SF-LOADED(WS-FILE-ID) = "Y"
+            PERFORM ANALYZE-FILE
+            CALL "PLB-DUP-COLLECT" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-AST PLB-FLOW PLB-DUPLICATES WS-DUP-MIN
+            PERFORM END-INPUT
+        END-IF
+    END-PERFORM
+    CALL "PLB-DUP-PRINT" USING PLB-SOURCE-SET PLB-DUPLICATES WS-REPORT
+    IF DP-DROPPED > 0
+        DISPLAY PLB-NAME ": " DP-DROPPED " paragraphs did not fit"
+            " and are left out" UPON SYSERR
     END-IF
     PERFORM REPORT-DIAGNOSTICS
     IF DG-ERRORS > 0
@@ -4854,6 +4896,18 @@ PARSE-INPUT-ARGS.
                 END-IF
             WHEN WS-ARG = "--unused" AND WS-COMMAND = "fields"
                 MOVE "Y" TO WS-FIELDS-UNUSED
+            WHEN WS-ARG = "--min-tokens" AND WS-COMMAND = "duplicates"
+                PERFORM NEXT-ARG
+                IF WS-ARG-LEN > 0 AND WS-ARG-LEN < 7
+                   AND WS-ARG(1:WS-ARG-LEN) IS NUMERIC
+                    COMPUTE WS-DUP-MIN =
+                        FUNCTION NUMVAL(WS-ARG(1:WS-ARG-LEN))
+                ELSE
+                    DISPLAY PLB-NAME ": invalid --min-tokens '"
+                        WS-ARG(1:WS-ARG-LEN) "' (expected a number)"
+                        UPON SYSERR
+                    MOVE 2 TO WS-EXIT-CODE
+                END-IF
             WHEN WS-ARG = "--check" AND WS-COMMAND = "format"
                 MOVE "Y" TO WS-FORMAT-CHECK
             WHEN WS-ARG = "--kind" AND WS-COMMAND = "graph"
@@ -5172,6 +5226,7 @@ SET-REPORT.
         WHEN WS-ARG = "sarif" AND WS-COMMAND NOT = "metrics"
              AND WS-COMMAND NOT = "rules" AND WS-COMMAND NOT = "inventory"
              AND WS-COMMAND NOT = "fields" AND WS-COMMAND NOT = "xref"
+             AND WS-COMMAND NOT = "duplicates"
              AND WS-COMMAND NOT = "layout"
             MOVE WS-ARG TO WS-REPORT
         WHEN (WS-ARG = "html" OR WS-ARG = "md" OR WS-ARG = "codeclimate")
@@ -5201,6 +5256,7 @@ SET-REPORT.
             MOVE 2 TO WS-EXIT-CODE
         WHEN WS-COMMAND = "rules" OR WS-COMMAND = "inventory"
              OR WS-COMMAND = "fields" OR WS-COMMAND = "xref"
+             OR WS-COMMAND = "duplicates"
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
                 "' (expected text or json)" UPON SYSERR

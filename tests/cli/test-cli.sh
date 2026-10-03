@@ -492,6 +492,30 @@ check_absent "EXIT PROGRAM in a called program" 'rptcalc.cob:.*PLB-C053' \
     -- check $ex/rptmain.cob $ex/rptcalc.cob $ex/rptjob.jcl
 check_absent "EXIT PROGRAM without JCL"       'PLB-C053' \
     -- check $ex/rptmain.cob $ex/rptcalc.cob
+dx2="-I tests/fixtures/duplicates tests/fixtures/duplicates/billing.cob tests/fixtures/duplicates/invoice.cob"
+check "duplicates groups paragraphs with the same code" 0 '^2 copies of 27 tokens, 5 statements:$' \
+    -- duplicates --min-tokens 10 $dx2
+check "duplicates ignores layout, case, and comments" 0 '^  tests/fixtures/duplicates/invoice.cob:14 COMPUTE-TAX in INVOICE$' \
+    -- duplicates --min-tokens 10 $dx2
+check_absent "duplicates tells another literal apart" 'COMPUTE-TAX-LOW' \
+    -- duplicates --min-tokens 10 $dx2
+check_absent "duplicates leaves out copybook paragraphs" 'SHOW-ERROR' \
+    -- duplicates --min-tokens 10 $dx2
+check "duplicates leaves out short paragraphs" 0 '^no paragraphs with the same code$' \
+    -- duplicates $dx2
+check "duplicates refuses a bad --min-tokens" 2 "invalid --min-tokens 'x' (expected a number)" \
+    -- duplicates --min-tokens x $dx2
+n=$((n + 1))
+if "$bin" duplicates --min-tokens 10 --report json $dx2 | python3 -c '
+import json, sys
+[group] = json.load(sys.stdin)["groups"]
+assert group["tokens"] == 27 and group["statements"] == 5
+assert [p["name"] for p in group["paragraphs"]] == ["ADD-TAX", "COMPUTE-TAX"]
+'; then
+    echo "ok $n - duplicates json"
+else
+    failed=$((failed + 1)); echo "not ok $n - duplicates json"
+fi
 xx="-I tests/fixtures/xref tests/fixtures/xref/acctupd.cob"
 check "xref heads each program"           0 '^ACCTUPD (tests/fixtures/xref/acctupd.cob:2)$' \
     -- xref $xx

@@ -259,6 +259,26 @@ CBACT02C (app/cbl/CBACT02C.cbl:23)
 The references are those of the procedure division: an item named only
 in a data division clause, such as `FILE STATUS`, shows none.
 
+## Duplicate code
+
+`plumbline duplicates` finds paragraphs with the same code, in one
+program or across all the programs of the run: a fix made in one copy
+is easily missed in the others. Two paragraphs are the same when their
+bodies have the same tokens, words compared without regard to case;
+layout and comments do not count, literals and names do. Groups are
+listed from the largest paragraph down; `--min-tokens N` sets the
+smallest body counted (50 by default, which leaves out the short
+paragraphs every program has), and `--report json` gives the groups as
+JSON.
+
+```console
+$ plumbline duplicates src/*.cbl
+2 copies of 230 tokens, 58 statements:
+  src/RL115A.cob:644 REL-TEST-010-3 in RL115A
+  src/RL204A.cob:569 REL-TEST-010-3 in RL204A
+...
+```
+
 ## Inventory
 
 `plumbline inventory` describes an application: each program with what
