@@ -328,6 +328,15 @@ ENTRY-CLAUSE.
             CALL "PLB-PX-TOKEN" USING PLB-TOKENS PS-POS PLB-PX-VIEW
             MOVE PX-TEXT TO ND-DETAIL(LS-CLAUSE)
             ADD 1 TO PS-POS
+            IF PX-TEXT = "SQL"
+                PERFORM SKIP-SQL-TYPE
+            END-IF
+        *> [USAGE IS] SQL TYPE IS type (DB2): the type is a word of the
+        *> precompiler's, not a TYPEDEF.
+        WHEN PX-TEXT = "SQL"
+            MOVE "SQL" TO LS-DETAIL
+            PERFORM OPEN-CLAUSE
+            PERFORM SKIP-SQL-TYPE
         WHEN LS-USAGE-WORD = "Y"
             MOVE PX-TEXT TO LS-DETAIL
             PERFORM OPEN-CLAUSE
@@ -434,6 +443,16 @@ SKIP-IS.
     IF PX-TEXT = "IS" OR PX-TEXT = "ARE"
         ADD 1 TO PS-POS
     END-IF.
+
+*> TYPE IS type [(length)] [AS ...]: everything up to the period.
+SKIP-SQL-TYPE.
+    PERFORM UNTIL PS-POS >= PS-END
+        CALL "PLB-PX-TOKEN" USING PLB-TOKENS PS-POS PLB-PX-VIEW
+        IF PX-KIND = "."
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO PS-POS
+    END-PERFORM.
 
 *> Take tokens up to the period or the next clause keyword.
 SKIP-OPERANDS.

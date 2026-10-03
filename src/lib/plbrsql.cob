@@ -419,7 +419,8 @@ OUTERMOST.
     END-PERFORM.
 END PROGRAM PLB-RULE-SQL-TABLES.
 
-*> PLB-Q002 cursor-not-closed and PLB-Q003 cursor-not-opened: the
+*> PLB-Q002 cursor-not-closed, PLB-Q003 cursor-not-opened, and PLB-Q010
+*> cursor-undeclared: the
 *> cursors a file declares (EXEC SQL DECLARE name ... CURSOR), and the
 *> OPEN, FETCH, and CLOSE statements that name them.
 *>
@@ -428,10 +429,14 @@ END PROGRAM PLB-RULE-SQL-TABLES.
 *>         it fails (SQLCODE -502).
 *>   Q003: a cursor that is fetched or closed but never opened: the
 *>         statement fails (SQLCODE -501).
+*>   Q010: OPEN, FETCH, or CLOSE of a cursor that nothing declares: the
+*>         precompiler rejects the program (SQLCODE -504). Most often
+*>         the name is misspelled.
 *>
 *> The statements are read from the tokens of the file, so a cursor
 *> declared in working-storage counts, and the names are compared
-*> across the whole file.
+*> across the whole file. ALLOCATE name CURSOR FOR RESULT SET declares
+*> one too.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-SQL-CURSORS.
 DATA DIVISION.
@@ -448,6 +453,9 @@ WORKING-STORAGE SECTION.
 LOCAL-STORAGE SECTION.
 01  LS-RULE-NOT-CLOSED      PIC 9(4) COMP-5.
 01  LS-RULE-NOT-OPENED      PIC 9(4) COMP-5.
+01  LS-RULE-UNDECLARED      PIC 9(4) COMP-5.
+*> The token naming the cursor of an OPEN, FETCH, or CLOSE (0: none).
+01  LS-USE                  PIC 9(9) COMP-5.
 01  LS-T                    PIC 9(9) COMP-5.
 01  LS-K                    PIC 9(9) COMP-5.
 01  LS-END                  PIC 9(9) COMP-5.
@@ -468,8 +476,10 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q002" LS-RULE-NOT-CLOSED
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q003" LS-RULE-NOT-OPENED
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q010" LS-RULE-UNDECLARED
     IF RL-ENABLED(LS-RULE-NOT-CLOSED) NOT = "Y"
        AND RL-ENABLED(LS-RULE-NOT-OPENED) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-UNDECLARED) NOT = "Y"
         GOBACK
     END-IF
     MOVE 0 TO WS-QC-COUNT
@@ -510,9 +520,15 @@ SQL-BLOCK.
     EVALUATE TRUE
         WHEN LS-PASS = 1 AND LS-TEXT = "DECLARE"
             PERFORM DECLARATION
+        WHEN LS-PASS = 1 AND LS-TEXT = "ALLOCATE"
+            PERFORM ALLOCATION
         WHEN LS-PASS = 2 AND (LS-TEXT = "OPEN" OR LS-TEXT = "CLOSE")
             ADD 1 TO LS-K
             PERFORM FIND-CURSOR
+            IF LS-C = 0 AND LS-K < LS-END
+                MOVE LS-K TO LS-USE
+                PERFORM UNDECLARED
+            END-IF
             IF LS-C > 0
                 IF LS-TEXT = "OPEN"
                     IF WS-QC-OPENED(LS-C) = 0
@@ -525,18 +541,93 @@ SQL-BLOCK.
                 END-IF
             END-IF
         WHEN LS-PASS = 2 AND LS-TEXT = "FETCH"
-            *> FETCH [orientation] [FROM] cursor: the first word that
-            *> names a cursor.
-            PERFORM VARYING LS-K FROM LS-K BY 1 UNTIL LS-K >= LS-END
+            ADD 1 TO LS-K
+            PERFORM FETCHED-CURSOR
+            MOVE LS-USE TO LS-K
+            IF LS-K > 0
                 PERFORM FIND-CURSOR
-                IF LS-C > 0
-                    IF WS-QC-FETCHED(LS-C) = 0
-                        MOVE LS-K TO WS-QC-FETCHED(LS-C)
+            END-IF
+            IF LS-C > 0
+                IF WS-QC-FETCHED(LS-C) = 0
+                    MOVE LS-K TO WS-QC-FETCHED(LS-C)
+                END-IF
+            ELSE
+                IF LS-USE > 0
+                    PERFORM UNDECLARED
+                END-IF
+            END-IF
+    END-EVALUATE.
+
+*> FETCH [orientation] [FROM] cursor [INTO ...]: LS-USE, the token
+*> after FROM when there is one, or else the first word that is not
+*> part of an orientation (NEXT, ABSOLUTE :N, ...) nor a host
+*> variable; 0 when there is none.
+FETCHED-CURSOR.
+    MOVE 0 TO LS-USE
+    PERFORM VARYING LS-K FROM LS-K BY 1 UNTIL LS-K >= LS-END
+        IF TK-IS-WORD(LS-K)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+            EVALUATE LS-TEXT
+                WHEN "INTO"
+                WHEN "USING"
+                WHEN "FOR"
+                    EXIT PERFORM
+                WHEN "FROM"
+                    IF LS-K + 1 < LS-END
+                        COMPUTE LS-USE = LS-K + 1
                     END-IF
                     EXIT PERFORM
-                END-IF
-            END-PERFORM
-    END-EVALUATE.
+                WHEN "NEXT"     WHEN "PRIOR"     WHEN "FIRST"
+                WHEN "LAST"     WHEN "CURRENT"   WHEN "BEFORE"
+                WHEN "AFTER"    WHEN "ABSOLUTE"  WHEN "RELATIVE"
+                WHEN "SENSITIVE" WHEN "INSENSITIVE" WHEN "WITH"
+                WHEN "CONTINUE" WHEN "ROWSET"    WHEN "STARTING"
+                WHEN "AT"
+                    CONTINUE
+                WHEN OTHER
+                    *> A host variable (:N) is a colon and a word.
+                    IF LS-USE = 0 AND NOT TK-IS-COLON(LS-K - 1)
+                        MOVE LS-K TO LS-USE
+                    END-IF
+            END-EVALUATE
+        END-IF
+    END-PERFORM.
+
+*> Q010 at token LS-USE, a cursor name no declaration matches.
+UNDECLARED.
+    IF RL-ENABLED(LS-RULE-UNDECLARED) NOT = "Y"
+       OR NOT TK-IS-WORD(LS-USE)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-USE LS-NAME LS-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING "cursor " DELIMITED BY SIZE
+           LS-NAME DELIMITED BY SPACE
+           " is not declared: no EXEC SQL DECLARE " DELIMITED BY SIZE
+           LS-NAME DELIMITED BY SPACE
+           " CURSOR in the file" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+        PLB-RULES PLB-FINDINGS LS-RULE-UNDECLARED LS-USE LS-MESSAGE.
+
+*> ALLOCATE name CURSOR FOR RESULT SET :locator.
+ALLOCATION.
+    COMPUTE LS-C = LS-K + 2
+    IF LS-C >= LS-END OR WS-QC-COUNT >= QC-MAX
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C LS-TEXT LS-LEN
+    IF FUNCTION UPPER-CASE(LS-TEXT) NOT = "CURSOR"
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-K
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-NAME LS-LEN
+    ADD 1 TO WS-QC-COUNT
+    MOVE FUNCTION UPPER-CASE(LS-NAME) TO WS-QC-NAME(WS-QC-COUNT)
+    *> ALLOCATE opens it.
+    MOVE LS-K TO WS-QC-DECLARED(WS-QC-COUNT) WS-QC-OPENED(WS-QC-COUNT)
+    MOVE 0 TO WS-QC-FETCHED(WS-QC-COUNT) WS-QC-CLOSED(WS-QC-COUNT).
 
 *> DECLARE name [options] CURSOR: a cursor when CURSOR comes before
 *> FOR (DECLARE name TABLE and DECLARE name STATEMENT are not).

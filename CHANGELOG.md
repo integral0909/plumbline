@@ -205,6 +205,7 @@ uses [Semantic Versioning](https://semver.org/).
   host-variable-too-large, against the DECLARE TABLE of the file.
 - Rule PLB-Q008 null-without-indicator.
 - Rule PLB-Q009 update-of-read-only-cursor.
+- Rule PLB-Q010 cursor-undeclared.
 - `plumbline crud`: which programs create, read, update, and delete
   which DB2 tables, COBOL files, and CICS files, as text, CSV, or JSON;
   `plumbline doc` shows each program's rows, and `graph --kind crud`
@@ -293,6 +294,9 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- `USAGE SQL TYPE IS type` (DB2 locators, LOBs, ROWID) is one usage
+  clause: its type is no longer read as a TYPEDEF name and reported as
+  undeclared (PLB-C009).
 - A doubled quote split by the right margin of fixed format (the first
   quote in column 72, the second after the continuation line's quote)
   no longer ends the literal; NIST's NC215A now reads without errors.

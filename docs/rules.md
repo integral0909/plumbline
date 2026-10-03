@@ -111,6 +111,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q007](#plb-q007-host-variable-too-large) | host-variable-too-large | warning | INSERT or UPDATE from a host variable the column cannot hold |
 | [PLB-Q008](#plb-q008-null-without-indicator) | null-without-indicator | warning | Column that can be NULL fetched without an indicator variable |
 | [PLB-Q009](#plb-q009-update-of-read-only-cursor) | update-of-read-only-cursor | warning | UPDATE or DELETE WHERE CURRENT OF a cursor without FOR UPDATE |
+| [PLB-Q010](#plb-q010-cursor-undeclared) | cursor-undeclared | error | SQL cursor is opened, fetched, or closed but never declared |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -2322,6 +2323,28 @@ columns changed also takes update locks while fetching, so that
 another task does not change the row between the `FETCH` and the
 `UPDATE`. Cursors are matched by name with their `DECLARE` in the
 file.
+
+## PLB-Q010 cursor-undeclared
+
+An `OPEN`, `FETCH`, or `CLOSE` of a cursor that no `DECLARE ... CURSOR`
+in the file declares:
+
+```cobol
+    EXEC SQL DECLARE ORDER-CUR CURSOR FOR
+        SELECT ORDER_ID FROM ORDERS
+    END-EXEC.
+    ...
+    EXEC SQL OPEN ORDER-CUR END-EXEC
+    EXEC SQL FETCH NEXT FROM ORDER-CURS                  *> reported
+        INTO :WS-ORDER-ID END-EXEC
+```
+
+The precompiler rejects the program (`SQLCODE -504`), so this is most
+often a misspelled name. The cursor of a `FETCH` is the word after
+`FROM`, or else the first word that is not part of the fetch
+orientation (`NEXT`, `ABSOLUTE :N`, ...). A cursor that
+`ALLOCATE name CURSOR FOR RESULT SET` allocates is declared, and open,
+from there.
 ## PLB-S001 dynamic-sql
 
 SQL text that the program builds at run time and hands to the database:
