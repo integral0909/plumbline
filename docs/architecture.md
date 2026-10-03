@@ -480,6 +480,17 @@ off in order; a statement's frame pushes the items it reads. Forward,
 the roles swap. An item is marked seen when it is expanded, and later
 frames of it print "see above".
 
+The command analyzes the run once first, as `doc` does, for the call
+graph (`PLB-CALL-RESOLVE` has matched each call to its program). A
+LINKAGE item's frame, backward, finds its program in the graph by name
+and file, the place of its record among the program's parameters, and
+each resolved call to the program; the argument in that place is a
+leaf below the item. A CALL statement's frame, forward, finds its call
+entry by file and line and the first argument that names the item, a
+group it is in, or an item in it, and shows the parameter there. The
+other program's statements are not followed: they belong to another
+file's analysis.
+
 ### Duplicate code
 
 `src/lib/plbdup.cob`, with its table in `copy/plbdupt.cpy`.

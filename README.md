@@ -307,10 +307,27 @@ WS-TOTAL  src/rpt.cob:15
         WS-AMOUNT  src/rpt.cob:13  (see above)
 ```
 
-An item already shown is not expanded again. The trail stays in the
-program: a `CALL` argument or a file is where it leaves. `--report
-json` gives the tree as a list of nodes (items and statements), each
-with its id and its parent's.
+An item already shown is not expanded again. The statements followed
+are those of one program; where the trail crosses a `CALL` to another
+program of the run, the line below names the other side. Backward, an
+item of the `LINKAGE SECTION` lists the argument each call to its
+program passes in its place; forward, a `CALL` lists the parameter of
+the program called that the item becomes:
+
+```console
+$ plumbline lineage LK-CUST-NAME src/billing.cob src/custlook.cob
+LK-CUST-NAME  src/custlook.cob:6
+  <- argument 2 of CALL "CUSTLOOK" in BILLING  src/billing.cob:9: CUST-NAME
+  MOVE LK-CUST-ID TO LK-CUST-NAME  (line 8)
+    LK-CUST-ID  src/custlook.cob:5
+      <- argument 1 of CALL "CUSTLOOK" in BILLING  src/billing.cob:9: CUST-ID
+```
+
+Run `lineage` on the named item to follow it into the other program. A
+file is where the trail leaves for good. `--report json` gives the tree
+as a list of nodes (items, statements, and calls), each with its id and
+its parent's; a call node gives the side (`caller` or `callee`), the
+other program, the position, and the item there.
 
 ## Duplicate code
 

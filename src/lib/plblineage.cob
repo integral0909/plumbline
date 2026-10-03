@@ -18,8 +18,20 @@
 *>               READ IN-FILE  (line 30)
 *>
 *> An item shown before is not expanded again ("see above"). The
-*> statements of one program only are followed: CALL arguments and
-*> files are where the trail leaves the program.
+*> statements of one program only are followed; where the trail leaves
+*> it through a CALL, the run's call graph names the other side:
+*>
+*>     LK-AMOUNT  src/calc.cob:8
+*>       <- argument 1 of CALL "CALC" in BILLING  src/billing.cob:42:
+*>          WS-TOTAL
+*>     ...
+*>       CALL "CALC" USING WS-TOTAL  (line 42)
+*>         -> parameter 1 of CALC: LK-AMOUNT
+*>
+*> An item of the LINKAGE SECTION gets its value from the arguments of
+*> the calls to its program; an item passed in a CALL becomes the
+*> parameter of the program called. Run lineage again on the other
+*> program's item to follow it there.
 *>
 *> As JSON, the tree is a list of nodes, each with its id and its
 *> parent's (0 for the item asked about):
@@ -34,6 +46,20 @@ IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-LINEAGE-FILE.
 DATA DIVISION.
 WORKING-STORAGE SECTION.
+COPY "plbcallc.cpy".
+*> A link to another program, as text.
+01  WS-LINK                 PIC X(512).
+01  WS-LINK-PTR             PIC 9(9) COMP-5.
+*> The same in fields, for JSON: "caller" or "callee", the other
+*> program, the place among its arguments or parameters, the item
+*> there (blank when the program has no parameter there), and, for a
+*> caller, the CALL's file and line.
+01  WS-LINK-SIDE            PIC X(6).
+01  WS-LINK-PROGRAM         PIC X(31).
+01  WS-LINK-POSITION        PIC 9(9) COMP-5.
+01  WS-LINK-NAME            PIC X(31).
+01  WS-LINK-FILE-ID         PIC 9(4) COMP-5.
+01  WS-LINK-LINE            PIC 9(9) COMP-5.
 *> "Y" for an item already expanded.
 01  WS-SEEN                 PIC X OCCURS 100000 TIMES.
 *> The work stack: an item (I) or a statement (S), its depth, and for
@@ -82,6 +108,18 @@ LOCAL-STORAGE SECTION.
 01  LS-NUM-LEN              PIC 9(9) COMP-5.
 01  LS-WANT                 PIC X(31).
 01  LS-PARENT               PIC 9(9) COMP-5.
+01  LS-P                    PIC 9(9) COMP-5.
+01  LS-C                    PIC 9(9) COMP-5.
+01  LS-A                    PIC 9(9) COMP-5.
+01  LS-ARG                  PIC 9(9) COMP-5.
+01  LS-ROOT-ITEM            PIC 9(9) COMP-5.
+01  LS-PROGRAM-NAME         PIC X(31).
+01  LS-PROGRAM-FILE         PIC 9(4) COMP-5.
+01  LS-STMT-FILE            PIC 9(4) COMP-5.
+01  LS-STMT-LINE            PIC 9(9) COMP-5.
+*> The node of the item or statement shown: the parent of what is
+*> below it.
+01  LS-OWN-NODE             PIC 9(9) COMP-5.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -91,6 +129,7 @@ COPY "plbastc.cpy".
 COPY "plbast.cpy".
 COPY "plbsym.cpy".
 COPY "plbref.cpy".
+COPY "plbcall.cpy".
 *> The item's name, how deep to go, B (backward) or F (forward), and
 *> FOUND, set to "Y" when the file has an item of that name.
 01  LK-NAME                 PIC X ANY LENGTH.
@@ -102,8 +141,8 @@ COPY "plbref.cpy".
 01  LK-FORMAT               PIC X(5).
 01  LK-ACTION               PIC X.
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
-        PLB-REFS LK-NAME LK-DEPTH LK-DIRECTION LK-FOUND LK-FORMAT
-        LK-ACTION.
+        PLB-REFS PLB-CALL-GRAPH LK-NAME LK-DEPTH LK-DIRECTION LK-FOUND
+        LK-FORMAT LK-ACTION.
     EVALUATE LK-ACTION
         WHEN "B"
             MOVE 0 TO WS-NODE-ID
@@ -167,10 +206,14 @@ SHOW-ITEM.
     ELSE
         PERFORM TEXT-ITEM
     END-IF
+    MOVE WS-NODE-ID TO LS-OWN-NODE
     IF WS-SEEN(LS-ITEM) = "Y" OR LS-DEPTH >= LK-DEPTH * 2
         EXIT PARAGRAPH
     END-IF
     MOVE "Y" TO WS-SEEN(LS-ITEM)
+    IF LK-DIRECTION = "B" AND SY-SECTION(LS-ITEM) = "K"
+        PERFORM CALLER-LINKS
+    END-IF
     PERFORM ITEM-STATEMENTS
     PERFORM VARYING LS-I FROM WS-FOUND-COUNT BY -1 UNTIL LS-I < 1
         IF WS-STACK-COUNT < WS-STACK-MAX
@@ -179,7 +222,7 @@ SHOW-ITEM.
             MOVE WS-FOUND(LS-I) TO WS-ST-ID(WS-STACK-COUNT)
             COMPUTE WS-ST-DEPTH(WS-STACK-COUNT) = LS-DEPTH + 1
             MOVE LS-ITEM TO WS-ST-FROM(WS-STACK-COUNT)
-            MOVE WS-NODE-ID TO WS-ST-PARENT(WS-STACK-COUNT)
+            MOVE LS-OWN-NODE TO WS-ST-PARENT(WS-STACK-COUNT)
         END-IF
     END-PERFORM.
 
@@ -385,6 +428,10 @@ SHOW-STATEMENT.
     ELSE
         PERFORM TEXT-STATEMENT
     END-IF
+    MOVE WS-NODE-ID TO LS-OWN-NODE
+    IF LK-DIRECTION = "F" AND ND-DETAIL(LS-STMT) = "CALL"
+        PERFORM CALLEE-LINK
+    END-IF
     *> The other items of the statement: what it reads, backward, and
     *> what it gives values to, forward.
     MOVE 0 TO WS-FOUND-COUNT
@@ -405,7 +452,7 @@ SHOW-STATEMENT.
             MOVE WS-FOUND(LS-I) TO WS-ST-ID(WS-STACK-COUNT)
             COMPUTE WS-ST-DEPTH(WS-STACK-COUNT) = LS-DEPTH + 1
             MOVE 0 TO WS-ST-FROM(WS-STACK-COUNT)
-            MOVE WS-NODE-ID TO WS-ST-PARENT(WS-STACK-COUNT)
+            MOVE LS-OWN-NODE TO WS-ST-PARENT(WS-STACK-COUNT)
         END-IF
     END-PERFORM.
 
@@ -509,4 +556,205 @@ APPEND-NUM.
     CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
     STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
         INTO WS-LINE WITH POINTER LS-PTR.
+
+*> The calls that pass the value of LINKAGE item LS-ITEM: for the
+*> parameter its record is, each call to its program and the argument
+*> in that place.
+CALLER-LINKS.
+    MOVE LS-ITEM TO LS-ROOT-ITEM
+    PERFORM UNTIL SY-PARENT(LS-ROOT-ITEM) = 0
+        MOVE SY-PARENT(LS-ROOT-ITEM) TO LS-ROOT-ITEM
+    END-PERFORM
+    PERFORM PROGRAM-OF-ITEM
+    IF LS-P = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-ARG
+    PERFORM VARYING LS-A FROM 1 BY 1 UNTIL LS-A > CP-PARAM-COUNT(LS-P)
+        IF CA-NAME(CP-PARAM-FIRST(LS-P) + LS-A - 1)
+           = SY-NAME(LS-ROOT-ITEM)
+            MOVE LS-A TO LS-ARG
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-ARG = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > CC-COUNT
+        IF CC-TO(LS-C) > 0 AND CC-ARG-COUNT(LS-C) >= LS-ARG
+            IF CP-OWNER(CC-TO(LS-C)) = LS-P
+                PERFORM CALLER-LINK
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> LS-P: the program of the call graph that LS-ITEM's program is, by
+*> name and file; 0 when it is not there.
+PROGRAM-OF-ITEM.
+    MOVE 0 TO LS-P
+    IF SY-PROGRAM(LS-ITEM) = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF ND-NAME(SY-PROGRAM(LS-ITEM)) = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE ND-NAME(SY-PROGRAM(LS-ITEM)) TO LS-T
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-PROGRAM-NAME
+    MOVE 0 TO LS-PROGRAM-FILE
+    IF TK-SRC-LINE(LS-T) > 0
+        MOVE SL-FILE-ID(TK-SRC-LINE(LS-T)) TO LS-PROGRAM-FILE
+    END-IF
+    PERFORM VARYING LS-Q FROM 1 BY 1 UNTIL LS-Q > CP-COUNT
+        IF CP-KIND(LS-Q) = "P" AND CP-NAME(LS-Q) = LS-PROGRAM-NAME
+           AND CP-FILE-ID(LS-Q) = LS-PROGRAM-FILE
+            MOVE LS-Q TO LS-P
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+*> <- argument N of CALL "TARGET" in CALLER  PATH:LINE: ARGUMENT
+CALLER-LINK.
+    MOVE SPACES TO WS-LINK
+    MOVE 1 TO WS-LINK-PTR
+    MOVE LS-ARG TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET CC-FILE-ID(LS-C)
+        WS-PATH
+    CALL "PLB-STR-LENGTH" USING WS-PATH LS-LEN
+    STRING "<- argument " LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           ' of CALL "' DELIMITED BY SIZE
+           CC-SPELLING(LS-C) DELIMITED BY SPACE
+           '" in ' DELIMITED BY SIZE
+           CP-NAME(CC-FROM(LS-C)) DELIMITED BY SPACE
+           "  " DELIMITED BY SIZE
+        INTO WS-LINK WITH POINTER WS-LINK-PTR
+    IF LS-LEN > 0
+        STRING WS-PATH(1:LS-LEN) ":" DELIMITED BY SIZE
+            INTO WS-LINK WITH POINTER WS-LINK-PTR
+    END-IF
+    MOVE CC-LINE(LS-C) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING LS-NUM-TEXT(1:LS-NUM-LEN) ": " DELIMITED BY SIZE
+           CG-TEXT(CC-ARG-FIRST(LS-C) + LS-ARG - 1) DELIMITED BY SPACE
+        INTO WS-LINK WITH POINTER WS-LINK-PTR
+    MOVE "caller" TO WS-LINK-SIDE
+    MOVE CP-NAME(CC-FROM(LS-C)) TO WS-LINK-PROGRAM
+    MOVE LS-ARG TO WS-LINK-POSITION
+    MOVE CG-TEXT(CC-ARG-FIRST(LS-C) + LS-ARG - 1) TO WS-LINK-NAME
+    MOVE CC-FILE-ID(LS-C) TO WS-LINK-FILE-ID
+    MOVE CC-LINE(LS-C) TO WS-LINK-LINE
+    PERFORM SHOW-LINK.
+
+*> CALL statement LS-STMT passes item LS-ITEM, or a group it is in, or
+*> an item in it: the parameter it becomes in the program called.
+CALLEE-LINK.
+    COMPUTE LS-T = ND-TOK-FIRST(LS-STMT) + 1
+    IF LS-T > ND-TOK-LAST(LS-STMT) OR TK-SRC-LINE(LS-T) = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SL-FILE-ID(TK-SRC-LINE(LS-T)) TO LS-STMT-FILE
+    MOVE SL-LINE-NO(TK-SRC-LINE(LS-T)) TO LS-STMT-LINE
+    PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > CC-COUNT
+        IF CC-FILE-ID(LS-C) = LS-STMT-FILE
+           AND CC-LINE(LS-C) = LS-STMT-LINE
+            PERFORM CALLEE-ARGUMENT
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+CALLEE-ARGUMENT.
+    MOVE 0 TO LS-ARG
+    PERFORM VARYING LS-A FROM 1 BY 1 UNTIL LS-A > CC-ARG-COUNT(LS-C)
+                                        OR LS-ARG > 0
+        MOVE LS-ITEM TO LS-UP
+        PERFORM UNTIL LS-UP = 0 OR LS-ARG > 0
+            IF CG-TEXT(CC-ARG-FIRST(LS-C) + LS-A - 1) = SY-NAME(LS-UP)
+                MOVE LS-A TO LS-ARG
+            END-IF
+            MOVE SY-PARENT(LS-UP) TO LS-UP
+        END-PERFORM
+    END-PERFORM
+    IF LS-ARG = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO WS-LINK WS-LINK-NAME
+    MOVE 1 TO WS-LINK-PTR
+    MOVE "callee" TO WS-LINK-SIDE
+    MOVE CC-SPELLING(LS-C) TO WS-LINK-PROGRAM
+    MOVE LS-ARG TO WS-LINK-POSITION
+    MOVE 0 TO WS-LINK-FILE-ID WS-LINK-LINE
+    MOVE LS-ARG TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    IF CC-TO(LS-C) = 0
+        STRING "-> argument " LS-NUM-TEXT(1:LS-NUM-LEN) " of "
+               DELIMITED BY SIZE
+               CC-SPELLING(LS-C) DELIMITED BY SPACE
+               ", which is not in the run" DELIMITED BY SIZE
+            INTO WS-LINK WITH POINTER WS-LINK-PTR
+    ELSE
+        MOVE CP-OWNER(CC-TO(LS-C)) TO LS-P
+        MOVE CP-NAME(LS-P) TO WS-LINK-PROGRAM
+        STRING "-> parameter " LS-NUM-TEXT(1:LS-NUM-LEN) " of "
+               DELIMITED BY SIZE
+               CP-NAME(LS-P) DELIMITED BY SPACE
+            INTO WS-LINK WITH POINTER WS-LINK-PTR
+        IF CP-PARAM-COUNT(CC-TO(LS-C)) >= LS-ARG
+            STRING ": " DELIMITED BY SIZE
+                   CA-NAME(CP-PARAM-FIRST(CC-TO(LS-C)) + LS-ARG - 1)
+                   DELIMITED BY SPACE
+                INTO WS-LINK WITH POINTER WS-LINK-PTR
+            MOVE CA-NAME(CP-PARAM-FIRST(CC-TO(LS-C)) + LS-ARG - 1)
+                TO WS-LINK-NAME
+        END-IF
+    END-IF
+    PERFORM SHOW-LINK.
+
+*> WS-LINK one level below the current node, as a line or a JSON node
+*> of kind "call" with its fields.
+SHOW-LINK.
+    IF LK-FORMAT = "json"
+        MOVE LS-OWN-NODE TO LS-PARENT
+        PERFORM START-NODE
+        STRING '"kind": "call", "text": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        CALL "PLB-JSON-STRING" USING WS-LINK WS-LINE LS-PTR
+        STRING ', "side": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        CALL "PLB-JSON-STRING" USING WS-LINK-SIDE WS-LINE LS-PTR
+        STRING ', "program": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        CALL "PLB-JSON-STRING" USING WS-LINK-PROGRAM WS-LINE LS-PTR
+        STRING ', "position": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        MOVE WS-LINK-POSITION TO LS-NUM
+        PERFORM APPEND-NUM
+        STRING ', "name": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        IF WS-LINK-NAME = SPACES
+            STRING "null" DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        ELSE
+            CALL "PLB-JSON-STRING" USING WS-LINK-NAME WS-LINE LS-PTR
+        END-IF
+        IF WS-LINK-LINE > 0
+            CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET
+                WS-LINK-FILE-ID WS-PATH
+            STRING ', "file": ' DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+            CALL "PLB-JSON-STRING" USING WS-PATH WS-LINE LS-PTR
+            STRING ', "line": ' DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+            MOVE WS-LINK-LINE TO LS-NUM
+            PERFORM APPEND-NUM
+        END-IF
+        STRING "}" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+        PERFORM END-NODE
+    ELSE
+        MOVE SPACES TO WS-LINE
+        COMPUTE LS-PTR = (LS-DEPTH + 1) * 2 + 1
+        STRING WS-LINK(1:WS-LINK-PTR - 1) DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        DISPLAY WS-LINE(1:LS-PTR - 1)
+    END-IF.
 END PROGRAM PLB-LINEAGE-FILE.
