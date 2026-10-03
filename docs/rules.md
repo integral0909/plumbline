@@ -73,6 +73,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J004](#plb-j004-dd-cannot-be-read) | dd-cannot-be-read | error | A file the program only reads has a DD that gives it no data |
 | [PLB-J005](#plb-j005-temp-not-created) | temp-not-created | error | Temporary data set read before any step creates it |
 | [PLB-J006](#plb-j006-lrecl-mismatch) | lrecl-mismatch | error | DD record length differs from the program's records |
+| [PLB-J007](#plb-j007-dataset-created-twice) | dataset-created-twice | error | Data set created and cataloged again without being deleted |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -1597,6 +1598,31 @@ needs it under the `ADV` compiler option.
 A DD without `RECFM`, with `RECFM=U`, or with a symbol for `LRECL` is
 not checked, nor is a sort file.
 
+
+## PLB-J007 dataset-created-twice
+
+A DD that creates and catalogs a data set (`DISP=(NEW,CATLG)` or
+`DISP=(,CATLG)`) that an earlier DD of the same job or procedure
+already created and cataloged, with no DD in between that deletes or
+uncatalogs it:
+
+```
+//EXTRACT  EXEC PGM=IEBGENER
+//SYSUT2   DD DSN=PROD.ACCT.EXTRACT,DISP=(NEW,CATLG,DELETE)
+//RESORT   EXEC PGM=SORT
+//SORTOUT  DD DSN=PROD.ACCT.EXTRACT,DISP=(NEW,CATLG,DELETE)
+```
+
+The data set already exists when the later step asks for a new one, so
+that step fails with a duplicate name, or makes the data set and
+cannot catalog it (`NOT CATLGD 2`), leaving a copy the next job will
+not find. Jobs that rebuild a data set delete it first, usually in an
+`IEFBR14` step with `DISP=(MOD,DELETE)`.
+
+Temporary data sets, generations of a GDG (`NAME(+1)`), and names with
+symbols (`&HLQ..NAME`), which another call of a procedure may give
+another value, are not compared. `IF` and `COND` are not followed: a
+step that runs only when another does not is still counted.
 ## PLB-K001 cics-resource-undefined
 
 An `EXEC CICS` command that names a file, transaction, program, mapset,

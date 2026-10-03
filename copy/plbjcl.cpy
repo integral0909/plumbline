@@ -60,8 +60,11 @@
         *>   I in-stream data (* or DATA)   O something else
         10  JD-KIND             PIC X.
         10  JD-DSN              PIC X(44).
-        *> The first DISP subparameter (NEW, OLD, SHR, MOD), or spaces.
+        *> The first DISP subparameter (NEW, OLD, SHR, MOD), or spaces;
+        *> the second, the normal disposition (CATLG, KEEP, DELETE,
+        *> PASS, UNCATLG), or spaces.
         10  JD-DISP             PIC X(3).
+        10  JD-NORMAL           PIC X(7).
         *> "Y" for a DD without a name, which concatenates its data
         *> set to the DD before it; it has that DD's name.
         10  JD-CONCAT           PIC X.

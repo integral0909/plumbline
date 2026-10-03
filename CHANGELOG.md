@@ -185,6 +185,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C052 string-overlap.
 - Rule PLB-Q005 into-count-mismatch.
 - Rule PLB-K003 commarea-without-length.
+- Rule PLB-J007 dataset-created-twice. `dump jcl` is unchanged; the
+  JCL reader now keeps the normal disposition of each DD as well.
 - Language server: selection ranges (expand selection) from a name out
   to its statement, paragraph, section, division, and program.
 - `check --report codeclimate`: Code Climate issues for GitLab's code

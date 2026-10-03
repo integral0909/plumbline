@@ -331,6 +331,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J006"
         "lrecl-mismatch" "E"
         "DD record length differs from the program's records"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J007"
+        "dataset-created-twice" "E"
+        "Data set created and cataloged again without being deleted"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

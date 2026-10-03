@@ -1,0 +1,1 @@
+tests/golden/rules/j007-dataset-created-twice.jcl:8:3: error: PROD.ACCT.EXTRACT is created and cataloged again; the DD on line 5 already did, and nothing deletes it in between [PLB-J007]
