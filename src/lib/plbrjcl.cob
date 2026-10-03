@@ -108,6 +108,7 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH PLB-JCL.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-A002" LS-RULE-CONFLICT
     CALL "PLB-RULE-JCL-TEMPS" USING PLB-RULES PLB-FINDINGS PLB-JCL
     CALL "PLB-RULE-J007" USING PLB-RULES PLB-FINDINGS PLB-JCL
+    CALL "PLB-RULE-J008" USING PLB-RULES PLB-FINDINGS PLB-JCL
     MOVE 0 TO WS-USE-COUNT
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
         IF JS-KIND(LS-S) = "P"
@@ -714,3 +715,144 @@ REPORT-TWICE.
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
         JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
 END PROGRAM PLB-RULE-J007.
+
+*> PLB-J008 cond-step-unknown: a COND test of an EXEC statement names
+*> a step that is not an earlier step of the same job (or procedure):
+*>
+*>     //LOAD     EXEC PGM=ACCTLOAD,COND=(4,LT,EXTRCT)
+*>
+*> with the step that runs first named EXTRACT. The step named has no
+*> return code to compare, so the test does not do what was meant: a
+*> step renamed, removed, or moved after its test leaves one behind.
+*> In COND=(code,op,STEP.PROCSTEP) the job step is checked; tests
+*> without a step name, and EVEN and ONLY, are left alone.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J008.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-COND                 PIC X(80).
+*> The COND operand split at commas and parentheses.
+01  LS-ITEM-COUNT           PIC 9(4) COMP-5.
+01  LS-ITEM                 PIC X(17) OCCURS 40 TIMES.
+01  LS-PTR                  PIC 9(4) COMP-5.
+01  LS-NAME                 PIC X(17).
+01  LS-STEP-NAME            PIC X(8).
+*>   E an earlier step   L a later step (or this one)   N none
+01  LS-WHERE                PIC X.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J008" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
+        IF JS-COND(LS-S) NOT = SPACES
+           AND (JS-JOB(LS-S) > 0 OR JS-PROC(LS-S) > 0)
+            PERFORM CHECK-COND
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> Each code and operator followed by a name: the name is a step.
+CHECK-COND.
+    PERFORM SPLIT-COND
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I + 2 > LS-ITEM-COUNT
+        IF FUNCTION TRIM(LS-ITEM(LS-I)) IS NUMERIC
+           AND LS-ITEM(LS-I) NOT = SPACES
+            EVALUATE LS-ITEM(LS-I + 1)
+                WHEN "GT" WHEN "GE" WHEN "EQ" WHEN "LT" WHEN "LE"
+                WHEN "NE"
+                    MOVE LS-ITEM(LS-I + 2) TO LS-NAME
+                    PERFORM CHECK-NAME
+            END-EVALUATE
+        END-IF
+    END-PERFORM.
+
+SPLIT-COND.
+    MOVE JS-COND(LS-S) TO LS-COND
+    INSPECT LS-COND REPLACING ALL "(" BY "," ALL ")" BY ","
+    MOVE 0 TO LS-ITEM-COUNT
+    MOVE 1 TO LS-PTR
+    PERFORM UNTIL LS-PTR > 80 OR LS-ITEM-COUNT >= 40
+        ADD 1 TO LS-ITEM-COUNT
+        MOVE SPACES TO LS-ITEM(LS-ITEM-COUNT)
+        UNSTRING LS-COND DELIMITED BY ","
+            INTO LS-ITEM(LS-ITEM-COUNT) WITH POINTER LS-PTR
+        END-UNSTRING
+        *> An empty item between two delimiters is dropped.
+        IF LS-ITEM(LS-ITEM-COUNT) = SPACES
+            SUBTRACT 1 FROM LS-ITEM-COUNT
+        END-IF
+    END-PERFORM.
+
+*> LS-NAME, a step name or STEP.PROCSTEP: where the step is.
+CHECK-NAME.
+    IF LS-NAME = SPACES OR LS-NAME = "EVEN" OR LS-NAME = "ONLY"
+        EXIT PARAGRAPH
+    END-IF
+    IF FUNCTION TRIM(LS-NAME) IS NUMERIC
+        EXIT PARAGRAPH
+    END-IF
+    *> A name with a symbol (&STEP) is given its value elsewhere.
+    MOVE 0 TO LS-E
+    INSPECT LS-NAME TALLYING LS-E FOR ALL "&"
+    IF LS-E > 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-STEP-NAME
+    UNSTRING LS-NAME DELIMITED BY "." INTO LS-STEP-NAME
+    MOVE "N" TO LS-WHERE
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > JS-COUNT
+        IF JS-NAME(LS-E) = LS-STEP-NAME
+           AND ((JS-JOB(LS-S) > 0 AND JS-JOB(LS-E) = JS-JOB(LS-S))
+                OR (JS-PROC(LS-S) > 0 AND JS-PROC(LS-E) = JS-PROC(LS-S)))
+            IF LS-E < LS-S
+                MOVE "E" TO LS-WHERE
+                EXIT PERFORM
+            END-IF
+            MOVE "L" TO LS-WHERE
+        END-IF
+    END-PERFORM
+    IF LS-WHERE NOT = "E"
+        PERFORM REPORT-UNKNOWN
+    END-IF.
+
+REPORT-UNKNOWN.
+    MOVE SPACES TO LS-MESSAGE
+    IF LS-WHERE = "L"
+        STRING "COND tests step " DELIMITED BY SIZE
+               LS-STEP-NAME DELIMITED BY SPACE
+               ", which does not run before this one: it has no return"
+               DELIMITED BY SIZE
+               " code to test yet" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    ELSE
+        IF JS-PROC(LS-S) > 0
+            STRING "COND tests step " DELIMITED BY SIZE
+                   LS-STEP-NAME DELIMITED BY SPACE
+                   ", which is not a step of procedure " DELIMITED BY SIZE
+                   JP-NAME(JS-PROC(LS-S)) DELIMITED BY SPACE
+                INTO LS-MESSAGE
+        ELSE
+            STRING "COND tests step " DELIMITED BY SIZE
+                   LS-STEP-NAME DELIMITED BY SPACE
+                   ", which is not a step of job " DELIMITED BY SIZE
+                   JJ-NAME(JS-JOB(LS-S)) DELIMITED BY SPACE
+                INTO LS-MESSAGE
+        END-IF
+    END-IF
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        JS-FILE-ID(LS-S) JS-LINE(LS-S) LS-COLUMN LS-ZERO LS-MESSAGE.
+END PROGRAM PLB-RULE-J008.

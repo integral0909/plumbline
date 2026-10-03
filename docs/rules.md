@@ -77,6 +77,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J005](#plb-j005-temp-not-created) | temp-not-created | error | Temporary data set read before any step creates it |
 | [PLB-J006](#plb-j006-lrecl-mismatch) | lrecl-mismatch | error | DD record length differs from the program's records |
 | [PLB-J007](#plb-j007-dataset-created-twice) | dataset-created-twice | error | Data set created and cataloged again without being deleted |
+| [PLB-J008](#plb-j008-cond-step-unknown) | cond-step-unknown | warning | COND tests a step that does not run before this one |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -1713,6 +1714,28 @@ Temporary data sets, generations of a GDG (`NAME(+1)`), and names with
 symbols (`&HLQ..NAME`), which another call of a procedure may give
 another value, are not compared. `IF` and `COND` are not followed: a
 step that runs only when another does not is still counted.
+
+## PLB-J008 cond-step-unknown
+
+A `COND` test on an `EXEC` statement that names a step which is not an
+earlier step of the same job:
+
+```jcl
+//EXTRACT  EXEC PGM=ACCTEXT
+//LOAD     EXEC PGM=ACCTLOAD,COND=(4,LT,EXTRCT)          reported
+//BACKUP   EXEC PGM=ACCTBKUP,COND=(0,NE,REPORT)          reported
+//REPORT   EXEC PGM=ACCTRPT
+```
+
+The step named has no return code to compare when the test is made:
+there is no such step, or it runs later. The test then does not do
+what was meant, and the step may run (or be skipped) when it should
+not. This is what a step renamed, removed, or moved leaves behind.
+
+In a procedure, the step must be an earlier step of the procedure. In
+`COND=(code,op,STEP.PROCSTEP)` the job step is checked. Tests without
+a step name, `EVEN` and `ONLY`, and names with symbols (`&STEP`) are
+left alone; `IF` statements are not read.
 ## PLB-K001 cics-resource-undefined
 
 An `EXEC CICS` command that names a file, transaction, program, mapset,

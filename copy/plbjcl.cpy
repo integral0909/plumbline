@@ -43,6 +43,9 @@
         10  JS-INNER            PIC X(8).
         *> For DFSRRC00, the PSB it schedules (PARM='BMP,name,PSB').
         10  JS-PSB              PIC X(8).
+        *> The COND operand, in upper case: (4,LT), ((8,LE,EXTRACT),
+        *> EVEN), ...
+        10  JS-COND             PIC X(80).
         10  JS-FILE-ID          PIC 9(4) COMP-5.
         10  JS-LINE             PIC 9(9) COMP-5.
         *> The step's DD statements: JS-DD-COUNT entries from
