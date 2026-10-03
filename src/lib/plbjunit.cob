@@ -24,8 +24,8 @@
 *> the first MAIN-FILES files (the files named on the command line)
 *> with neither has one test case that passes, so the report also
 *> shows what was checked. Suppressed and baselined findings are left
-*> out, as in the other reports. Text is escaped for XML, and control
-*> characters, which XML 1.0 cannot hold, become "?".
+*> out, as in the other reports. Text is escaped for XML by
+*> PLB-XML-TEXT.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-REPORT-JUNIT.
@@ -46,8 +46,6 @@ LOCAL-STORAGE SECTION.
 01  LS-TEXT-LEN             PIC 9(9) COMP-5.
 01  LS-OUT                  PIC X(8192).
 01  LS-PTR                  PIC 9(9) COMP-5.
-01  LS-K                    PIC 9(9) COMP-5.
-01  LS-CODE                 PIC 9(4) COMP-5.
 01  LS-NUM                  PIC S9(18) COMP-5.
 01  LS-NUM-TEXT             PIC X(20).
 01  LS-NUM-LEN              PIC 9(9) COMP-5.
@@ -258,34 +256,9 @@ WRITE-PASSED.
         INTO LS-OUT WITH POINTER LS-PTR
     PERFORM PRINT-OUT.
 
-*> LS-TEXT(1:LS-TEXT-LEN) into LS-OUT, with & < > " escaped and
-*> control characters replaced.
+*> LS-TEXT(1:LS-TEXT-LEN) into LS-OUT, escaped for XML.
 APPEND-ESCAPED.
-    PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K > LS-TEXT-LEN
-        EVALUATE LS-TEXT(LS-K:1)
-            WHEN "&"
-                STRING "&amp;" DELIMITED BY SIZE
-                    INTO LS-OUT WITH POINTER LS-PTR
-            WHEN "<"
-                STRING "&lt;" DELIMITED BY SIZE
-                    INTO LS-OUT WITH POINTER LS-PTR
-            WHEN ">"
-                STRING "&gt;" DELIMITED BY SIZE
-                    INTO LS-OUT WITH POINTER LS-PTR
-            WHEN '"'
-                STRING "&quot;" DELIMITED BY SIZE
-                    INTO LS-OUT WITH POINTER LS-PTR
-            WHEN OTHER
-                COMPUTE LS-CODE = FUNCTION ORD(LS-TEXT(LS-K:1)) - 1
-                IF LS-CODE < 32 OR LS-CODE = 127
-                    STRING "?" DELIMITED BY SIZE
-                        INTO LS-OUT WITH POINTER LS-PTR
-                ELSE
-                    STRING LS-TEXT(LS-K:1) DELIMITED BY SIZE
-                        INTO LS-OUT WITH POINTER LS-PTR
-                END-IF
-        END-EVALUATE
-    END-PERFORM.
+    CALL "PLB-XML-TEXT" USING LS-TEXT LS-TEXT-LEN LS-OUT LS-PTR.
 
 APPEND-NUM.
     CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
