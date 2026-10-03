@@ -821,12 +821,14 @@ check "check as Markdown escapes cells"   0 '| SELECT \\\* depends on every colu
     -- check --no-config --report md --fail-on never tests/golden/rules/q001-sql-tables.cob
 check "check as Markdown with no findings" 0 '^No findings.$' \
     -- check --no-config --report md tests/fixtures/case/usecase.cob
-check "metrics csv has a header"          0 '^file,program,kind,name,line,lines,statements,complexity,nesting$' \
+check "metrics csv has a header"          0 '^file,program,kind,name,line,lines,statements,complexity,nesting,volume,maintainability$' \
     -- metrics --report csv $mx/complexity.cob
 check "metrics csv quotes paths"          0 '^"tests/golden/metrics/complexity.cob",METRICS,paragraph,DECIDE,15,' \
     -- metrics --report csv $mx/complexity.cob
-check "metrics start ends at the first paragraph" 0 '^"tests/fixtures/metrics/start.cob",START,start,,5,3,2,1,1$' \
+check "metrics start ends at the first paragraph" 0 '^"tests/fixtures/metrics/start.cob",START,start,,5,3,2,1,1,,$' \
     -- metrics --report csv tests/fixtures/metrics/start.cob
+check "metrics has Halstead measures"     0 '^  Halstead volume 435, difficulty 32, effort 13852; maintainability 49$' \
+    -- metrics $mx/complexity.cob
 check "metrics refuses sarif"             2 "invalid --report format 'sarif' (expected text, json, or csv)" \
     -- metrics --report sarif $mx/complexity.cob
 check "check refuses csv"                 2 "invalid --report format 'csv' (expected text, json, sarif, html, md, codeclimate, junit, or checkstyle)" \

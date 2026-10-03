@@ -12,6 +12,17 @@
 *>
 *> A program's lines run from its first to its last token, in the file
 *> that holds its PROGRAM-ID, and include the programs nested in it.
+*>
+*> Halstead's measures count the tokens of the program's PROCEDURE
+*> DIVISION: operators are the reserved words other than figurative
+*> constants and special registers, the arithmetic and relational
+*> symbols, and opening parentheses; operands are the user-defined
+*> words, literals, figurative constants, and special registers.
+*> Volume is N log2 n (N tokens, n distinct ones), difficulty
+*> (n1 / 2) (N2 / n2), and effort their product, each rounded. The
+*> maintainability index is the classic one, on a scale of 0 to 100:
+*> (171 - 5.2 ln(volume) - 0.23 complexity - 16.2 ln(code lines))
+*> * 100 / 171, and 0 when that is below 0.
 *> The limits are in plbmetrc.cpy.
 01  PLB-METRICS.
     05  MP-COUNT                PIC 9(4) COMP-5.
@@ -33,6 +44,15 @@
         10  MP-GO-TOS           PIC 9(9) COMP-5.
         10  MP-PERFORMS         PIC 9(9) COMP-5.
         10  MP-CALLS            PIC 9(9) COMP-5.
+        *> N1, N2, n1, and n2; volume, difficulty, effort; the index.
+        10  MP-OPERATORS        PIC 9(9) COMP-5.
+        10  MP-OPERANDS         PIC 9(9) COMP-5.
+        10  MP-DISTINCT-OPERATORS PIC 9(9) COMP-5.
+        10  MP-DISTINCT-OPERANDS  PIC 9(9) COMP-5.
+        10  MP-VOLUME           PIC 9(12) COMP-5.
+        10  MP-DIFFICULTY       PIC 9(9) COMP-5.
+        10  MP-EFFORT           PIC 9(15) COMP-5.
+        10  MP-MAINTAINABILITY  PIC 9(4) COMP-5.
         10  MP-UNIT-FIRST       PIC 9(9) COMP-5.
         10  MP-UNIT-COUNT       PIC 9(9) COMP-5.
     05  MU-COUNT                PIC 9(9) COMP-5.
