@@ -294,6 +294,9 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- `USAGE SQL TYPE IS type` (DB2 locators, LOBs, ROWID) is one usage
+  clause: its type is no longer read as a TYPEDEF name and reported as
+  undeclared (PLB-C009).
 - A doubled quote split by the right margin of fixed format (the first
   quote in column 72, the second after the continuation line's quote)
   no longer ends the literal; NIST's NC215A now reads without errors.
