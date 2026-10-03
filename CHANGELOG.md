@@ -197,6 +197,9 @@ uses [Semantic Versioning](https://semver.org/).
   to its statement, paragraph, section, division, and program.
 - `check --report codeclimate`: Code Climate issues for GitLab's code
   quality reports, with fingerprints that survive moved lines.
+- Language server: hover on a host variable of embedded SQL shows the
+  column it is paired with, its type, and whether it is fetched or
+  stored.
 - Rules PLB-Q006 host-variable-too-small and PLB-Q007
   host-variable-too-large, against the DECLARE TABLE of the file.
 - `dump sql`: the tables a file declares, its cursors, and the pairs of

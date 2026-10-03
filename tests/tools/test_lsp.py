@@ -559,6 +559,37 @@ class LanguageServerTest(unittest.TestCase):
         value = reply["result"]["contents"]["value"]
         self.assertIn("0 PERFORM, 0 GO TO. It never runs.", value)
 
+    def open_sql_sample(self):
+        path = os.path.abspath(os.path.join(
+            ROOT, "tests", "golden", "sql", "statements.cob"))
+        with open(path) as f:
+            text = f.read()
+        uri = "file://" + path
+        self.server.notify("textDocument/didOpen", {"textDocument": {
+            "uri": uri, "languageId": "cobol", "version": 1,
+            "text": text}})
+        self.server.receive()
+        return uri, text.splitlines()
+
+    def hover_at(self, uri, lines, line_text, needle):
+        number = next(i for i, line in enumerate(lines) if line_text in line)
+        character = lines[number].index(needle)
+        reply = self.server.request("textDocument/hover", {
+            "textDocument": {"uri": uri},
+            "position": {"line": number, "character": character}})
+        return reply["result"]["contents"]["value"]
+
+    def test_hover_on_a_host_variable_shows_its_column(self):
+        uri, lines = self.open_sql_sample()
+        value = self.hover_at(uri, lines, "INTO :WS-ID, :WS-NAME :WS-NAME-IND",
+                              "WS-ID")
+        self.assertIn("Column `ACCT_ID` DECIMAL(11), not null: "
+                      "fetched into this item.", value)
+        value = self.hover_at(uri, lines, "VALUES (:WS-ID, :WS-NAME",
+                              "WS-BALANCE")
+        self.assertIn("Column `BALANCE` DECIMAL(9,2): stored from this "
+                      "item.", value)
+
     def test_hover_on_nothing(self):
         reply = self.server.request("textDocument/hover", {
             "textDocument": {"uri": URI},

@@ -229,6 +229,10 @@ COPY "plbinput.cpy".
 01  WS-SEL-PREV-LAST        PIC 9(9) COMP-5.
 01  WS-SEL-OPEN             PIC 9(9) COMP-5.
 01  WS-SEL-OFFSET           PIC 9(9) COMP-5.
+*> Hover on a host variable: the statement, pair, and column.
+01  WS-SQL-S                PIC 9(9) COMP-5.
+01  WS-SQL-P                PIC 9(9) COMP-5.
+01  WS-SQL-C                PIC 9(9) COMP-5.
 01  WS-SEL-REST             PIC 9(9) COMP-5.
 01  WS-LSP-SYMBOL           PIC 9(9) COMP-5.
 01  WS-LSP-UNIT             PIC 9(9) COMP-5.
@@ -3317,6 +3321,7 @@ LSP-HOVER.
                " times" DELIMITED BY SIZE
             INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
     END-IF
+    PERFORM LSP-HOVER-SQL-COLUMN
     STRING '{"contents":{"kind":"markdown","value":"' DELIMITED BY SIZE
         INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
     *> Already JSON-safe: names, pictures, numbers, and \n escapes.
@@ -3329,6 +3334,58 @@ LSP-HOVER.
 *> Hover over a paragraph or section name (unit WS-LSP-UNIT): its
 *> size and complexity from the metrics, the PERFORM and GO TO
 *> statements naming it, and whether it can run at all.
+*> A host variable of embedded SQL: the column it is paired with.
+*>     Column `ACCT_ID` DECIMAL(11), not null: fetched into this item.
+LSP-HOVER-SQL-COLUMN.
+    CALL "PLB-SQL-MODEL-BUILD" USING PLB-SOURCE-SET PLB-TOKENS
+        PLB-SQL-MODEL
+    PERFORM VARYING WS-SQL-S FROM 1 BY 1 UNTIL WS-SQL-S > QS-COUNT
+        PERFORM VARYING WS-SQL-P FROM QS-PAIR-FIRST(WS-SQL-S) BY 1
+                UNTIL WS-SQL-P >=
+                      QS-PAIR-FIRST(WS-SQL-S) + QS-PAIR-COUNT(WS-SQL-S)
+            IF QP-HOST-TOKEN(WS-SQL-P) = WS-LSP-TOKEN
+                CALL "PLB-SQL-FIND-COLUMN" USING PLB-SQL-MODEL WS-SQL-S
+                    WS-SQL-P WS-SQL-C
+                IF WS-SQL-C > 0
+                    PERFORM LSP-APPEND-SQL-COLUMN
+                    EXIT PARAGRAPH
+                END-IF
+            END-IF
+        END-PERFORM
+    END-PERFORM.
+
+LSP-APPEND-SQL-COLUMN.
+    STRING "\n\nColumn `" DELIMITED BY SIZE
+           QL-NAME(WS-SQL-C) DELIMITED BY SPACE
+           "` " DELIMITED BY SIZE
+           QL-TYPE(WS-SQL-C) DELIMITED BY SPACE
+        INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    IF QL-LENGTH(WS-SQL-C) > 0
+        MOVE QL-LENGTH(WS-SQL-C) TO WS-NUM
+        CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+        STRING "(" WS-NUM-TEXT(1:WS-NUM-LEN) DELIMITED BY SIZE
+            INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+        IF QL-SCALE(WS-SQL-C) > 0
+            MOVE QL-SCALE(WS-SQL-C) TO WS-NUM
+            CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+            STRING "," WS-NUM-TEXT(1:WS-NUM-LEN) DELIMITED BY SIZE
+                INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+        END-IF
+        STRING ")" DELIMITED BY SIZE
+            INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    END-IF
+    IF QL-NULLS(WS-SQL-C) = "N"
+        STRING ", not null" DELIMITED BY SIZE
+            INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    END-IF
+    IF QS-KIND(WS-SQL-S) = "S" OR QS-KIND(WS-SQL-S) = "F"
+        STRING ": fetched into this item." DELIMITED BY SIZE
+            INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    ELSE
+        STRING ": stored from this item." DELIMITED BY SIZE
+            INTO WS-LSP-TEXT-PATH WITH POINTER WS-PTR
+    END-IF.
+
 LSP-HOVER-UNIT.
     CALL "PLB-METRICS-COMPUTE" USING PLB-SOURCE-SET PLB-TOKENS PLB-AST
         PLB-SYMBOLS PLB-FLOW PLB-METRICS

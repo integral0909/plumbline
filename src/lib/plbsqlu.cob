@@ -883,3 +883,52 @@ APPEND-NUM.
     STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
         INTO WS-LINE WITH POINTER LS-PTR.
 END PROGRAM PLB-SQL-MODEL-PRINT.
+
+*> PLB-SQL-FIND-COLUMN: COLUMN = the column (QL entry) of pair PAIR of
+*> statement STATEMENT: one of that name in a table the statement
+*> names, or else the one column of that name among all the declared
+*> tables; 0 when there is none, or more than one.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SQL-FIND-COLUMN.
+DATA DIVISION.
+LOCAL-STORAGE SECTION.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-J                    PIC 9(9) COMP-5.
+01  LS-FOUND                PIC 9(9) COMP-5.
+01  LS-MATCHES              PIC 9(9) COMP-5.
+LINKAGE SECTION.
+COPY "plbsqlm.cpy".
+01  LK-S                    PIC 9(9) COMP-5.
+01  LK-P                    PIC 9(9) COMP-5.
+01  LK-C                    PIC 9(9) COMP-5.
+PROCEDURE DIVISION USING PLB-SQL-MODEL LK-S LK-P LK-C.
+    MOVE 0 TO LK-C LS-MATCHES
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > QS-TABLE-COUNT(LK-S)
+        PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J > QT-COUNT
+            IF QT-NAME(LS-J) = QS-TABLE(LK-S, LS-I)
+               OR QT-SHORT(LS-J) = QS-TABLE(LK-S, LS-I)
+                PERFORM COLUMN-IN-TABLE
+            END-IF
+        END-PERFORM
+    END-PERFORM
+    IF LS-MATCHES = 1
+        GOBACK
+    END-IF
+    MOVE 0 TO LK-C LS-MATCHES
+    PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J > QT-COUNT
+        PERFORM COLUMN-IN-TABLE
+    END-PERFORM
+    IF LS-MATCHES NOT = 1
+        MOVE 0 TO LK-C
+    END-IF
+    GOBACK.
+
+COLUMN-IN-TABLE.
+    PERFORM VARYING LS-FOUND FROM QT-COL-FIRST(LS-J) BY 1
+            UNTIL LS-FOUND >= QT-COL-FIRST(LS-J) + QT-COL-COUNT(LS-J)
+        IF QL-NAME(LS-FOUND) = QP-COLUMN(LK-P)
+            MOVE LS-FOUND TO LK-C
+            ADD 1 TO LS-MATCHES
+        END-IF
+    END-PERFORM.
+END PROGRAM PLB-SQL-FIND-COLUMN.

@@ -44,11 +44,7 @@ LOCAL-STORAGE SECTION.
 01  LS-S                    PIC 9(9) COMP-5.
 01  LS-P                    PIC 9(9) COMP-5.
 01  LS-R                    PIC 9(9) COMP-5.
-01  LS-I                    PIC 9(9) COMP-5.
-01  LS-J                    PIC 9(9) COMP-5.
 01  LS-C                    PIC 9(9) COMP-5.
-01  LS-FOUND                PIC 9(9) COMP-5.
-01  LS-MATCHES              PIC 9(9) COMP-5.
 01  LS-HOST                 PIC 9(9) COMP-5.
 01  LS-TEXT-ITEM            PIC 9(9) COMP-5.
 01  LS-CHILD                PIC 9(9) COMP-5.
@@ -152,38 +148,9 @@ CHECK-PAIR.
             END-IF
     END-EVALUATE.
 
-*> LS-C: the column of pair LS-P, in a table of the statement, or else
-*> the one column of that name among all declared tables; 0 when none
-*> or more than one.
+*> LS-C: the column of pair LS-P of statement LS-S (see plbsqlu).
 FIND-COLUMN.
-    MOVE 0 TO LS-C LS-MATCHES
-    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > QS-TABLE-COUNT(LS-S)
-        PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J > QT-COUNT
-            IF QT-NAME(LS-J) = QS-TABLE(LS-S, LS-I)
-               OR QT-SHORT(LS-J) = QS-TABLE(LS-S, LS-I)
-                PERFORM COLUMN-IN-TABLE
-            END-IF
-        END-PERFORM
-    END-PERFORM
-    IF LS-MATCHES = 1
-        EXIT PARAGRAPH
-    END-IF
-    MOVE 0 TO LS-C LS-MATCHES
-    PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J > QT-COUNT
-        PERFORM COLUMN-IN-TABLE
-    END-PERFORM
-    IF LS-MATCHES NOT = 1
-        MOVE 0 TO LS-C
-    END-IF.
-
-COLUMN-IN-TABLE.
-    PERFORM VARYING LS-FOUND FROM QT-COL-FIRST(LS-J) BY 1
-            UNTIL LS-FOUND >= QT-COL-FIRST(LS-J) + QT-COL-COUNT(LS-J)
-        IF QL-NAME(LS-FOUND) = QP-COLUMN(LS-P)
-            MOVE LS-FOUND TO LS-C
-            ADD 1 TO LS-MATCHES
-        END-IF
-    END-PERFORM.
+    CALL "PLB-SQL-FIND-COLUMN" USING PLB-SQL-MODEL LS-S LS-P LS-C.
 
 *> LS-KIND: C for a character column (LS-COL-CHARS characters), N for
 *> a number (LS-COL-INT integer digits, LS-COL-DEC decimal places), or
