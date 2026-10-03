@@ -20,6 +20,15 @@
 *> An item shown before is not expanded again ("see above"). The
 *> statements of one program only are followed: CALL arguments and
 *> files are where the trail leaves the program.
+*>
+*> As JSON, the tree is a list of nodes, each with its id and its
+*> parent's (0 for the item asked about):
+*>     {"lineage": [
+*>       {"id": 1, "parent": 0, "kind": "item", "name": "WS-TOTAL",
+*>        "file": "src/rpt.cob", "line": 12, "seen": false},
+*>       {"id": 2, "parent": 1, "kind": "statement",
+*>        "text": "ADD WS-AMOUNT TO WS-TOTAL", "file": ..., "line": 40},
+*>       ...]}
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-LINEAGE-FILE.
@@ -36,6 +45,13 @@ WORKING-STORAGE SECTION.
     05  WS-ST-ID            PIC 9(9) COMP-5.
     05  WS-ST-DEPTH         PIC 9(9) COMP-5.
     05  WS-ST-FROM          PIC 9(9) COMP-5.
+    05  WS-ST-PARENT        PIC 9(9) COMP-5.
+*> The id of the last node, and the JSON line of the last node, kept
+*> until the next one tells whether a comma follows it.
+01  WS-NODE-ID              PIC 9(9) COMP-5.
+01  WS-ANY-NODE             PIC X VALUE "N".
+01  WS-PENDING              PIC X(1024) VALUE SPACES.
+01  WS-PENDING-LEN          PIC 9(9) COMP-5 VALUE 0.
 *> The statements or items found for the node being expanded, in
 *> source order, before they go on the stack (in reverse).
 78  WS-FOUND-MAX                VALUE 2000.
@@ -43,6 +59,7 @@ WORKING-STORAGE SECTION.
 01  WS-FOUND                PIC 9(9) COMP-5 OCCURS WS-FOUND-MAX TIMES.
 01  WS-LINE                 PIC X(1024).
 01  WS-PATH                 PIC X(512).
+01  WS-TEXT-LINE            PIC X(1024).
 LOCAL-STORAGE SECTION.
 01  LS-S                    PIC 9(9) COMP-5.
 01  LS-R                    PIC 9(9) COMP-5.
@@ -64,6 +81,7 @@ LOCAL-STORAGE SECTION.
 01  LS-NUM-TEXT             PIC X(20).
 01  LS-NUM-LEN              PIC 9(9) COMP-5.
 01  LS-WANT                 PIC X(31).
+01  LS-PARENT               PIC 9(9) COMP-5.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -79,12 +97,36 @@ COPY "plbref.cpy".
 01  LK-DEPTH                PIC 9(9) COMP-5.
 01  LK-DIRECTION            PIC X.
 01  LK-FOUND                PIC X.
+*> "json" for JSON nodes. ACTION is B to start the output (the JSON
+*> brackets), F for the file just analyzed, and E to end it.
+01  LK-FORMAT               PIC X(5).
+01  LK-ACTION               PIC X.
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
-        PLB-REFS LK-NAME LK-DEPTH LK-DIRECTION LK-FOUND.
+        PLB-REFS LK-NAME LK-DEPTH LK-DIRECTION LK-FOUND LK-FORMAT
+        LK-ACTION.
+    EVALUATE LK-ACTION
+        WHEN "B"
+            MOVE 0 TO WS-NODE-ID
+            MOVE "N" TO WS-ANY-NODE
+            IF LK-FORMAT = "json"
+                DISPLAY "{"
+                DISPLAY '  "lineage": ['
+            END-IF
+            GOBACK
+        WHEN "E"
+            IF LK-FORMAT = "json"
+                IF WS-ANY-NODE = "Y"
+                    DISPLAY WS-PENDING(1:WS-PENDING-LEN)
+                END-IF
+                DISPLAY "  ]"
+                DISPLAY "}"
+            END-IF
+            GOBACK
+    END-EVALUATE
     MOVE FUNCTION UPPER-CASE(LK-NAME) TO LS-WANT
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
         IF SY-NAME(LS-S) = LS-WANT AND SY-NAME-TOKEN(LS-S) > 0
-            IF LK-FOUND = "Y"
+            IF LK-FOUND = "Y" AND LK-FORMAT NOT = "json"
                 DISPLAY " "
             END-IF
             MOVE "Y" TO LK-FOUND
@@ -101,9 +143,10 @@ TRACE-ITEM.
     MOVE 1 TO WS-STACK-COUNT
     MOVE "I" TO WS-ST-KIND(1)
     MOVE LS-S TO WS-ST-ID(1)
-    MOVE 0 TO WS-ST-DEPTH(1) WS-ST-FROM(1)
+    MOVE 0 TO WS-ST-DEPTH(1) WS-ST-FROM(1) WS-ST-PARENT(1)
     PERFORM UNTIL WS-STACK-COUNT = 0
         MOVE WS-ST-DEPTH(WS-STACK-COUNT) TO LS-DEPTH
+        MOVE WS-ST-PARENT(WS-STACK-COUNT) TO LS-PARENT
         IF WS-ST-KIND(WS-STACK-COUNT) = "I"
             MOVE WS-ST-ID(WS-STACK-COUNT) TO LS-ITEM
             SUBTRACT 1 FROM WS-STACK-COUNT
@@ -119,23 +162,12 @@ TRACE-ITEM.
 *> Item LS-ITEM at depth LS-DEPTH: its line, then its statements on
 *> the stack, unless it was shown before or the depth is reached.
 SHOW-ITEM.
-    MOVE SPACES TO WS-LINE
-    COMPUTE LS-PTR = LS-DEPTH * 2 + 1
-    STRING SY-NAME(LS-ITEM) DELIMITED BY SPACE
-           "  " DELIMITED BY SIZE
-        INTO WS-LINE WITH POINTER LS-PTR
-    MOVE SY-NAME-TOKEN(LS-ITEM) TO LS-T
-    PERFORM APPEND-POSITION
-    IF WS-SEEN(LS-ITEM) = "Y"
-        STRING "  (see above)" DELIMITED BY SIZE
-            INTO WS-LINE WITH POINTER LS-PTR
-        DISPLAY WS-LINE(1:LS-PTR - 1)
-        EXIT PARAGRAPH
+    IF LK-FORMAT = "json"
+        PERFORM JSON-ITEM
+    ELSE
+        PERFORM TEXT-ITEM
     END-IF
-    DISPLAY WS-LINE(1:LS-PTR - 1)
-    *> Seen only when expanded: one cut off by the depth may be
-    *> expanded where it comes again, higher up.
-    IF LS-DEPTH >= LK-DEPTH * 2
+    IF WS-SEEN(LS-ITEM) = "Y" OR LS-DEPTH >= LK-DEPTH * 2
         EXIT PARAGRAPH
     END-IF
     MOVE "Y" TO WS-SEEN(LS-ITEM)
@@ -147,8 +179,84 @@ SHOW-ITEM.
             MOVE WS-FOUND(LS-I) TO WS-ST-ID(WS-STACK-COUNT)
             COMPUTE WS-ST-DEPTH(WS-STACK-COUNT) = LS-DEPTH + 1
             MOVE LS-ITEM TO WS-ST-FROM(WS-STACK-COUNT)
+            MOVE WS-NODE-ID TO WS-ST-PARENT(WS-STACK-COUNT)
         END-IF
     END-PERFORM.
+
+*> The item's line: NAME  PATH:LINE, and "(see above)" when shown
+*> before. An item is seen only once expanded: one cut off by the
+*> depth may be expanded where it comes again, higher up.
+TEXT-ITEM.
+    MOVE SPACES TO WS-LINE
+    COMPUTE LS-PTR = LS-DEPTH * 2 + 1
+    STRING SY-NAME(LS-ITEM) DELIMITED BY SPACE
+           "  " DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    MOVE SY-NAME-TOKEN(LS-ITEM) TO LS-T
+    PERFORM APPEND-POSITION
+    IF WS-SEEN(LS-ITEM) = "Y"
+        STRING "  (see above)" DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+    END-IF
+    DISPLAY WS-LINE(1:LS-PTR - 1).
+
+JSON-ITEM.
+    PERFORM START-NODE
+    STRING '"kind": "item", "name": ' DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    CALL "PLB-JSON-STRING" USING SY-NAME(LS-ITEM) WS-LINE LS-PTR
+    MOVE SY-NAME-TOKEN(LS-ITEM) TO LS-T
+    PERFORM APPEND-JSON-POSITION
+    IF WS-SEEN(LS-ITEM) = "Y"
+        STRING ', "seen": true}' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+    ELSE
+        STRING ', "seen": false}' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+    END-IF
+    PERFORM END-NODE.
+
+*> A new node: the comma that ends the one before is written with it,
+*> so the last has none (PLB-LINEAGE-END writes it).
+START-NODE.
+    IF WS-ANY-NODE = "Y"
+        DISPLAY WS-PENDING(1:WS-PENDING-LEN) ","
+    END-IF
+    MOVE "Y" TO WS-ANY-NODE
+    ADD 1 TO WS-NODE-ID
+    MOVE SPACES TO WS-LINE
+    MOVE 1 TO LS-PTR
+    STRING '    {"id": ' DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    MOVE WS-NODE-ID TO LS-NUM
+    PERFORM APPEND-NUM
+    STRING ', "parent": ' DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    MOVE LS-PARENT TO LS-NUM
+    PERFORM APPEND-NUM
+    STRING ", " DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR.
+
+END-NODE.
+    MOVE WS-LINE TO WS-PENDING
+    COMPUTE WS-PENDING-LEN = LS-PTR - 1.
+
+*> , "file": PATH, "line": LINE of token LS-T.
+APPEND-JSON-POSITION.
+    STRING ', "file": ' DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    MOVE SPACES TO WS-PATH
+    MOVE 0 TO LS-NUM
+    IF LS-T > 0
+        IF TK-SRC-LINE(LS-T) > 0
+            CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET
+                SL-FILE-ID(TK-SRC-LINE(LS-T)) WS-PATH
+            MOVE SL-LINE-NO(TK-SRC-LINE(LS-T)) TO LS-NUM
+        END-IF
+    END-IF
+    CALL "PLB-JSON-STRING" USING WS-PATH WS-LINE LS-PTR
+    STRING ', "line": ' DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    PERFORM APPEND-NUM.
 
 *> WS-FOUND: the statements that give LS-ITEM a value (backward) or
 *> read it (forward), in source order, each once.
@@ -272,19 +380,11 @@ SORT-FOUND.
 *> Statement LS-STMT, reached from item LS-ITEM: its text and line,
 *> then the items it reads (backward) or gives values to (forward).
 SHOW-STATEMENT.
-    MOVE SPACES TO WS-LINE
-    COMPUTE LS-PTR = LS-DEPTH * 2 + 1
-    PERFORM APPEND-STATEMENT-TEXT
-    STRING "  (line " DELIMITED BY SIZE
-        INTO WS-LINE WITH POINTER LS-PTR
-    MOVE ND-TOK-FIRST(LS-STMT) TO LS-T
-    MOVE 0 TO LS-NUM
-    IF TK-SRC-LINE(LS-T) > 0
-        MOVE SL-LINE-NO(TK-SRC-LINE(LS-T)) TO LS-NUM
+    IF LK-FORMAT = "json"
+        PERFORM JSON-STATEMENT
+    ELSE
+        PERFORM TEXT-STATEMENT
     END-IF
-    PERFORM APPEND-NUM
-    STRING ")" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
-    DISPLAY WS-LINE(1:LS-PTR - 1)
     *> The other items of the statement: what it reads, backward, and
     *> what it gives values to, forward.
     MOVE 0 TO WS-FOUND-COUNT
@@ -305,8 +405,39 @@ SHOW-STATEMENT.
             MOVE WS-FOUND(LS-I) TO WS-ST-ID(WS-STACK-COUNT)
             COMPUTE WS-ST-DEPTH(WS-STACK-COUNT) = LS-DEPTH + 1
             MOVE 0 TO WS-ST-FROM(WS-STACK-COUNT)
+            MOVE WS-NODE-ID TO WS-ST-PARENT(WS-STACK-COUNT)
         END-IF
     END-PERFORM.
+
+TEXT-STATEMENT.
+    MOVE SPACES TO WS-LINE
+    COMPUTE LS-PTR = LS-DEPTH * 2 + 1
+    PERFORM APPEND-STATEMENT-TEXT
+    STRING "  (line " DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    MOVE ND-TOK-FIRST(LS-STMT) TO LS-T
+    MOVE 0 TO LS-NUM
+    IF TK-SRC-LINE(LS-T) > 0
+        MOVE SL-LINE-NO(TK-SRC-LINE(LS-T)) TO LS-NUM
+    END-IF
+    PERFORM APPEND-NUM
+    STRING ")" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+    DISPLAY WS-LINE(1:LS-PTR - 1).
+
+JSON-STATEMENT.
+    *> The text first, in a line of its own, to escape it.
+    MOVE SPACES TO WS-LINE
+    MOVE 1 TO LS-PTR
+    PERFORM APPEND-STATEMENT-TEXT
+    MOVE WS-LINE TO WS-TEXT-LINE
+    PERFORM START-NODE
+    STRING '"kind": "statement", "text": ' DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    CALL "PLB-JSON-STRING" USING WS-TEXT-LINE WS-LINE LS-PTR
+    MOVE ND-TOK-FIRST(LS-STMT) TO LS-T
+    PERFORM APPEND-JSON-POSITION
+    STRING "}" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+    PERFORM END-NODE.
 
 *> Backward, the statement's other items it reads; forward, those it
 *> gives values to.

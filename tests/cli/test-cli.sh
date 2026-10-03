@@ -527,6 +527,20 @@ check_absent "lineage stops at --depth"    'MOVE IN-AMT' \
     -- lineage WS-TOTAL --depth 1 $lin
 check "lineage --forward shows where a value goes" 0 '^          MOVE WS-TOTAL TO RL-TOTAL  (line 24)$' \
     -- lineage IN-AMT --forward $lin
+n=$((n + 1))
+if "$bin" lineage WS-TOTAL --report json $lin | python3 -c '
+import json, sys
+nodes = json.load(sys.stdin)["lineage"]
+by_id = {node["id"]: node for node in nodes}
+assert nodes[0]["parent"] == 0 and nodes[0]["name"] == "WS-TOTAL"
+read = [node for node in nodes if node.get("text") == "READ IN-FILE"]
+assert read and by_id[read[0]["parent"]]["name"] == "IN-AMT"
+assert any(node.get("seen") for node in nodes)
+'; then
+    echo "ok $n - lineage json"
+else
+    failed=$((failed + 1)); echo "not ok $n - lineage json"
+fi
 check "lineage of an unknown item"         1 'no data item named NOPE in the input' \
     -- lineage NOPE $lin
 check "lineage needs a name"               2 'lineage needs a data item name' \

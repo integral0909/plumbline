@@ -284,7 +284,9 @@ WS-TOTAL  src/rpt.cob:15
 ```
 
 An item already shown is not expanded again. The trail stays in the
-program: a `CALL` argument or a file is where it leaves.
+program: a `CALL` argument or a file is where it leaves. `--report
+json` gives the tree as a list of nodes (items and statements), each
+with its id and its parent's.
 
 ## Duplicate code
 

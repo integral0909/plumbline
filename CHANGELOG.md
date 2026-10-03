@@ -202,7 +202,7 @@ uses [Semantic Versioning](https://semver.org/).
   a column and a host variable of its SELECT, FETCH, INSERT, and UPDATE
   statements.
 - `plumbline lineage NAME`: the statements and items a data item's
-  value comes from, or with `--forward` goes to.
+  value comes from, or with `--forward` goes to, as text or JSON.
 - `plumbline duplicates`: paragraphs with the same code, across the
   programs of the run, as text or JSON.
 - `plumbline xref`: the cross-reference of each program, its data
