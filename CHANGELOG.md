@@ -230,6 +230,9 @@ uses [Semantic Versioning](https://semver.org/).
 - `lineage` crosses calls between the programs of the run: a LINKAGE
   item shows the argument each caller passes in its place, and a
   `CALL` the parameter it passes the item to.
+- `lineage` names the table column of embedded SQL that gives an item
+  its value (`SELECT INTO`, `FETCH`) or that it is stored in (`INSERT`,
+  `UPDATE`).
 - `plumbline duplicates`: paragraphs with the same code, across the
   programs of the run, as text or JSON.
 - `plumbline xref`: the cross-reference of each program, its data

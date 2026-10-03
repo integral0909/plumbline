@@ -333,11 +333,17 @@ LK-CUST-NAME  src/custlook.cob:6
       <- argument 1 of CALL "CUSTLOOK" in BILLING  src/billing.cob:9: CUST-ID
 ```
 
-Run `lineage` on the named item to follow it into the other program. A
-file is where the trail leaves for good. `--report json` gives the tree
-as a list of nodes (items, statements, and calls), each with its id and
-its parent's; a call node gives the side (`caller` or `callee`), the
-other program, the position, and the item there.
+Run `lineage` on the named item to follow it into the other program.
+Embedded SQL is where a trail meets the database: an item that a
+`SELECT ... INTO` or `FETCH` gives its value names the column it comes
+from (`<- column BALANCE of ACCOUNT`, the table of a `FETCH` taken from
+its cursor), and, forward, an item that `INSERT` or `UPDATE` stores
+names its column (`-> column BALANCE of ACCOUNT`). A file is where the
+trail leaves for good. `--report json` gives the tree
+as a list of nodes (items, statements, calls, and columns), each with
+its id and its parent's; a call node gives the side (`caller` or
+`callee`), the other program, the position, and the item there, and a
+column node the table and the column.
 
 ## Duplicate code
 
