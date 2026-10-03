@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""Validate a plumbline JSON, SARIF, or Code Climate report read from
-standard input.
+"""Validate a plumbline JSON, SARIF, Code Climate, or JUnit report read
+from standard input.
 
-Usage: check_report.py json|sarif|codeclimate [EXPECTED-FINDINGS]
+Usage: check_report.py json|sarif|codeclimate|junit [EXPECTED-FINDINGS]
 
-Checks the structure the report promises (see src/lib/plbreport.cob),
-not just that it parses. With EXPECTED-FINDINGS, the number of findings
-(JSON), results (SARIF), or issues (Code Climate) must match. Exits 1 with a message on the
-first problem.
+Checks the structure the report promises (see src/lib/plbreport.cob
+and src/lib/plbjunit.cob), not just that it parses. With
+EXPECTED-FINDINGS, the number of findings (JSON), results (SARIF),
+issues (Code Climate), or failing test cases (JUnit) must match. Exits
+1 with a message on the first problem.
 """
 
 import json
 import sys
+import xml.etree.ElementTree as ET
 
 LEVELS = {"error", "warning", "note"}
 SEVERITIES = {"info", "minor", "major", "critical", "blocker"}
@@ -99,8 +101,42 @@ def check_codeclimate(doc):
     return len(doc)
 
 
+def check_junit(root):
+    require(root.tag == "testsuites", "the root must be testsuites")
+    suites = root.findall("testsuite")
+    require(len(suites) == 1, "expected one testsuite")
+    cases = suites[0].findall("testcase")
+    failing = 0
+    failures = errors = 0
+    for case in cases:
+        require(case.get("classname") is not None, "case needs a classname")
+        require(case.get("name"), "case needs a name")
+        outcome = list(case)
+        require(len(outcome) <= 1, "a case has at most one outcome")
+        if outcome:
+            element = outcome[0]
+            require(element.tag in ("failure", "error"),
+                    f"bad outcome {element.tag}")
+            require(element.get("type") in LEVELS,
+                    f"bad type {element.get('type')}")
+            require(element.get("message"), "outcome needs a message")
+            require(element.text and element.text.endswith("]"),
+                    "outcome needs the report line")
+            failing += 1
+            if element.tag == "failure":
+                failures += 1
+            else:
+                errors += 1
+    for element in (root, suites[0]):
+        require(element.get("tests") == str(len(cases)), "bad tests count")
+        require(element.get("failures") == str(failures),
+                "bad failures count")
+        require(element.get("errors") == str(errors), "bad errors count")
+    return failing
+
+
 CHECKS = {"json": check_json, "sarif": check_sarif,
-          "codeclimate": check_codeclimate}
+          "codeclimate": check_codeclimate, "junit": check_junit}
 
 
 def main(argv):
@@ -108,12 +144,15 @@ def main(argv):
         print(__doc__, file=sys.stderr)
         return 2
     try:
-        doc = json.load(sys.stdin)
+        if argv[1] == "junit":
+            doc = ET.fromstring(sys.stdin.buffer.read())
+        else:
+            doc = json.load(sys.stdin)
         count = CHECKS[argv[1]](doc)
         if len(argv) == 3:
             require(count == int(argv[2]),
                     f"expected {argv[2]} findings, found {count}")
-    except (Invalid, KeyError, TypeError, ValueError) as e:
+    except (Invalid, KeyError, TypeError, ValueError, ET.ParseError) as e:
         print(f"check_report: invalid {argv[1]} report: {e}",
               file=sys.stderr)
         return 1

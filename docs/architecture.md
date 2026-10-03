@@ -592,7 +592,9 @@ they are printed.
 Reports are written as text (`file:line:column: severity: message
 [rule]`), as JSON, or as SARIF 2.1.0 (`src/lib/plbreport.cob`), or as
 an HTML page (`src/lib/plbhtml.cob`) that shows each finding with the
-source lines around it. The SARIF
+source lines around it, or as a JUnit XML test report
+(`src/lib/plbjunit.cob`) with a test case per finding, per diagnostic,
+and per clean file. The SARIF
 log lists every rule with its default level, one result per finding with
 a `ruleIndex` into that list, and diagnostics as tool execution
 notifications. Paths are percent-encoded as URIs.

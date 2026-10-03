@@ -57,7 +57,7 @@ $ find src -name '*.cbl' | plumbline check -I copybooks --files-from -
 | `--format fixed\|free\|auto` | reference format of the sources (default `auto`) |
 | `--enable RULE`, `--disable RULE` | turn a rule on or off, by id or name |
 | `--fail-on error\|warning\|note\|never` | the lowest severity that fails the run |
-| `--report text\|json\|sarif\|html\|md\|codeclimate` | output format (default `text`) |
+| `--report text\|json\|sarif\|html\|md\|codeclimate\|junit` | output format (default `text`) |
 | `--baseline FILE` | do not report the findings listed in `FILE` |
 | `--write-baseline FILE` | write the findings to `FILE` instead of reporting them |
 | `--config FILE`, `--no-config` | read settings from `FILE`, or from no file |
@@ -88,6 +88,16 @@ plumbline:
   artifacts:
     reports:
       codequality: gl-code-quality.json
+```
+
+`--report junit` writes a JUnit XML test report, which Jenkins, GitLab,
+Azure DevOps, and most other CI servers show with their test results:
+each finding is a failing test case named after its rule and place,
+each error diagnostic a test case in error, and each file checked
+without either a passing one.
+
+```console
+$ plumbline check --report junit --fail-on never src/*.cbl > plumbline-junit.xml
 ```
 
 In all of them, input diagnostics are part of the report rather than
