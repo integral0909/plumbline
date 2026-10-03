@@ -1,0 +1,1 @@
+tests/golden/rules/k003-commarea-without-length.cob:17:10: warning: the program uses CA-ACCOUNT-ID of DFHCOMMAREA but never tests EIBCALEN; started without a COMMAREA, it abends here [PLB-K003]

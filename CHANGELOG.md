@@ -184,6 +184,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C051 duplicate-if-condition.
 - Rule PLB-C052 string-overlap.
 - Rule PLB-Q005 into-count-mismatch.
+- Rule PLB-K003 commarea-without-length.
 - Language server: selection ranges (expand selection) from a name out
   to its statement, paragraph, section, division, and program.
 - `check --report codeclimate`: Code Climate issues for GitLab's code
