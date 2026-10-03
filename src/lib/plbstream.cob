@@ -20,6 +20,7 @@ LOCAL-STORAGE SECTION.
 01  LS-LAST                 PIC 9(9) COMP-5.
 01  LS-PREV-SEG             PIC 9(9) COMP-5.
 01  LS-PREV-QUOTE           PIC X.
+01  LS-QUOTE                PIC X.
 01  LS-FROM-COL             PIC 9(4) COMP-5.
 01  LS-LEN                  PIC 9(9) COMP-5.
 01  LS-PAD                  PIC S9(9) COMP-5.
@@ -85,6 +86,7 @@ ADD-CONTINUATION.
     MOVE "Y" TO LS-JOIN
     MOVE SL-CONTENT-COL(LS-INDEX) TO LS-FROM-COL
     MOVE SL-CONTENT-LEN(LS-INDEX) TO LS-LEN
+    PERFORM SPLIT-DOUBLED-QUOTE
     IF LS-PREV-QUOTE NOT = SPACE
         COMPUTE LS-PAD = 72 - (SG-COL(LS-PREV-SEG)
             + SG-LEN(LS-PREV-SEG) - 1)
@@ -106,6 +108,31 @@ ADD-CONTINUATION.
         END-IF
     END-IF
     PERFORM APPEND-SEGMENT.
+
+*> A doubled quote split by the margin: the line before ends with a
+*> quote in column 72, which looks like the end of its literal, and
+*> this line starts with two of that quote:
+*>     "A+0B-1C*2D/3E=4Fl5G,6H;7I.8J"
+*>    -    ""9K(L)M>N<O PQRSTUVWXYZ".
+*> The quote in column 72 is the first of an embedded pair, so the
+*> literal is still open; the first quote here resumes it, and the
+*> second completes the pair.
+SPLIT-DOUBLED-QUOTE.
+    IF LS-PREV-QUOTE NOT = SPACE OR LS-LEN < 2
+       OR SG-COL(LS-PREV-SEG) + SG-LEN(LS-PREV-SEG) - 1 NOT = 72
+       OR SG-LEN(LS-PREV-SEG) = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE ST-TEXT(SG-START(LS-PREV-SEG) + SG-LEN(LS-PREV-SEG) - 1:1)
+        TO LS-QUOTE
+    IF LS-QUOTE NOT = '"' AND LS-QUOTE NOT = "'"
+        EXIT PARAGRAPH
+    END-IF
+    IF SS-HEAP(SL-TEXT-OFF(LS-INDEX) + LS-FROM-COL - 1:1) = LS-QUOTE
+       AND SS-HEAP(SL-TEXT-OFF(LS-INDEX) + LS-FROM-COL:1) = LS-QUOTE
+        ADD 1 TO LS-FROM-COL
+        SUBTRACT 1 FROM LS-LEN
+    END-IF.
 
 *> Append LS-LEN characters of line LS-INDEX from column LS-FROM-COL
 *> as a new segment, preceded by a newline unless LS-JOIN is "Y".

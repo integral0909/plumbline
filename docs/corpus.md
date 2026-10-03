@@ -39,15 +39,16 @@ the findings; they must be the same.
 | Lines, with copybooks | 347,213 |
 | Time, one `plumbline` run per program | 22 s |
 | Time, all programs in one run | 10 s |
-| Programs read without input errors | 457 |
+| Programs read without input errors | 458 |
 
-The 2 programs that still have input errors are:
+The one program that still has input errors is **SM207A**: `COPY ALTLB
+OF XXXXX047` names a library that EXEC85 would substitute. In the suite
+as distributed, the library does not exist.
 
-- **SM207A**: `COPY ALTLB OF XXXXX047` names a library that EXEC85 would
-  substitute. In the suite as distributed, the library does not exist.
-- **NC215A**: a doubled quote split across a continuation line, with the
-  first quote ending the continued line and the second starting the
-  continuation.
+**NC215A**, which splits a doubled quote across a continuation line
+(the first quote of the pair in column 72, the second after the
+continuation's own quote), had an unterminated literal until
+Plumbline learned to join such a line.
 
 | Rule | Findings |
 |------|---------:|
