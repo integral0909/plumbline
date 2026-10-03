@@ -8,9 +8,13 @@ as unreachable paragraphs, PERFORM fall-through, truncating MOVEs, and
 uninitialized fields. Findings can be emitted as text, JSON, SARIF, HTML,
 Markdown, or GitLab's code quality format.
 
-> **Status:** early development. The front end (reader, preprocessor,
-> lexer, parser), the symbol table, the procedure graph, and the rule
-> engine work; the rule set is still small. See
+> **Status:** in development, before a first release. The front end
+> (reader, preprocessor, lexer, parser), the symbol table, the procedure
+> graph, data flow, and the rule engine work, with more than a hundred
+> rules (`plumbline rules` lists them) for COBOL, embedded SQL, CICS,
+> IMS, JCL, and BMS. Each rule is run over the NIST COBOL-85 test
+> suite, GnuCOBOL's own tests, and AWS's CardDemo application, and what
+> it reports there is read (see [docs/corpus.md](docs/corpus.md)). See
 > [docs/architecture.md](docs/architecture.md) for the design.
 
 ## Building
