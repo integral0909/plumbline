@@ -349,7 +349,13 @@ as a list of nodes (items, statements, calls, columns, and CICS
 resources), each with its id and its parent's; a call node gives the
 side (`caller` or `callee`), the other program, the position, and the
 item there, a column node the table and the column, and a CICS node
-the command, the kind of resource, and its name.
+the command, the kind of resource, and its name. `--report dot` draws
+the trails as one Graphviz graph, each item and statement once, with
+the arrows the way the values go:
+
+```console
+$ plumbline lineage WS-NEW-BALANCE --report dot src/acct.cob | dot -Tsvg > lineage.svg
+```
 
 ## Duplicate code
 

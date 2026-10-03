@@ -587,6 +587,14 @@ check "lineage writes literals with their quotes" 0 'EXEC CICS REWRITE FILE ("AC
     -- lineage WS-ACCOUNT-REC --forward $crud_lin
 check "lineage json has cics nodes"        0 '"kind": "cics", "text": "-> CICS REWRITE of file \\"ACCTDAT\\"", "command": "REWRITE", "resource": "file", "name": "\\"ACCTDAT\\""' \
     -- lineage WS-ACCOUNT-REC --forward --report json $crud_lin
+check "lineage dot draws a statement once" 0 '^  n7 -> n9;$' \
+    -- lineage WS-NEW-BALANCE --report dot $sql_lin
+check "lineage dot points the way values go" 0 '^  n1 -> n2;$' \
+    -- lineage WS-TOTAL --forward --report dot $lin
+check "lineage dot labels a column"        0 '^  n5 \[label="column BALANCE of ACCOUNT", shape=ellipse, style=dashed\];$' \
+    -- lineage WS-NEW-BALANCE --report dot $sql_lin
+check "lineage refuses csv"                2 "invalid --report format 'csv' (expected text, json, or dot)" \
+    -- lineage WS-TOTAL --report csv $lin
 check "lineage of an unknown item"         1 'no data item named NOPE in the input' \
     -- lineage NOPE $lin
 check "lineage needs a name"               2 'lineage needs a data item name' \
