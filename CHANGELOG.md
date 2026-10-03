@@ -188,6 +188,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-K004 commarea-length-too-long.
 - Rule PLB-K005 batch-io-in-cics.
 - Rule PLB-A002 record-length-conflict.
+- Rule PLB-C054 go-to-into-perform-range.
 - Rule PLB-C053 exit-program-in-main. `dump calls` is unchanged; the
   call graph also keeps each program's first `EXIT PROGRAM`.
 - Rule PLB-J007 dataset-created-twice. `dump jcl` is unchanged; the

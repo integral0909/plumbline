@@ -65,6 +65,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C051](#plb-c051-duplicate-if-condition) | duplicate-if-condition | warning | ELSE IF repeats a condition the chain already tested |
 | [PLB-C052](#plb-c052-string-overlap) | string-overlap | warning | STRING or UNSTRING sends from storage it receives into |
 | [PLB-C053](#plb-c053-exit-program-in-main) | exit-program-in-main | warning | EXIT PROGRAM in a program a job step runs does nothing |
+| [PLB-C054](#plb-c054-go-to-into-perform-range) | go-to-into-perform-range | warning | GO TO from outside a PERFORM THRU range into its middle |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1480,6 +1481,37 @@ The rule needs the JCL that runs the program among the inputs. A
 program a step runs through another (IMS's `DFSRRC00`, a DB2 `RUN
 PROGRAM`) is called by it, and a nested program only runs when called;
 neither is reported.
+
+## PLB-C054 go-to-into-perform-range
+
+A `GO TO` from outside a `PERFORM ... THRU` range to a paragraph inside
+it, after its first:
+
+```cobol
+9200-WRITE.
+    PERFORM 9300-CHECK THRU 9300-CHECK-EXIT
+    ...
+9200-WRITE-EXIT.
+    EXIT.
+9300-CHECK.
+    IF WS-CHANGED = "Y"
+        GO TO 9200-WRITE-EXIT               *> reported
+    END-IF.
+9300-CHECK-EXIT.
+    EXIT.
+```
+
+Control that arrives by the `GO TO` reaches the end of the range as if
+it had been performed. Here the `PERFORM` of `9300-CHECK` is left
+unfinished, and the end of `9200-WRITE`'s range returns to its caller;
+an unfinished `PERFORM` leaves its return point set, and control comes
+back to it unexpectedly when its range end is reached later. Usually
+the paragraph meant its own exit (`GO TO 9300-CHECK-EXIT`). This is the
+other side of PLB-C029, a `GO TO` that leaves a range.
+
+A `GO TO` that stays within some other `PERFORM` range, as when two
+ranges share an exit paragraph, is not reported; each `GO TO` is
+reported once.
 
 ## PLB-I001 pcb-dbd-unknown
 

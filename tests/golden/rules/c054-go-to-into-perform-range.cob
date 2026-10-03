@@ -1,0 +1,40 @@
+*> PLB-C054 go-to-into-perform-range: a GO TO from outside a PERFORM
+*> THRU range into its middle.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. INTORNG.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-CHANGED              PIC X VALUE "N".
+PROCEDURE DIVISION.
+MAIN-LINE.
+    PERFORM 9200-WRITE THRU 9200-WRITE-EXIT
+    PERFORM SHARED THRU SHARED-EXIT
+    STOP RUN.
+9200-WRITE.
+    PERFORM 9300-CHECK THRU 9300-CHECK-EXIT
+    IF WS-CHANGED = "Y"
+        GO TO 9200-WRITE-EXIT
+    END-IF
+    DISPLAY "WRITE".
+9200-WRITE-EXIT.
+    EXIT.
+9300-CHECK.
+    *> Reported: the check, performed from 9200-WRITE, jumps to the end
+    *> of the range that performs it, not to its own.
+    IF WS-CHANGED = "Y"
+        GO TO 9200-WRITE-EXIT
+    END-IF.
+9300-CHECK-EXIT.
+    EXIT.
+*> Fine: SHARED and SHARED-2 share an exit; the GO TO stays within the
+*> range SHARED THRU SHARED-EXIT.
+SHARED.
+    IF WS-CHANGED = "N"
+        GO TO SHARED-EXIT
+    END-IF.
+SHARED-2.
+    DISPLAY "SHARED".
+SHARED-EXIT.
+    EXIT.
+SECOND-ENTRY.
+    PERFORM SHARED-2 THRU SHARED-EXIT.

@@ -6,6 +6,7 @@
 *>   PLB-C005  perform-thru-backwards
 *>   PLB-C006  recursive-perform
 *>   PLB-C029  go-to-leaves-perform
+*>   PLB-C054  go-to-into-perform-range
 *>   PLB-C035  duplicate-paragraph
 *> ---------------------------------------------------------------
 
@@ -453,3 +454,126 @@ REPORT-UNIT.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-TOKEN LS-MESSAGE.
 END PROGRAM PLB-RULE-C035.
+
+*> PLB-C054 go-to-into-perform-range: a GO TO from outside a PERFORM
+*> ... THRU range to a paragraph inside it, after its first:
+*>
+*>     PERFORM 2000-EDIT THRU 2000-EXIT
+*>     ...
+*>     GO TO 2100-EDIT-AMOUNT        *> inside 2000-EDIT ... 2000-EXIT
+*>
+*> Control that arrives that way reaches the end of the range with no
+*> PERFORM to return to, and runs on into the paragraphs after it; if a
+*> PERFORM of the range is active at the time, it returns to that
+*> PERFORM's caller instead. Either way the jump starts code that was
+*> written to run only as part of the range. Each GO TO is reported
+*> once, for the first range it enters.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-C054.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-REPORTED             PIC X OCCURS 100000 TIMES.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-G                    PIC 9(9) COMP-5.
+01  LS-FIRST                PIC 9(9) COMP-5.
+01  LS-LAST                 PIC 9(9) COMP-5.
+01  LS-O                    PIC 9(9) COMP-5.
+01  LS-WITHIN               PIC X.
+01  LS-TOKEN                PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbflow.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
+        PLB-RULES PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C054" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-G FROM 1 BY 1 UNTIL LS-G > FE-COUNT
+        MOVE "N" TO WS-REPORTED(LS-G)
+    END-PERFORM
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > FE-COUNT
+        IF FE-KIND(LS-E) = "P" AND FE-TO(LS-E) > 0
+           AND FE-THRU(LS-E) > FE-TO(LS-E)
+            PERFORM CHECK-RANGE
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> The GO TO statements from outside the range of PERFORM edge LS-E to
+*> a unit inside it after the first. As in PLB-C029, a range that ends
+*> at a section runs to the section's last paragraph.
+CHECK-RANGE.
+    MOVE FE-TO(LS-E) TO LS-FIRST
+    MOVE FE-THRU(LS-E) TO LS-LAST
+    IF FU-KIND(LS-LAST) = "S"
+        PERFORM UNTIL FU-NEXT(LS-LAST) = 0
+            IF FU-SECTION(FU-NEXT(LS-LAST)) NOT = FE-THRU(LS-E)
+                EXIT PERFORM
+            END-IF
+            MOVE FU-NEXT(LS-LAST) TO LS-LAST
+        END-PERFORM
+    END-IF
+    PERFORM VARYING LS-G FROM 1 BY 1 UNTIL LS-G > FE-COUNT
+        IF FE-KIND(LS-G) = "G" AND FE-TO(LS-G) > 0
+           AND WS-REPORTED(LS-G) = "N"
+           AND FE-TO(LS-G) > LS-FIRST AND FE-TO(LS-G) <= LS-LAST
+           AND (FE-FROM(LS-G) < LS-FIRST OR FE-FROM(LS-G) > LS-LAST)
+           AND FU-PROGRAM(FE-FROM(LS-G)) = FU-PROGRAM(LS-FIRST)
+            PERFORM WITHIN-OTHER-RANGE
+            IF LS-WITHIN = "N"
+                MOVE "Y" TO WS-REPORTED(LS-G)
+                PERFORM REPORT-GO-TO
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> LS-WITHIN = "Y" when some PERFORM range holds both the GO TO and
+*> its target: a jump within that range, as when two ranges share an
+*> exit paragraph (PERFORM A THRU A-EXIT and PERFORM A2 THRU A-EXIT,
+*> with A going to A-EXIT).
+WITHIN-OTHER-RANGE.
+    MOVE "N" TO LS-WITHIN
+    PERFORM VARYING LS-O FROM 1 BY 1 UNTIL LS-O > FE-COUNT
+        IF FE-KIND(LS-O) = "P" AND FE-TO(LS-O) > 0
+           AND FE-THRU(LS-O) >= FE-TO(LS-O)
+           AND FE-FROM(LS-G) >= FE-TO(LS-O)
+           AND FE-FROM(LS-G) <= FE-THRU(LS-O)
+           AND FE-TO(LS-G) >= FE-TO(LS-O)
+           AND FE-TO(LS-G) <= FE-THRU(LS-O)
+            MOVE "Y" TO LS-WITHIN
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+REPORT-GO-TO.
+    MOVE ND-NAME(FE-PROC(LS-E)) TO LS-TOKEN
+    MOVE SL-LINE-NO(TK-SRC-LINE(LS-TOKEN)) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING "GO TO " DELIMITED BY SIZE
+           FU-NAME(FE-TO(LS-G)) DELIMITED BY SPACE
+           " enters the middle of the range " DELIMITED BY SIZE
+           FU-NAME(LS-FIRST) DELIMITED BY SPACE
+           " THRU " DELIMITED BY SIZE
+           FU-NAME(FE-THRU(LS-E)) DELIMITED BY SPACE
+           " performed on line " DELIMITED BY SIZE
+           LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    MOVE ND-NAME(FE-PROC(LS-G)) TO LS-TOKEN
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-TOKEN LS-MESSAGE.
+END PROGRAM PLB-RULE-C054.
