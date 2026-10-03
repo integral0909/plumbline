@@ -1,0 +1,47 @@
+*> plumbline dump sql: tables, cursors, and the pairs of a column and
+*> a host variable of each statement.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. SQLMODEL.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+    EXEC SQL DECLARE BANK.ACCOUNT TABLE
+    ( ACCT_ID                        DEC(11, 0) NOT NULL,
+      ACCT_NAME                      CHARACTER VARYING(40) NOT NULL,
+      BALANCE                        DECIMAL(9, 2),
+      OPENED                         DATE,
+      BRANCH                         INT NOT NULL
+    ) END-EXEC.
+    EXEC SQL DECLARE BANK.BRANCH TABLE
+    ( BRANCH_ID                      INTEGER NOT NULL,
+      BRANCH_NAME                    CHAR(30)
+    ) END-EXEC.
+01  WS-ID                   PIC S9(11) COMP-3.
+01  WS-NAME                 PIC X(40).
+01  WS-NAME-IND             PIC S9(4) COMP.
+01  WS-BALANCE              PIC S9(7)V99 COMP-3.
+01  WS-BRANCH-NAME          PIC X(30).
+01  WS-TOTAL                PIC S9(9)V99 COMP-3.
+    EXEC SQL DECLARE ACCT-CUR CURSOR WITH HOLD FOR
+        SELECT DISTINCT A.ACCT_ID, A.ACCT_NAME AS NAME,
+               BALANCE * 2, B.BRANCH_NAME
+          FROM BANK.ACCOUNT A JOIN BANK.BRANCH B
+            ON A.BRANCH = B.BRANCH_ID
+         WHERE A.BALANCE > 0
+    END-EXEC.
+PROCEDURE DIVISION.
+    EXEC SQL FETCH NEXT FROM ACCT-CUR
+        INTO :WS-ID, :WS-NAME :WS-NAME-IND, :WS-TOTAL, :WS-BRANCH-NAME
+    END-EXEC
+    EXEC SQL SELECT ACCT_NAME, SUM(BALANCE)
+        INTO :WS-NAME, :WS-TOTAL
+        FROM BANK.ACCOUNT WHERE ACCT_ID = :WS-ID
+    END-EXEC
+    EXEC SQL INSERT INTO BANK.ACCOUNT (ACCT_ID, ACCT_NAME, BALANCE, OPENED)
+        VALUES (:WS-ID, :WS-NAME, :WS-BALANCE, CURRENT DATE)
+    END-EXEC
+    EXEC SQL UPDATE BANK.ACCOUNT
+        SET BALANCE = :WS-BALANCE, OPENED = CURRENT DATE,
+            ACCT_NAME = :WS-NAME
+        WHERE ACCT_ID = :WS-ID
+    END-EXEC
+    STOP RUN.

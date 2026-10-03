@@ -1,0 +1,29 @@
+table BANK.ACCOUNT tests/golden/sql/statements.cob:7
+  column ACCT_ID DECIMAL(11) not null
+  column ACCT_NAME VARCHAR(40) not null
+  column BALANCE DECIMAL(9,2)
+  column OPENED DATE
+  column BRANCH INTEGER not null
+table BANK.BRANCH tests/golden/sql/statements.cob:14
+  column BRANCH_ID INTEGER not null
+  column BRANCH_NAME CHAR(30)
+cursor ACCT-CUR tests/golden/sql/statements.cob:24 tables BANK.ACCOUNT BANK.BRANCH
+  ACCT_ID
+  ACCT_NAME
+  (expression)
+  BRANCH_NAME
+fetch ACCT-CUR tests/golden/sql/statements.cob:32 tables BANK.ACCOUNT BANK.BRANCH
+  ACCT_ID <- :WS-ID
+  ACCT_NAME <- :WS-NAME
+  (expression) <- :WS-TOTAL
+  BRANCH_NAME <- :WS-BRANCH-NAME
+select tests/golden/sql/statements.cob:35 tables BANK.ACCOUNT
+  ACCT_NAME <- :WS-NAME
+  (expression) <- :WS-TOTAL
+insert tests/golden/sql/statements.cob:39 tables BANK.ACCOUNT
+  ACCT_ID <- :WS-ID
+  ACCT_NAME <- :WS-NAME
+  BALANCE <- :WS-BALANCE
+update tests/golden/sql/statements.cob:42 tables BANK.ACCOUNT
+  BALANCE <- :WS-BALANCE
+  ACCT_NAME <- :WS-NAME

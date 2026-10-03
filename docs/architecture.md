@@ -437,6 +437,22 @@ they are written. Nothing is kept from one file to the next except
 whether a program has been written, which the caller holds so that
 programs are separated in text and in JSON.
 
+### Embedded SQL
+
+`src/lib/plbsqlu.cob`, with its model in `copy/plbsqlm.cpy`.
+
+`PLB-SQL-MODEL-BUILD` reads the EXEC SQL blocks of a file's tokens
+twice: first the declarations, of tables (`DECLARE name TABLE`, from
+DCLGEN copybooks) and of cursors, then the statements that move values
+between columns and host variables. Each statement keeps its pairs of
+a column and a host variable: a `SELECT ... INTO` pairs its select
+list with its `INTO` list, a `FETCH` its cursor's select list with its
+`INTO` list, an `INSERT` its column list with its `VALUES`, and an
+`UPDATE` each `SET column = :host`. COBOL drops commas, so lists are
+split at the commas of the source text between their tokens
+(`PLB-SQL-COMMA-BETWEEN`), outside parentheses. `dump sql` prints the
+model.
+
 ### Duplicate code
 
 `src/lib/plbdup.cob`, with its table in `copy/plbdupt.cpy`.

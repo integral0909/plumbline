@@ -101,7 +101,8 @@ are on, after `plumbline.conf` and the options are applied
 The `dump` commands show Plumbline's view of a program at each stage,
 which helps when a result is surprising: `dump lines`, `dump tokens`,
 `dump expanded`, `dump ast`, `dump symbols`, `dump flow`, `dump refs`,
-`dump calls`, and, for JCL, CICS maps, CICS resource definitions, and
+`dump calls`, `dump sql` (the tables, cursors, and host variables of
+embedded SQL), and, for JCL, CICS maps, CICS resource definitions, and
 IMS definitions, `dump jcl`, `dump bms`, `dump csd`, and `dump ims` (see
 [JCL](docs/jcl.md), [BMS](docs/bms.md), [CICS](docs/cics.md), and
 [IMS](docs/ims.md)).
