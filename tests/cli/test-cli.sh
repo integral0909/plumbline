@@ -742,12 +742,20 @@ check "dynamic-call is off by default"    0 '^$' -- check --disable call-argumen
 check "dump calls lists parameters"       0 '^  parameter LK-CUST-ID reference 8$' -- dump calls $cx/custlook.cob
 check "help lists dump calls"             0 'dump calls' -- --help
 check "dump lines needs files"            2 'no input files' -- dump lines
-check "invalid --format value"            2 "invalid format 'cobolx' (expected fixed, free, variable, or auto)" \
+check "invalid --format value"            2 "invalid format 'cobolx' (expected fixed, free, variable, xopen, terminal, or auto)" \
     -- dump lines --format cobolx $fx/fixed-basic.cbl
 check "variable format reads past column 72" 0 'variable.cbl:6: code      var   A PROCEDURE DIVISION.*TO WS-RESULT-OF-THE-COMPUTATION$' \
     -- dump lines --format variable tests/fixtures/reader/variable.cbl
 check "variable format from a directive"   0 'variable-directive.cbl:7: code      var' \
     -- dump lines tests/fixtures/reader/variable-directive.cbl
+check "xopen format reads its indicators"  0 'xopen.cob:10: debug     xopen - DISPLAY "COUNT " WS-COUNT$' \
+    -- dump lines --format xopen tests/fixtures/reader/xopen.cob
+check "xopen format has page ejects"       0 'xopen.cob:7: page      xopen -' \
+    -- dump lines --format xopen tests/fixtures/reader/xopen.cob
+check "terminal format joins a continued literal" 0 'alnum    "FIRST PART OF A LONG LITERAL AND ITS SECOND PART"$' \
+    -- dump tokens --format terminal tests/fixtures/reader/terminal.cob
+check "terminal format from a directive"   0 'TERMFMT' \
+    -- dump ast tests/fixtures/reader/terminal.cob --format terminal
 check_absent "variable format leaves no names cut" 'PLB-C009' \
     -- check --format variable tests/fixtures/reader/variable.cbl
 check "unknown dump option"               2 "unknown option '--frob'" -- dump lines --frob $fx/fixed-basic.cbl

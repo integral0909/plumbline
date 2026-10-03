@@ -103,7 +103,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
 TEST-LINE.
     MOVE "N" TO LS-CODE
     MOVE SPACES TO LS-TEXT
-    IF SL-FORMAT(LS-L) NOT = "F"
+    IF SL-FORMAT(LS-L) = "X" OR SL-FORMAT(LS-L) = "V"
         *> Fixed format: the indicator is in column 7; the text runs
         *> from column 8 to 72 (to the end in VARIABLE format).
         IF SL-TEXT-LEN(LS-L) <= 7
@@ -116,7 +116,8 @@ TEST-LINE.
         END-IF
         MOVE SS-HEAP(SL-TEXT-OFF(LS-L) + 7:LS-LEN) TO LS-TEXT
     ELSE
-        *> Free format: after the *> that starts the comment.
+        *> Free format: after the *> that starts the comment, or the
+        *> * of column 1 in X/Open and terminal format.
         IF SL-COMMENT-COL(LS-L) = 0
            OR SL-COMMENT-COL(LS-L) + 2 > SL-TEXT-LEN(LS-L)
             EXIT PARAGRAPH
@@ -274,7 +275,7 @@ END-RUN.
                 INTO LS-MESSAGE
         END-IF
         MOVE 1 TO LS-COLUMN
-        IF SL-FORMAT(LS-FIRST) NOT = "F"
+        IF SL-FORMAT(LS-FIRST) = "X" OR SL-FORMAT(LS-FIRST) = "V"
             MOVE 7 TO LS-COLUMN
         END-IF
         CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE

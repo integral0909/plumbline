@@ -24,6 +24,7 @@ LOCAL-STORAGE SECTION.
 01  LS-FROM-COL             PIC 9(4) COMP-5.
 01  LS-LEN                  PIC 9(9) COMP-5.
 01  LS-PAD                  PIC S9(9) COMP-5.
+01  LS-MARGIN               PIC S9(9) COMP-5.
 01  LS-JOIN                 PIC X.
 01  LS-FULL                 PIC X.
 01  LS-LINE-NO              PIC 9(9) COMP-5.
@@ -70,7 +71,9 @@ ADD-LINE.
     PERFORM APPEND-SEGMENT.
 
 *> A continuation line is joined to the last line added. If that line
-*> left a literal open, the literal is padded to column 72 and the
+*> left a literal open, the literal is padded to the line's right
+*> margin, column 72 (250 in VARIABLE format; terminal format has no
+*> margin, and the literal ends where the line does), and the
 *> continuation resumes after its opening quote.
 ADD-CONTINUATION.
     MOVE SL-LINE-NO(LS-INDEX) TO LS-LINE-NO
@@ -88,12 +91,17 @@ ADD-CONTINUATION.
     MOVE SL-CONTENT-LEN(LS-INDEX) TO LS-LEN
     PERFORM SPLIT-DOUBLED-QUOTE
     IF LS-PREV-QUOTE NOT = SPACE
-        COMPUTE LS-PAD = 72 - (SG-COL(LS-PREV-SEG)
+        EVALUATE SL-FORMAT(SG-LINE(LS-PREV-SEG))
+            WHEN "V"   MOVE 250 TO LS-MARGIN
+            WHEN "T"   MOVE 0 TO LS-MARGIN
+            WHEN OTHER MOVE 72 TO LS-MARGIN
+        END-EVALUATE
+        COMPUTE LS-PAD = LS-MARGIN - (SG-COL(LS-PREV-SEG)
             + SG-LEN(LS-PREV-SEG) - 1)
         IF LS-PAD > 0 AND ST-LEN + LS-PAD <= ST-SIZE
             MOVE SPACES TO ST-TEXT(ST-LEN + 1:LS-PAD)
             ADD LS-PAD TO ST-LEN
-            *> plumbline: ignore arithmetic-overflow -- LS-PAD is under 72
+            *> plumbline: ignore arithmetic-overflow -- LS-PAD is under 250
             ADD LS-PAD TO SG-LEN(LS-PREV-SEG)
         END-IF
         IF LS-LEN > 0 AND SS-HEAP(SL-TEXT-OFF(LS-INDEX)

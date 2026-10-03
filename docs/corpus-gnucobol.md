@@ -32,14 +32,16 @@ compiles with.
 
 | | First run | Now |
 |---|---:|---:|
-| Programs (in formats Plumbline reads) | 1,025 | 1,027 |
+| Programs (in formats Plumbline reads) | 1,025 | 1,035 |
 | Programs with input errors | 44 | 1 |
 | Programs with names reported as undefined or ambiguous | 136 | 3 |
 
-Eight more programs are in reference formats Plumbline does not read
-(COBOLX, X/Open free form, ACU terminal) and are not counted. The two
-in Micro Focus's VARIABLE format, with code past column 72, are read
-since that format was added, and have no findings.
+The first run left out ten programs in reference formats Plumbline did
+not read; all are read now. The two in Micro Focus's VARIABLE format,
+with code past column 72, the four in X/Open free form, and the four in
+ACU terminal format have no findings; the long literals of the latter,
+continued across lines, are joined as GnuCOBOL joins them (to column
+250 in VARIABLE format, to the end of the line in terminal format).
 
 What the first run found, each fixed with a test of its own:
 
