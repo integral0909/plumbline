@@ -827,7 +827,7 @@ check "metrics csv quotes paths"          0 '^"tests/golden/metrics/complexity.c
     -- metrics --report csv $mx/complexity.cob
 check "metrics start ends at the first paragraph" 0 '^"tests/fixtures/metrics/start.cob",START,start,,5,3,2,1,1,,$' \
     -- metrics --report csv tests/fixtures/metrics/start.cob
-check "metrics has Halstead measures"     0 '^  Halstead volume 435, difficulty 32, effort 13852; maintainability 49$' \
+check "metrics has Halstead measures"     0 '^  Halstead volume 435, difficulty 32, effort 13852; maintainability 58$' \
     -- metrics $mx/complexity.cob
 check "metrics refuses sarif"             2 "invalid --report format 'sarif' (expected text, json, or csv)" \
     -- metrics --report sarif $mx/complexity.cob

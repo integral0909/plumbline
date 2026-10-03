@@ -35,6 +35,8 @@ COPY "plbmetrc.cpy".
 01  WS-SMALL-N              COMP-2.
 01  WS-VALUE                COMP-2.
 01  WS-INDEX                COMP-2.
+01  WS-MODULES              PIC 9(9) COMP-5.
+01  WS-COMPLEXITIES         PIC 9(9) COMP-5.
 LOCAL-STORAGE SECTION.
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
 01  LS-NODE                 PIC 9(9) COMP-5.
@@ -200,9 +202,24 @@ DERIVE-MEASURES.
     IF MP-CODE-LINES(LS-P) = 0
         EXIT PARAGRAPH
     END-IF
-    COMPUTE WS-INDEX = (171 - 5.2 * FUNCTION LOG(WS-VALUE)
-        - 0.23 * MP-COMPLEXITY(LS-P)
-        - 16.2 * FUNCTION LOG(MP-CODE-LINES(LS-P))) * 100 / 171
+    *> The paragraphs and sections are the modules: m of them, and the
+    *> average of their complexities.
+    MOVE 0 TO WS-MODULES WS-COMPLEXITIES
+    PERFORM VARYING LS-M FROM MP-UNIT-FIRST(LS-P) BY 1
+            UNTIL LS-M >= MP-UNIT-FIRST(LS-P) + MP-UNIT-COUNT(LS-P)
+        IF MU-KIND(LS-M) = "P" OR MU-KIND(LS-M) = "S"
+            ADD 1 TO WS-MODULES
+            ADD MU-COMPLEXITY(LS-M) TO WS-COMPLEXITIES
+        END-IF
+    END-PERFORM
+    IF WS-MODULES = 0
+        MOVE 1 TO WS-MODULES
+        MOVE MP-COMPLEXITY(LS-P) TO WS-COMPLEXITIES
+    END-IF
+    COMPUTE WS-INDEX = (171 - 5.2 * FUNCTION LOG(WS-VALUE / WS-MODULES)
+        - 0.23 * WS-COMPLEXITIES / WS-MODULES
+        - 16.2 * FUNCTION LOG(MP-CODE-LINES(LS-P) / WS-MODULES))
+        * 100 / 171
     IF WS-INDEX > 0
         COMPUTE MP-MAINTAINABILITY(LS-P) ROUNDED = WS-INDEX
     ELSE
