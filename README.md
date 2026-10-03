@@ -256,6 +256,12 @@ in area A, long lines are split at spaces, long literals are continued
 with `-` in column 7, and inline comments that do not fit move to a
 line of their own.
 
+Sources in the other formats (VARIABLE, X/Open free form, ACU
+terminal, COBOLX) convert the same way to either: their comments, page
+ejects, debugging lines, and continued literals are read as the
+compiler reads them, and a VARIABLE line that fits in column 72 stays
+as it is in fixed format.
+
 ## Record layouts
 
 `plumbline layout` lists the records of programs and copybooks with

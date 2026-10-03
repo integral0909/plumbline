@@ -760,6 +760,12 @@ check "terminal format joins a continued literal" 0 'alnum    "FIRST PART OF A L
     -- dump tokens --format terminal tests/fixtures/reader/terminal.cob
 check "terminal format from a directive"   0 'TERMFMT' \
     -- dump ast tests/fixtures/reader/terminal.cob --format terminal
+check "format keeps a page eject"          0 '^      / A page eject, then the procedure division.$' \
+    -- format --to fixed --format xopen tests/fixtures/reader/xopen.cob
+check "format joins a terminal continuation" 0 '^      DISPLAY "FIRST PART OF A LONG LITERAL AND ITS SECOND PART"$' \
+    -- format --to free --format terminal tests/fixtures/reader/terminal.cob
+check "format writes a COBOLX debugging line" 0 '^      DDISPLAY "SHOWN WHEN DEBUGGING"$' \
+    -- format --to fixed tests/fixtures/reader/cobolx.cob
 check_absent "variable format leaves no names cut" 'PLB-C009' \
     -- check --format variable tests/fixtures/reader/variable.cbl
 check "unknown dump option"               2 "unknown option '--frob'" -- dump lines --frob $fx/fixed-basic.cbl

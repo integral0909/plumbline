@@ -59,7 +59,8 @@ test: $(TEST_BIN) $(BIN)
 	done
 	tools/selfcheck.sh $(RUN_BIN)
 	@# Formatting to free and back to fixed keeps every token.
-	python3 tests/tools/roundtrip_format.py $(RUN_BIN) $(wildcard tests/golden/*/*.cob tests/golden/*/*.cbl)
+	python3 tests/tools/roundtrip_format.py $(RUN_BIN) $(wildcard tests/golden/*/*.cob tests/golden/*/*.cbl) \
+	    $(wildcard tests/fixtures/reader/*-directive.cob tests/fixtures/reader/*-directive.cbl) tests/fixtures/reader/cobolx.cob
 	PLUMBLINE='$(RUN_BIN)' python3 -m unittest discover -s tests/tools -p 'test_*.py' -q
 
 # Rewrite golden expectations from current output (review the diff!).
