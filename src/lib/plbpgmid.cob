@@ -125,3 +125,138 @@ CHECK-LINE.
         MOVE "Y" TO LS-DONE
     END-IF.
 END PROGRAM PLB-FIND-PROGRAM-ID.
+
+*> ---------------------------------------------------------------
+*> PLB-FIND-PROGRAM-USING USING PATH LINE USING-TEXT: the text after
+*> PROCEDURE DIVISION, up to its period, of the program whose
+*> PROGRAM-ID is on line LINE of the file at PATH (as
+*> PLB-FIND-PROGRAM-ID finds it): "USING LK-ID LK-NAME" for a program
+*> that takes parameters, spaces for one that takes none or when the
+*> header is not found. Blanks are made single, comment lines are
+*> passed over, and the text may run over several lines.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-FIND-PROGRAM-USING.
+ENVIRONMENT DIVISION.
+INPUT-OUTPUT SECTION.
+FILE-CONTROL.
+    SELECT SOURCE-FILE ASSIGN TO WS-PATH
+        ORGANIZATION IS LINE SEQUENTIAL
+        FILE STATUS IS WS-STATUS.
+DATA DIVISION.
+FILE SECTION.
+FD  SOURCE-FILE.
+01  SOURCE-RECORD           PIC X(1024).
+WORKING-STORAGE SECTION.
+01  WS-PATH                 PIC X(1024).
+01  WS-STATUS               PIC XX.
+    88  WS-READ-OK                VALUE "00" "04" "06".
+01  WS-LINE-NO              PIC 9(9) COMP-5.
+01  WS-TEXT                 PIC X(1024).
+01  WS-AT                   PIC 9(9) COMP-5.
+01  WS-P                    PIC 9(9) COMP-5.
+01  WS-OUT-PTR              PIC 9(9) COMP-5.
+01  WS-STATE                PIC X.
+    88  WS-LOOKING                VALUE "L".
+    88  WS-TAKING                 VALUE "T".
+    88  WS-DONE                   VALUE "D".
+01  WS-PENDING-BLANK        PIC X.
+01  WS-END                  PIC 9(9) COMP-5.
+LINKAGE SECTION.
+01  LK-PATH                 PIC X ANY LENGTH.
+01  LK-LINE                 PIC 9(9) COMP-5.
+01  LK-USING                PIC X ANY LENGTH.
+PROCEDURE DIVISION USING LK-PATH LK-LINE LK-USING.
+    MOVE SPACES TO LK-USING
+    MOVE 1 TO WS-OUT-PTR
+    MOVE 0 TO WS-LINE-NO
+    MOVE "N" TO WS-PENDING-BLANK
+    SET WS-LOOKING TO TRUE
+    MOVE LK-PATH TO WS-PATH
+    OPEN INPUT SOURCE-FILE
+    IF WS-STATUS NOT = "00"
+        GOBACK
+    END-IF
+    PERFORM UNTIL WS-DONE
+        MOVE SPACES TO SOURCE-RECORD
+        READ SOURCE-FILE
+            AT END
+                SET WS-DONE TO TRUE
+            NOT AT END
+                ADD 1 TO WS-LINE-NO
+                IF WS-LINE-NO >= LK-LINE
+                    MOVE FUNCTION UPPER-CASE(SOURCE-RECORD) TO WS-TEXT
+                    PERFORM READ-LINE
+                END-IF
+        END-READ
+        IF NOT WS-READ-OK
+            SET WS-DONE TO TRUE
+        END-IF
+    END-PERFORM
+    CLOSE SOURCE-FILE
+    GOBACK.
+
+*> Comment lines are passed over; otherwise the header is looked for,
+*> or the text after it taken.
+READ-LINE.
+    IF WS-TEXT(7:1) = "*" OR WS-TEXT(7:1) = "/"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 1 TO WS-P
+    IF WS-LOOKING
+        MOVE 0 TO WS-AT
+        INSPECT WS-TEXT TALLYING WS-AT
+            FOR CHARACTERS BEFORE "PROCEDURE DIVISION"
+        IF WS-AT >= 1000
+            EXIT PARAGRAPH
+        END-IF
+        MOVE 0 TO WS-P
+        INSPECT WS-TEXT(1:WS-AT + 1) TALLYING WS-P FOR ALL "*>"
+        IF WS-P > 0
+            EXIT PARAGRAPH
+        END-IF
+        SET WS-TAKING TO TRUE
+        COMPUTE WS-P = WS-AT + 19
+    END-IF
+    PERFORM TAKE-TEXT.
+
+*> Characters from WS-P to the period, or to the end of the line or an
+*> inline comment. A line with a sequence area (blank or numeric
+*> columns 1 to 6) and text past column 72 ends at column 72: the
+*> rest is the identification area of fixed format.
+TAKE-TEXT.
+    CALL "PLB-STR-LENGTH" USING WS-TEXT WS-END
+    IF WS-END > 72
+        IF WS-TEXT(1:6) = SPACES OR WS-TEXT(1:6) IS NUMERIC
+            MOVE 72 TO WS-END
+        END-IF
+    END-IF
+    PERFORM UNTIL WS-P > WS-END
+        IF WS-TEXT(WS-P:1) = "."
+            SET WS-DONE TO TRUE
+            EXIT PERFORM
+        END-IF
+        IF WS-P < WS-END
+            IF WS-TEXT(WS-P:2) = "*>"
+                EXIT PERFORM
+            END-IF
+        END-IF
+        IF WS-TEXT(WS-P:1) = SPACE
+            MOVE "Y" TO WS-PENDING-BLANK
+        ELSE
+            IF WS-PENDING-BLANK = "Y" AND WS-OUT-PTR > 1
+               AND WS-OUT-PTR < FUNCTION LENGTH(LK-USING)
+                STRING " " DELIMITED BY SIZE
+                    INTO LK-USING WITH POINTER WS-OUT-PTR
+            END-IF
+            MOVE "N" TO WS-PENDING-BLANK
+            IF WS-OUT-PTR <= FUNCTION LENGTH(LK-USING)
+                STRING WS-TEXT(WS-P:1) DELIMITED BY SIZE
+                    INTO LK-USING WITH POINTER WS-OUT-PTR
+            END-IF
+        END-IF
+        ADD 1 TO WS-P
+    END-PERFORM
+    *> The next line's text follows after a blank.
+    MOVE "Y" TO WS-PENDING-BLANK.
+END PROGRAM PLB-FIND-PROGRAM-USING.

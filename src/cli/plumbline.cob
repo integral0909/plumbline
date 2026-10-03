@@ -308,6 +308,13 @@ COPY "plbinput.cpy".
 01  WS-LSP-NAME             PIC X(31).
 *> textDocument/hover: the text of a table's hover.
 01  WS-LSP-HOVER            PIC X(4096).
+*> The program a CALL at the position names (LSP-FIND-CALLED).
+01  WS-CALL-WHERE           PIC X.
+01  WS-CALL-TOKEN           PIC 9(9) COMP-5.
+01  WS-CALL-PATH            PIC X(1024).
+01  WS-CALL-LINE            PIC 9(9) COMP-5.
+01  WS-CALL-USING           PIC X(512).
+01  WS-CALL-HOVER           PIC X(1024).
 01  WS-LSP-PIC              PIC X(64).
 01  WS-LSP-KIND-NUM         PIC 9(4) COMP-5.
 78  LSP-DOC-MAX             VALUE 64.
@@ -2195,7 +2202,26 @@ LSP-DEFINITION.
 *> NAME.cbl or NAME.cob (or in upper case) in the document's directory.
 *> WS-FOUND = "Y" when its location was written.
 LSP-CALL-DEFINITION.
+    PERFORM LSP-FIND-CALLED
+    EVALUATE WS-CALL-WHERE
+        WHEN "D"
+            MOVE WS-CALL-TOKEN TO WS-LSP-TOKEN
+            PERFORM LSP-APPEND-LOCATION
+            MOVE "Y" TO WS-FOUND
+        WHEN "O" WHEN "F"
+            PERFORM LSP-APPEND-FOUND-PROGRAM
+    END-EVALUATE.
+
+*> Where the program of a CALL "NAME" at the position is, as
+*> LSP-CALL-DEFINITION looks for it. WS-CALL-WHERE: D in the document
+*> (WS-CALL-TOKEN its name), O in another open document, F in a file
+*> (WS-LSP-TEXT-PATH its URI, WS-LSP-LINE and WS-LSP-CHAR its name),
+*> space nowhere. WS-CALL-PATH: the file to read it from (the copy of
+*> an open document's text, or the file).
+LSP-FIND-CALLED.
+    MOVE SPACE TO WS-CALL-WHERE
     MOVE "N" TO WS-FOUND
+    MOVE SPACES TO WS-CALL-PATH
     IF WS-LSP-TOKEN = 0
         EXIT PARAGRAPH
     END-IF
@@ -2218,9 +2244,10 @@ LSP-CALL-DEFINITION.
                 WS-LSP-QUALIFIER WS-TOKEN-LEN
             IF FUNCTION UPPER-CASE(WS-LSP-QUALIFIER) = WS-LSP-NAME
                AND TK-SRC-LINE(WS-TOK) > 0
-                MOVE WS-TOK TO WS-LSP-TOKEN
-                PERFORM LSP-APPEND-LOCATION
-                MOVE "Y" TO WS-FOUND
+                MOVE "D" TO WS-CALL-WHERE
+                MOVE WS-TOK TO WS-CALL-TOKEN
+                MOVE DOC-TEMP(WS-LSP-DOC-INDEX) TO WS-CALL-PATH
+                MOVE SL-LINE-NO(TK-SRC-LINE(WS-TOK)) TO WS-CALL-LINE
                 EXIT PARAGRAPH
             END-IF
         END-IF
@@ -2233,8 +2260,10 @@ LSP-CALL-DEFINITION.
             CALL "PLB-FIND-PROGRAM-ID" USING DOC-TEMP(WS-LSP-SLOT)
                 WS-LSP-NAME WS-LSP-LINE WS-LSP-CHAR
             IF WS-LSP-LINE > 0
+                MOVE "O" TO WS-CALL-WHERE
                 MOVE DOC-URI(WS-LSP-SLOT) TO WS-LSP-TEXT-PATH
-                PERFORM LSP-APPEND-FOUND-PROGRAM
+                MOVE DOC-TEMP(WS-LSP-SLOT) TO WS-CALL-PATH
+                MOVE WS-LSP-LINE TO WS-CALL-LINE
                 EXIT PARAGRAPH
             END-IF
         END-IF
@@ -2266,14 +2295,73 @@ LSP-CALL-DEFINITION.
         CALL "PLB-FIND-PROGRAM-ID" USING WS-PATH WS-LSP-NAME
             WS-LSP-LINE WS-LSP-CHAR
         IF WS-LSP-LINE > 0
+            MOVE "F" TO WS-CALL-WHERE
             MOVE SPACES TO WS-LSP-TEXT-PATH
             STRING "file://" DELIMITED BY SIZE
                    WS-PATH DELIMITED BY SPACE
                 INTO WS-LSP-TEXT-PATH
-            PERFORM LSP-APPEND-FOUND-PROGRAM
+            MOVE WS-PATH TO WS-CALL-PATH
+            MOVE WS-LSP-LINE TO WS-CALL-LINE
             EXIT PERFORM
         END-IF
     END-PERFORM.
+
+*> Hover over the program name of a CALL "NAME": where the program is,
+*> and what its PROCEDURE DIVISION takes.
+*>     ```cobol
+*>     PROGRAM-ID. CUSTLOOK.
+*>     PROCEDURE DIVISION USING LK-CUST-ID LK-CUST-NAME.
+*>     ```
+*>     custlook.cbl, line 3
+LSP-HOVER-CALL.
+    PERFORM LSP-FIND-CALLED
+    IF WS-CALL-WHERE = SPACE
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-FIND-PROGRAM-USING" USING WS-CALL-PATH WS-CALL-LINE
+        WS-CALL-USING
+    MOVE SPACES TO WS-LSP-HOVER
+    MOVE 1 TO WS-PTR
+    *> Real line ends: PLB-JSON-STRING escapes the text below.
+    STRING "```cobol" X"0A" "PROGRAM-ID. " DELIMITED BY SIZE
+           WS-LSP-NAME DELIMITED BY SPACE
+           "." X"0A" "PROCEDURE DIVISION" DELIMITED BY SIZE
+        INTO WS-LSP-HOVER WITH POINTER WS-PTR
+    IF WS-CALL-USING NOT = SPACES
+        STRING " " DELIMITED BY SIZE
+               FUNCTION TRIM(WS-CALL-USING) DELIMITED BY SIZE
+            INTO WS-LSP-HOVER WITH POINTER WS-PTR
+    END-IF
+    STRING "." X"0A" "```" X"0A" DELIMITED BY SIZE
+        INTO WS-LSP-HOVER WITH POINTER WS-PTR
+    MOVE WS-CALL-LINE TO WS-NUM
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    EVALUATE WS-CALL-WHERE
+        WHEN "D"
+            STRING "In this file, line " WS-NUM-TEXT(1:WS-NUM-LEN)
+                   "." DELIMITED BY SIZE
+                INTO WS-LSP-HOVER WITH POINTER WS-PTR
+        WHEN OTHER
+            *> The file's name, after the last slash of its URI.
+            CALL "PLB-STR-LENGTH" USING WS-LSP-TEXT-PATH WS-LEN
+            PERFORM VARYING WS-K FROM WS-LEN BY -1 UNTIL WS-K < 1
+                IF WS-LSP-TEXT-PATH(WS-K:1) = "/"
+                    EXIT PERFORM
+                END-IF
+            END-PERFORM
+            STRING "`" WS-LSP-TEXT-PATH(WS-K + 1:WS-LEN - WS-K)
+                   "`, line " WS-NUM-TEXT(1:WS-NUM-LEN) "."
+                   DELIMITED BY SIZE
+                INTO WS-LSP-HOVER WITH POINTER WS-PTR
+    END-EVALUATE
+    STRING '{"contents":{"kind":"markdown","value":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    COMPUTE WS-LEN = WS-PTR - 1
+    MOVE WS-LSP-HOVER(1:WS-LEN) TO WS-CALL-HOVER
+    CALL "PLB-JSON-STRING" USING WS-CALL-HOVER WS-LSP-OUT WS-LSP-PTR
+    *> The contents, the hover, and the response.
+    STRING '}}}' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE "Y" TO WS-FOUND.
 
 *> The location WS-LSP-TEXT-PATH (a URI), WS-LSP-LINE, WS-LSP-CHAR.
 LSP-APPEND-FOUND-PROGRAM.
@@ -3578,7 +3666,10 @@ LSP-HOVER.
         EXIT PARAGRAPH
     END-IF
     IF WS-LSP-SYMBOL = 0
-        PERFORM LSP-HOVER-SQL-TABLE
+        PERFORM LSP-HOVER-CALL
+        IF WS-FOUND = "N"
+            PERFORM LSP-HOVER-SQL-TABLE
+        END-IF
         IF WS-FOUND = "N"
             STRING "null}" DELIMITED BY SIZE
                 INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
