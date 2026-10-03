@@ -20,9 +20,14 @@
 *> words, literals, figurative constants, and special registers.
 *> Volume is N log2 n (N tokens, n distinct ones), difficulty
 *> (n1 / 2) (N2 / n2), and effort their product, each rounded. The
-*> maintainability index is the classic one, on a scale of 0 to 100:
-*> (171 - 5.2 ln(volume) - 0.23 complexity - 16.2 ln(code lines))
-*> * 100 / 171, and 0 when that is below 0.
+*> maintainability index is Oman and Hagemeister's, on a scale of 0 to
+*> 100, with the program's paragraphs and sections as its modules:
+*> (171 - 5.2 ln(V / m) - 0.23 C - 16.2 ln(L / m)) * 100 / 171, where m
+*> is the number of paragraphs and sections (1 when there are none),
+*> V the volume, C the average complexity of a paragraph or section,
+*> and L the code lines; 0 when that is below 0. Over a whole program
+*> the formula sinks to 0 past a few hundred lines; the original
+*> averages over the modules of a system for that reason.
 *> The limits are in plbmetrc.cpy.
 01  PLB-METRICS.
     05  MP-COUNT                PIC 9(4) COMP-5.

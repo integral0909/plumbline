@@ -827,7 +827,7 @@ check "metrics csv quotes paths"          0 '^"tests/golden/metrics/complexity.c
     -- metrics --report csv $mx/complexity.cob
 check "metrics start ends at the first paragraph" 0 '^"tests/fixtures/metrics/start.cob",START,start,,5,3,2,1,1,,$' \
     -- metrics --report csv tests/fixtures/metrics/start.cob
-check "metrics has Halstead measures"     0 '^  Halstead volume 435, difficulty 32, effort 13852; maintainability 49$' \
+check "metrics has Halstead measures"     0 '^  Halstead volume 435, difficulty 32, effort 13852; maintainability 58$' \
     -- metrics $mx/complexity.cob
 check "metrics refuses sarif"             2 "invalid --report format 'sarif' (expected text, json, or csv)" \
     -- metrics --report sarif $mx/complexity.cob
@@ -993,6 +993,27 @@ check "checkstyle report lists a clean file" 0 '<file name="tests/golden/rules/c
     -- check --report checkstyle --disable PLB-C001 --disable go-to $rx/c001-unreachable.cob
 check "checkstyle report maps severities"  1 'severity="info" message="GO TO makes the flow of control hard to follow" source="plumbline.PLB-M001"' \
     -- check --report checkstyle $rx/c001-unreachable.cob
+check "summary has a row per program"    0 '^METRICS  *28  *13  *58  *0  *3  *1  tests/golden/metrics/complexity.cob$' \
+    -- summary $mx/complexity.cob
+check "summary counts findings by program" 0 '^BILLING,"tests/fixtures/calls/billing.cob",1,11,1,67,0,1,0$' \
+    -- summary --report csv tests/fixtures/calls/billing.cob tests/fixtures/calls/custlook.cob
+check "summary in Markdown"                0 '^| METRICS | `tests/golden/metrics/complexity.cob` | 28 | 13 | 58 | 0 | 3 | 1 |$' \
+    -- summary --report md $mx/complexity.cob
+check "summary leaves out baselined findings" 0 '^ *27 *2 *[0-9]* *0 *0 *0  tests/golden/rules/c001-unreachable.cob$' \
+    -- summary --baseline $bx/c001.baseline --disable go-to $rx/c001-unreachable.cob
+check "summary refuses sarif"              2 "invalid --report format 'sarif' (expected text, md, csv, or json)" \
+    -- summary --report sarif $mx/complexity.cob
+n=$((n + 1))
+if "$bin" summary --report json $mx/complexity.cob tests/fixtures/calls/billing.cob | python3 -c '
+import json, sys
+programs = json.load(sys.stdin)["programs"]
+assert [p["program"] for p in programs] == ["METRICS", "BILLING"]
+assert programs[0]["warnings"] == 3 and programs[1]["warnings"] == 0
+'; then
+    echo "ok $n - summary json"
+else
+    failed=$((failed + 1)); echo "not ok $n - summary json"
+fi
 diff_fx=tests/fixtures/diff/after-range.diff
 check "diff keeps the findings on changed lines" 1 'c001-unreachable.cob:22:1: warning: paragraph AFTER-RANGE is never executed' \
     -- check --diff $diff_fx $rx/c001-unreachable.cob

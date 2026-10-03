@@ -215,6 +215,9 @@ uses [Semantic Versioning](https://semver.org/).
 - A `Dockerfile` for a container image with Plumbline and the GnuCOBOL
   run-time library, built and run by CI when it changes.
 - docs/ci.md: running Plumbline in CI.
+- `plumbline summary`: one row per program with its size, complexity,
+  maintainability index, and findings by severity, as text, Markdown,
+  CSV, or JSON.
 - `metrics`: Halstead's measures and the maintainability index of each
   program, in text, JSON, and CSV.
 - `doc` gives each program's maintainability index with its size.
