@@ -6,7 +6,7 @@ shows what it reports as you work.
 
 | Feature | What you see |
 |---------|--------------|
-| Diagnostics | Findings and input problems, underlined where they are, updated on every change |
+| Diagnostics | Findings and input problems, underlined where they are, updated on every change; each finding's rule id links to its section of the rule reference, and unreachable code, unused data items, and unused copybooks are faded out, as editors show unnecessary code |
 | Outline | Programs, sections, paragraphs, and data items of the file |
 | Workspace symbols | The same names in every open file, found by part of the name |
 | Go to definition | From a data name to its declaration (also in a copybook), from a paragraph or section name to the paragraph or section, and from a `COPY` statement to its copybook |

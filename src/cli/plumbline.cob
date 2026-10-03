@@ -1744,12 +1744,20 @@ LSP-PUBLISH.
             MOVE FN-COLUMN(WS-I) TO WS-LSP-CHAR
             MOVE FN-SEVERITY(WS-I) TO WS-LSP-SEVERITY
             PERFORM LSP-DIAGNOSTIC-START
+            *> The code links to the rule's section of the reference.
             STRING '"code":"' DELIMITED BY SIZE
                    RL-ID(FN-RULE(WS-I)) DELIMITED BY SPACE
-                   '","source":"plumbline","message":' DELIMITED BY SIZE
+                   '","codeDescription":{"href":"' DELIMITED BY SIZE
+                   PLB-RULES-URL DELIMITED BY SIZE
+                   "#" FUNCTION LOWER-CASE(RL-ID(FN-RULE(WS-I)))
+                   DELIMITED BY SPACE
+                   "-" DELIMITED BY SIZE
+                   RL-NAME(FN-RULE(WS-I)) DELIMITED BY SPACE
+                   '"},"source":"plumbline","message":' DELIMITED BY SIZE
                 INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
             CALL "PLB-JSON-STRING" USING FN-MESSAGE(WS-I) WS-LSP-OUT
                 WS-LSP-PTR
+            PERFORM LSP-DIAGNOSTIC-TAGS
             STRING "}" DELIMITED BY SIZE
                 INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
         END-IF
@@ -1772,6 +1780,18 @@ LSP-PUBLISH.
     END-PERFORM
     STRING "]}}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
     PERFORM LSP-SEND-OUT.
+
+*> Tags of finding WS-I: code that never runs or is never used is
+*> Unnecessary (1), which editors fade out; ALTER is Deprecated (2).
+LSP-DIAGNOSTIC-TAGS.
+    EVALUATE RL-ID(FN-RULE(WS-I))
+        WHEN "PLB-C001" WHEN "PLB-M003" WHEN "PLB-M013"
+            STRING ',"tags":[1]' DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        WHEN "PLB-M002"
+            STRING ',"tags":[2]' DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-EVALUATE.
 
 *> {"range":..., "severity":N, of a diagnostic at WS-LSP-LINE and
 *> WS-LSP-CHAR (1-based), as wide as the token there.
