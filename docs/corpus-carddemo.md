@@ -229,6 +229,10 @@ Some findings that were read and are true:
   `COPAUS2C`, which `COPAUS1C` only `LINK`s to with a COMMAREA; the rule
   now checks transaction programs only. With `EIBCALEN` renamed away in
   a copy of `COMEN01C`, its use of the COMMAREA is reported.
+- **PLB-J007 dataset-created-twice.** None: the jobs that rebuild a data
+  set delete it first in an `IEFBR14` step. With that step of `DUSRSECJ`
+  made to create the data set instead, the step that rebuilds it is
+  reported.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)

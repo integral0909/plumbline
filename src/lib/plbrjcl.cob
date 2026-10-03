@@ -13,6 +13,8 @@
 *>                                  no earlier step creates
 *>   PLB-J006  lrecl-mismatch       a DD's LRECL is not the length of
 *>                                  the program's records
+*>   PLB-J007  dataset-created-twice  a DD creates and catalogs a data
+*>                                  set an earlier DD already did
 *>
 *> A step that runs a program of the run (EXEC PGM=name) gives that
 *> program, and the programs it calls by literal name, their files:
@@ -88,6 +90,7 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH PLB-JCL.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J004" LS-RULE-UNREADABLE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J006" LS-RULE-LRECL
     CALL "PLB-RULE-JCL-TEMPS" USING PLB-RULES PLB-FINDINGS PLB-JCL
+    CALL "PLB-RULE-J007" USING PLB-RULES PLB-FINDINGS PLB-JCL
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
         IF JS-KIND(LS-S) = "P"
             PERFORM CHECK-STEP
@@ -487,3 +490,123 @@ REPORT-TEMP.
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
         JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
 END PROGRAM PLB-RULE-JCL-TEMPS.
+
+*> PLB-J007 dataset-created-twice: a DD that creates and catalogs a
+*> data set (DISP=(NEW,CATLG), or (,CATLG)) that an earlier DD of the
+*> same job, or procedure, already created and cataloged, with no DD
+*> in between that deletes it:
+*>
+*>     //EXTRACT  EXEC PGM=ACCTEXT
+*>     //OUT      DD DSN=PROD.ACCT.EXTRACT,DISP=(NEW,CATLG,DELETE)
+*>     //RESORT   EXEC PGM=SORT
+*>     //SORTOUT  DD DSN=PROD.ACCT.EXTRACT,DISP=(NEW,CATLG,DELETE)
+*>
+*> The data set exists when the second step asks for a new one: the
+*> step fails with a duplicate name, or the data set is made and left
+*> uncataloged (NOT CATLGD 2). Temporary data sets, generations
+*> (NAME(+1)), and names with symbols (&HLQ..NAME), which another
+*> procedure call may give another value, are not compared.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J007.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-FIRST                PIC 9(9) COMP-5.
+01  LS-CREATES              PIC X.
+01  LS-SAME-SCOPE           PIC X.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-N                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-NUM-TEXT             PIC X(12).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J007" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        MOVE LS-D TO LS-I
+        PERFORM TEST-CREATES
+        IF LS-CREATES = "Y"
+            PERFORM CHECK-EARLIER
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> LS-CREATES = "Y" when DD LS-I creates and catalogs a data set whose
+*> name can be compared.
+TEST-CREATES.
+    MOVE "N" TO LS-CREATES
+    IF JD-KIND(LS-I) NOT = "D" OR JD-QUALIFIER(LS-I) NOT = SPACES
+       OR JD-STEP(LS-I) = 0 OR JD-NORMAL(LS-I) NOT = "CATLG"
+        EXIT PARAGRAPH
+    END-IF
+    IF JD-DISP(LS-I) NOT = "NEW" AND JD-DISP(LS-I) NOT = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-N
+    INSPECT JD-DSN(LS-I) TALLYING LS-N FOR ALL "&" ALL "("
+    IF LS-N = 0
+        MOVE "Y" TO LS-CREATES
+    END-IF.
+
+*> The last earlier DD of the job or procedure that creates the same
+*> data set, unless one after it deletes it.
+CHECK-EARLIER.
+    MOVE 0 TO LS-FIRST
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E >= LS-D
+        IF JD-DSN(LS-E) = JD-DSN(LS-D) AND JD-STEP(LS-E) > 0
+            PERFORM TEST-SAME-SCOPE
+            IF LS-SAME-SCOPE = "Y"
+                MOVE LS-E TO LS-I
+                PERFORM TEST-CREATES
+                EVALUATE TRUE
+                    WHEN LS-CREATES = "Y"
+                        MOVE LS-E TO LS-FIRST
+                    WHEN JD-NORMAL(LS-E) = "DELETE"
+                    WHEN JD-NORMAL(LS-E) = "UNCATLG"
+                        MOVE 0 TO LS-FIRST
+                END-EVALUATE
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-FIRST > 0
+        PERFORM REPORT-TWICE
+    END-IF.
+
+*> LS-SAME-SCOPE = "Y" when DDs LS-E and LS-D are in steps of the same
+*> job, or of the same procedure.
+TEST-SAME-SCOPE.
+    MOVE "N" TO LS-SAME-SCOPE
+    IF (JS-JOB(JD-STEP(LS-E)) > 0
+        AND JS-JOB(JD-STEP(LS-E)) = JS-JOB(JD-STEP(LS-D)))
+       OR (JS-PROC(JD-STEP(LS-E)) > 0
+           AND JS-PROC(JD-STEP(LS-E)) = JS-PROC(JD-STEP(LS-D)))
+        MOVE "Y" TO LS-SAME-SCOPE
+    END-IF.
+
+REPORT-TWICE.
+    MOVE JD-LINE(LS-FIRST) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING JD-DSN(LS-D) DELIMITED BY SPACE
+           " is created and cataloged again; the DD on line "
+           DELIMITED BY SIZE
+           LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           " already did, and nothing deletes it in between"
+           DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
+END PROGRAM PLB-RULE-J007.
