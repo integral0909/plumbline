@@ -185,6 +185,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C052 string-overlap.
 - Rule PLB-Q005 into-count-mismatch.
 - Rule PLB-K003 commarea-without-length.
+- Rule PLB-C053 exit-program-in-main. `dump calls` is unchanged; the
+  call graph also keeps each program's first `EXIT PROGRAM`.
 - Rule PLB-J007 dataset-created-twice. `dump jcl` is unchanged; the
   JCL reader now keeps the normal disposition of each DD as well.
 - Language server: selection ranges (expand selection) from a name out
