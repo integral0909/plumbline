@@ -95,6 +95,26 @@ subscripts:
   offsets are subscripted compares the wrong text. That is why
   reference modifiers are left unchecked.
 
+## Damaged input
+
+An editor sends the language server every half-typed state of a
+program, so Plumbline has to cope with sources that are wrong in any
+way at all. `make fuzz` builds the bounds-checked binary and runs
+`tools/fuzz.py` with it on the programs, copybooks, and JCL of the
+corpora that have been downloaded (`make corpus`, `make
+corpus-gnucobol`, `make corpus-carddemo`). Each round damages a copy
+of one file (a line dropped, doubled, swapped, or cut short; a period,
+parenthesis, or quote dropped or added; the file cut off) and runs
+`plumbline check` on it. Findings and diagnostics are expected; a
+status other than 0 or 1, a signal, a run-time error from libcob, or
+a run past the time limit fails the round, and the copy is kept in
+`build/fuzz/` with its standard error. `FUZZ_COUNT` sets the number of
+rounds (1,000 by default) and `FUZZ_SEED` the seed, so a failure can
+be repeated.
+
+3,000 rounds over the three corpora (seed 2) and 300 over CardDemo
+alone (seed 1) ran without a failure.
+
 ## Rule reference
 
 `tests/tools/test_rules_doc.py` runs `plumbline rules --report json`

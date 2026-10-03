@@ -33,7 +33,7 @@ HARNESS_OBJ := $(patsubst tests/harness/%.cob,$(BUILD)/obj/harness/%.o,$(HARNESS
 TEST_SRC    := $(wildcard tests/unit/test-*.cob)
 TEST_BIN    := $(patsubst tests/unit/%.cob,$(BUILD)/tests/%,$(TEST_SRC))
 
-.PHONY: all clean test tests coverage golden-update corpus corpus-gnucobol corpus-carddemo check-bounds bench
+.PHONY: all clean test tests coverage golden-update corpus corpus-gnucobol corpus-carddemo check-bounds bench fuzz
 .SECONDARY: $(HARNESS_OBJ) $(LIB_OBJ)
 
 all: $(BIN)
@@ -115,6 +115,21 @@ BOUNDS_BUILD := $(BUILD)/bounds
 
 check-bounds:
 	$(MAKE) BUILD=$(BOUNDS_BUILD) EXTRA_COBFLAGS="-fec=EC-BOUND-SUBSCRIPT" test
+
+# Damaged copies of the corpora's sources, checked by the bounds-checked
+# build (docs/testing.md); run a corpus target first.
+FUZZ_COUNT ?= 1000
+FUZZ_SEED ?= 1
+
+fuzz:
+	$(MAKE) BUILD=$(BOUNDS_BUILD) EXTRA_COBFLAGS="-fec=EC-BOUND-SUBSCRIPT" all
+	@sources=$$(find $(BUILD)/corpus -type f \( -iname '*.cbl' -o -iname '*.cob' \
+	    -o -iname '*.cpy' -o -iname '*.jcl' \) -not -path '*/out/*' 2>/dev/null); \
+	if [ -z "$$sources" ]; then \
+	    echo "fuzz: no corpus sources; run make corpus-carddemo first" >&2; exit 2; \
+	fi; \
+	python3 tools/fuzz.py $(BOUNDS_BUILD)/bin/plumbline --seed $(FUZZ_SEED) \
+	    --count $(FUZZ_COUNT) --out $(BUILD)/fuzz $$sources
 
 clean:
 	rm -rf $(BUILD)
