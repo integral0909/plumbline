@@ -99,6 +99,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M015](#plb-m015-packed-even-digits) | packed-even-digits | note, off | Packed-decimal item has an even number of digits |
 | [PLB-M016](#plb-m016-signed-to-alphanumeric) | signed-to-alphanumeric | note, off | MOVE of a signed integer to an alphanumeric item |
 | [PLB-M017](#plb-m017-two-digit-year) | two-digit-year | note | ACCEPT FROM DATE or DAY gives a two-digit year |
+| [PLB-M018](#plb-m018-signed-to-unsigned) | signed-to-unsigned | note, off | MOVE of a signed number to an unsigned one drops its sign |
 | [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, off | CALL of a compiler library routine |
 | [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
 | [PLB-Q001](#plb-q001-sql-table-undeclared) | sql-table-undeclared | note | Embedded SQL uses a table the program does not declare |
@@ -2083,6 +2084,29 @@ wrongly across any new year: 26001 minus 25365 is 636, not one day.
 A program that only shows the date can leave it, which is why the rule
 is a note.
 
+
+## PLB-M018 signed-to-unsigned
+
+Off by default; turn it on with `--enable signed-to-unsigned` or in
+`plumbline.conf`. A `MOVE` of a signed number to an unsigned numeric
+item:
+
+```cobol
+01  WS-ADJUSTMENT      PIC S9(5)V99.
+01  WS-REPORT-AMOUNT   PIC 9(5)V99.
+    MOVE WS-ADJUSTMENT TO WS-REPORT-AMOUNT     *> reported
+```
+
+The receiver keeps the absolute value: an adjustment of -12.50 becomes
+12.50, a refund a charge. Give the receiver a sign, or an edited
+picture with one (`-ZZZZ9.99`), or test the sign before the move.
+
+Most signed items moved this way are identifiers and codes that are
+never negative but were declared signed out of habit, which is why the
+rule is off unless asked for: on the corpora it reports 91 moves in the
+NIST suite, 8 in GnuCOBOL's tests, and 107 in CardDemo (packed account
+ids, MQ completion codes). Turned on for a program that handles money,
+it finds the moves to look at.
 ## PLB-P001 vendor-routine
 
 *Off by default.* A CALL of a library routine that comes with some

@@ -107,6 +107,7 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE-DECIMAL-TEXT    PIC 9(4) COMP-5.
 01  LS-RULE-SIGNED-TEXT     PIC 9(4) COMP-5.
 01  LS-RULE-OVERLAP         PIC 9(4) COMP-5.
+01  LS-RULE-SIGN-LOST       PIC 9(4) COMP-5.
 01  LS-OVERLAP              PIC X.
 01  LS-SEND-SUBSCRIPTED     PIC X.
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
@@ -161,11 +162,13 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C039" LS-RULE-DECIMAL-TEXT
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M016" LS-RULE-SIGNED-TEXT
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C046" LS-RULE-OVERLAP
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M018" LS-RULE-SIGN-LOST
     IF RL-ENABLED(LS-RULE-TRUNCATION) NOT = "Y"
        AND RL-ENABLED(LS-RULE-NARROWING) NOT = "Y"
        AND RL-ENABLED(LS-RULE-DECIMAL-TEXT) NOT = "Y"
        AND RL-ENABLED(LS-RULE-SIGNED-TEXT) NOT = "Y"
        AND RL-ENABLED(LS-RULE-OVERLAP) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-SIGN-LOST) NOT = "Y"
         GOBACK
     END-IF
     IF RL-ENABLED(LS-RULE-OVERLAP) = "Y"
@@ -342,8 +345,30 @@ CHECK-RECEIVER.
                    AND LS-SEND-INT > LS-RECV-INT
                     PERFORM REPORT-DIGITS
                 END-IF
+                *> PLB-M018: a signed number into an unsigned one.
+                IF SY-CATEGORY(LS-SEND-SYM) = "9"
+                   AND SY-CATEGORY(LS-RECV) = "9"
+                   AND SY-SIGNED(LS-SEND-SYM) = "Y"
+                   AND SY-SIGNED(LS-RECV) NOT = "Y"
+                   AND RL-ENABLED(LS-RULE-SIGN-LOST) = "Y"
+                    PERFORM REPORT-SIGN-LOST
+                END-IF
             END-IF
     END-EVALUATE.
+
+*> PLB-M018: the receiver keeps the sender's absolute value; a negative
+*> amount comes out positive.
+REPORT-SIGN-LOST.
+    MOVE SPACES TO LS-MESSAGE
+    MOVE LS-RULE-SIGN-LOST TO LS-RULE
+    STRING "MOVE of signed " DELIMITED BY SIZE
+           SY-NAME(LS-SEND-SYM) DELIMITED BY SPACE
+           " to unsigned " DELIMITED BY SIZE
+           SY-NAME(LS-RECV) DELIMITED BY SPACE
+           " drops its sign: -5 is stored as 5" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    PERFORM REPORT-FINDING
+    MOVE SPACES TO LS-MESSAGE.
 
 *> PLB-C046: sender and receiver share storage, and are not the same
 *> item (PLB-C033). Subscripted items stand for their whole table here,
