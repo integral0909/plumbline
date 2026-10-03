@@ -1,0 +1,5 @@
+# Only the Makefile, copy/, and src/ go into the image build.
+*
+!Makefile
+!copy/
+!src/
