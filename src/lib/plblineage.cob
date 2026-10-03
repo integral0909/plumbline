@@ -41,6 +41,14 @@
 *>       EXEC SQL SELECT BALANCE INTO :WS-BALANCE FROM ACCOUNT ...
 *>         <- column BALANCE of ACCOUNT
 *>
+*> EXEC CICS commands are the same for files, maps, queues, and
+*> containers: READ ... INTO(item) shows where the record comes from,
+*> and WRITE ... FROM(item), forward, where it goes:
+*>
+*>     ACCT-REC  src/acctupd.cob:40
+*>       EXEC CICS READ FILE ("ACCTDAT") INTO (ACCT-REC) ...  (line 210)
+*>         <- CICS READ of file "ACCTDAT"
+*>
 *> As JSON, the tree is a list of nodes, each with its id and its
 *> parent's (0 for the item asked about):
 *>     {"lineage": [
@@ -61,6 +69,12 @@ COPY "plbsqlm.cpy".
 *> A link to another program, or to a column, as text; for JSON, its
 *> kind: "call" or "column".
 01  WS-LINK-KIND            PIC X(6).
+*> The CICS command, the kind of resource it names (file, map, queue,
+*> container), and the resource as written.
+01  WS-CICS-COMMAND         PIC X(12).
+01  WS-CICS-KIND            PIC X(9).
+01  WS-CICS-RESOURCE        PIC X(64).
+01  WS-CICS-INTO            PIC X(4).
 01  WS-LINK-TABLE           PIC X(64).
 01  WS-LINK                 PIC X(512).
 01  WS-LINK-PTR             PIC 9(9) COMP-5.
@@ -137,6 +151,8 @@ LOCAL-STORAGE SECTION.
 01  LS-QS                   PIC 9(9) COMP-5.
 01  LS-QP                   PIC 9(9) COMP-5.
 01  LS-QC                   PIC 9(9) COMP-5.
+*> Where the value goes after a CICS resource's name.
+01  LS-RES-PTR              PIC 9(9) COMP-5.
 *> Parentheses open in the statement text being written.
 01  LS-LEVEL                PIC 9(9) COMP-5.
 LINKAGE SECTION.
@@ -453,7 +469,14 @@ SHOW-STATEMENT.
         PERFORM CALLEE-LINK
     END-IF
     IF ND-DETAIL(LS-STMT) = "EXEC"
-        PERFORM SQL-LINKS
+        COMPUTE LS-T = ND-TOK-FIRST(LS-STMT) + 1
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+        EVALUATE FUNCTION UPPER-CASE(LS-TEXT)
+            WHEN "SQL"
+                PERFORM SQL-LINKS
+            WHEN "CICS"
+                PERFORM CICS-LINKS
+        END-EVALUATE
     END-IF
     *> The other items of the statement: what it reads, backward, and
     *> what it gives values to, forward.
@@ -560,9 +583,21 @@ APPEND-STATEMENT-TEXT.
                 END-IF
             END-IF
         END-IF
+        *> An alphanumeric literal with its prefix and quotes; its
+        *> token holds the characters only.
+        IF TK-IS-ALNUM(LS-T)
+            IF TK-PREFIX(LS-T) NOT = SPACES
+                STRING TK-PREFIX(LS-T) DELIMITED BY SPACE
+                    INTO WS-LINE WITH POINTER LS-PTR
+            END-IF
+            STRING '"' DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+        END-IF
         IF LS-LEN > 0
             STRING LS-TEXT(1:LS-LEN) DELIMITED BY SIZE
                 INTO WS-LINE WITH POINTER LS-PTR
+        END-IF
+        IF TK-IS-ALNUM(LS-T)
+            STRING '"' DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
         END-IF
         IF TK-IS-LPAREN(LS-T)
             ADD 1 TO LS-LEVEL
@@ -850,9 +885,176 @@ SQL-PAIR.
     END-IF
     PERFORM SHOW-LINK.
 
+*> EXEC CICS statement LS-STMT: backward, a command that reads into
+*> the item (READ, READNEXT, READPREV, RECEIVE, READQ, GET) names the
+*> file, map, queue, or container the value comes from; forward, one
+*> that writes from it (WRITE, REWRITE, SEND, WRITEQ, PUT), where it
+*> goes.
+CICS-LINKS.
+    COMPUTE LS-T = ND-TOK-FIRST(LS-STMT) + 2
+    IF LS-T > ND-TOK-LAST(LS-STMT)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-TEXT) TO WS-CICS-COMMAND
+    EVALUATE TRUE
+        WHEN LK-DIRECTION = "B"
+             AND (WS-CICS-COMMAND = "READ" OR "READNEXT" OR "READPREV"
+                  OR "RECEIVE" OR "READQ" OR "GET")
+            MOVE "INTO" TO WS-CICS-INTO
+        WHEN LK-DIRECTION = "F"
+             AND (WS-CICS-COMMAND = "WRITE" OR "REWRITE" OR "SEND"
+                  OR "WRITEQ" OR "PUT")
+            MOVE "FROM" TO WS-CICS-INTO
+        WHEN OTHER
+            EXIT PARAGRAPH
+    END-EVALUATE
+    *> The resource, and whether the INTO or FROM option names the
+    *> item.
+    MOVE SPACES TO WS-CICS-KIND WS-CICS-RESOURCE
+    MOVE "N" TO LS-RELATED
+    PERFORM VARYING LS-T FROM LS-T BY 1
+            UNTIL LS-T >= ND-TOK-LAST(LS-STMT)
+        IF TK-IS-WORD(LS-T) AND TK-IS-LPAREN(LS-T + 1)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+            EVALUATE LS-TEXT
+                WHEN "FILE" WHEN "DATASET"
+                    MOVE "file" TO WS-CICS-KIND
+                    PERFORM CICS-RESOURCE
+                WHEN "MAP"
+                    MOVE "map" TO WS-CICS-KIND
+                    PERFORM CICS-RESOURCE
+                WHEN "QUEUE" WHEN "QNAME"
+                    MOVE "queue" TO WS-CICS-KIND
+                    PERFORM CICS-RESOURCE
+                WHEN "CONTAINER"
+                    MOVE "container" TO WS-CICS-KIND
+                    PERFORM CICS-RESOURCE
+                WHEN OTHER
+                    IF LS-TEXT = WS-CICS-INTO
+                        PERFORM CICS-OPERAND
+                    END-IF
+            END-EVALUATE
+        END-IF
+    END-PERFORM
+    IF LS-RELATED = "N" OR WS-CICS-KIND = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "cics" TO WS-LINK-KIND
+    MOVE SPACES TO WS-LINK
+    MOVE 1 TO WS-LINK-PTR
+    IF LK-DIRECTION = "B"
+        STRING "<- " DELIMITED BY SIZE
+            INTO WS-LINK WITH POINTER WS-LINK-PTR
+    ELSE
+        STRING "-> " DELIMITED BY SIZE
+            INTO WS-LINK WITH POINTER WS-LINK-PTR
+    END-IF
+    STRING "CICS " DELIMITED BY SIZE
+           WS-CICS-COMMAND DELIMITED BY SPACE
+           " of " DELIMITED BY SIZE
+           WS-CICS-KIND DELIMITED BY SPACE
+           " " DELIMITED BY SIZE
+           WS-CICS-RESOURCE DELIMITED BY "  "
+        INTO WS-LINK WITH POINTER WS-LINK-PTR
+    PERFORM SHOW-LINK.
+
+*> The resource in the parentheses after token LS-T, as written; for
+*> a data item with a literal VALUE, the value after it, as in
+*> LIT-ACCTFILE ("ACCTDAT").
+CICS-RESOURCE.
+    MOVE SPACES TO WS-CICS-RESOURCE
+    COMPUTE LS-N = LS-T + 2
+    IF LS-N > ND-TOK-LAST(LS-STMT)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-N LS-TEXT LS-LEN
+    IF TK-IS-ALNUM(LS-N)
+        STRING '"' LS-TEXT(1:LS-LEN) '"' DELIMITED BY SIZE
+            INTO WS-CICS-RESOURCE
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-TEXT(1:LS-LEN) TO WS-CICS-RESOURCE
+    COMPUTE LS-RES-PTR = LS-LEN + 1
+    PERFORM VARYING LS-Q FROM 1 BY 1 UNTIL LS-Q > RF-COUNT
+        IF RF-TOKEN(LS-Q) = LS-N
+            IF RF-KIND(LS-Q) = "D" AND RF-SYMBOL(LS-Q) > 0
+                PERFORM RESOURCE-VALUE
+            END-IF
+            EXIT PERFORM
+        END-IF
+        IF RF-TOKEN(LS-Q) > LS-N
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+*> The literal of the VALUE clause of the item reference LS-Q names,
+*> after its name.
+RESOURCE-VALUE.
+    IF SY-NODE(RF-SYMBOL(LS-Q)) = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE ND-FIRST(SY-NODE(RF-SYMBOL(LS-Q))) TO LS-UP
+    PERFORM UNTIL LS-UP = 0
+        IF ND-KIND(LS-UP) = "CLAU" AND ND-DETAIL(LS-UP) = "VALUE"
+            PERFORM VARYING LS-N FROM ND-TOK-FIRST(LS-UP) BY 1
+                    UNTIL LS-N > ND-TOK-LAST(LS-UP)
+                IF TK-IS-ALNUM(LS-N)
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-N LS-TEXT
+                        LS-LEN
+                    STRING ' ("' DELIMITED BY SIZE
+                           FUNCTION TRIM(LS-TEXT(1:LS-LEN) TRAILING)
+                           DELIMITED BY SIZE
+                           '")' DELIMITED BY SIZE
+                        INTO WS-CICS-RESOURCE WITH POINTER LS-RES-PTR
+                    EXIT PARAGRAPH
+                END-IF
+            END-PERFORM
+        END-IF
+        MOVE ND-NEXT(LS-UP) TO LS-UP
+    END-PERFORM.
+
+*> The references inside the parentheses after token LS-T: LS-RELATED
+*> = "Y" when one is LS-ITEM or related to it.
+CICS-OPERAND.
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        IF RF-TOKEN(LS-R) > LS-T + 1
+            IF TK-IS-RPAREN(RF-TOKEN(LS-R) - 1)
+               OR RF-TOKEN(LS-R) > ND-TOK-LAST(LS-STMT)
+                EXIT PERFORM
+            END-IF
+            IF RF-KIND(LS-R) = "D" AND RF-SYMBOL(LS-R) > 0
+                PERFORM TEST-RELATED
+                IF LS-RELATED = "Y"
+                    EXIT PERFORM
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
+
 *> WS-LINK one level below the current node, as a line or a JSON node
-*> of kind "call" or "column" with its fields.
+*> of kind "call", "column", or "cics" with its fields.
 SHOW-LINK.
+    IF LK-FORMAT = "json" AND WS-LINK-KIND = "cics"
+        MOVE LS-OWN-NODE TO LS-PARENT
+        PERFORM START-NODE
+        STRING '"kind": "cics", "text": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        CALL "PLB-JSON-STRING" USING WS-LINK WS-LINE LS-PTR
+        STRING ', "command": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        CALL "PLB-JSON-STRING" USING WS-CICS-COMMAND WS-LINE LS-PTR
+        STRING ', "resource": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        CALL "PLB-JSON-STRING" USING WS-CICS-KIND WS-LINE LS-PTR
+        STRING ', "name": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        CALL "PLB-JSON-STRING" USING WS-CICS-RESOURCE WS-LINE LS-PTR
+        STRING "}" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+        PERFORM END-NODE
+        EXIT PARAGRAPH
+    END-IF
     IF LK-FORMAT = "json" AND WS-LINK-KIND = "column"
         MOVE LS-OWN-NODE TO LS-PARENT
         PERFORM START-NODE

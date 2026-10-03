@@ -338,12 +338,18 @@ Embedded SQL is where a trail meets the database: an item that a
 `SELECT ... INTO` or `FETCH` gives its value names the column it comes
 from (`<- column BALANCE of ACCOUNT`, the table of a `FETCH` taken from
 its cursor), and, forward, an item that `INSERT` or `UPDATE` stores
-names its column (`-> column BALANCE of ACCOUNT`). A file is where the
-trail leaves for good. `--report json` gives the tree
-as a list of nodes (items, statements, calls, and columns), each with
-its id and its parent's; a call node gives the side (`caller` or
-`callee`), the other program, the position, and the item there, and a
-column node the table and the column.
+names its column (`-> column BALANCE of ACCOUNT`). `EXEC CICS` commands
+are shown the same way: `READ`, `RECEIVE`, `READQ`, and `GET` with
+`INTO` an item name the file, map, queue, or container the value comes
+from (`<- CICS READ of file "ACCTDAT"`, or `of file LIT-ACCTFILE
+("ACCTDAT")` for an item with that `VALUE`), and `WRITE`, `REWRITE`,
+`SEND`, `WRITEQ`, and `PUT` with `FROM` it, forward, where it goes. A
+file is where the trail leaves for good. `--report json` gives the tree
+as a list of nodes (items, statements, calls, columns, and CICS
+resources), each with its id and its parent's; a call node gives the
+side (`caller` or `callee`), the other program, the position, and the
+item there, a column node the table and the column, and a CICS node
+the command, the kind of resource, and its name.
 
 ## Duplicate code
 

@@ -232,7 +232,8 @@ uses [Semantic Versioning](https://semver.org/).
   `CALL` the parameter it passes the item to.
 - `lineage` names the table column of embedded SQL that gives an item
   its value (`SELECT INTO`, `FETCH`) or that it is stored in (`INSERT`,
-  `UPDATE`).
+  `UPDATE`), and the CICS file, map, queue, or container that an
+  `EXEC CICS` command reads it from or writes it to.
 - `plumbline duplicates`: paragraphs with the same code, across the
   programs of the run, as text or JSON.
 - `plumbline xref`: the cross-reference of each program, its data
@@ -312,6 +313,8 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- `lineage` writes alphanumeric literals in statement text with their
+  quotes and prefix, as `MOVE "Y" TO WS-FLAG`, not `MOVE Y TO WS-FLAG`.
 - `USAGE SQL TYPE IS type` (DB2 locators, LOBs, ROWID) is one usage
   clause: its type is no longer read as a TYPEDEF name and reported as
   undeclared (PLB-C009).
