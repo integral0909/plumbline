@@ -10,7 +10,7 @@ shows what it reports as you work.
 | Outline | Programs, sections, paragraphs, and data items of the file |
 | Workspace symbols | The same names in every open file, found by part of the name |
 | Go to definition | From a data name to its declaration (also in a copybook), from a paragraph or section name to the paragraph or section, and from a `COPY` statement to its copybook |
-| Hover | A data item's level, picture, usage, size, offset, and record; a paragraph's or section's lines, statements, complexity, the `PERFORM` and `GO TO` statements naming it, and whether it ever runs |
+| Hover | A data item's level, picture, usage, size, offset, and record, and for a host variable of embedded SQL the column it is fetched from or stored in, with its type; a paragraph's or section's lines, statements, complexity, the `PERFORM` and `GO TO` statements naming it, and whether it ever runs |
 | Find references | Every reference to a data item (also in copybooks), or every `PERFORM`, `GO TO`, `ALTER`, and `SORT` procedure naming a paragraph or section of the same program |
 | Highlight | The same references in the open file, with reads and writes of a data item told apart |
 | Quick fix | For a finding, a comment on the line before that suppresses its rule there (`*> plumbline: ignore unreachable-code`) |
