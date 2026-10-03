@@ -252,6 +252,14 @@ Some findings that were read and are true:
   variables of their DCLGEN copybooks, which match the tables. With the
   text of the VARCHAR structure for `TR_DESCRIPTION` made 40 characters
   in a copy of `DCLTRTYP`, the `SELECT` of `COTRTUPC` is reported.
+- **PLB-C054 go-to-into-perform-range.** Three, all the same mistake.
+  `COACTUPC` performs `9700-CHECK-CHANGE-IN-REC THRU
+  9700-CHECK-CHANGE-IN-REC-EXIT` from within `9600-WRITE-PROCESSING`,
+  and the check, when it finds a change, goes to
+  `9600-WRITE-PROCESSING-EXIT` (twice) instead of its own exit:
+  the inner `PERFORM` is left unfinished and the outer range returns.
+  `COCRDUPC` does the same from `9300-CHECK-CHANGE-IN-REC` to
+  `9200-WRITE-PROCESSING-EXIT`.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)

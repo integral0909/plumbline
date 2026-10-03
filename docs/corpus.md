@@ -225,6 +225,15 @@ The findings were checked by rule:
   two indexes the performed paragraph moves with `SET ... DOWN BY`; a
   condition that names an index is now left alone.
 
+- **PLB-C054 go-to-into-perform-range.** 19, in tests that jump into
+  other ranges on purpose: the segmentation tests `SG102A`, `SG202A`,
+  and `SG203A`, and the sort tests `ST119A` and `ST127A`, whose second
+  output procedure goes to `RETURN-ERROR` in the first's range. A first
+  version also reported the standard `FAIL-ROUTINE`, whose `GO TO
+  FAIL-ROUTINE-EX` stays within `FAIL-ROUTINE THRU FAIL-ROUTINE-EX`
+  while `FAIL-ROUTINE-WRITE THRU FAIL-ROUTINE-EX` shares the exit; jumps
+  within another range are now left out, and GnuCOBOL's tests have none.
+
 ## Limits
 
 - **Report Writer** is parsed and its `SOURCE`, `SUM`, and `CONTROL`

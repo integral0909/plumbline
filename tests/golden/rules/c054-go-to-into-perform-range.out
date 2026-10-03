@@ -1,0 +1,5 @@
+tests/golden/rules/c054-go-to-into-perform-range.cob:16:9: note: GO TO makes the flow of control hard to follow [PLB-M001]
+tests/golden/rules/c054-go-to-into-perform-range.cob:25:9: note: GO TO makes the flow of control hard to follow [PLB-M001]
+tests/golden/rules/c054-go-to-into-perform-range.cob:25:15: warning: GO TO 9200-WRITE-EXIT enters the middle of the range 9200-WRITE THRU 9200-WRITE-EXIT performed on line 10 [PLB-C054]
+tests/golden/rules/c054-go-to-into-perform-range.cob:33:9: note: GO TO makes the flow of control hard to follow [PLB-M001]
+tests/golden/rules/c054-go-to-into-perform-range.cob:39:1: warning: paragraph SECOND-ENTRY is never executed [PLB-C001]
