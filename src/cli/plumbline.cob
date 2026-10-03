@@ -31,8 +31,9 @@
 *>   plumbline format --to fixed|free --check [--format ...] FILE...
 *>   plumbline lsp [-I DIR]... [--format ...] [--enable RULE]...
 *>       a language server on standard input and output
-*>   plumbline dump lines  [--format fixed|free|auto] FILE...
-*>   plumbline dump tokens [--format fixed|free|auto] [--debug] FILE...
+*>   plumbline dump lines  [--format fixed|free|variable|auto] FILE...
+*>   plumbline dump tokens [--format fixed|free|variable|auto] [--debug]
+*>                         FILE...
 *>   plumbline dump expanded [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump ast [-I DIR]... [--format ...] [--debug] FILE...
 *>   plumbline dump symbols [-I DIR]... [--format ...] [--debug] FILE...
@@ -532,8 +533,8 @@ SHOW-USAGE.
     DISPLAY "  dump ims         show the databases and PSBs of IMS DBD and PSB sources"
     DISPLAY " "
     DISPLAY "Command options:"
-    DISPLAY "  --format FORMAT  reference format: fixed, free, or auto"
-    DISPLAY "                   (default auto)"
+    DISPLAY "  --format FORMAT  reference format: fixed, free, variable,"
+    DISPLAY "                   or auto (default auto)"
     DISPLAY "  --debug          treat debugging lines as code"
     DISPLAY "  -I DIR           search DIR for copybooks (repeatable)"
     DISPLAY "  --tab-width N    tab stops every N columns (default 8)"
@@ -2498,7 +2499,7 @@ LSP-APPEND-SUPPRESS-ACTION.
     IF WS-PTR < 390
         MOVE RL-ID(FN-RULE(WS-I))(1:8) TO WS-LSP-OFFERED(WS-PTR + 1:8)
     END-IF
-    IF SL-FORMAT(FN-SRC-LINE(WS-I)) = "X"
+    IF SL-FORMAT(FN-SRC-LINE(WS-I)) NOT = "F"
         MOVE 6 TO WS-LSP-INDENT
     ELSE
         COMPUTE WS-LSP-INDENT = SL-CONTENT-COL(FN-SRC-LINE(WS-I)) - 1
@@ -5877,9 +5878,11 @@ SET-MODE.
             MOVE "F" TO WS-MODE
         WHEN "auto"
             MOVE "A" TO WS-MODE
+        WHEN "variable"
+            MOVE "V" TO WS-MODE
         WHEN OTHER
             DISPLAY PLB-NAME ": invalid format '" WS-ARG(1:WS-ARG-LEN)
-                "' (expected fixed, free, or auto)" UPON SYSERR
+                "' (expected fixed, free, variable, or auto)" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
     END-EVALUATE.
 
@@ -5939,11 +5942,11 @@ DUMP-ONE-LINE.
         WHEN SL-IS-DIRECTIVE(WS-I)     MOVE "directive" TO WS-KIND-NAME
         WHEN OTHER                     MOVE "?"         TO WS-KIND-NAME
     END-EVALUATE
-    IF SL-FORMAT(WS-I) = "F"
-        MOVE "free" TO WS-FORMAT-NAME
-    ELSE
-        MOVE "fixed" TO WS-FORMAT-NAME
-    END-IF
+    EVALUATE SL-FORMAT(WS-I)
+        WHEN "F"   MOVE "free" TO WS-FORMAT-NAME
+        WHEN "V"   MOVE "var" TO WS-FORMAT-NAME
+        WHEN OTHER MOVE "fixed" TO WS-FORMAT-NAME
+    END-EVALUATE
     STRING WS-KIND-NAME " " WS-FORMAT-NAME " "
         DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
     IF SL-AREA-A(WS-I) = "Y"

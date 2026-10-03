@@ -742,8 +742,14 @@ check "dynamic-call is off by default"    0 '^$' -- check --disable call-argumen
 check "dump calls lists parameters"       0 '^  parameter LK-CUST-ID reference 8$' -- dump calls $cx/custlook.cob
 check "help lists dump calls"             0 'dump calls' -- --help
 check "dump lines needs files"            2 'no input files' -- dump lines
-check "invalid --format value"            2 "invalid format 'variable'" \
-    -- dump lines --format variable $fx/fixed-basic.cbl
+check "invalid --format value"            2 "invalid format 'cobolx' (expected fixed, free, variable, or auto)" \
+    -- dump lines --format cobolx $fx/fixed-basic.cbl
+check "variable format reads past column 72" 0 'variable.cbl:6: code      var   A PROCEDURE DIVISION.*TO WS-RESULT-OF-THE-COMPUTATION$' \
+    -- dump lines --format variable tests/fixtures/reader/variable.cbl
+check "variable format from a directive"   0 'variable-directive.cbl:7: code      var' \
+    -- dump lines tests/fixtures/reader/variable-directive.cbl
+check_absent "variable format leaves no names cut" 'PLB-C009' \
+    -- check --format variable tests/fixtures/reader/variable.cbl
 check "unknown dump option"               2 "unknown option '--frob'" -- dump lines --frob $fx/fixed-basic.cbl
 bx=tests/fixtures/baseline
 check "--baseline hides the findings it lists" 0 '^$' -- check --baseline $bx/c001.baseline $rx/c001-unreachable.cob

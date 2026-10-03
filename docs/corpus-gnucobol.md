@@ -32,12 +32,14 @@ compiles with.
 
 | | First run | Now |
 |---|---:|---:|
-| Programs (in formats Plumbline reads) | 1,025 | 1,025 |
+| Programs (in formats Plumbline reads) | 1,025 | 1,027 |
 | Programs with input errors | 44 | 1 |
 | Programs with names reported as undefined or ambiguous | 136 | 3 |
 
-Ten more programs are in reference formats Plumbline does not read
-(COBOLX, VARIABLE, X/Open free form, ACU terminal) and are not counted.
+Eight more programs are in reference formats Plumbline does not read
+(COBOLX, X/Open free form, ACU terminal) and are not counted. The two
+in Micro Focus's VARIABLE format, with code past column 72, are read
+since that format was added, and have no findings.
 
 What the first run found, each fixed with a test of its own:
 

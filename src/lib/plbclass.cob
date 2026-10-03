@@ -82,12 +82,50 @@ PROCEDURE DIVISION USING LK-LINE LK-FROM LK-TO LK-QUOTE-IN
     GOBACK.
 END PROGRAM PLB-SRC-SCAN.
 
-*> PLB-SRC-CLASSIFY-FIXED: classify a fixed-format line.
-*> LENGTH is the number of significant characters in LINE.
-*> QUOTE-IN is the open-literal quote carried from the previous code
-*> line; it only matters for continuation lines.
+*> PLB-SRC-CLASSIFY-FIXED: classify a fixed-format line, whose program
+*> text ends at column 72 (see PLB-SRC-CLASSIFY-COLUMNS).
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-SRC-CLASSIFY-FIXED.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-MARGIN               PIC 9(4) COMP-5 VALUE 72.
+LINKAGE SECTION.
+01  LK-LINE                 PIC X ANY LENGTH.
+01  LK-LENGTH               PIC 9(9) COMP-5.
+01  LK-QUOTE-IN             PIC X.
+COPY "plbcls.cpy".
+PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
+    CALL "PLB-SRC-CLASSIFY-COLUMNS" USING LK-LINE LK-LENGTH LK-QUOTE-IN
+        WS-MARGIN PLB-CLASSIFIED
+    GOBACK.
+END PROGRAM PLB-SRC-CLASSIFY-FIXED.
+
+*> PLB-SRC-CLASSIFY-VARIABLE: classify a line of Micro Focus's VARIABLE
+*> format: as fixed format, but the program text runs to column 250,
+*> with no identification area after column 72.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SRC-CLASSIFY-VARIABLE.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-MARGIN               PIC 9(4) COMP-5 VALUE 250.
+LINKAGE SECTION.
+01  LK-LINE                 PIC X ANY LENGTH.
+01  LK-LENGTH               PIC 9(9) COMP-5.
+01  LK-QUOTE-IN             PIC X.
+COPY "plbcls.cpy".
+PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
+    CALL "PLB-SRC-CLASSIFY-COLUMNS" USING LK-LINE LK-LENGTH LK-QUOTE-IN
+        WS-MARGIN PLB-CLASSIFIED
+    GOBACK.
+END PROGRAM PLB-SRC-CLASSIFY-VARIABLE.
+
+*> PLB-SRC-CLASSIFY-COLUMNS: classify a line in fixed columns: the
+*> sequence area in 1 to 6, the indicator in 7, the program text from
+*> 8 to MARGIN. LENGTH is the number of significant characters in
+*> LINE. QUOTE-IN is the open-literal quote carried from the previous
+*> code line; it only matters for continuation lines.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SRC-CLASSIFY-COLUMNS.
 DATA DIVISION.
 LOCAL-STORAGE SECTION.
 01  LS-FROM                 PIC 9(4) COMP-5.
@@ -100,8 +138,10 @@ LINKAGE SECTION.
 01  LK-LINE                 PIC X ANY LENGTH.
 01  LK-LENGTH               PIC 9(9) COMP-5.
 01  LK-QUOTE-IN             PIC X.
+01  LK-MARGIN               PIC 9(4) COMP-5.
 COPY "plbcls.cpy".
-PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
+PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN LK-MARGIN
+        PLB-CLASSIFIED.
     MOVE "B" TO CL-KIND
     MOVE SPACE TO CL-INDICATOR CL-OPEN-QUOTE CL-PROBLEM
     MOVE "N" TO CL-AREA-A
@@ -114,8 +154,8 @@ PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
 
     MOVE LK-LINE(7:1) TO CL-INDICATOR
     MOVE 8 TO LS-FROM
-    MOVE 72 TO LS-TO
-    IF LK-LENGTH < 72
+    MOVE LK-MARGIN TO LS-TO
+    IF LK-LENGTH < LK-MARGIN
         *> plumbline: ignore move-truncation -- a line is at most 1024 columns
         MOVE LK-LENGTH TO LS-TO
     END-IF
@@ -212,7 +252,7 @@ SET-CONTENT.
             MOVE "Y" TO CL-AREA-A
         END-IF
     END-IF.
-END PROGRAM PLB-SRC-CLASSIFY-FIXED.
+END PROGRAM PLB-SRC-CLASSIFY-COLUMNS.
 
 *> PLB-SRC-FIRST-FROM: first non-space column of LINE within
 *> FROM..TO, or 0.
@@ -306,10 +346,11 @@ END PROGRAM PLB-SRC-CLASSIFY-FREE.
 
 *> PLB-SRC-DIRECTIVE-FORMAT: decide whether directive TEXT switches
 *> the reference format. FORMAT receives:
-*>   "X" fixed, "F" free, space if TEXT is not a format directive,
+*>   "X" fixed, "F" free, "V" variable, space if TEXT is not a
+*>   format directive,
 *>   "?" a format directive naming a format Plumbline does not read.
 *> Recognized forms (case-insensitive):
-*>   >>SOURCE [FORMAT] [IS] FIXED|FREE
+*>   >>SOURCE [FORMAT] [IS] FIXED|FREE|VARIABLE
 *>   $SET SOURCEFORMAT"FIXED"   $SET SOURCEFORMAT(FREE)   and similar
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-SRC-DIRECTIVE-FORMAT.
@@ -364,6 +405,8 @@ DECODE-FORMAT.
             MOVE "X" TO LK-FORMAT
         WHEN "FREE"
             MOVE "F" TO LK-FORMAT
+        WHEN "VARIABLE"
+            MOVE "V" TO LK-FORMAT
         WHEN OTHER
             MOVE "?" TO LK-FORMAT
     END-EVALUATE.
