@@ -68,6 +68,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C054](#plb-c054-go-to-into-perform-range) | go-to-into-perform-range | warning | GO TO from outside a PERFORM THRU range into its middle |
 | [PLB-C055](#plb-c055-corresponding-no-match) | corresponding-no-match | warning | MOVE, ADD, or SUBTRACT CORRESPONDING finds no items to pair |
 | [PLB-C056](#plb-c056-self-comparison) | self-comparison | warning | Data item is compared with itself |
+| [PLB-C057](#plb-c057-misleading-indentation) | misleading-indentation | warning | Statement indented as if inside an IF a period has ended |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1573,6 +1574,30 @@ The sides must be whole operands (`WS-COUNT + 1 > WS-COUNT` is not
 reported) and the same tokens, subscripts and reference modifiers
 included (`WS-ENTRY (WS-I) = WS-ENTRY (WS-J)` is not reported). The
 `=` of `COMPUTE` stores a value and is not a condition.
+
+## PLB-C057 misleading-indentation
+
+A statement indented as if it were inside the `IF` before it, when a
+period has already ended the `IF`:
+
+```cobol
+    IF WS-AMOUNT > WS-LIMIT
+        MOVE "Y" TO WS-OVER-LIMIT.
+        PERFORM 900-WRITE-EXCEPTION                *> reported
+```
+
+The period ends every open statement, so the `PERFORM` runs whatever
+the condition, though it reads as part of the `IF`. Either the period
+is a mistake, the classic one of COBOL before `END-IF`, or the
+indentation is. The same holds after `EVALUATE`, `SEARCH`, an inline
+`PERFORM`, or any statement with a body, and after an `ELSE`.
+
+The statement reported starts the sentence after the one the `IF` ends,
+in the same paragraph, on a later line and further right than the
+`IF`. An `IF` without `ELSE` whose body ends with `GO TO`, `GOBACK`,
+`STOP RUN`, or `EXIT` is left alone: the code after it runs only when
+the condition is false, and indenting it as an "else" is a common style.
+Copybook text is not checked.
 
 ## PLB-I001 pcb-dbd-unknown
 
