@@ -536,6 +536,8 @@ reported.
 - [Diagnostics](docs/diagnostics.md): problems reading the input, and limits
 - [COBOL dialects](docs/dialects.md): what Plumbline reads, and what not
 - [Using Plumbline in an editor](docs/editors.md)
+- [Running Plumbline in CI](docs/ci.md): reports, baselines and diffs,
+  GitHub Actions and GitLab
 - [Running Plumbline on the NIST COBOL-85 suite](docs/corpus.md)
 - [Running Plumbline on GnuCOBOL's test suite](docs/corpus-gnucobol.md)
 - [Running Plumbline on AWS CardDemo](docs/corpus-carddemo.md)

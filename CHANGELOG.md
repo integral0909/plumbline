@@ -213,6 +213,7 @@ uses [Semantic Versioning](https://semver.org/).
   items, and unused copybooks are tagged unnecessary, `ALTER` deprecated.
 - A `Dockerfile` for a container image with Plumbline and the GnuCOBOL
   run-time library, built and run by CI when it changes.
+- docs/ci.md: running Plumbline in CI.
 - `check --diff FILE`: report only the findings on the lines a unified
   diff adds or changes.
 - `check --report checkstyle`: Checkstyle XML, for review tools and CI
