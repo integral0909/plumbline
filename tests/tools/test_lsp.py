@@ -100,6 +100,7 @@ class LanguageServerTest(unittest.TestCase):
         self.assertTrue(self.capabilities["inlayHintProvider"])
         self.assertIn("completionProvider", self.capabilities)
         self.assertTrue(self.capabilities["callHierarchyProvider"])
+        self.assertIn("signatureHelpProvider", self.capabilities)
         legend = self.capabilities["semanticTokensProvider"]["legend"]
         self.assertIn("variable", legend["tokenTypes"])
         self.assertEqual(
@@ -409,6 +410,56 @@ class LanguageServerTest(unittest.TestCase):
                 "textDocument": {"uri": uri},
                 "position": {"line": 5, "character": 11}})
             self.assertIsNone(reply["result"])
+
+    def test_signature_help_in_a_call(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with open(os.path.join(directory, "custlook.cbl"), "w") as f:
+                f.write("       IDENTIFICATION DIVISION.\n"
+                        "       PROGRAM-ID. CUSTLOOK.\n"
+                        "       DATA DIVISION.\n"
+                        "       LINKAGE SECTION.\n"
+                        "       01  LK-ID     PIC X(8).\n"
+                        "       01  LK-NAME   PIC X(30).\n"
+                        "       PROCEDURE DIVISION USING BY REFERENCE\n"
+                        "               LK-ID LK-NAME.\n"
+                        "           GOBACK.\n")
+            program = os.path.join(directory, "billing.cob")
+            lines = ["IDENTIFICATION DIVISION.", "PROGRAM-ID. BILLING.",
+                     "DATA DIVISION.", "WORKING-STORAGE SECTION.",
+                     "01  WS-REC.", "    05  WS-ID    PIC X(8).",
+                     "01  WS-NAME  PIC X(30).",
+                     "PROCEDURE DIVISION.",
+                     "    CALL \"CUSTLOOK\" USING WS-ID OF WS-REC",
+                     "        BY CONTENT WS-NAME",
+                     "    DISPLAY WS-NAME",
+                     "    GOBACK."]
+            uri = "file://" + os.path.realpath(program)
+            self.server.notify("textDocument/didOpen", {"textDocument": {
+                "uri": uri, "languageId": "cobol", "version": 1,
+                "text": "\n".join(lines) + "\n"}})
+            self.server.receive()
+
+            def help_at(line, character):
+                return self.server.request("textDocument/signatureHelp", {
+                    "textDocument": {"uri": uri},
+                    "position": {"line": line, "character": character}}
+                )["result"]
+
+            result = help_at(8, lines[8].index("WS-ID") + 2)
+            signature = result["signatures"][0]
+            self.assertEqual(signature["label"],
+                             "CUSTLOOK USING BY REFERENCE LK-ID LK-NAME")
+            self.assertEqual([p["label"] for p in signature["parameters"]],
+                             ["LK-ID", "LK-NAME"])
+            self.assertEqual(result["activeParameter"], 0)
+            # The qualifier is part of the first argument; past it, the
+            # second begins.
+            self.assertEqual(help_at(8, len(lines[8]))["activeParameter"], 0)
+            self.assertEqual(
+                help_at(8, len(lines[8]) + 1)["activeParameter"], 1)
+            self.assertEqual(help_at(9, len(lines[9]))["activeParameter"], 1)
+            # Outside a CALL: nothing.
+            self.assertIsNone(help_at(10, 6))
 
     def test_hover_on_a_table(self):
         program = os.path.abspath(os.path.join(
@@ -755,7 +806,7 @@ class LanguageServerTest(unittest.TestCase):
                                       "end": {"line": 0, "character": 1}}])
 
     def test_unknown_request(self):
-        reply = self.server.request("textDocument/signatureHelp", {
+        reply = self.server.request("textDocument/linkedEditingRange", {
             "textDocument": {"uri": URI},
             "position": {"line": 0, "character": 0}})
         self.assertEqual(reply["error"]["code"], -32601)

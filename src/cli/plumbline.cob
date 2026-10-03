@@ -315,6 +315,18 @@ COPY "plbinput.cpy".
 01  WS-CALL-LINE            PIC 9(9) COMP-5.
 01  WS-CALL-USING           PIC X(512).
 01  WS-CALL-HOVER           PIC X(1024).
+*> textDocument/signatureHelp: the token at or before the position,
+*> whether the position is in or just after it, the CALL, its USING, the program's parameters, and
+*> the one active.
+01  WS-SIG-TOKEN            PIC 9(9) COMP-5.
+01  WS-SIG-AT               PIC X.
+01  WS-SIG-STMT             PIC 9(9) COMP-5.
+01  WS-SIG-USING            PIC 9(9) COMP-5.
+01  WS-SIG-SKIP             PIC X.
+01  WS-SIG-WORD             PIC X(31).
+01  WS-SIG-COUNT            PIC 9(4) COMP-5.
+01  WS-SIG-PARAM            PIC X(31) OCCURS 64 TIMES.
+01  WS-SIG-ACTIVE           PIC 9(4) COMP-5.
 01  WS-LSP-PIC              PIC X(64).
 01  WS-LSP-KIND-NUM         PIC 9(4) COMP-5.
 78  LSP-DOC-MAX             VALUE 64.
@@ -1573,6 +1585,8 @@ LSP-MESSAGE.
             PERFORM LSP-PREPARE-RENAME
         WHEN "textDocument/rename"
             PERFORM LSP-RENAME
+        WHEN "textDocument/signatureHelp"
+            PERFORM LSP-SIGNATURE-HELP
         WHEN OTHER
             *> A request (with an id) must be answered.
             IF WS-LSP-ID-KIND NOT = "-"
@@ -1620,6 +1634,7 @@ LSP-INITIALIZE.
            '"full":true},' DELIMITED BY SIZE
            '"codeActionProvider":{"codeActionKinds":["quickfix"]},'
            DELIMITED BY SIZE
+           '"signatureHelpProvider":{},'
            '"renameProvider":{"prepareProvider":true}},'
            DELIMITED BY SIZE
            '"serverInfo":{"name":"' DELIMITED BY SIZE
@@ -2305,6 +2320,163 @@ LSP-FIND-CALLED.
             EXIT PERFORM
         END-IF
     END-PERFORM.
+
+*> textDocument/signatureHelp: inside the USING phrase of a CALL
+*> "NAME", the parameters of the program called, with the one the
+*> position is at or just after (the arguments before it counted)
+*> active. Null when
+*> the position is not in such a CALL, or its program is not found.
+LSP-SIGNATURE-HELP.
+    PERFORM LSP-POSITION
+    PERFORM LSP-START-RESPONSE
+    STRING '"result":' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SIGNATURE-CALL
+    IF WS-FOUND = "N"
+        STRING "null" DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-SEND-OUT.
+
+*> The CALL statement around the position: the last token of the
+*> document at or before it (WS-SIG-TOKEN; WS-SIG-AT "Y" when the
+*> position is in it or just after it), and the statement whose tokens
+*> hold it.
+LSP-SIGNATURE-CALL.
+    MOVE "N" TO WS-FOUND
+    IF WS-LSP-DOC-INDEX = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO WS-SIG-TOKEN
+    PERFORM VARYING WS-TOK FROM 1 BY 1 UNTIL WS-TOK > TK-COUNT
+        IF TK-FILE-ID(WS-TOK) = 1 AND TK-SRC-LINE(WS-TOK) > 0
+            IF SL-LINE-NO(TK-SRC-LINE(WS-TOK)) < WS-LSP-LINE
+               OR (SL-LINE-NO(TK-SRC-LINE(WS-TOK)) = WS-LSP-LINE
+                   AND TK-COLUMN(WS-TOK) <= WS-LSP-CHAR)
+                MOVE WS-TOK TO WS-SIG-TOKEN
+            END-IF
+        END-IF
+    END-PERFORM
+    IF WS-SIG-TOKEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "N" TO WS-SIG-AT
+    IF SL-LINE-NO(TK-SRC-LINE(WS-SIG-TOKEN)) = WS-LSP-LINE
+       AND TK-COLUMN(WS-SIG-TOKEN) + TK-SPAN(WS-SIG-TOKEN)
+           >= WS-LSP-CHAR
+        MOVE "Y" TO WS-SIG-AT
+    END-IF
+    MOVE 0 TO WS-SIG-STMT
+    PERFORM VARYING WS-NODE FROM 1 BY 1 UNTIL WS-NODE > AS-COUNT
+        IF ND-KIND(WS-NODE) = "STMT" AND ND-DETAIL(WS-NODE) = "CALL"
+           AND ND-TOK-FIRST(WS-NODE) <= WS-SIG-TOKEN
+           AND ND-TOK-LAST(WS-NODE) >= WS-SIG-TOKEN
+            MOVE WS-NODE TO WS-SIG-STMT
+        END-IF
+    END-PERFORM
+    IF WS-SIG-STMT = 0
+        EXIT PARAGRAPH
+    END-IF
+    *> The program name, as hover and definition find its program.
+    COMPUTE WS-LSP-TOKEN = ND-TOK-FIRST(WS-SIG-STMT) + 1
+    PERFORM LSP-FIND-CALLED
+    IF WS-CALL-WHERE = SPACE
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-FIND-PROGRAM-USING" USING WS-CALL-PATH WS-CALL-LINE
+        WS-CALL-USING
+    PERFORM LSP-SIGNATURE-PARAMETERS
+    PERFORM LSP-SIGNATURE-ACTIVE
+    PERFORM LSP-APPEND-SIGNATURE
+    MOVE "Y" TO WS-FOUND.
+
+*> WS-SIG-PARAM(1..WS-SIG-COUNT): the names of WS-CALL-USING after
+*> USING, without BY REFERENCE, BY VALUE, and the like.
+LSP-SIGNATURE-PARAMETERS.
+    MOVE 0 TO WS-SIG-COUNT
+    MOVE 1 TO WS-PTR
+    PERFORM UNTIL WS-PTR > LENGTH OF WS-CALL-USING
+        MOVE SPACES TO WS-SIG-WORD
+        UNSTRING WS-CALL-USING DELIMITED BY ALL SPACE
+            INTO WS-SIG-WORD WITH POINTER WS-PTR
+        END-UNSTRING
+        EVALUATE WS-SIG-WORD
+            WHEN SPACES
+                EXIT PERFORM
+            WHEN "USING" WHEN "BY" WHEN "REFERENCE" WHEN "CONTENT"
+            WHEN "VALUE" WHEN "RETURNING" WHEN "OPTIONAL"
+                CONTINUE
+            WHEN OTHER
+                IF WS-SIG-COUNT < 64
+                    ADD 1 TO WS-SIG-COUNT
+                    MOVE WS-SIG-WORD TO WS-SIG-PARAM(WS-SIG-COUNT)
+                END-IF
+        END-EVALUATE
+    END-PERFORM.
+
+*> WS-SIG-ACTIVE: the arguments of the CALL after USING up to the
+*> position, less one when the position is on the last of them.
+LSP-SIGNATURE-ACTIVE.
+    MOVE 0 TO WS-SIG-ACTIVE WS-SIG-USING
+    MOVE "N" TO WS-SIG-SKIP
+    PERFORM VARYING WS-TOK FROM ND-TOK-FIRST(WS-SIG-STMT) BY 1
+            UNTIL WS-TOK > WS-SIG-TOKEN
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-TOK WS-SIG-WORD
+            WS-TOKEN-LEN
+        MOVE FUNCTION UPPER-CASE(WS-SIG-WORD) TO WS-SIG-WORD
+        EVALUATE TRUE
+            WHEN WS-SIG-USING = 0
+                IF WS-SIG-WORD = "USING"
+                    MOVE WS-TOK TO WS-SIG-USING
+                END-IF
+            WHEN WS-SIG-WORD = "BY" OR "REFERENCE" OR "CONTENT"
+                 OR "VALUE" OR "ADDRESS" OR "LENGTH"
+                CONTINUE
+            WHEN WS-SIG-WORD = "OF" OR "IN"
+                *> The qualifier after it is part of the same argument.
+                MOVE "Y" TO WS-SIG-SKIP
+            WHEN WS-SIG-SKIP = "Y"
+                MOVE "N" TO WS-SIG-SKIP
+            WHEN TK-IS-WORD(WS-TOK) OR TK-IS-ALNUM(WS-TOK)
+                 OR TK-IS-NUMBER(WS-TOK)
+                ADD 1 TO WS-SIG-ACTIVE
+        END-EVALUATE
+    END-PERFORM
+    IF WS-SIG-AT = "Y" AND WS-SIG-ACTIVE > 0
+        SUBTRACT 1 FROM WS-SIG-ACTIVE
+    END-IF
+    IF WS-SIG-COUNT > 0 AND WS-SIG-ACTIVE >= WS-SIG-COUNT
+        COMPUTE WS-SIG-ACTIVE = WS-SIG-COUNT - 1
+    END-IF.
+
+*> {"signatures":[{"label":"NAME USING A B","parameters":[{"label":
+*> "A"},{"label":"B"}]}],"activeSignature":0,"activeParameter":N}
+LSP-APPEND-SIGNATURE.
+    MOVE SPACES TO WS-CALL-HOVER
+    STRING FUNCTION TRIM(WS-LSP-NAME) " " DELIMITED BY SIZE
+           FUNCTION TRIM(WS-CALL-USING) DELIMITED BY SIZE
+        INTO WS-CALL-HOVER
+    STRING '{"signatures":[{"label":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    CALL "PLB-JSON-STRING" USING WS-CALL-HOVER WS-LSP-OUT WS-LSP-PTR
+    STRING ',"parameters":[' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > WS-SIG-COUNT
+        IF WS-I > 1
+            STRING "," DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        END-IF
+        STRING '{"label":' DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        CALL "PLB-JSON-STRING" USING WS-SIG-PARAM(WS-I) WS-LSP-OUT
+            WS-LSP-PTR
+        STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-PERFORM
+    STRING ']}],"activeSignature":0,"activeParameter":'
+        DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE WS-SIG-ACTIVE TO WS-NUM
+    PERFORM LSP-APPEND-NUM
+    STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
 
 *> Hover over the program name of a CALL "NAME": where the program is,
 *> and what its PROCEDURE DIVISION takes.
