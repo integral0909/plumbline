@@ -2,5 +2,6 @@ program METRICS tests/golden/metrics/complexity.cob:7
   lines 28 (code 26, comment 1, blank 1)
   statements 14, sections 0, paragraphs 2, data items 2
   complexity 13, deepest nesting 4, GO TO 1, PERFORM 1, CALL 0
+  Halstead volume 435, difficulty 32, effort 13852; maintainability 49
   paragraph DECIDE line 15: 13 statements, complexity 13, nesting 4, 17 lines
   paragraph FINISH line 33: 1 statement, complexity 1, nesting 1, 2 lines

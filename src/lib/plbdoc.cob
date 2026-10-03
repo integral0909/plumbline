@@ -59,6 +59,15 @@ PROGRAM-TABLE.
     END-IF
     MOVE MP-COMPLEXITY(LS-M) TO LS-NUM
     PERFORM APPEND-NUM
+    *> The maintainability index, when there was code to measure.
+    IF MP-VOLUME(LS-M) > 0
+        STRING ", maintainability index " DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+        MOVE MP-MAINTAINABILITY(LS-M) TO LS-NUM
+        PERFORM APPEND-NUM
+        STRING " of 100" DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
     STRING "." DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
     PERFORM PRINT-OUT
     DISPLAY " "

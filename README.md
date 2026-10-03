@@ -148,14 +148,20 @@ program PAYROLL src/payroll.cbl:2
   lines 412 (code 318, comment 81, blank 13)
   statements 245, sections 4, paragraphs 31, data items 120
   complexity 57, deepest nesting 4, GO TO 12, PERFORM 40, CALL 3
+  Halstead volume 9120, difficulty 61, effort 556320; maintainability 10
   paragraph MAIN-LINE line 61: 12 statements, complexity 3, nesting 2, 18 lines
   ...
 ```
 
 Complexity is McCabe's: one plus each decision (IF, WHEN, a looping
 PERFORM, a conditional phrase such as AT END, AND and OR in conditions,
-and the targets of GO TO DEPENDING ON). `--report json` and
-`--report csv` give the same figures for other tools and spreadsheets.
+and the targets of GO TO DEPENDING ON). Halstead's volume, difficulty,
+and effort count the operators (reserved words and symbols) and
+operands (names and literals) of the procedure division, and the
+maintainability index combines volume, complexity, and code lines in
+the classic formula, scaled to 0 to 100: higher is easier to maintain,
+and below 10 or so is hard going. `--report json` and `--report csv`
+give the same figures for other tools and spreadsheets.
 
 ## Graphs and impact
 
