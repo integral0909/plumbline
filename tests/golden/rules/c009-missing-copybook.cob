@@ -1,0 +1,19 @@
+*> PLB-C009 undefined-name in a file whose copybook is missing: each
+*> undeclared name is reported once, with the copybook.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. MQPUTTER.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  MQ-CONSTANTS.
+    COPY CMQVNONE.
+01  WS-HCONN            PIC S9(9) BINARY VALUE 0.
+01  WS-COMPCODE         PIC S9(9) BINARY VALUE 0.
+PROCEDURE DIVISION.
+    IF WS-COMPCODE = MQCC-OK
+        DISPLAY "OK"
+    END-IF
+    IF WS-COMPCODE NOT = MQCC-OK AND WS-COMPCODE NOT = MQCC-WARNING
+        DISPLAY "FAILED"
+    END-IF
+    DISPLAY WS-HCONN
+    GOBACK.

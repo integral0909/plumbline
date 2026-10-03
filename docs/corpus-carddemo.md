@@ -33,14 +33,15 @@ The run on 2026-10-01 takes about a second:
 The copybooks it cannot find are those that come with the products, not
 with the application: `DFHAID` and `DFHBMSCA` (CICS), and `CMQV`,
 `CMQODV`, and the other MQ definitions. Every undefined name left
-(PLB-C009) is one of the MQ names; the CICS names, which all start with
-`DFH`, are known in a program that uses `EXEC CICS`.
+(PLB-C009) is one of the MQ names, each reported once in each of the
+three MQ programs; the CICS names, which all start with `DFH`, are
+known in a program that uses `EXEC CICS`.
 
 | Rule | Findings |
 |------|---------:|
 | PLB-M003 unused-data-item | 201 |
 | PLB-M001 go-to | 200 |
-| PLB-C009 undefined-name | 167 |
+| PLB-C009 undefined-name | 100 |
 | PLB-C008 move-truncation | 119 |
 | PLB-M005 set-never-read | 72 |
 | PLB-C019 cics-response-not-checked | 42 |
