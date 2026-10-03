@@ -8,6 +8,7 @@
 *>   PLB-Q005  into-count-mismatch (PLB-RULE-Q005, below)
 *>   PLB-K003  commarea-without-length (PLB-RULE-K003, below)
 *>   PLB-K004  commarea-length-too-long (PLB-RULE-K004, below)
+*>   PLB-K005  batch-io-in-cics (PLB-RULE-K005, below)
 *>
 *> "Checked" means that a statement after the command, in the same
 *> paragraph and before the next command of the same kind, names the
@@ -1483,3 +1484,159 @@ REPORT-LENGTH.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-AREA-TOKEN LS-MESSAGE.
 END PROGRAM PLB-RULE-K004.
+
+*> PLB-K005 batch-io-in-cics: a COBOL file statement (OPEN, CLOSE,
+*> READ, WRITE, REWRITE, DELETE, START), or an ACCEPT of input, in a
+*> program with EXEC CICS commands.
+*>
+*> A CICS task has no access to COBOL files, which CICS does not open
+*> for it, and no SYSIN or console to accept from: the statement fails,
+*> or abends the task. CICS programs read and write files with EXEC
+*> CICS READ, WRITE, and the like, and take their input from the
+*> terminal or the COMMAREA. ACCEPT FROM DATE, DAY, DAY-OF-WEEK, and
+*> TIME only read the clock, and are fine.
+*>
+*> A program counts as a CICS program when its own text has an EXEC
+*> CICS command; programs nested in it are checked on their own.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-K005.
+DATA DIVISION.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
+01  LS-NODE                 PIC 9(9) COMP-5.
+01  LS-DEPTH                PIC S9(9) COMP-5.
+01  LS-PROGRAM              PIC 9(9) COMP-5.
+01  LS-SCAN                 PIC 9(9) COMP-5.
+01  LS-SCAN-DEPTH           PIC S9(9) COMP-5.
+01  LS-PASS                 PIC 9.
+01  LS-CICS                 PIC X.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-NEXT                 PIC 9(9) COMP-5.
+01  LS-UP                   PIC 9(9) COMP-5.
+01  LS-TEXT                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-RULES
+        PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K005" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+        GOBACK
+    END-IF
+    MOVE 1 TO LS-NODE
+    MOVE 0 TO LS-DEPTH
+    PERFORM UNTIL LS-NODE = 0
+        IF ND-KIND(LS-NODE) = "PROG"
+            MOVE LS-NODE TO LS-PROGRAM
+            PERFORM CHECK-PROGRAM
+        END-IF
+        CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
+    END-PERFORM
+    GOBACK.
+
+*> Two walks of the program's statements: is it a CICS program, and
+*> then its batch statements.
+CHECK-PROGRAM.
+    MOVE "N" TO LS-CICS
+    PERFORM VARYING LS-PASS FROM 1 BY 1 UNTIL LS-PASS > 2
+        MOVE LS-PROGRAM TO LS-SCAN
+        MOVE 0 TO LS-SCAN-DEPTH
+        PERFORM UNTIL LS-SCAN = 0
+            IF ND-KIND(LS-SCAN) = "STMT"
+                PERFORM OWN-STATEMENT
+                IF LS-UP = LS-PROGRAM
+                    IF LS-PASS = 1
+                        PERFORM NOTE-CICS
+                    ELSE
+                        PERFORM CHECK-STATEMENT
+                    END-IF
+                END-IF
+            END-IF
+            CALL "PLB-AST-NEXT" USING PLB-AST LS-PROGRAM LS-SCAN
+                LS-SCAN-DEPTH
+        END-PERFORM
+        IF LS-CICS = "N"
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+*> LS-UP: the program statement LS-SCAN belongs to.
+OWN-STATEMENT.
+    MOVE ND-PARENT(LS-SCAN) TO LS-UP
+    PERFORM UNTIL LS-UP = 0
+        IF ND-KIND(LS-UP) = "PROG"
+            EXIT PERFORM
+        END-IF
+        MOVE ND-PARENT(LS-UP) TO LS-UP
+    END-PERFORM.
+
+NOTE-CICS.
+    IF ND-DETAIL(LS-SCAN) = "EXEC"
+        COMPUTE LS-T = ND-TOK-FIRST(LS-SCAN) + 1
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+        IF FUNCTION UPPER-CASE(LS-TEXT) = "CICS"
+            MOVE "Y" TO LS-CICS
+        END-IF
+    END-IF.
+
+CHECK-STATEMENT.
+    EVALUATE ND-DETAIL(LS-SCAN)
+        WHEN "OPEN"
+        WHEN "CLOSE"
+        WHEN "READ"
+        WHEN "WRITE"
+        WHEN "REWRITE"
+        WHEN "DELETE"
+        WHEN "START"
+            MOVE SPACES TO LS-MESSAGE
+            STRING ND-DETAIL(LS-SCAN) DELIMITED BY SPACE
+                   " of a COBOL file in a CICS program: CICS does not "
+                   "open COBOL files for its tasks; use EXEC CICS "
+                   "file commands" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            PERFORM REPORT-STATEMENT
+        WHEN "ACCEPT"
+            PERFORM CHECK-ACCEPT
+    END-EVALUATE.
+
+*> ACCEPT ... FROM DATE, DAY, DAY-OF-WEEK, or TIME reads the clock.
+CHECK-ACCEPT.
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-SCAN) BY 1
+            UNTIL LS-T > ND-TOK-LAST(LS-SCAN)
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            IF FUNCTION UPPER-CASE(LS-TEXT) = "FROM"
+               AND LS-T < ND-TOK-LAST(LS-SCAN)
+                COMPUTE LS-NEXT = LS-T + 1
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-NEXT LS-TEXT
+                    LS-LEN
+                MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+                IF LS-TEXT = "DATE" OR LS-TEXT = "DAY"
+                   OR LS-TEXT = "DAY-OF-WEEK" OR LS-TEXT = "TIME"
+                    EXIT PARAGRAPH
+                END-IF
+                EXIT PERFORM
+            END-IF
+        END-IF
+    END-PERFORM
+    MOVE SPACES TO LS-MESSAGE
+    STRING "ACCEPT in a CICS program: a CICS task has no SYSIN or "
+           "console to read; take input from the terminal or the "
+           "COMMAREA" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    PERFORM REPORT-STATEMENT.
+
+REPORT-STATEMENT.
+    MOVE ND-TOK-FIRST(LS-SCAN) TO LS-T
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-T LS-MESSAGE.
+END PROGRAM PLB-RULE-K005.
