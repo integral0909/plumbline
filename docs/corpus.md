@@ -250,6 +250,17 @@ The findings were checked by rule:
   indented code, the "else" style; an `IF` without `ELSE` whose body
   leaves is now left alone. GnuCOBOL's tests have none.
 
+- **PLB-C058 read-not-handled.** None in NIST, whose `READ` statements
+  all have `AT END` or `INVALID KEY`. 46 in 15 of GnuCOBOL's tests. Most
+  read back exactly the records they have just written; `turn-ec-i-o`
+  reads file `g` once too often on purpose ("Read g too many times with
+  libcob error"), and is reported there and not for file `f`, which has
+  a `FILE STATUS`.
+
+- **PLB-C059 key-error-not-handled.** None in NIST. 42 in 13 of
+  GnuCOBOL's tests of indexed and relative files, which write and
+  rewrite keys they know are free or present.
+
 ## Limits
 
 - **Report Writer** is parsed and its `SOURCE`, `SUM`, and `CONTROL`

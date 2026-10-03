@@ -275,6 +275,9 @@ Some findings that were read and are true:
   always true.
 - **PLB-C057 misleading-indentation.** None: CardDemo ends its `IF`
   statements with `END-IF`.
+- **PLB-C058 read-not-handled.** None: each `READ` has an `AT END` or
+  `INVALID KEY` phrase, or its file a `FILE STATUS`.
+- **PLB-C059 key-error-not-handled.** None, for the same reason.
 - **PLB-Q008 null-without-indicator.** None: the tables that are fetched
   from declare their columns `NOT NULL`, and the one with nullable
   columns, `AUTHFRDS`, is only inserted into, by `COPAUS2C`.

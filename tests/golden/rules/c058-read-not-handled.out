@@ -1,0 +1,1 @@
+tests/golden/rules/c058-read-not-handled.cob:43:10: warning: nothing handles the end of TRANS-FILE or a record not found: no AT END or INVALID KEY, FILE STATUS, or USE declarative, so the run stops there [PLB-C058]

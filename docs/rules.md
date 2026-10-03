@@ -69,6 +69,8 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C055](#plb-c055-corresponding-no-match) | corresponding-no-match | warning | MOVE, ADD, or SUBTRACT CORRESPONDING finds no items to pair |
 | [PLB-C056](#plb-c056-self-comparison) | self-comparison | warning | Data item is compared with itself |
 | [PLB-C057](#plb-c057-misleading-indentation) | misleading-indentation | warning | Statement indented as if inside an IF a period has ended |
+| [PLB-C058](#plb-c058-read-not-handled) | read-not-handled | warning | READ with no AT END, INVALID KEY, FILE STATUS, or declarative |
+| [PLB-C059](#plb-c059-key-error-not-handled) | key-error-not-handled | warning | Keyed WRITE, REWRITE, DELETE, or START with no INVALID KEY |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1598,6 +1600,44 @@ in the same paragraph, on a later line and further right than the
 `STOP RUN`, or `EXIT` is left alone: the code after it runs only when
 the condition is false, and indenting it as an "else" is a common style.
 Copybook text is not checked.
+
+## PLB-C058 read-not-handled
+
+A `READ` that nothing prepares for the end of the file or a record
+that is not there: it has no `AT END` or `INVALID KEY` phrase, the file
+has no `FILE STATUS`, and no `USE` declarative covers it.
+
+```cobol
+    SELECT TRANS-FILE ASSIGN TO "TRANS".          *> no FILE STATUS
+    ...
+    READ TRANS-FILE                                *> reported
+```
+
+When the file ends, the run stops with an I/O error; GnuCOBOL says
+`libcob: error: end of file (status = 10) for file TRANS-FILE`. A
+program that reads exactly as many records as it knows the file has
+does not reach that point, but the next change to the file may. Add an
+`AT END` phrase, or a `FILE STATUS` that the program tests (see
+PLB-C020).
+
+## PLB-C059 key-error-not-handled
+
+A `WRITE`, `REWRITE`, `DELETE`, or `START` of an indexed or relative
+file with no `INVALID KEY` phrase, where the file has no `FILE STATUS`
+and no `USE` declarative covers it:
+
+```cobol
+    SELECT CUST-FILE ASSIGN TO "CUSTOMER"
+        ORGANIZATION IS INDEXED
+        RECORD KEY IS CUST-KEY.
+    ...
+    WRITE CUST-REC                                 *> reported
+```
+
+A duplicate key, or a key that is not in the file, then stops the run
+with an I/O error; GnuCOBOL says `libcob: error: record key already
+exists (status = 22)`. `DELETE` in sequential access takes no
+`INVALID KEY` phrase and is left alone.
 
 ## PLB-I001 pcb-dbd-unknown
 
