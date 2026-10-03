@@ -14,7 +14,7 @@ cursor ACCT-CUR tests/golden/sql/statements.cob:24 tables BANK.ACCOUNT BANK.BRAN
   BRANCH_NAME
 fetch ACCT-CUR tests/golden/sql/statements.cob:32 tables BANK.ACCOUNT BANK.BRANCH
   ACCT_ID <- :WS-ID
-  ACCT_NAME <- :WS-NAME
+  ACCT_NAME <- :WS-NAME indicator :WS-NAME-IND
   (expression) <- :WS-TOTAL
   BRANCH_NAME <- :WS-BRANCH-NAME
 select tests/golden/sql/statements.cob:35 tables BANK.ACCOUNT
