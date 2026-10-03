@@ -466,6 +466,16 @@ its symbol's), and the CICS file commands with their `FILE` or
 program around it, one row per program, kind, and resource, with a
 flag for each operation; `PLB-CRUD-PRINT` sorts the rows.
 
+### Summary
+
+`src/lib/plbsumm.cob`, with its table in `copy/plbsumm.cpy`.
+
+`plumbline summary` is `check` with another ending: after each file is
+checked, its metrics are computed and `PLB-SUMMARY-ADD` keeps a row for
+each of its programs with its first and last line. `PLB-SUMMARY-PRINT`
+then counts each reported finding for the innermost program whose
+lines hold it (the one that starts last) and writes the rows.
+
 ### Data lineage
 
 `src/lib/plblineage.cob`.

@@ -46,6 +46,7 @@
 *>   plumbline xref [--report text|json] [OPTION]... FILE...
 *>   plumbline duplicates [--min-tokens N] [--report text|json] [OPTION]... FILE...
 *>   plumbline crud [--report text|csv|json] [OPTION]... FILE...
+*>   plumbline summary [--report text|md|csv|json] [OPTION]... FILE...
 *>   plumbline lineage NAME [--depth N] [--forward] [--report text|json] [OPTION]... FILE...
 *>   plumbline dump jcl FILE...
 *>   plumbline dump bms FILE...
@@ -98,6 +99,7 @@ COPY "plbduse.cpy".
 COPY "plbconf.cpy".
 COPY "plbmetrc.cpy".
 COPY "plbmetr.cpy".
+COPY "plbsumm.cpy".
 COPY "plbigrc.cpy".
 COPY "plbigr.cpy".
 01  WS-ARG-COUNT            PIC 9(4).
@@ -389,6 +391,10 @@ MAIN-LOGIC.
             WHEN "crud"
                 MOVE "crud" TO WS-COMMAND
                 PERFORM CRUD-COMMAND
+            WHEN "summary"
+                *> check, with a row per program instead of findings.
+                MOVE "summary" TO WS-COMMAND
+                PERFORM CHECK-COMMAND
             WHEN OTHER
                 IF WS-ARG(1:1) = "-"
                     PERFORM UNKNOWN-OPTION
@@ -435,6 +441,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline xref [--report text|json] [OPTION]... FILE..."
     DISPLAY "       plumbline duplicates [--min-tokens N] [--report text|json] [OPTION]... FILE..."
     DISPLAY "       plumbline crud [--report text|csv|json] [OPTION]... FILE..."
+    DISPLAY "       plumbline summary [--report text|md|csv|json] [OPTION]... FILE..."
     DISPLAY "       plumbline lineage NAME [--depth N] [--forward] [--report text|json|dot] [OPTION]... FILE..."
     DISPLAY "       plumbline format --to fixed|free [--check] FILE..."
     DISPLAY "       plumbline lsp [OPTION]..."
@@ -491,6 +498,9 @@ SHOW-USAGE.
     DISPLAY "  crud             list which programs create, read, update,"
     DISPLAY "                   and delete which DB2 tables, files, and"
     DISPLAY "                   CICS files"
+    DISPLAY "  summary          one row per program: lines, complexity,"
+    DISPLAY "                   maintainability, and findings by"
+    DISPLAY "                   severity"
     DISPLAY "  lineage NAME     show the statements that give data item NAME"
     DISPLAY "                   its value and the items they read, and"
     DISPLAY "                   theirs, to --depth (3); --forward: where"
@@ -579,6 +589,7 @@ CHECK-COMMAND.
     PERFORM ADD-INPUTS
     CALL "PLB-FIND-INIT" USING PLB-FINDINGS
     CALL "PLB-CALL-INIT" USING PLB-CALL-GRAPH
+    MOVE 0 TO SM-COUNT SM-DROPPED
     MOVE SS-FILE-COUNT TO WS-MAIN-FILES
     MOVE WS-MODE TO PO-FORMAT
     MOVE WS-DEBUG TO PO-DEBUG
@@ -606,6 +617,11 @@ CHECK-COMMAND.
                 PLB-AST PLB-SYMBOLS PLB-REFS PLB-CALL-GRAPH
             CALL "PLB-FIND-SUPPRESS-RANGE" USING PLB-SOURCE-SET
                 PLB-RULES PLB-FINDINGS WS-FIRST-FINDING FN-COUNT
+            IF WS-COMMAND = "summary"
+                CALL "PLB-METRICS-COMPUTE" USING PLB-SOURCE-SET
+                    PLB-TOKENS PLB-AST PLB-SYMBOLS PLB-FLOW PLB-METRICS
+                CALL "PLB-SUMMARY-ADD" USING PLB-METRICS PLB-SUMMARY
+            END-IF
             PERFORM FORGET-SOURCE-LINES
         END-IF
     END-PERFORM
@@ -646,6 +662,17 @@ CHECK-COMMAND.
     IF WS-DIFF NOT = SPACES
         CALL "PLB-DIFF-APPLY" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
             PLB-FINDINGS WS-DIFF WS-DIFF-COUNT
+    END-IF
+    *> summary: the table, and the diagnostics; it fails only when
+    *> the input cannot be read.
+    IF WS-COMMAND = "summary"
+        CALL "PLB-SUMMARY-PRINT" USING PLB-SOURCE-SET PLB-FINDINGS
+            PLB-SUMMARY WS-REPORT
+        PERFORM REPORT-DIAGNOSTICS
+        IF DG-ERRORS > 0
+            MOVE 1 TO WS-EXIT-CODE
+        END-IF
+        EXIT PARAGRAPH
     END-IF
     EVALUATE WS-REPORT
         WHEN "json"
@@ -5771,6 +5798,7 @@ SET-REPORT.
         WHEN WS-ARG = "text" AND WS-COMMAND NOT = "graph"
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "sarif" AND WS-COMMAND NOT = "metrics"
+             AND WS-COMMAND NOT = "summary"
              AND WS-COMMAND NOT = "rules" AND WS-COMMAND NOT = "inventory"
              AND WS-COMMAND NOT = "fields" AND WS-COMMAND NOT = "xref"
              AND WS-COMMAND NOT = "duplicates" AND WS-COMMAND NOT = "lineage"
@@ -5790,6 +5818,13 @@ SET-REPORT.
             MOVE WS-ARG TO WS-REPORT
         WHEN WS-ARG = "md" AND WS-COMMAND = "layout"
             MOVE WS-ARG TO WS-REPORT
+        WHEN (WS-ARG = "md" OR WS-ARG = "csv") AND WS-COMMAND = "summary"
+            MOVE WS-ARG TO WS-REPORT
+        WHEN WS-COMMAND = "summary"
+            DISPLAY PLB-NAME ": invalid --report format '"
+                WS-ARG(1:WS-ARG-LEN)
+                "' (expected text, md, csv, or json)" UPON SYSERR
+            MOVE 2 TO WS-EXIT-CODE
         WHEN WS-COMMAND = "graph"
             DISPLAY PLB-NAME ": invalid --report format '"
                 WS-ARG(1:WS-ARG-LEN)
