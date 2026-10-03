@@ -263,6 +263,9 @@ Some findings that were read and are true:
 - **PLB-Q008 null-without-indicator.** None: the tables that are fetched
   from declare their columns `NOT NULL`, and the one with nullable
   columns, `AUTHFRDS`, is only inserted into, by `COPAUS2C`.
+- **PLB-Q009 update-of-read-only-cursor.** None, and none of the three
+  corpora has a positioned `UPDATE` or `DELETE` (`WHERE CURRENT OF`): the
+  rule is only tested by its own test.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)

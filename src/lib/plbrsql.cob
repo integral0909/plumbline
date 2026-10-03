@@ -9,6 +9,7 @@
 *>   PLB-K003  commarea-without-length (PLB-RULE-K003, below)
 *>   PLB-K004  commarea-length-too-long (PLB-RULE-K004, below)
 *>   PLB-K005  batch-io-in-cics (PLB-RULE-K005, below)
+*>   PLB-Q009  update-of-read-only-cursor (PLB-RULE-Q009, below)
 *>
 *> "Checked" means that a statement after the command, in the same
 *> paragraph and before the next command of the same kind, names the
@@ -1599,3 +1600,189 @@ REPORT-STATEMENT.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-T LS-MESSAGE.
 END PROGRAM PLB-RULE-K005.
+
+*> PLB-Q009 update-of-read-only-cursor: an UPDATE or DELETE ... WHERE
+*> CURRENT OF a cursor whose declaration has no FOR UPDATE clause:
+*>
+*>     EXEC SQL DECLARE ACCT-CUR CURSOR FOR
+*>         SELECT ACCT_ID, BALANCE FROM ACCOUNT END-EXEC
+*>     ...
+*>     EXEC SQL UPDATE ACCOUNT SET BALANCE = :WS-BALANCE
+*>         WHERE CURRENT OF ACCT-CUR END-EXEC
+*>
+*> Without FOR UPDATE, DB2 may make the cursor read-only (it does when
+*> the query orders or joins, and may when the plan is bound to), and
+*> then the positioned UPDATE or DELETE fails (SQLCODE -510). FOR
+*> UPDATE OF the columns changed also takes the right locks while
+*> fetching. Cursors are matched by name with their DECLARE in the
+*> file.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-Q009.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+78  QU-MAX                      VALUE 200.
+01  WS-CURSOR-COUNT         PIC 9(4) COMP-5.
+01  WS-CURSOR               OCCURS QU-MAX TIMES.
+    05  WS-CU-NAME          PIC X(31).
+    05  WS-CU-FOR-UPDATE    PIC X.
+    05  WS-CU-TOKEN         PIC 9(9) COMP-5.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-PASS                 PIC 9.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-AT                   PIC 9(9) COMP-5.
+01  LS-END                  PIC 9(9) COMP-5.
+01  LS-C                    PIC 9(9) COMP-5.
+01  LS-TEXT                 PIC X(31).
+01  LS-WORD                 PIC X(31).
+01  LS-COMMAND              PIC X(31).
+01  LS-NAME                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q009" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    MOVE 0 TO WS-CURSOR-COUNT
+    PERFORM VARYING LS-PASS FROM 1 BY 1 UNTIL LS-PASS > 2
+        PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T >= TK-COUNT
+            MOVE LS-T TO LS-K
+            PERFORM UPPER-WORD
+            IF LS-WORD = "EXEC"
+                COMPUTE LS-K = LS-T + 1
+                PERFORM UPPER-WORD
+                IF LS-WORD = "SQL"
+                    PERFORM SQL-BLOCK
+                END-IF
+            END-IF
+        END-PERFORM
+    END-PERFORM
+    GOBACK.
+
+UPPER-WORD.
+    MOVE SPACES TO LS-WORD
+    IF LS-K >= 1 AND LS-K <= TK-COUNT
+        IF TK-IS-WORD(LS-K)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-WORD
+        END-IF
+    END-IF.
+
+*> The statement from LS-T to END-EXEC (LS-END): declarations in the
+*> first pass, positioned UPDATE and DELETE in the second.
+SQL-BLOCK.
+    COMPUTE LS-END = LS-T + 2
+    PERFORM UNTIL LS-END >= TK-COUNT
+        MOVE LS-END TO LS-K
+        PERFORM UPPER-WORD
+        IF LS-WORD = "END-EXEC"
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-END
+    END-PERFORM
+    COMPUTE LS-K = LS-T + 2
+    PERFORM UPPER-WORD
+    MOVE LS-WORD TO LS-COMMAND
+    EVALUATE TRUE
+        WHEN LS-PASS = 1 AND LS-COMMAND = "DECLARE"
+            PERFORM DECLARATION
+        WHEN LS-PASS = 2 AND (LS-COMMAND = "UPDATE"
+                              OR LS-COMMAND = "DELETE")
+            PERFORM POSITIONED
+    END-EVALUATE.
+
+*> DECLARE name ... CURSOR ... [FOR UPDATE [OF ...]]
+DECLARATION.
+    ADD 1 TO LS-K
+    PERFORM UPPER-WORD
+    IF LS-WORD = SPACES OR WS-CURSOR-COUNT >= QU-MAX
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-WORD TO LS-NAME
+    MOVE LS-K TO LS-C
+    PERFORM VARYING LS-K FROM LS-K BY 1 UNTIL LS-K >= LS-END
+        PERFORM UPPER-WORD
+        IF LS-WORD = "CURSOR"
+            EXIT PERFORM
+        END-IF
+        IF LS-WORD = "TABLE" OR LS-WORD = "STATEMENT"
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    IF LS-K >= LS-END
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO WS-CURSOR-COUNT
+    MOVE LS-NAME TO WS-CU-NAME(WS-CURSOR-COUNT)
+    MOVE LS-C TO WS-CU-TOKEN(WS-CURSOR-COUNT)
+    MOVE "N" TO WS-CU-FOR-UPDATE(WS-CURSOR-COUNT)
+    PERFORM VARYING LS-AT FROM LS-K BY 1 UNTIL LS-AT >= LS-END
+        MOVE LS-AT TO LS-K
+        PERFORM UPPER-WORD
+        IF LS-WORD = "FOR"
+            COMPUTE LS-K = LS-AT + 1
+            PERFORM UPPER-WORD
+            IF LS-WORD = "UPDATE"
+                MOVE "Y" TO WS-CU-FOR-UPDATE(WS-CURSOR-COUNT)
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> ... WHERE CURRENT OF cursor
+POSITIONED.
+    PERFORM VARYING LS-AT FROM LS-K BY 1 UNTIL LS-AT >= LS-END - 2
+        MOVE LS-AT TO LS-K
+        PERFORM UPPER-WORD
+        IF LS-WORD = "CURRENT"
+            COMPUTE LS-K = LS-AT + 1
+            PERFORM UPPER-WORD
+            IF LS-WORD = "OF"
+                COMPUTE LS-K = LS-AT + 2
+                PERFORM UPPER-WORD
+                PERFORM CHECK-CURSOR
+            END-IF
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+CHECK-CURSOR.
+    PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > WS-CURSOR-COUNT
+        IF WS-CU-NAME(LS-C) = LS-WORD
+            IF WS-CU-FOR-UPDATE(LS-C) = "N"
+                PERFORM REPORT-CURSOR
+            END-IF
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+REPORT-CURSOR.
+    MOVE 0 TO LS-NUM
+    IF TK-SRC-LINE(WS-CU-TOKEN(LS-C)) > 0
+        MOVE SL-LINE-NO(TK-SRC-LINE(WS-CU-TOKEN(LS-C))) TO LS-NUM
+    END-IF
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING LS-COMMAND DELIMITED BY SPACE
+           " WHERE CURRENT OF " DELIMITED BY SIZE
+           WS-CU-NAME(LS-C) DELIMITED BY SPACE
+           ", declared on line " DELIMITED BY SIZE
+           LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           " without FOR UPDATE: the cursor may be read-only"
+           " (SQLCODE -510)" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-K LS-MESSAGE.
+END PROGRAM PLB-RULE-Q009.
