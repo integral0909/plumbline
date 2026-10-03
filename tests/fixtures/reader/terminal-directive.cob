@@ -1,0 +1,9 @@
+      >>SOURCE FORMAT TERMINAL
+* ACU terminal format: comments, debugging lines, continuations.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. TERMFMT.
+PROCEDURE DIVISION.
+      DISPLAY "FIRST PART OF A LONG LITERAL
+-             " AND ITS SECOND PART"
+\D    DISPLAY "ONLY WHEN DEBUGGING"
+      GOBACK.

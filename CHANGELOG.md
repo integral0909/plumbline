@@ -217,6 +217,10 @@ uses [Semantic Versioning](https://semver.org/).
 - docs/ci.md: running Plumbline in CI.
 - The COBOLX reference format (`--format cobolx`, `>>SOURCE FORMAT
   COBOLX`).
+- `format --to fixed|free` converts sources in VARIABLE, X/Open,
+  terminal, and COBOLX format: each format's text columns, comments,
+  page ejects, debugging lines, and continued literals are read as the
+  compiler reads them.
 - X/Open free form and ACU terminal reference formats (`--format xopen`,
   `--format terminal`, or `>>SOURCE FORMAT XOPEN|TERMINAL`), and the
   padding of continued literals to each format's margin.

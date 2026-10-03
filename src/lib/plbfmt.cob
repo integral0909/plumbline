@@ -25,6 +25,16 @@
 *>   - format directives are dropped.
 *> Lines already in the target format are kept as they are, less
 *> trailing spaces. Either way the tokens do not change.
+*>
+*> The other reference formats are read for what they are: VARIABLE as
+*> fixed with the text running to column 250, X/Open free form and ACU
+*> terminal format with their indicator in column 1 and the text from
+*> column 1, COBOLX with the text from column 2 to 255. Their
+*> continuation lines are joined, and a literal continued across lines
+*> is padded to the margin of the line it starts on, as the compiler
+*> reads it (column 250 in VARIABLE format, not at all in terminal and
+*> COBOLX format). A VARIABLE line that fits in column 72 stays as it
+*> is in fixed format, and page ejects stay page ejects.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-FORMAT.
@@ -86,6 +96,17 @@ LOCAL-STORAGE SECTION.
 01  LS-KEYWORD-KIND         PIC X.
 01  LS-CHANGED              PIC X.
 01  LS-MIXED                PIC X.
+*> Of line LS-L's format: the first column of its text, the last
+*> (its margin; 0 when the text runs to the end of the line), and the
+*> column its comment text starts after the indicator. COBOLX has a
+*> margin but does not pad a continued literal to it.
+01  LS-TEXT-FROM            PIC 9(4) COMP-5.
+01  LS-TEXT-TO              PIC 9(4) COMP-5.
+01  LS-COMMENT-FROM         PIC 9(4) COMP-5.
+01  LS-TEXT-WIDTH           PIC 9(9) COMP-5.
+*> The column a literal continued from line LS-L is padded to (0: it
+*> is not padded).
+01  LS-PAD-TO               PIC 9(4) COMP-5.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -221,9 +242,14 @@ FORMAT-LINE.
             EXIT PARAGRAPH
         END-IF
     END-IF
-    *> Lines already in the target format.
+    PERFORM TEXT-COLUMNS
+    *> Lines already in the target format, and VARIABLE lines that
+    *> are fixed lines too: no text past column 72, and not continued.
     IF LK-TARGET = "free" AND SL-FORMAT(LS-L) = "F"
        OR LK-TARGET = "fixed" AND SL-FORMAT(LS-L) = "X"
+       OR LK-TARGET = "fixed" AND SL-FORMAT(LS-L) = "V"
+          AND LS-RAW-LEN <= 72 AND NOT SL-IS-CONTINUATION(LS-L)
+          AND NOT (LS-L < LS-LAST AND SL-IS-CONTINUATION(LS-L + 1))
         MOVE SPACES TO LS-LINE
         IF LS-RAW-LEN > 0
             MOVE LS-RAW(1:LS-RAW-LEN) TO LS-LINE
@@ -236,6 +262,28 @@ FORMAT-LINE.
     ELSE
         PERFORM FREE-TO-FIXED
     END-IF.
+
+*> LS-TEXT-FROM, LS-TEXT-TO, and LS-COMMENT-FROM for line LS-L.
+TEXT-COLUMNS.
+    MOVE 0 TO LS-PAD-TO
+    EVALUATE SL-FORMAT(LS-L)
+        WHEN "X"
+            MOVE 8 TO LS-TEXT-FROM LS-COMMENT-FROM
+            MOVE 72 TO LS-TEXT-TO LS-PAD-TO
+        WHEN "V"
+            MOVE 8 TO LS-TEXT-FROM LS-COMMENT-FROM
+            MOVE 250 TO LS-TEXT-TO LS-PAD-TO
+        WHEN "C"
+            MOVE 2 TO LS-TEXT-FROM LS-COMMENT-FROM
+            MOVE 255 TO LS-TEXT-TO
+        WHEN "O" WHEN "T"
+            MOVE 1 TO LS-TEXT-FROM
+            MOVE 2 TO LS-COMMENT-FROM
+            MOVE 0 TO LS-TEXT-TO
+        WHEN OTHER
+            MOVE 1 TO LS-TEXT-FROM LS-COMMENT-FROM
+            MOVE 0 TO LS-TEXT-TO
+    END-EVALUATE.
 
 *> LS-UPPER = "FORMAT" when directive line LS-L sets the reference
 *> format (>>SOURCE [FORMAT] [IS] ..., $SET SOURCEFORMAT(...)).
@@ -262,11 +310,12 @@ FIXED-TO-FREE.
         WHEN SL-IS-BLANK(LS-L)
             PERFORM ADD-OUTPUT
         WHEN SL-IS-COMMENT(LS-L) OR SL-IS-PAGE(LS-L)
-            *> "*" in column 7: the comment text from column 8 (a
-            *> "*>" there is already one).
+            *> "*" in the indicator column: the comment text after it
+            *> (a "*>" there is already one).
             MOVE "*>" TO LS-LINE
-            IF LS-RAW-LEN >= 8
-                MOVE LS-RAW(8:LS-RAW-LEN - 7) TO LS-TEXT
+            IF LS-RAW-LEN >= LS-COMMENT-FROM
+                MOVE LS-RAW(LS-COMMENT-FROM:
+                    LS-RAW-LEN - LS-COMMENT-FROM + 1) TO LS-TEXT
                 IF LS-TEXT(1:1) = ">"
                     MOVE LS-TEXT(2:) TO LS-LINE(3:)
                 ELSE
@@ -278,7 +327,8 @@ FIXED-TO-FREE.
         WHEN SL-IS-DEBUG(LS-L)
             MOVE ">>D " TO LS-LINE
             PERFORM AREA-TEXT
-            MOVE LS-TEXT TO LS-LINE(5:)
+            PERFORM BLANK-DEBUG-MARKER
+            MOVE FUNCTION TRIM(LS-TEXT LEADING) TO LS-LINE(5:)
             PERFORM ADD-OUTPUT
         WHEN OTHER
             PERFORM AREA-TEXT
@@ -295,24 +345,46 @@ FIXED-TO-FREE.
 
 *> Keep a fixed comment's text within its old columns 8-72.
 CUT-AT-72.
-    IF LS-RAW-LEN > 72
+    IF LS-RAW-LEN > 72 AND SL-FORMAT(LS-L) = "X"
         MOVE SPACES TO LS-LINE(68:)
     END-IF.
 
-*> LS-TEXT(1:LS-TEXT-LEN) = columns 8-72 of line LS-L, less trailing
-*> spaces, as free-format text starting in column 1.
+*> LS-TEXT(1:LS-TEXT-LEN) = the text columns of line LS-L, less
+*> trailing spaces, as free-format text starting in column 1.
 AREA-TEXT.
     MOVE SPACES TO LS-TEXT
     MOVE 0 TO LS-TEXT-LEN
-    IF LS-RAW-LEN < 8
+    IF LS-RAW-LEN < LS-TEXT-FROM
         EXIT PARAGRAPH
     END-IF
-    COMPUTE LS-LEN = LS-RAW-LEN - 7
-    IF LS-LEN > 65
-        MOVE 65 TO LS-LEN
+    COMPUTE LS-LEN = LS-RAW-LEN - LS-TEXT-FROM + 1
+    PERFORM TEXT-WIDTH
+    IF LS-LEN > LS-TEXT-WIDTH
+        MOVE LS-TEXT-WIDTH TO LS-LEN
     END-IF
-    MOVE LS-RAW(8:LS-LEN) TO LS-TEXT
+    MOVE LS-RAW(LS-TEXT-FROM:LS-LEN) TO LS-TEXT
     CALL "PLB-STR-LENGTH" USING LS-TEXT LS-TEXT-LEN.
+
+*> LS-TEXT-WIDTH: how many columns of text the format has (to the end
+*> of the line when it has no margin).
+TEXT-WIDTH.
+    IF LS-TEXT-TO > 0
+        COMPUTE LS-TEXT-WIDTH = LS-TEXT-TO - LS-TEXT-FROM + 1
+    ELSE
+        COMPUTE LS-TEXT-WIDTH = LENGTH OF LS-RAW - LS-TEXT-FROM + 1
+    END-IF.
+
+*> The marker of a debugging line in X/Open, terminal, and COBOLX
+*> format is in its text columns: blanked.
+BLANK-DEBUG-MARKER.
+    EVALUATE SL-FORMAT(LS-L)
+        WHEN "O" WHEN "C"
+            IF LS-TEXT-FROM = 1
+                MOVE SPACE TO LS-TEXT(1:1)
+            END-IF
+        WHEN "T"
+            MOVE SPACES TO LS-TEXT(1:2)
+    END-EVALUATE.
 
 *> Append the continuation lines after LS-L to LS-TEXT. A literal open
 *> at the end of a line runs through column 72 and goes on after the
@@ -320,12 +392,13 @@ AREA-TEXT.
 *> with the continuation's first character.
 JOIN-CONTINUATIONS.
     MOVE LS-L TO LS-J
-    *> A literal open at the end of the first line runs through
-    *> column 72: its trailing spaces count.
-    IF LS-L < LS-LAST
+    *> A literal open at the end of the first line runs through the
+    *> margin: its trailing spaces count. Without a margin it ends
+    *> where the line does.
+    IF LS-L < LS-LAST AND LS-PAD-TO > 0
         IF SL-IS-CONTINUATION(LS-L + 1)
            AND SL-OPEN-QUOTE(LS-L) NOT = SPACE
-            MOVE 65 TO LS-TEXT-LEN
+            COMPUTE LS-TEXT-LEN = LS-PAD-TO - LS-TEXT-FROM + 1
         END-IF
     END-IF
     PERFORM UNTIL LS-J >= LS-LAST
@@ -337,12 +410,12 @@ JOIN-CONTINUATIONS.
         MOVE SL-CONTENT-COL(LS-NEXT) TO LS-POS
         MOVE SL-CONTENT-LEN(LS-NEXT) TO LS-LEN
         *> This line's own open literal, if another continuation
-        *> follows, also runs through column 72.
-        IF LS-NEXT < LS-LAST AND LS-LEN > 0
+        *> follows, also runs through the margin.
+        IF LS-NEXT < LS-LAST AND LS-LEN > 0 AND LS-PAD-TO > 0
             IF SL-IS-CONTINUATION(LS-NEXT + 1)
                AND SL-OPEN-QUOTE(LS-NEXT) NOT = SPACE
-               AND LS-POS <= 72
-                COMPUTE LS-LEN = 73 - LS-POS
+               AND LS-POS <= LS-PAD-TO
+                COMPUTE LS-LEN = LS-PAD-TO + 1 - LS-POS
             END-IF
         END-IF
         IF LS-LEN > 0
@@ -355,8 +428,9 @@ JOIN-CONTINUATIONS.
             *> line before ends with a quote in column 72, and this one
             *> starts with two; the first only resumes the literal.
             IF SL-OPEN-QUOTE(LS-J) = SPACE AND LS-LEN > 1
-               AND LS-TEXT-LEN > 0
-               AND SL-CONTENT-COL(LS-J) + SL-CONTENT-LEN(LS-J) - 1 = 72
+               AND LS-TEXT-LEN > 0 AND LS-PAD-TO > 0
+               AND SL-CONTENT-COL(LS-J) + SL-CONTENT-LEN(LS-J) - 1
+                   = LS-PAD-TO
                AND (LS-TEXT(LS-TEXT-LEN:1) = '"'
                     OR LS-TEXT(LS-TEXT-LEN:1) = "'")
                AND LS-RAW(LS-POS:1) = LS-TEXT(LS-TEXT-LEN:1)
@@ -395,11 +469,23 @@ FREE-TO-FIXED.
     EVALUATE TRUE
         WHEN SL-IS-BLANK(LS-L)
             PERFORM ADD-OUTPUT
+        WHEN SL-IS-PAGE(LS-L) AND SL-FORMAT(LS-L) NOT = "F"
+            *> A page eject stays one: "/" in column 7.
+            MOVE "/" TO LS-LINE(7:1)
+            IF LS-RAW-LEN >= LS-COMMENT-FROM
+                MOVE LS-RAW(LS-COMMENT-FROM:
+                    LS-RAW-LEN - LS-COMMENT-FROM + 1) TO LS-LINE(8:)
+            END-IF
+            PERFORM ADD-OUTPUT
         WHEN SL-IS-COMMENT(LS-L) OR SL-IS-PAGE(LS-L)
-            *> The text after "*>".
+            *> The text after "*>", or after the indicator.
             MOVE SPACES TO LS-COMMENT
             MOVE 0 TO LS-COMMENT-LEN
-            COMPUTE LS-POS = SL-COMMENT-COL(LS-L) + 2
+            IF SL-FORMAT(LS-L) = "F"
+                COMPUTE LS-POS = SL-COMMENT-COL(LS-L) + 2
+            ELSE
+                MOVE LS-COMMENT-FROM TO LS-POS
+            END-IF
             IF SL-COMMENT-COL(LS-L) > 0 AND LS-POS <= LS-RAW-LEN
                 COMPUTE LS-COMMENT-LEN = LS-RAW-LEN - LS-POS + 1
                 MOVE LS-RAW(LS-POS:LS-COMMENT-LEN) TO LS-COMMENT
@@ -410,6 +496,13 @@ FREE-TO-FIXED.
             PERFORM ADD-OUTPUT
         WHEN OTHER
             PERFORM SPLIT-FREE-LINE
+            *> A line continued in VARIABLE, terminal, or COBOLX format:
+            *> the whole statement text, joined, to be split again.
+            IF LS-L < LS-LAST
+                IF SL-IS-CONTINUATION(LS-L + 1)
+                    PERFORM JOIN-FOR-FIXED
+                END-IF
+            END-IF
             IF SL-IS-DEBUG(LS-L)
                 MOVE "D" TO LS-INDICATOR
             ELSE
@@ -430,6 +523,28 @@ FREE-TO-FIXED.
             END-IF
             PERFORM WRITE-CODE-LINES
     END-EVALUATE.
+
+*> The text of line LS-L and its continuations, from its first
+*> character, as the code to write; the inline comment of the last is
+*> kept with it by JOIN-CONTINUATIONS.
+JOIN-FOR-FIXED.
+    PERFORM AREA-TEXT
+    PERFORM JOIN-CONTINUATIONS
+    MOVE SPACES TO LS-CODE LS-COMMENT
+    MOVE 0 TO LS-COMMENT-LEN
+    MOVE 1 TO LS-POS
+    PERFORM UNTIL LS-POS > LS-TEXT-LEN
+        IF LS-TEXT(LS-POS:1) NOT = SPACE
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-POS
+    END-PERFORM
+    COMPUTE LS-CODE-LEN = LS-TEXT-LEN - LS-POS + 1
+    IF LS-CODE-LEN > 0
+        MOVE LS-TEXT(LS-POS:LS-CODE-LEN) TO LS-CODE
+    ELSE
+        MOVE 0 TO LS-CODE-LEN
+    END-IF.
 
 *> LS-CODE and LS-COMMENT (with its "*>") of free line LS-L, and the
 *> column the code starts in.
@@ -460,8 +575,13 @@ SPLIT-FREE-LINE.
         MOVE LS-RAW(SL-COMMENT-COL(LS-L):LS-COMMENT-LEN) TO LS-COMMENT
     END-IF
     *> Column 8 plus the indentation, in area B unless it is a header
-    *> or a record entry, which belong in area A.
-    COMPUTE LS-INDENT = SL-CONTENT-COL(LS-L) - 1
+    *> or a record entry, which belong in area A. The indentation is
+    *> counted from the first column of the format's text.
+    IF SL-CONTENT-COL(LS-L) > LS-TEXT-FROM
+        COMPUTE LS-INDENT = SL-CONTENT-COL(LS-L) - LS-TEXT-FROM
+    ELSE
+        MOVE 0 TO LS-INDENT
+    END-IF
     IF LS-INDENT > 24
         MOVE 24 TO LS-INDENT
     END-IF
