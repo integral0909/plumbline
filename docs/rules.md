@@ -98,6 +98,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q002](#plb-q002-cursor-not-closed) | cursor-not-closed | warning | SQL cursor is opened but never closed |
 | [PLB-Q003](#plb-q003-cursor-not-opened) | cursor-not-opened | error | SQL cursor is fetched or closed but never opened |
 | [PLB-Q004](#plb-q004-sql-no-where) | sql-no-where | warning | SQL UPDATE or DELETE without WHERE changes every row |
+| [PLB-Q005](#plb-q005-into-count-mismatch) | into-count-mismatch | warning | INTO list and select list have different numbers of items |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -1994,6 +1995,32 @@ the `WHERE` was lost in an edit. A `WHERE` inside parentheses, in a
 subquery, does not count: `UPDATE ORDERS SET STATUS = (SELECT ...
 WHERE ...)` still changes every row. `WHERE CURRENT OF cursor` counts.
 
+
+## PLB-Q005 into-count-mismatch
+
+A `FETCH`, or a `SELECT ... INTO`, whose `INTO` list has another number
+of host variables than the select list has columns:
+
+```cobol
+    EXEC SQL DECLARE ACCT-CUR CURSOR FOR
+        SELECT ACCT_ID, ACCT_NAME, COALESCE(BALANCE, 0)
+          FROM ACCOUNT
+    END-EXEC.
+    EXEC SQL FETCH ACCT-CUR INTO :WS-ID, :WS-NAME END-EXEC  *> reported
+```
+
+With fewer host variables than columns, DB2 sets `SQLWARN3` and the
+statement otherwise succeeds: a program that tests only `SQLCODE` goes
+on without the columns it dropped, usually ones added to the query
+later. With more, the statement is in error.
+
+Commas are separators to COBOL, so the lists are counted from the
+source text between their tokens, by the commas outside parentheses. A
+host variable with its indicator (`:HV :IND`, `:HV INDICATOR :IND`) is
+one. A cursor is matched by name with its `DECLARE` anywhere in the
+file. Select lists with `*` at their top level, cursors for prepared
+statements, and host structures (a group item, which stands for its
+fields) are not counted.
 ## PLB-S001 dynamic-sql
 
 SQL text that the program builds at run time and hands to the database:

@@ -218,6 +218,11 @@ Some findings that were read and are true:
 - **PLB-C052 string-overlap.** None, here or in the NIST and GnuCOBOL
   corpora. A copy of NIST's `NC217A` whose first `STRING` sends its
   receiver is reported.
+- **PLB-Q005 into-count-mismatch.** None: the `FETCH` statements of
+  `COTRTLIC` and the singleton `SELECT`s of the DB2 extension match their
+  select lists, commas at the start of continuation lines included. With
+  one host variable taken out of a `FETCH` in a copy of `COTRTLIC`, it
+  is reported.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)

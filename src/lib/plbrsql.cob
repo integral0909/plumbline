@@ -5,6 +5,7 @@
 *>   PLB-C019  cics-response-not-checked
 *>   PLB-S001  dynamic-sql
 *>   PLB-M014  sql-select-star
+*>   PLB-Q005  into-count-mismatch (PLB-RULE-Q005, below)
 *>
 *> "Checked" means that a statement after the command, in the same
 *> paragraph and before the next command of the same kind, names the
@@ -800,3 +801,356 @@ CHECK-RELEASED.
             PLB-RULES PLB-FINDINGS LS-RULE WS-CU-TOKEN(LS-I) LS-MESSAGE
     END-IF.
 END PROGRAM PLB-RULE-CICS-UPDATES.
+
+*> PLB-Q005 into-count-mismatch: a FETCH, or a SELECT ... INTO, whose
+*> INTO list has another number of host variables than the select list
+*> has columns:
+*>
+*>     EXEC SQL DECLARE C1 CURSOR FOR SELECT ACCT_ID, BALANCE, STATUS
+*>         FROM ACCOUNT END-EXEC
+*>     EXEC SQL FETCH C1 INTO :WS-ACCT-ID, :WS-BALANCE END-EXEC
+*>
+*> With fewer host variables than columns, DB2 sets SQLWARN3 and the
+*> statement otherwise succeeds, so a program that tests only SQLCODE
+*> carries on without the columns it dropped; with more, the statement
+*> is in error.
+*>
+*> Commas are separators to COBOL and are not tokens, so the lists are
+*> counted from the source text between their tokens: commas outside
+*> parentheses. A host variable with an indicator (:HV :IND, :HV
+*> INDICATOR :IND) is one. Lists with * at their top level, a cursor
+*> for a prepared statement, and host structures (a group item, which
+*> stands for its fields) are not counted.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-Q005.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+78  QK-MAX                      VALUE 200.
+01  WS-CURSORS.
+    05  WS-QK-COUNT         PIC 9(4) COMP-5.
+    05  WS-QK               OCCURS QK-MAX TIMES.
+        10  WS-QK-NAME      PIC X(31).
+        *> Columns of its SELECT list; 0 when not known.
+        10  WS-QK-COLUMNS   PIC 9(4) COMP-5.
+01  WS-LINE-TEXT            PIC X(4096).
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-END                  PIC 9(9) COMP-5.
+01  LS-C                    PIC 9(9) COMP-5.
+01  LS-FROM                 PIC 9(9) COMP-5.
+01  LS-TO                   PIC 9(9) COMP-5.
+01  LS-DEPTH                PIC S9(4) COMP-5.
+01  LS-COUNT                PIC 9(4) COMP-5.
+01  LS-COLUMNS              PIC 9(4) COMP-5.
+01  LS-HOSTS                PIC 9(4) COMP-5.
+01  LS-UNKNOWN              PIC X.
+01  LS-COMMA                PIC X.
+01  LS-A                    PIC 9(9) COMP-5.
+01  LS-B                    PIC 9(9) COMP-5.
+01  LS-I                    PIC 9(9) COMP-5.
+*> COMMA-BETWEEN's own position, apart from its callers' loops.
+01  LS-J                    PIC 9(9) COMP-5.
+01  LS-LINE-LEN             PIC 9(9) COMP-5.
+01  LS-SCAN-FROM            PIC 9(9) COMP-5.
+01  LS-SCAN-TO              PIC 9(9) COMP-5.
+01  LS-SCAN-LINE            PIC 9(9) COMP-5.
+01  LS-TEXT                 PIC X(31).
+01  LS-NAME                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-PASS                 PIC 9.
+01  LS-R                    PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-1                PIC X(12).
+01  LS-NUM-1-LEN            PIC 9(9) COMP-5.
+01  LS-NUM-2                PIC X(12).
+01  LS-NUM-2-LEN            PIC 9(9) COMP-5.
+01  LS-PTR                  PIC 9(4) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbsym.cpy".
+COPY "plbref.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-SYMBOLS PLB-REFS
+        PLB-RULES PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q005" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    MOVE 0 TO WS-QK-COUNT
+    *> First the cursors, wherever they are declared, then the uses.
+    PERFORM VARYING LS-PASS FROM 1 BY 1 UNTIL LS-PASS > 2
+        PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T >= TK-COUNT
+            IF TK-IS-WORD(LS-T)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+                IF FUNCTION UPPER-CASE(LS-TEXT) = "EXEC"
+                    COMPUTE LS-K = LS-T + 1
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT
+                        LS-LEN
+                    IF FUNCTION UPPER-CASE(LS-TEXT) = "SQL"
+                        PERFORM SQL-BLOCK
+                    END-IF
+                END-IF
+            END-IF
+        END-PERFORM
+    END-PERFORM
+    GOBACK.
+
+*> The statement from LS-T + 2 to END-EXEC (LS-END).
+SQL-BLOCK.
+    COMPUTE LS-END = LS-T + 2
+    PERFORM UNTIL LS-END >= TK-COUNT
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-END LS-TEXT LS-LEN
+        IF FUNCTION UPPER-CASE(LS-TEXT) = "END-EXEC"
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-END
+    END-PERFORM
+    COMPUTE LS-K = LS-T + 2
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+    EVALUATE TRUE
+        WHEN LS-PASS = 1 AND LS-TEXT = "DECLARE"
+            PERFORM DECLARATION
+        WHEN LS-PASS = 2 AND LS-TEXT = "FETCH"
+            PERFORM CHECK-FETCH
+        WHEN LS-PASS = 2 AND LS-TEXT = "SELECT"
+            PERFORM CHECK-SELECT-INTO
+    END-EVALUATE.
+
+*> DECLARE name ... CURSOR ... FOR SELECT list FROM: the cursor and
+*> the columns of its list (0 for FOR a statement name).
+DECLARATION.
+    ADD 1 TO LS-K
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-NAME LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-NAME) TO LS-NAME
+    MOVE 0 TO LS-FROM
+    PERFORM VARYING LS-C FROM LS-K BY 1 UNTIL LS-C >= LS-END
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C LS-TEXT LS-LEN
+        MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+        IF LS-TEXT = "TABLE" OR LS-TEXT = "STATEMENT"
+            EXIT PARAGRAPH
+        END-IF
+        IF LS-TEXT = "SELECT"
+            MOVE LS-C TO LS-FROM
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF WS-QK-COUNT >= QK-MAX
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO WS-QK-COUNT
+    MOVE LS-NAME TO WS-QK-NAME(WS-QK-COUNT)
+    MOVE 0 TO WS-QK-COLUMNS(WS-QK-COUNT)
+    IF LS-FROM > 0
+        PERFORM SELECT-LIST
+        MOVE LS-COLUMNS TO WS-QK-COLUMNS(WS-QK-COUNT)
+    END-IF.
+
+*> LS-COLUMNS: the columns of the select list after SELECT at LS-FROM,
+*> up to FROM or INTO at the top level; 0 when not counted. LS-TO is
+*> the token that ends it.
+SELECT-LIST.
+    MOVE 0 TO LS-COLUMNS LS-DEPTH
+    MOVE 1 TO LS-COUNT
+    MOVE "N" TO LS-UNKNOWN
+    COMPUTE LS-A = LS-FROM + 1
+    MOVE 0 TO LS-TO
+    PERFORM VARYING LS-B FROM LS-A BY 1 UNTIL LS-B >= LS-END
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-B)
+                ADD 1 TO LS-DEPTH
+            WHEN TK-IS-RPAREN(LS-B)
+                SUBTRACT 1 FROM LS-DEPTH
+            WHEN LS-DEPTH = 0 AND TK-IS-WORD(LS-B)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-B LS-TEXT LS-LEN
+                MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+                IF LS-TEXT = "FROM" OR LS-TEXT = "INTO"
+                    MOVE LS-B TO LS-TO
+                    EXIT PERFORM
+                END-IF
+            WHEN LS-DEPTH = 0 AND TK-IS-OPERATOR(LS-B)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-B LS-TEXT LS-LEN
+                IF LS-TEXT = "*"
+                    MOVE "Y" TO LS-UNKNOWN
+                END-IF
+        END-EVALUATE
+        IF LS-DEPTH = 0 AND LS-B > LS-A
+            COMPUTE LS-I = LS-B - 1
+            MOVE LS-I TO LS-SCAN-FROM
+            MOVE LS-B TO LS-SCAN-TO
+            PERFORM COMMA-BETWEEN
+            IF LS-COMMA = "Y"
+                ADD 1 TO LS-COUNT
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-TO > 0 AND LS-UNKNOWN = "N"
+        MOVE LS-COUNT TO LS-COLUMNS
+    END-IF.
+
+*> LS-HOSTS: the host variables of an INTO list from LS-A up to the
+*> token before LS-B: one more than its top-level commas; 0 when one of
+*> them is a group (a host structure) or the list is empty.
+INTO-LIST.
+    MOVE 0 TO LS-HOSTS
+    IF LS-A >= LS-B
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 1 TO LS-COUNT
+    PERFORM VARYING LS-I FROM LS-A BY 1 UNTIL LS-I >= LS-B
+        IF TK-IS-WORD(LS-I)
+            PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+                IF RF-TOKEN(LS-R) = LS-I
+                    IF RF-KIND(LS-R) = "D" AND RF-SYMBOL(LS-R) > 0
+                        IF SY-CATEGORY(RF-SYMBOL(LS-R)) = "G"
+                            EXIT PARAGRAPH
+                        END-IF
+                    END-IF
+                    EXIT PERFORM
+                END-IF
+            END-PERFORM
+        END-IF
+        IF LS-I > LS-A
+            COMPUTE LS-SCAN-FROM = LS-I - 1
+            MOVE LS-I TO LS-SCAN-TO
+            PERFORM COMMA-BETWEEN
+            IF LS-COMMA = "Y"
+                ADD 1 TO LS-COUNT
+            END-IF
+        END-IF
+    END-PERFORM
+    MOVE LS-COUNT TO LS-HOSTS.
+
+*> FETCH ... cursor ... INTO list.
+CHECK-FETCH.
+    MOVE 0 TO LS-COLUMNS LS-A
+    PERFORM VARYING LS-K FROM LS-K BY 1 UNTIL LS-K >= LS-END
+        IF TK-IS-WORD(LS-K)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+            IF LS-TEXT = "INTO"
+                COMPUTE LS-A = LS-K + 1
+                EXIT PERFORM
+            END-IF
+            IF LS-COLUMNS = 0
+                PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > WS-QK-COUNT
+                    IF WS-QK-NAME(LS-C) = LS-TEXT
+                        MOVE WS-QK-COLUMNS(LS-C) TO LS-COLUMNS
+                        MOVE LS-K TO LS-R
+                    END-IF
+                END-PERFORM
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-A = 0 OR LS-COLUMNS = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-END TO LS-B
+    PERFORM INTO-LIST
+    IF LS-HOSTS > 0 AND LS-HOSTS NOT = LS-COLUMNS
+        PERFORM REPORT-MISMATCH
+    END-IF.
+
+*> SELECT list INTO hosts FROM ...
+CHECK-SELECT-INTO.
+    MOVE LS-K TO LS-FROM
+    PERFORM SELECT-LIST
+    IF LS-COLUMNS = 0 OR LS-TO = 0
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TO LS-TEXT LS-LEN
+    IF FUNCTION UPPER-CASE(LS-TEXT) NOT = "INTO"
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-A = LS-TO + 1
+    MOVE LS-END TO LS-B
+    PERFORM VARYING LS-K FROM LS-A BY 1 UNTIL LS-K >= LS-END
+        IF TK-IS-WORD(LS-K)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+            IF FUNCTION UPPER-CASE(LS-TEXT) = "FROM"
+                MOVE LS-K TO LS-B
+                EXIT PERFORM
+            END-IF
+        END-IF
+    END-PERFORM
+    PERFORM INTO-LIST
+    IF LS-HOSTS > 0 AND LS-HOSTS NOT = LS-COLUMNS
+        MOVE LS-FROM TO LS-R
+        PERFORM REPORT-MISMATCH
+    END-IF.
+
+REPORT-MISMATCH.
+    MOVE LS-COLUMNS TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-1 LS-NUM-1-LEN
+    MOVE LS-HOSTS TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-2 LS-NUM-2-LEN
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    STRING "the select list has " DELIMITED BY SIZE
+           LS-NUM-1(1:LS-NUM-1-LEN) DELIMITED BY SIZE
+           " column" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    IF LS-COLUMNS > 1
+        STRING "s" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    STRING " and the INTO list " DELIMITED BY SIZE
+           LS-NUM-2(1:LS-NUM-2-LEN) DELIMITED BY SIZE
+           " host variable" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    IF LS-HOSTS > 1
+        STRING "s" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-A LS-MESSAGE.
+
+*> LS-COMMA = "Y" when the source text between tokens LS-SCAN-FROM and
+*> LS-SCAN-TO holds a comma: after the first on its line, and before
+*> the second on its line when they are on different lines.
+COMMA-BETWEEN.
+    MOVE "N" TO LS-COMMA
+    IF TK-SRC-LINE(LS-SCAN-FROM) = 0 OR TK-SRC-LINE(LS-SCAN-TO) = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE TK-SRC-LINE(LS-SCAN-FROM) TO LS-SCAN-LINE
+    CALL "PLB-SRC-LINE-TEXT" USING PLB-SOURCE-SET LS-SCAN-LINE
+        WS-LINE-TEXT LS-LINE-LEN
+    COMPUTE LS-J = TK-COLUMN(LS-SCAN-FROM) + TK-SPAN(LS-SCAN-FROM)
+    IF TK-SRC-LINE(LS-SCAN-TO) = LS-SCAN-LINE
+        PERFORM VARYING LS-J FROM LS-J BY 1
+                UNTIL LS-J >= TK-COLUMN(LS-SCAN-TO) OR LS-J > LS-LINE-LEN
+            IF WS-LINE-TEXT(LS-J:1) = ","
+                MOVE "Y" TO LS-COMMA
+                EXIT PARAGRAPH
+            END-IF
+        END-PERFORM
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-J FROM LS-J BY 1
+            UNTIL LS-J > SL-CONTENT-COL(LS-SCAN-LINE)
+                         + SL-CONTENT-LEN(LS-SCAN-LINE) - 1
+               OR LS-J > LS-LINE-LEN
+        IF WS-LINE-TEXT(LS-J:1) = ","
+            MOVE "Y" TO LS-COMMA
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    MOVE TK-SRC-LINE(LS-SCAN-TO) TO LS-SCAN-LINE
+    CALL "PLB-SRC-LINE-TEXT" USING PLB-SOURCE-SET LS-SCAN-LINE
+        WS-LINE-TEXT LS-LINE-LEN
+    PERFORM VARYING LS-J FROM SL-CONTENT-COL(LS-SCAN-LINE) BY 1
+            UNTIL LS-J >= TK-COLUMN(LS-SCAN-TO) OR LS-J > LS-LINE-LEN
+        IF WS-LINE-TEXT(LS-J:1) = ","
+            MOVE "Y" TO LS-COMMA
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM.
+END PROGRAM PLB-RULE-Q005.
