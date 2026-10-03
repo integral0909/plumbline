@@ -1,0 +1,33 @@
+*> PLB-K004 commarea-length-too-long: a CICS command whose LENGTH is
+*> more than its COMMAREA item.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. CALENGTH.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-COMMAREA.
+    05  WS-CA-ACCOUNT       PIC X(11).
+    05  WS-CA-PAGE          PIC 9(3).
+01  WS-OLD-COMMAREA         PIC X(100).
+01  WS-ANY-LENGTH           PIC S9(4) COMP VALUE 14.
+PROCEDURE DIVISION.
+    *> Reported: the length of another, longer item.
+    EXEC CICS XCTL PROGRAM('ACCTUPD')
+        COMMAREA(WS-COMMAREA)
+        LENGTH(LENGTH OF WS-OLD-COMMAREA)
+    END-EXEC
+    *> Reported: a literal longer than the item.
+    EXEC CICS LINK PROGRAM('ACCTCALC')
+        COMMAREA(WS-COMMAREA) LENGTH(20)
+    END-EXEC
+    *> Fine: the item's own length, a shorter literal, a data item, and
+    *> no LENGTH at all.
+    EXEC CICS LINK PROGRAM('ACCTCALC')
+        COMMAREA(WS-COMMAREA) LENGTH(LENGTH OF WS-COMMAREA)
+    END-EXEC
+    EXEC CICS LINK PROGRAM('ACCTCALC')
+        COMMAREA(WS-COMMAREA) LENGTH(11)
+    END-EXEC
+    EXEC CICS LINK PROGRAM('ACCTCALC')
+        COMMAREA(WS-COMMAREA) LENGTH(WS-ANY-LENGTH)
+    END-EXEC
+    EXEC CICS RETURN TRANSID('ACCT') COMMAREA(WS-COMMAREA) END-EXEC.
