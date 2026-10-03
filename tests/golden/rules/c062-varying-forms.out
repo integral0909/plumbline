@@ -1,0 +1,5 @@
+tests/golden/rules/c062-varying-forms.cob:15:28: error: Subscript IX reaches 11 in the PERFORM VARYING on line 14, but CODE-ENTRY occurs 10 times [PLB-C062]
+tests/golden/rules/c062-varying-forms.cob:19:28: error: Subscript IX reaches 11 in the PERFORM VARYING on line 18, but CODE-ENTRY occurs 10 times [PLB-C062]
+tests/golden/rules/c062-varying-forms.cob:31:28: error: Subscript CX reaches 11 in the PERFORM VARYING on line 30, but CODE-ENTRY occurs 10 times [PLB-C062]
+tests/golden/rules/c062-varying-forms.cob:47:24: error: Subscript IX reaches 15 in the PERFORM VARYING on line 22, but CODE-ENTRY occurs 10 times [PLB-C062]
+tests/golden/rules/c062-varying-forms.cob:49:24: error: Subscript IX + 0 reaches 15 in the PERFORM VARYING on line 22, but CODE-ENTRY occurs 10 times [PLB-C062]

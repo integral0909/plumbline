@@ -327,6 +327,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     *> Input is often checked in another paragraph, or known to be
     *> digits: only on request.
     MOVE "N" TO RL-ENABLED(RL-COUNT)
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C062"
+        "varying-subscript-out-of-range" "E"
+        "PERFORM VARYING counter used as a subscript goes outside the table"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-A002"
         "record-length-conflict" "W"
         "Programs sharing a data set disagree on its record length"

@@ -1,0 +1,49 @@
+*> PLB-C062 varying-subscript-out-of-range: conditions written in
+*> words, procedure ranges, and loops the rule leaves alone.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. VARYFORM.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  IX                  PIC 9(3).
+01  CODES.
+    05  CODE-ENTRY      PIC X(4) OCCURS 10 INDEXED BY CX.
+PROCEDURE DIVISION.
+MAIN-LINE.
+    MOVE SPACES TO CODES
+    *> Words: IS GREATER THAN OR EQUAL TO 12 lets IX reach 11.
+    PERFORM VARYING IX FROM 1 BY 1 UNTIL IX IS GREATER THAN OR EQUAL TO 12
+        DISPLAY CODE-ENTRY(IX)
+    END-PERFORM
+    *> EQUAL TO, without BY.
+    PERFORM VARYING IX FROM 1 UNTIL IX EQUAL TO 12
+        DISPLAY CODE-ENTRY(IX)
+    END-PERFORM
+    *> A THRU range: both paragraphs.
+    PERFORM SHOW-FIRST THRU SHOW-LAST
+        VARYING IX FROM 5 BY 5 UNTIL IX > 15
+    *> An index, set in the loop: left alone.
+    PERFORM VARYING CX FROM 1 BY 1 UNTIL CX > 12
+        DISPLAY CODE-ENTRY(CX)
+        SET CX UP BY 1
+    END-PERFORM
+    *> An index past the end.
+    PERFORM VARYING CX FROM 1 BY 1 UNTIL CX > 11
+        DISPLAY CODE-ENTRY(CX)
+    END-PERFORM
+    *> WITH TEST AFTER: left alone.
+    PERFORM WITH TEST AFTER VARYING IX FROM 1 BY 1 UNTIL IX > 12
+        DISPLAY CODE-ENTRY(IX)
+    END-PERFORM
+    *> A reference modification, not a subscript: left alone.
+    PERFORM VARYING IX FROM 1 BY 1 UNTIL IX > 12
+        DISPLAY CODES(IX:1)
+    END-PERFORM
+    *> GREATER without THAN, and a loop that never runs.
+    PERFORM VARYING IX FROM 20 BY 1 UNTIL IX GREATER 12
+        DISPLAY CODE-ENTRY(IX)
+    END-PERFORM
+    STOP RUN.
+SHOW-FIRST.
+    DISPLAY CODE-ENTRY(IX).
+SHOW-LAST.
+    DISPLAY CODE-ENTRY(IX + 0).

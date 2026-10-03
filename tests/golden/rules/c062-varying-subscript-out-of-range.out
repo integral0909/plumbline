@@ -1,0 +1,6 @@
+tests/golden/rules/c062-varying-subscript-out-of-range.cob:21:28: error: Subscript IX reaches 25 in the PERFORM VARYING on line 20, but LINE-ENTRY occurs 20 times [PLB-C062]
+tests/golden/rules/c062-varying-subscript-out-of-range.cob:25:28: error: Subscript IX is 0 on the first pass of the PERFORM VARYING on line 24, but the entries of LINE-ENTRY start at 1 [PLB-C062]
+tests/golden/rules/c062-varying-subscript-out-of-range.cob:29:40: error: Subscript IX + 1 reaches 21 in the PERFORM VARYING on line 28, but LINE-ENTRY occurs 20 times [PLB-C062]
+tests/golden/rules/c062-varying-subscript-out-of-range.cob:40:31: error: Subscript JX reaches 6 in the PERFORM VARYING on line 38, but GRID-CELL occurs 5 times [PLB-C062]
+tests/golden/rules/c062-varying-subscript-out-of-range.cob:60:28: error: Subscript IX - 1 is 0 on the first pass of the PERFORM VARYING on line 59, but the entries of LINE-ENTRY start at 1 [PLB-C062]
+tests/golden/rules/c062-varying-subscript-out-of-range.cob:65:24: error: Subscript JX reaches 30 in the PERFORM VARYING on line 43, but LINE-ENTRY occurs 20 times [PLB-C062]
