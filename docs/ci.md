@@ -84,6 +84,23 @@ plumbline:
       junit: plumbline-junit.xml
 ```
 
+## What a change reaches
+
+`impact --changed` lists the programs a change reaches and the job
+steps that run them, for a job that rebuilds or retests only those:
+
+```sh
+git fetch origin main
+git diff --name-only origin/main...HEAD |
+    plumbline impact --changed - --report json -I copybooks src/*.cbl jcl/*.jcl > impact.json
+```
+
+`impact.json` has the changed files of the run (`changed`) and the
+others (`notInRun`), the programs (`programs`, each with its `name` and
+`path`), and the job steps (`steps`, each with its `job` or `proc`,
+`step`, `path`, `line`, and the program it `runs`, or `changed` for a
+step of changed JCL).
+
 ## Settings
 
 A `plumbline.conf` at the root of the repository holds the copybook

@@ -240,6 +240,26 @@ data set AWS.M2.CARDDEMO.TRANSACT.VSAM.KSDS
   ...
 ```
 
+For a change rather than a name, `impact --changed LIST` takes the
+paths of the changed files (`-` reads them from standard input, as
+`git diff --name-only` writes them) and lists the programs to rebuild
+and the job steps to run again: the programs whose source changed or
+includes a changed copybook, at any depth, the programs that call
+them, and the steps that run any of them or are in changed JCL.
+`--report json` gives the same lists for a script.
+
+```console
+$ git diff --name-only origin/main | plumbline impact --changed - -I app/cpy app/cbl/*.cbl app/jcl/*.jcl
+changed files of the run: 1
+  app/cpy/CVACT01Y.cpy
+programs: 10
+  COACTUPC app/cbl/COACTUPC.cbl
+  ...
+job steps: 5
+  STEP05 of job READACCT at app/jcl/READACCT.jcl:32, runs CBACT01C
+  ...
+```
+
 ## Formatting
 
 `plumbline format` rewrites a file in fixed or free reference format,
