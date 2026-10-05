@@ -197,6 +197,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C060 spaces-into-numeric.
 - Rule PLB-C061 unchecked-numeric-move (off by default).
 - Rule PLB-C062 varying-subscript-out-of-range.
+- Rule PLB-C063 varying-refmod-out-of-range.
 - Rule PLB-M019 commented-out-code (off by default).
 - Rule PLB-M020 constant-condition.
 - Rule PLB-M018 signed-to-unsigned, off by default.

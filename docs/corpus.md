@@ -260,6 +260,9 @@ The findings were checked by rule:
 - **PLB-C062 varying-subscript-out-of-range.** None in NIST or in
   GnuCOBOL's tests.
 
+- **PLB-C063 varying-refmod-out-of-range.** None in NIST or in
+  GnuCOBOL's tests.
+
 - **PLB-C061 unchecked-numeric-move** (off by default). Enabled, 6 in
   NIST, in tests of moves between categories (`NC104A` moves
   `MOVE50` to numeric items to see what they hold).

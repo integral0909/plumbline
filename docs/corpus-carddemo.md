@@ -287,6 +287,9 @@ Some findings that were read and are true:
   `COCRDLIC` with the limit of its loop over the 7 rows of the screen
   raised from `I > 7` to `I > 8`, it reports the 4 subscripts of that
   loop; with `FROM 0`, the same 4 for the first pass.
+- **PLB-C063 varying-refmod-out-of-range.** None. The two loops with
+  the counter in a reference modifier, in `COMEN01C` and `COADM01C`,
+  count down from `LENGTH OF`, which the rule does not work out.
 - **PLB-M020 constant-condition.** None.
 - **PLB-Q008 null-without-indicator.** None: the tables that are fetched
   from declare their columns `NOT NULL`, and the one with nullable
