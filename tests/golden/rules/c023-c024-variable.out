@@ -1,3 +1,4 @@
+tests/golden/rules/c023-c024-variable.cob:9:40: error: ROW-COUNT is the count of SIZED-ROW, which has 1 to 10 entries, and its VALUE makes it 20 [PLB-C068]
 tests/golden/rules/c023-c024-variable.cob:20:30: error: subscript 0 is below 1, the first occurrence of OPEN-ROW [PLB-C023]
 tests/golden/rules/c023-c024-variable.cob:21:31: error: subscript 11 is past the 10 occurrences of SIZED-ROW [PLB-C023]
 tests/golden/rules/c023-c024-variable.cob:23:31: error: reference modification starts at 3, past the end of SIZED-HEADER (2 characters) [PLB-C024]
