@@ -126,6 +126,8 @@ LOCAL-STORAGE SECTION.
 01  LS-DEPTH                PIC S9(9) COMP-5.
 01  LS-PROGRAM              PIC 9(9) COMP-5.
 01  LS-INTRINSIC            PIC X.
+*> ",NAME,", to look for in SS-INTRINSICS.
+01  LS-INTRINSIC-KEY        PIC X(40).
 01  LS-FD-T                 PIC 9(9) COMP-5.
 01  LS-OPTION-T             PIC 9(9) COMP-5.
 01  LS-OPTION               PIC X(31).
@@ -846,7 +848,8 @@ RESOLVE-OTHER.
     END-IF.
 *> An intrinsic function named without FUNCTION, which the program's
 *> REPOSITORY allows: FUNCTION ALL INTRINSIC, or FUNCTION name ...
-*> INTRINSIC that lists it.
+*> INTRINSIC that lists it; or which --intrinsics allows for every
+*> program, as cobc's -fintrinsics does.
 INTRINSIC-WITHOUT-FUNCTION.
     MOVE "N" TO LS-INTRINSIC
     EVALUATE LS-NAME
@@ -896,7 +899,28 @@ INTRINSIC-WITHOUT-FUNCTION.
         WHEN "YEAR-TO-YYYY"
             MOVE "Y" TO LS-INTRINSIC
     END-EVALUATE
-    IF LS-INTRINSIC = "N" OR LS-PROGRAM = 0
+    IF LS-INTRINSIC = "N"
+        EXIT PARAGRAPH
+    END-IF
+    IF SS-INTRINSICS = "ALL"
+        MOVE "O" TO RF-KIND(RF-COUNT)
+        EXIT PARAGRAPH
+    END-IF
+    IF SS-INTRINSICS NOT = SPACES
+        MOVE SPACES TO LS-INTRINSIC-KEY
+        MOVE 1 TO LS-J
+        STRING "," LS-NAME DELIMITED BY SPACE "," DELIMITED BY SIZE
+            INTO LS-INTRINSIC-KEY WITH POINTER LS-J
+        SUBTRACT 1 FROM LS-J
+        MOVE 0 TO LS-K
+        INSPECT SS-INTRINSICS TALLYING LS-K
+            FOR ALL LS-INTRINSIC-KEY(1:LS-J)
+        IF LS-K > 0
+            MOVE "O" TO RF-KIND(RF-COUNT)
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    IF LS-PROGRAM = 0
         EXIT PARAGRAPH
     END-IF
     *> The REPOSITORY is in the program's environment division.

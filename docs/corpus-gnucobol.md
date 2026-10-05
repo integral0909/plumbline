@@ -32,9 +32,14 @@ compiles with.
 
 | | First run | Now |
 |---|---:|---:|
-| Programs (in formats Plumbline reads) | 1,025 | 1,035 |
+| Programs (in formats Plumbline reads) | 1,025 | 999 |
 | Programs with input errors | 44 | 0 |
-| Programs with names reported as undefined or ambiguous | 136 | 3 |
+| Programs with names reported as undefined or ambiguous | 136 | 0 |
+
+The count of programs went from 1,025 up to 1,035 as Plumbline came to
+read every reference format, then down to 999: the 36 programs of the
+23 test cases marked `AT_XFAIL_IF([true])`, which GnuCOBOL expects to
+fail, are left out, since their programs need not compile.
 
 The first run left out ten programs in reference formats Plumbline did
 not read, and one that switched to COBOLX format failed (RD004); all
@@ -80,14 +85,16 @@ What the first run found, each fixed with a test of its own:
   NEAREST-EVEN`, `ACCEPT ... FROM DATE YYYYMMDD`, screen attributes such
   as `AUTO-SKIP`, `STOP RUN WITH NORMAL STATUS`, and the bit operators.
 
-What is left:
+The last three were fixed in the corpus as much as in Plumbline:
 
-- **`-fintrinsics=all`**: two programs name `PI` and `E` without
-  `FUNCTION`, which a compiler option allows; Plumbline sees only the
-  source.
-- **`INVOICE-AMOUNT`**: one program uses a name that no entry declares.
-  GnuCOBOL 3.2 compiles and runs it; the report is correct as far as
-  the program's text goes.
+- **`-fintrinsics`**: two programs name `PI` and `E` without
+  `FUNCTION`, which their tests allow with `-fintrinsics=all` and
+  `-fintrinsics=pi,e`. Plumbline has the same setting
+  (`--intrinsics`), and the corpus script passes each test's on.
+- **`INVOICE-AMOUNT`**: one program uses a name that no entry
+  declares. Its test is one GnuCOBOL expects to fail, and `cobc` 3.2
+  reports the same name (`'Invoice-Amount' is not defined`) with other
+  errors; such tests are now left out.
 
 ## Rules on the tests
 

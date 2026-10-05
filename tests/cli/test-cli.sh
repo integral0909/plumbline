@@ -742,6 +742,17 @@ check "dynamic-call is off by default"    0 '^$' -- check --disable call-argumen
 check "dump calls lists parameters"       0 '^  parameter LK-CUST-ID reference 8$' -- dump calls $cx/custlook.cob
 check "help lists dump calls"             0 'dump calls' -- --help
 check "dump lines needs files"            2 'no input files' -- dump lines
+ix=tests/fixtures/intrinsics
+check "intrinsics without FUNCTION are undeclared" 1 'PI is not declared \[PLB-C009\]' \
+    -- check --no-config $ix/no-function.cob
+check_absent "--intrinsics all allows them"  'PLB-C009' \
+    -- check --no-config --intrinsics all $ix/no-function.cob
+check_absent "--intrinsics lists names"      'PLB-C009' \
+    -- check --no-config --intrinsics pi,E $ix/no-function.cob
+check "--intrinsics allows only those listed" 1 'E is not declared \[PLB-C009\]' \
+    -- check --no-config --intrinsics pi $ix/no-function.cob
+check "--intrinsics needs a value"          2 'needs all or a list of names' \
+    -- check --intrinsics
 check "invalid --format value"            2 "invalid format 'wide' (expected fixed, free, variable, xopen, terminal, cobolx, xcard, crt, or auto)" \
     -- dump lines --format wide $fx/fixed-basic.cbl
 check "crt format from a directive"        0 'crt.cob:11: debug     crt   - DISPLAY "SHOWN WHEN DEBUGGING"$' \

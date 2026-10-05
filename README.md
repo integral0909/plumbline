@@ -63,6 +63,7 @@ $ find src -name '*.cbl' | plumbline check -I copybooks --files-from -
 | `--files-from LIST` | also analyze the files listed in `LIST`, one per line (`-` for standard input) |
 | `-D NAME`, `--define NAME` | `NAME` is defined for conditional compilation |
 | `--tab-width N` | tab stops every `N` columns (default 8), as `cobc -ftab-width` |
+| `--intrinsics all\|NAME,...` | intrinsic functions that may be named without `FUNCTION` in every program, as `cobc -fintrinsics` |
 | `--format fixed\|free\|variable\|xopen\|terminal\|cobolx\|xcard\|crt\|auto` | reference format of the sources (default `auto`); `variable` and `xcard` are fixed with the text running to column 250 and 255, `xopen`, `terminal`, `cobolx`, and `crt` have the indicator in column 1 |
 | `--enable RULE`, `--disable RULE` | turn a rule on or off, by id or name |
 | `--fail-on error\|warning\|note\|never` | the lowest severity that fails the run |
@@ -510,7 +511,7 @@ baseline plumbline.baseline
 ```
 
 `include`, `format`, `enable`, `disable`, `fail-on`, `report`,
-`define`, `tab-width`, and `baseline` work like the options of the
+`define`, `tab-width`, `intrinsics`, and `baseline` work like the options of the
 same names. `severity RULE
 LEVEL` reports a rule as `error`, `warning`, or `note`, and `limit RULE
 N` sets the threshold of a rule that measures something, such as

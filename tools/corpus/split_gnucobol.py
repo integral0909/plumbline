@@ -12,11 +12,15 @@ For each test case that compiles a COBOL file and expects that to
 succeed, this script writes the files of the test case into a
 directory of its own, NNNN-slug/, and adds a line to MANIFEST:
 
-    directory<TAB>program<TAB>format<TAB>dialect<TAB>title
+    directory<TAB>program<TAB>format<TAB>dialect<TAB>intrinsics<TAB>title
 
 format is the reference format the test compiles with: "fixed"
 unless -free or -fformat=NAME says otherwise; dialect is the -std=
-option, or "default".
+option, or "default"; intrinsics is the -fintrinsics= option (the
+functions that may be named without FUNCTION), or "-".
+
+A test case marked AT_XFAIL_IF([true]) is expected to fail: its
+program need not compile, and it is left out.
 
 Usage: split_gnucobol.py TESTSUITE-DIR OUT-DIR
 """
@@ -133,6 +137,8 @@ def main(argv):
         with open(os.path.join(suite, name), encoding="latin-1") as at:
             text = at.read()
         for title, body in test_cases(text):
+            if re.search(r"AT_XFAIL_IF\(\[true\]\)", body):
+                continue
             files, compiles = files_and_compiles(body)
             programs = [(options, program) for options, program, status
                         in compiles if status == "0" and program in files]
@@ -157,9 +163,11 @@ def main(argv):
                         source_format = option[len("-fformat="):].lower()
                 dialect = next((o[len("-std="):] for o in options
                                 if o.startswith("-std=")), "default")
+                intrinsics = next((o[len("-fintrinsics="):] for o in options
+                                   if o.startswith("-fintrinsics=")), "-")
                 manifest.append("\t".join([
                     directory, program, source_format,
-                    dialect, "%s: %s" % (name, title)]))
+                    dialect, intrinsics, "%s: %s" % (name, title)]))
     with open(os.path.join(out, "MANIFEST"), "w", encoding="utf-8") as m:
         m.write("\n".join(manifest) + "\n")
     print("%d test cases, %d programs" % (number, len(manifest)))
