@@ -78,6 +78,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C064](#plb-c064-duplicate-condition-value) | duplicate-condition-value | warning | Two condition names of the same item have the same values |
 | [PLB-C065](#plb-c065-open-in-loop) | open-in-loop | warning | OPEN runs on every pass of a loop that never closes the file |
 | [PLB-C066](#plb-c066-identical-branches) | identical-branches | warning | IF does the same in its ELSE as in its THEN |
+| [PLB-C067](#plb-c067-divisor-not-checked) | divisor-not-checked | warning, off | Division by a data item that nothing checks for zero |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1850,6 +1851,32 @@ The condition decides nothing. Usually one branch was copied from the
 other and not changed. The branches are compared token by token, after
 `COPY` and `REPLACE`: spacing, line breaks, comments, and the case of
 words do not count.
+
+## PLB-C067 divisor-not-checked
+
+Off by default. A division by a data item that may be zero, with
+nothing to catch it:
+
+```cobol
+    DIVIDE WS-TOTAL BY WS-COUNT GIVING WS-AVERAGE     *> reported when enabled
+```
+
+When the input was empty, `WS-COUNT` is 0: the statement raises a size
+error, which without `ON SIZE ERROR` leaves `WS-AVERAGE` as it was, or
+on z/OS can end the program with a decimal-divide exception (S0CB).
+
+The divisor is the item after `INTO` or `BY` of a `DIVIDE`, or after
+`/` in a `COMPUTE`. A division is left alone when the statement has `ON
+SIZE ERROR`; when no statement gives the divisor a value (a constant
+with a `VALUE`); when the paragraph, or one that falls into it, tests
+the divisor before the division in an `IF`, `EVALUATE`, `PERFORM
+UNTIL`, or `SEARCH`, or moves a nonzero literal to it; and when the
+paragraph is performed from a statement that such a test encloses (`IF
+WS-COUNT > 0 PERFORM REPORT-AVERAGE`).
+
+A divisor is often known not to be zero for reasons the program does
+not show, as a count of a file that is never empty, so the rule only
+runs on request (`--enable divisor-not-checked`).
 
 ## PLB-I001 pcb-dbd-unknown
 
