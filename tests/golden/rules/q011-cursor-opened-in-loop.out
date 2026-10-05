@@ -1,0 +1,8 @@
+tests/golden/rules/q011-cursor-opened-in-loop.cob:11:29: note: table ACCOUNTS is not declared in CURLOOP (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]
+tests/golden/rules/q011-cursor-opened-in-loop.cob:14:29: note: table CARDS is not declared in CURLOOP (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]
+tests/golden/rules/q011-cursor-opened-in-loop.cob:20:9: warning: the result of EXEC SQL OPEN is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q011-cursor-opened-in-loop.cob:20:23: error: cursor ACCT-CUR is opened on every pass of the loop on line 19, which never closes it: the second OPEN fails (SQLCODE -502) [PLB-Q011]
+tests/golden/rules/q011-cursor-opened-in-loop.cob:21:9: warning: the result of EXEC SQL FETCH is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q011-cursor-opened-in-loop.cob:21:39: note: WS-ID is given a value but never read [PLB-M005]
+tests/golden/rules/q011-cursor-opened-in-loop.cob:29:5: warning: the result of EXEC SQL OPEN is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q011-cursor-opened-in-loop.cob:30:5: warning: the result of EXEC SQL FETCH is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]

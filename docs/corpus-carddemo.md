@@ -317,6 +317,9 @@ Some findings that were read and are true:
 - **PLB-C068 odo-count-out-of-range.** None.
 - **PLB-C069 search-index-used-unchecked.** None: CardDemo has no
   `SEARCH`.
+- **PLB-Q011 cursor-opened-in-loop.** None. In a copy of `COTRTLIC`
+  that performs `9400-OPEN-FORWARD-CURSOR` `2 TIMES`, it reports the
+  `OPEN` of `C-TR-TYPE-FORWARD` there.
 - **PLB-C067 divisor-not-checked** (off by default). None when
   enabled: CardDemo divides only by literals.
 - **PLB-C066 identical-branches.** None. In a copy of `CBACT01C` whose

@@ -133,6 +133,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q008](#plb-q008-null-without-indicator) | null-without-indicator | warning | Column that can be NULL fetched without an indicator variable |
 | [PLB-Q009](#plb-q009-update-of-read-only-cursor) | update-of-read-only-cursor | warning | UPDATE or DELETE WHERE CURRENT OF a cursor without FOR UPDATE |
 | [PLB-Q010](#plb-q010-cursor-undeclared) | cursor-undeclared | error | SQL cursor is opened, fetched, or closed but never declared |
+| [PLB-Q011](#plb-q011-cursor-opened-in-loop) | cursor-opened-in-loop | error | SQL cursor opened on every pass of a loop that never closes it |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -2888,6 +2889,27 @@ often a misspelled name. The cursor of a `FETCH` is the word after
 orientation (`NEXT`, `ABSOLUTE :N`, ...). A cursor that
 `ALLOCATE name CURSOR FOR RESULT SET` allocates is declared, and open,
 from there.
+## PLB-Q011 cursor-opened-in-loop
+
+An `EXEC SQL OPEN` that runs on every pass of a loop, of a cursor the
+loop never closes:
+
+```cobol
+    PERFORM UNTIL WS-DONE = "Y"
+        EXEC SQL OPEN ACCT-CUR END-EXEC              *> reported
+        EXEC SQL FETCH ACCT-CUR INTO :WS-ID END-EXEC
+        ...
+    END-PERFORM
+    EXEC SQL CLOSE ACCT-CUR END-EXEC
+```
+
+The second `OPEN` of a cursor that is still open fails with SQLCODE
+-502, and the loop goes on with the rows of the first. The loops and
+the `OPEN` statements counted are those of
+[PLB-C065](#plb-c065-open-in-loop), and an `EXEC SQL CLOSE` of the
+cursor among the loop's statements, or in a procedure they perform,
+closes it.
+
 ## PLB-S001 dynamic-sql
 
 SQL text that the program builds at run time and hands to the database:
