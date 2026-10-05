@@ -29,8 +29,13 @@
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-SRC-SCAN.
 DATA DIVISION.
-LOCAL-STORAGE SECTION.
+*> Working storage, set on every call: it runs for every line read, and
+*> local storage would be allocated and freed each time.
+WORKING-STORAGE SECTION.
 01  LS-POS                  PIC 9(4) COMP-5.
+*> The last column to scan: TO, or the end of LINE if that comes
+*> first, worked out once rather than on every character.
+01  LS-END                  PIC 9(4) COMP-5.
 01  LS-CH                   PIC X.
 01  LS-QUOTE                PIC X.
 LINKAGE SECTION.
@@ -47,8 +52,11 @@ PROCEDURE DIVISION USING LK-LINE LK-FROM LK-TO LK-QUOTE-IN
     MOVE 0 TO LK-FIRST LK-LAST LK-COMMENT-COL
     MOVE LK-QUOTE-IN TO LS-QUOTE
     MOVE LK-FROM TO LS-POS
-    PERFORM UNTIL LS-POS > LK-TO
-               OR LS-POS > FUNCTION LENGTH(LK-LINE)
+    MOVE LK-TO TO LS-END
+    IF LS-END > LENGTH OF LK-LINE
+        MOVE LENGTH OF LK-LINE TO LS-END
+    END-IF
+    PERFORM UNTIL LS-POS > LS-END
         MOVE LK-LINE(LS-POS:1) TO LS-CH
         IF LS-QUOTE = SPACE
             IF LS-CH = "*" AND LS-POS < LK-TO
