@@ -15,6 +15,7 @@
 *>                                  the program's records
 *>   PLB-J007  dataset-created-twice  a DD creates and catalogs a data
 *>                                  set an earlier DD already did
+*>   PLB-J010  dsn-invalid          a DSN= name z/OS does not accept
 *>
 *> A step that runs a program of the run (EXEC PGM=name) gives that
 *> program, and the programs it calls by literal name, their files:
@@ -110,6 +111,7 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH PLB-JCL.
     CALL "PLB-RULE-J007" USING PLB-RULES PLB-FINDINGS PLB-JCL
     CALL "PLB-RULE-J008" USING PLB-RULES PLB-FINDINGS PLB-JCL
     CALL "PLB-RULE-J009" USING PLB-RULES PLB-FINDINGS PLB-JCL
+    CALL "PLB-RULE-J010" USING PLB-RULES PLB-FINDINGS PLB-JCL
     MOVE 0 TO WS-USE-COUNT
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
         IF JS-KIND(LS-S) = "P"
@@ -994,3 +996,104 @@ APPEND-SCOPE.
         END-IF
     END-IF.
 END PROGRAM PLB-RULE-J009.
+
+*> PLB-J010 dsn-invalid: a DSN= name that z/OS does not accept as a
+*> data set name:
+*>
+*>     //MASTER   DD DSN=PROD.CUSTOMERS.2024JAN,DISP=SHR
+*>
+*> 2024JAN starts with a digit. A data set name is at most 44
+*> characters, in qualifiers of 1 to 8 characters joined by periods;
+*> each starts with a letter or a national character (#, @, $) and
+*> goes on with letters, digits, national characters, and hyphens.
+*> The job ends with a JCL error before any step runs. PLB-JCL-READ
+*> checks the names (copy/plbjcl.cpy); temporary data sets, symbols,
+*> backward references, quoted names, and NULLFILE are not checked.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J010.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-I                    PIC 9(4) COMP-5.
+01  LS-PART                 PIC X(44).
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J010" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-DSN-PROBLEM(LS-D) NOT = SPACE
+            PERFORM REPORT-NAME
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+REPORT-NAME.
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    IF JD-DSN-PROBLEM(LS-D) = "L"
+        MOVE JD-DSN-AT(LS-D) TO LS-NUM
+        CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+        STRING "data set name " DELIMITED BY SIZE
+               JD-DSN(LS-D) DELIMITED BY SPACE
+               "... is " LS-NUM-TEXT(1:LS-NUM-LEN)
+               " characters long; a data set name has at most 44"
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    ELSE
+        PERFORM FIND-QUALIFIER
+        STRING "data set name " DELIMITED BY SIZE
+               JD-DSN(LS-D) DELIMITED BY SPACE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+        EVALUATE JD-DSN-PROBLEM(LS-D)
+            WHEN "E"
+                STRING " has an empty qualifier" DELIMITED BY SIZE
+                    INTO LS-MESSAGE WITH POINTER LS-PTR
+            WHEN "Q"
+                STRING ": qualifier " DELIMITED BY SIZE
+                       LS-PART DELIMITED BY SPACE
+                       " is longer than 8 characters" DELIMITED BY SIZE
+                    INTO LS-MESSAGE WITH POINTER LS-PTR
+            WHEN "F"
+                STRING ": qualifier " DELIMITED BY SIZE
+                       LS-PART DELIMITED BY SPACE
+                       " does not start with a letter or #, @, or $"
+                       DELIMITED BY SIZE
+                    INTO LS-MESSAGE WITH POINTER LS-PTR
+            WHEN "C"
+                STRING ": qualifier " DELIMITED BY SIZE
+                       LS-PART DELIMITED BY SPACE
+                       " has a character other than letters, digits,"
+                       " #, @, $, and -" DELIMITED BY SIZE
+                    INTO LS-MESSAGE WITH POINTER LS-PTR
+        END-EVALUATE
+    END-IF
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
+
+*> LS-PART: qualifier number JD-DSN-AT(LS-D) of the name.
+FIND-QUALIFIER.
+    MOVE SPACES TO LS-PART
+    MOVE 1 TO LS-PTR
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > JD-DSN-AT(LS-D)
+        MOVE SPACES TO LS-PART
+        UNSTRING JD-DSN(LS-D) DELIMITED BY "." OR "("
+            INTO LS-PART WITH POINTER LS-PTR
+        END-UNSTRING
+    END-PERFORM
+    MOVE 1 TO LS-PTR.
+END PROGRAM PLB-RULE-J010.

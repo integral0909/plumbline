@@ -90,6 +90,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J007](#plb-j007-dataset-created-twice) | dataset-created-twice | error | Data set created and cataloged again without being deleted |
 | [PLB-J008](#plb-j008-cond-step-unknown) | cond-step-unknown | warning | COND or IF tests a step that does not run before it |
 | [PLB-J009](#plb-j009-referback-unresolved) | referback-unresolved | error | Backward reference names a step or DD not before it |
+| [PLB-J010](#plb-j010-dsn-invalid) | dsn-invalid | error | DSN= names a data set name that z/OS does not accept |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -2075,6 +2076,28 @@ step is checked, since procedures are not expanded.
 A `DSN=` reference that resolves takes the data set name of the DD it
 names, so the other JCL rules, `dump jcl`, and the data set graphs see
 the data set itself rather than `*.STEP.DD`.
+
+## PLB-J010 dsn-invalid
+
+A `DSN=` name that z/OS does not accept as a data set name:
+
+```jcl
+//MASTER   DD DSN=PROD.CUSTOMER.2024JAN,DISP=SHR          reported
+//HISTORY  DD DSN=PROD.CUSTOMERS.HISTORY,DISP=SHR         reported
+```
+
+A data set name is at most 44 characters, in qualifiers of 1 to 8
+characters joined by periods. Each qualifier starts with a letter or a
+national character (`#`, `@`, `$`) and goes on with letters, digits,
+national characters, and hyphens. `2024JAN` starts with a digit and
+`CUSTOMERS` has nine characters: the job fails with a JCL error before
+any step runs. The rule reports the first problem of each name.
+
+A member or generation in parentheses (`LIB(PAYROLL)`, `TOTALS(+1)`) is
+not part of the name. Names the system resolves or substitutes are not
+checked: temporary data sets (`&&WORK`), symbols (`&HLQ..MASTER`, and
+the `%%` variables of job schedulers), backward references (`*.DD`),
+quoted names, and `NULLFILE`.
 ## PLB-K001 cics-resource-undefined
 
 An `EXEC CICS` command that names a file, transaction, program, mapset,

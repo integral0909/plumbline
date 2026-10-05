@@ -1,0 +1,5 @@
+tests/golden/rules/j010-dsn-invalid.jcl:8:3: error: data set name PROD.CUSTOMER.2024JAN: qualifier 2024JAN does not start with a letter or #, @, or $ [PLB-J010]
+tests/golden/rules/j010-dsn-invalid.jcl:9:3: error: data set name PROD.CUSTOMERS.HISTORY: qualifier CUSTOMERS is longer than 8 characters [PLB-J010]
+tests/golden/rules/j010-dsn-invalid.jcl:10:3: error: data set name PROD..MASTER has an empty qualifier [PLB-J010]
+tests/golden/rules/j010-dsn-invalid.jcl:11:3: error: data set name PROD.CUST_MAST: qualifier CUST_MAST has a character other than letters, digits, #, @, $, and - [PLB-J010]
+tests/golden/rules/j010-dsn-invalid.jcl:12:3: error: data set name PROD.CUSTOMER.MASTER.FILE.BACKUP.COPY.MONTHL... is 47 characters long; a data set name has at most 44 [PLB-J010]
