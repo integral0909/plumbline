@@ -259,6 +259,10 @@ Some findings that were read and are true:
   `LENGTH` out, and the rest give `LENGTH OF` their own COMMAREA item.
   With that length changed to 20000 in a copy of `COCRDUPC`, whose
   `WS-COMMAREA` has 2000 bytes, it is reported.
+- **PLB-K006 return-transid-without-commarea.** None: each of the 21
+  programs with a `DFHCOMMAREA` and a `RETURN TRANSID` passes its
+  `COMMAREA` back. In a copy of `COADM01C` with the `COMMAREA` line of
+  its first `RETURN` taken out, it reports that `RETURN`.
 - **PLB-K005 batch-io-in-cics.** None: no program with CICS commands
   has COBOL file statements or an `ACCEPT` of input.
   An `ACCEPT` added to a copy of `COMEN01C` is reported.

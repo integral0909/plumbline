@@ -1,0 +1,47 @@
+*> PLB-K006 return-transid-without-commarea: a pseudo-conversational
+*> RETURN without the COMMAREA the program expects back.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. ACCTPAGE.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-STATE.
+    05  WS-ACCOUNT-ID       PIC X(11).
+    05  WS-PAGE             PIC 9(3).
+LINKAGE SECTION.
+01  DFHCOMMAREA.
+    05  CA-ACCOUNT-ID       PIC X(11).
+    05  CA-PAGE             PIC 9(3).
+PROCEDURE DIVISION.
+    IF EIBCALEN = 0
+        MOVE SPACES TO WS-ACCOUNT-ID
+        MOVE 1 TO WS-PAGE
+        *> Fine: the state goes back with the RETURN.
+        EXEC CICS RETURN TRANSID('APAG') COMMAREA(WS-STATE)
+            LENGTH(LENGTH OF WS-STATE)
+        END-EXEC
+    END-IF
+    MOVE DFHCOMMAREA TO WS-STATE
+    ADD 1 TO WS-PAGE
+    IF WS-PAGE > 9
+        *> Fine: no TRANSID ends the conversation.
+        EXEC CICS RETURN END-EXEC
+    END-IF
+    *> Reported: the next page starts as if new.
+    EXEC CICS RETURN
+        TRANSID('APAG')
+    END-EXEC.
+
+*> Fine: a nested program without DFHCOMMAREA expects nothing back.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PAGEHELP.
+PROCEDURE DIVISION.
+    EXEC CICS RETURN TRANSID('AHLP') END-EXEC.
+END PROGRAM PAGEHELP.
+END PROGRAM ACCTPAGE.
+
+IDENTIFICATION DIVISION.
+PROGRAM-ID. ACCTSTRT.
+PROCEDURE DIVISION.
+    *> Fine: a program without DFHCOMMAREA expects nothing back.
+    EXEC CICS RETURN TRANSID('APAG') END-EXEC.
+END PROGRAM ACCTSTRT.

@@ -9,6 +9,7 @@
 *>   PLB-K003  commarea-without-length (PLB-RULE-K003, below)
 *>   PLB-K004  commarea-length-too-long (PLB-RULE-K004, below)
 *>   PLB-K005  batch-io-in-cics (PLB-RULE-K005, below)
+*>   PLB-K006  return-transid-without-commarea (PLB-RULE-K006, below)
 *>   PLB-Q009  update-of-read-only-cursor (PLB-RULE-Q009, below)
 *>
 *> "Checked" means that a statement after the command, in the same
@@ -1877,3 +1878,125 @@ REPORT-CURSOR.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-K LS-MESSAGE.
 END PROGRAM PLB-RULE-Q009.
+
+*> PLB-K006 return-transid-without-commarea: a pseudo-conversational
+*> RETURN that names the next transaction but passes no COMMAREA, in a
+*> program that receives one:
+*>
+*>     LINKAGE SECTION.
+*>     01  DFHCOMMAREA          PIC X(100).
+*>     ...
+*>         EXEC CICS RETURN TRANSID('ACCT') END-EXEC
+*>
+*> The next task of the conversation starts with EIBCALEN = 0, as on a
+*> first entry from the terminal: the program sets its state up again
+*> and the user's progress is lost. A program receives a COMMAREA when
+*> it declares DFHCOMMAREA in its LINKAGE SECTION. A RETURN without
+*> TRANSID, which ends the conversation, is not reported.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-K006.
+DATA DIVISION.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-PROGRAM              PIC 9(9) COMP-5.
+01  LS-NESTED               PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-END                  PIC 9(9) COMP-5.
+01  LS-TRANSID              PIC 9(9) COMP-5.
+01  LS-COMMAREA             PIC X.
+01  LS-TEXT                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbsym.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
+        PLB-RULES PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K006" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
+        IF SY-NAME(LS-S) = "DFHCOMMAREA" AND SY-SECTION(LS-S) = "K"
+           AND SY-PARENT(LS-S) = 0 AND SY-PROGRAM(LS-S) > 0
+            MOVE SY-PROGRAM(LS-S) TO LS-PROGRAM
+            PERFORM CHECK-PROGRAM
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> Each EXEC CICS RETURN in the program's text, less that of the
+*> programs nested in it, which are judged on their own.
+CHECK-PROGRAM.
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-PROGRAM) BY 1
+            UNTIL LS-T + 2 > ND-TOK-LAST(LS-PROGRAM)
+        PERFORM SKIP-NESTED
+        IF LS-T + 2 <= ND-TOK-LAST(LS-PROGRAM) AND TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            IF FUNCTION UPPER-CASE(LS-TEXT) = "EXEC"
+                COMPUTE LS-K = LS-T + 1
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+                IF FUNCTION UPPER-CASE(LS-TEXT) = "CICS"
+                    ADD 1 TO LS-K
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT
+                        LS-LEN
+                    IF FUNCTION UPPER-CASE(LS-TEXT) = "RETURN"
+                        PERFORM CHECK-RETURN
+                    END-IF
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> LS-T past the text of a program nested in this one that starts at
+*> it.
+SKIP-NESTED.
+    MOVE ND-FIRST(LS-PROGRAM) TO LS-NESTED
+    PERFORM UNTIL LS-NESTED = 0
+        IF ND-KIND(LS-NESTED) = "PROG"
+           AND ND-TOK-FIRST(LS-NESTED) = LS-T
+            COMPUTE LS-T = ND-TOK-LAST(LS-NESTED) + 1
+            MOVE ND-FIRST(LS-PROGRAM) TO LS-NESTED
+        ELSE
+            MOVE ND-NEXT(LS-NESTED) TO LS-NESTED
+        END-IF
+    END-PERFORM.
+
+*> The RETURN at LS-K, to its END-EXEC: TRANSID without COMMAREA.
+CHECK-RETURN.
+    MOVE 0 TO LS-TRANSID
+    MOVE "N" TO LS-COMMAREA
+    MOVE LS-K TO LS-END
+    PERFORM UNTIL LS-END >= ND-TOK-LAST(LS-PROGRAM)
+        ADD 1 TO LS-END
+        IF TK-IS-WORD(LS-END)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-END LS-TEXT LS-LEN
+            EVALUATE FUNCTION UPPER-CASE(LS-TEXT)
+                WHEN "END-EXEC"
+                    EXIT PERFORM
+                WHEN "TRANSID"
+                    MOVE LS-END TO LS-TRANSID
+                WHEN "COMMAREA"
+                    MOVE "Y" TO LS-COMMAREA
+            END-EVALUATE
+        END-IF
+    END-PERFORM
+    IF LS-TRANSID > 0 AND LS-COMMAREA = "N"
+        MOVE SPACES TO LS-MESSAGE
+        STRING "EXEC CICS RETURN TRANSID passes no COMMAREA, but the "
+               "program receives one (DFHCOMMAREA): the next task "
+               "starts with EIBCALEN = 0, as if new" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE LS-K LS-MESSAGE
+    END-IF.
+END PROGRAM PLB-RULE-K006.
