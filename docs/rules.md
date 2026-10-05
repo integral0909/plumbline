@@ -899,12 +899,16 @@ the item:
 01  STATE-CODE  PIC X(2).
     ...
     IF STATE-CODE = "TEX"                   *> reported
+    EVALUATE STATE-CODE
+        WHEN "TEX"                          *> reported
 ```
 
 The shorter operand is compared as if padded with spaces, so the item
 never holds the literal's last characters. Trailing spaces of the
 literal do not count, and literals with a prefix (`X"..."`, `N"..."`)
-are not checked.
+are not checked. In an `EVALUATE`, a `WHEN` value that is one literal
+is checked against its subject (each `ALSO` part on its own); a range
+(`THRU`) is not.
 
 ## PLB-C029 go-to-leaves-perform
 

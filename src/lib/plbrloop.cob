@@ -27,7 +27,22 @@
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-LOOPS.
 DATA DIVISION.
+WORKING-STORAGE SECTION.
+78  ALSO-MAX                VALUE 32.
+*> Reference starting at each token (0: none), for the subjects of
+*> EVALUATE statements.
+01  WS-TOKEN-REF            PIC 9(9) COMP-5 OCCURS 500000 TIMES.
 LOCAL-STORAGE SECTION.
+*> EVALUATE: the symbol of each subject that is a data item (0 for one
+*> that is not), and the first and last token of each part of a
+*> subject or WHEN phrase, split at ALSO.
+01  LS-SUBJECT-COUNT        PIC 9(4) COMP-5.
+01  LS-SUBJECT-SYMBOL       PIC 9(9) COMP-5 OCCURS ALSO-MAX TIMES.
+01  LS-PART-COUNT           PIC 9(4) COMP-5.
+01  LS-PART-FIRST           PIC 9(9) COMP-5 OCCURS ALSO-MAX TIMES.
+01  LS-PART-LAST            PIC 9(9) COMP-5 OCCURS ALSO-MAX TIMES.
+01  LS-LEVEL                PIC S9(9) COMP-5.
+01  LS-WHEN                 PIC 9(9) COMP-5.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-RULE-COMPARE         PIC 9(4) COMP-5.
 01  LS-RULE-ALNUM           PIC 9(4) COMP-5.
@@ -101,7 +116,117 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
             END-IF
         END-PERFORM
     END-IF
+    IF RL-ENABLED(LS-RULE-COMPARE) = "Y"
+        PERFORM CHECK-EVALUATES
+    END-IF
     GOBACK.
+
+*> PLB-C028 for EVALUATE subject ... WHEN "literal": each part of a
+*> WHEN phrase that is a plain literal alone, against the data item
+*> that is its subject.
+CHECK-EVALUATES.
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        MOVE LS-R TO WS-TOKEN-REF(RF-TOKEN(LS-R))
+    END-PERFORM
+    MOVE 1 TO LS-NODE
+    MOVE 0 TO LS-DEPTH
+    PERFORM UNTIL LS-NODE = 0
+        IF ND-KIND(LS-NODE) = "STMT" AND ND-DETAIL(LS-NODE) = "EVALUATE"
+            PERFORM CHECK-EVALUATE
+        END-IF
+        CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
+    END-PERFORM
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        MOVE 0 TO WS-TOKEN-REF(RF-TOKEN(LS-R))
+    END-PERFORM.
+
+CHECK-EVALUATE.
+    MOVE 0 TO LS-SUBJECT-COUNT
+    MOVE ND-FIRST(LS-NODE) TO LS-CHILD
+    PERFORM UNTIL LS-CHILD = 0
+        EVALUATE TRUE
+            WHEN ND-KIND(LS-CHILD) = "COND"
+                 AND ND-DETAIL(LS-CHILD) = "SUBJECT"
+                MOVE LS-CHILD TO LS-COND
+                PERFORM SPLIT-AT-ALSO
+                PERFORM READ-SUBJECTS
+            WHEN ND-KIND(LS-CHILD) = "BLCK"
+                 AND ND-DETAIL(LS-CHILD) = "WHEN"
+                 AND LS-SUBJECT-COUNT > 0
+                MOVE ND-FIRST(LS-CHILD) TO LS-WHEN
+                PERFORM UNTIL LS-WHEN = 0
+                    IF ND-KIND(LS-WHEN) = "COND"
+                       AND ND-DETAIL(LS-WHEN) = "WHEN"
+                        MOVE LS-WHEN TO LS-COND
+                        PERFORM SPLIT-AT-ALSO
+                        PERFORM CHECK-WHEN-PARTS
+                    END-IF
+                    MOVE ND-NEXT(LS-WHEN) TO LS-WHEN
+                END-PERFORM
+        END-EVALUATE
+        MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+    END-PERFORM.
+
+*> The tokens of condition node LS-COND, split at each ALSO outside
+*> parentheses; LS-PART-COUNT is 0 when there are too many parts.
+SPLIT-AT-ALSO.
+    MOVE 1 TO LS-PART-COUNT
+    MOVE ND-TOK-FIRST(LS-COND) TO LS-PART-FIRST(1)
+    MOVE 0 TO LS-LEVEL
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-COND) BY 1
+            UNTIL LS-T > ND-TOK-LAST(LS-COND)
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-T)
+                ADD 1 TO LS-LEVEL
+            WHEN TK-IS-RPAREN(LS-T)
+                SUBTRACT 1 FROM LS-LEVEL
+            WHEN TK-IS-WORD(LS-T) AND LS-LEVEL = 0
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+                IF LS-WORD = "ALSO"
+                    COMPUTE LS-PART-LAST(LS-PART-COUNT) = LS-T - 1
+                    IF LS-PART-COUNT >= ALSO-MAX
+                        MOVE 0 TO LS-PART-COUNT
+                        EXIT PARAGRAPH
+                    END-IF
+                    ADD 1 TO LS-PART-COUNT
+                    COMPUTE LS-PART-FIRST(LS-PART-COUNT) = LS-T + 1
+                END-IF
+        END-EVALUATE
+    END-PERFORM
+    MOVE ND-TOK-LAST(LS-COND) TO LS-PART-LAST(LS-PART-COUNT).
+
+*> Each subject that is one data item, written without a reference
+*> modifier, all its tokens one reference.
+READ-SUBJECTS.
+    MOVE LS-PART-COUNT TO LS-SUBJECT-COUNT
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > LS-SUBJECT-COUNT
+        MOVE 0 TO LS-SUBJECT-SYMBOL(LS-I)
+        MOVE WS-TOKEN-REF(LS-PART-FIRST(LS-I)) TO LS-R
+        IF LS-R > 0
+            IF RF-KIND(LS-R) = "D" AND RF-REFMOD(LS-R) = "N"
+               AND RF-LAST(LS-R) = LS-PART-LAST(LS-I)
+                MOVE RF-SYMBOL(LS-R) TO LS-SUBJECT-SYMBOL(LS-I)
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> Each part of a WHEN phrase that is one literal, for a subject that
+*> is a data item.
+CHECK-WHEN-PARTS.
+    IF LS-PART-COUNT NOT = LS-SUBJECT-COUNT
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > LS-PART-COUNT
+        IF LS-SUBJECT-SYMBOL(LS-I) > 0
+           AND LS-PART-FIRST(LS-I) = LS-PART-LAST(LS-I)
+            MOVE LS-PART-FIRST(LS-I) TO LS-T
+            IF TK-IS-ALNUM(LS-T)
+                MOVE LS-T TO LS-LIMIT
+                MOVE LS-SUBJECT-SYMBOL(LS-I) TO LS-S
+                PERFORM CHECK-LONG-LITERAL
+            END-IF
+        END-IF
+    END-PERFORM.
 
 *> PLB-C028: reference LS-R, when it is the subject of a relation
 *> with an integer literal in a condition.
@@ -166,7 +291,8 @@ CHECK-COMPARISON.
         PERFORM REPORT-COMPARISON
     END-IF.
 
-*> PLB-C028 for alphanumeric items: item = "literal", where the
+*> PLB-C028 for alphanumeric items: item = "literal" (or EVALUATE
+*> item WHEN "literal"), where the
 *> literal has more characters than the item, not counting its
 *> trailing spaces. The shorter operand is padded with spaces, so the
 *> item never equals it. Only plain literals (no X, N, or other

@@ -364,7 +364,8 @@ uses [Semantic Versioning](https://semver.org/).
   `EXEC SQL` or `EXEC CICS` statements: the NIST suite, with more rules
   than before, takes 12.7 seconds instead of 14.9.
 - PLB-C028 comparison-never-true also reports an alphanumeric item
-  compared for equality with a literal longer than the item.
+  compared for equality with a literal longer than the item, also as
+  the subject of an `EVALUATE` with that literal in a `WHEN`.
 
 ### Fixed
 
