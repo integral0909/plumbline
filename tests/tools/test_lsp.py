@@ -700,6 +700,42 @@ class LanguageServerTest(unittest.TestCase):
         self.assertIn("PIC", value)
         self.assertIn("bytes", value)
 
+    def test_hover_on_a_condition_name(self):
+        lines = ["IDENTIFICATION DIVISION.", "PROGRAM-ID. CONDS.",
+                 "DATA DIVISION.", "WORKING-STORAGE SECTION.",
+                 "01  ACCOUNT-STATUS  PIC X.",
+                 "    88  STATUS-OPEN VALUE \"O\" 'R'.",
+                 "    88  STATUS-QUOTE VALUE '\"'.",
+                 "01  RETRIES         PIC 99.",
+                 "    88  FEW-RETRIES VALUES ARE 1 THRU 3.",
+                 "PROCEDURE DIVISION.",
+                 "    IF STATUS-OPEN OR STATUS-QUOTE OR FEW-RETRIES",
+                 "        DISPLAY ACCOUNT-STATUS",
+                 "    END-IF",
+                 "    GOBACK."]
+        uri = "file:///tmp/plumbline-conditions.cob"
+        self.server.notify("textDocument/didOpen", {"textDocument": {
+            "uri": uri, "languageId": "cobol", "version": 1,
+            "text": "\n".join(lines) + "\n"}})
+        self.server.receive()
+
+        def hover(needle):
+            return self.server.request("textDocument/hover", {
+                "textDocument": {"uri": uri},
+                "position": {"line": 10,
+                             "character": lines[10].index(needle) + 1}}
+            )["result"]["contents"]["value"]
+
+        self.assertEqual(hover("STATUS-OPEN"),
+                         "```cobol\n88 STATUS-OPEN VALUE \"O\" \"R\".\n```\n"
+                         "Condition of `ACCOUNT-STATUS` (`PIC X`).")
+        # A quote in a literal is doubled.
+        self.assertIn('VALUE """"', hover("STATUS-QUOTE"))
+        self.assertIn("88 FEW-RETRIES VALUES ARE 1 THRU 3.",
+                      hover("FEW-RETRIES"))
+        self.assertIn("Condition of `RETRIES` (`PIC 99`).",
+                      hover("FEW-RETRIES"))
+
     def test_hover_on_a_paragraph(self):
         reply = self.server.request("textDocument/hover", {
             "textDocument": {"uri": URI},

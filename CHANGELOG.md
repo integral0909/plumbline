@@ -216,6 +216,8 @@ uses [Semantic Versioning](https://semver.org/).
   call graph also keeps each program's first `EXIT PROGRAM`.
 - Rule PLB-J007 dataset-created-twice. `dump jcl` is unchanged; the
   JCL reader now keeps the normal disposition of each DD as well.
+- Language server: hover on a condition name (level 88) shows its
+  `VALUE` clause and the item it tests.
 - Language server: signature help inside the `USING` phrase of a
   `CALL "NAME"` lists the called program's parameters and marks the
   one at the cursor.
