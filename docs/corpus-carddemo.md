@@ -322,6 +322,14 @@ Some findings that were read and are true:
   not in the loops that fetch. In a copy of `COTRTLIC` with an `EXEC
   SQL COMMIT` added before the `FETCH` of its forward read loop, it
   reports that `FETCH`.
+- **PLB-K007 commarea-too-short.** None: every `DFHCOMMAREA` of
+  CardDemo is declared `OCCURS 1 TO 32767 TIMES DEPENDING ON EIBCALEN`,
+  which the rule does not check, and most `XCTL` statements name their
+  program in a data item set at run time. With the `DFHCOMMAREA` of
+  `COMEN01C` made `PIC X(5000)` in a copy of the programs, it reports
+  the two `XCTL` statements that name `COMEN01C` by a constant, in
+  `COCRDLIC` and `COSGN00C`, each passing the 160 bytes of
+  `CARDDEMO-COMMAREA`.
 - **PLB-Q011 cursor-opened-in-loop.** None. In a copy of `COTRTLIC`
   that performs `9400-OPEN-FORWARD-CURSOR` `2 TIMES`, it reports the
   `OPEN` of `C-TR-TYPE-FORWARD` there.

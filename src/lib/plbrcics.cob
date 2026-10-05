@@ -103,3 +103,81 @@ CHECK-USE.
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
         PU-FILE-ID(LS-U) PU-LINE(LS-U) PU-COLUMN(LS-U) LS-ZERO LS-MESSAGE.
 END PROGRAM PLB-RULE-CICS.
+
+*> PLB-K007 commarea-too-short: an EXEC CICS XCTL or LINK that passes
+*> a COMMAREA shorter than the DFHCOMMAREA of the program it names:
+*>
+*>     EXEC CICS XCTL PROGRAM('ACCTUPD') COMMAREA(WS-KEY)
+*>         LENGTH(LENGTH OF WS-KEY) END-EXEC         (11 bytes)
+*>
+*>     PROGRAM-ID. ACCTUPD.  01 DFHCOMMAREA PIC X(200).
+*>
+*> The program reads its DFHCOMMAREA past the bytes it was given:
+*> storage that belongs to something else, which can abend it or give
+*> it wrong data. The bytes passed are the LENGTH when it is a number
+*> or LENGTH OF an item, else the size of the COMMAREA item; the
+*> program is named by a literal (or a constant item) and is a program
+*> of the run with a DFHCOMMAREA of fixed size.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-K007.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbcallc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-U                    PIC 9(9) COMP-5.
+01  LS-P                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbcall.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K007" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > PU-COUNT
+        IF PU-KIND(LS-U) = "P" AND PU-COMMAREA(LS-U) > 0
+           AND (PU-COMMAND(LS-U) = "XCTL" OR PU-COMMAND(LS-U) = "LINK")
+            PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+                IF CP-KIND(LS-P) = "P" AND CP-NAME(LS-P) = PU-NAME(LS-U)
+                   AND CP-COMMAREA-SIZE(LS-P) > PU-COMMAREA(LS-U)
+                    PERFORM REPORT-SHORT
+                    EXIT PERFORM
+                END-IF
+            END-PERFORM
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+REPORT-SHORT.
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    STRING PU-COMMAND(LS-U) DELIMITED BY SPACE
+           " passes " DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    MOVE PU-COMMAREA(LS-U) TO LS-NUM
+    PERFORM APPEND-NUM
+    STRING " bytes of COMMAREA to " DELIMITED BY SIZE
+           CP-NAME(LS-P) DELIMITED BY SPACE
+           ", whose DFHCOMMAREA has " DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    MOVE CP-COMMAREA-SIZE(LS-P) TO LS-NUM
+    PERFORM APPEND-NUM
+    STRING ": it reads past what it is given" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        PU-FILE-ID(LS-U) PU-LINE(LS-U) PU-COLUMN(LS-U) LS-ZERO
+        LS-MESSAGE.
+
+APPEND-NUM.
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR.
+END PROGRAM PLB-RULE-K007.

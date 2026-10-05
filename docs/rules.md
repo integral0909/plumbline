@@ -101,6 +101,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-K004](#plb-k004-commarea-length-too-long) | commarea-length-too-long | warning | CICS command passes more bytes than its COMMAREA item has |
 | [PLB-K005](#plb-k005-batch-io-in-cics) | batch-io-in-cics | error | COBOL file statement or ACCEPT in a CICS program |
 | [PLB-K006](#plb-k006-return-transid-without-commarea) | return-transid-without-commarea | warning | RETURN TRANSID passes no COMMAREA to a program that receives one |
+| [PLB-K007](#plb-k007-commarea-too-short) | commarea-too-short | warning | XCTL or LINK passes less COMMAREA than the program's DFHCOMMAREA |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -2332,6 +2333,27 @@ and the user's place in the conversation is lost. A program receives a
 `COMMAREA` when it declares `DFHCOMMAREA` in its `LINKAGE SECTION`; a
 `RETURN` without `TRANSID`, which ends the conversation, is not
 reported, nor is one in a program nested in it without `DFHCOMMAREA`.
+
+## PLB-K007 commarea-too-short
+
+An `EXEC CICS XCTL` or `LINK` that passes a COMMAREA shorter than the
+`DFHCOMMAREA` of the program it names:
+
+```cobol
+    EXEC CICS XCTL PROGRAM('ACCTUPD') COMMAREA(WS-KEY) END-EXEC   *> reported
+    ...
+PROGRAM-ID. ACCTUPD.
+LINKAGE SECTION.
+01  DFHCOMMAREA         PIC X(200).
+```
+
+The program reads its `DFHCOMMAREA` past the bytes it was given, into
+storage that belongs to something else. The bytes passed are the
+`LENGTH` when it is a number or `LENGTH OF` an item, else the size of
+the `COMMAREA` item. The program must be named by a literal or a
+constant item, and be a program of the run whose `DFHCOMMAREA` has a
+fixed size: one declared `OCCURS ... DEPENDING ON EIBCALEN`, which
+takes the length passed, is not checked.
 
 ## PLB-M001 go-to
 
