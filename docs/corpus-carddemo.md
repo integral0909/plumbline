@@ -315,6 +315,8 @@ Some findings that were read and are true:
   and `COCRDUPC`) that no statement names; pairs the program does not
   name are no longer reported.
 - **PLB-C068 odo-count-out-of-range.** None.
+- **PLB-C069 search-index-used-unchecked.** None: CardDemo has no
+  `SEARCH`.
 - **PLB-C067 divisor-not-checked** (off by default). None when
   enabled: CardDemo divides only by literals.
 - **PLB-C066 identical-branches.** None. In a copy of `CBACT01C` whose

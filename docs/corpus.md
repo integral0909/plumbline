@@ -276,6 +276,10 @@ The findings were checked by rule:
   run-time error on purpose: `MOVE 3 TO N` for a table of 4 to 6
   entries, and `VALUE 7` in its second program.
 
+- **PLB-C069 search-index-used-unchecked.** None in NIST or in
+  GnuCOBOL's tests: their `SEARCH` statements have `AT END`, or do not
+  use the index after it.
+
 - **PLB-C067 divisor-not-checked** (off by default). Enabled, 37 in 7
   NIST programs, which set their divisors to known values in ways the
   rule does not follow: a table filled by a performed paragraph, an
