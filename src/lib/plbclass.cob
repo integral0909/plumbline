@@ -119,6 +119,24 @@ PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
     GOBACK.
 END PROGRAM PLB-SRC-CLASSIFY-VARIABLE.
 
+*> PLB-SRC-CLASSIFY-XCARD: classify a line of ICOBOL's xCard format: as
+*> fixed format, but the program text runs to column 255.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SRC-CLASSIFY-XCARD.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-MARGIN               PIC 9(4) COMP-5 VALUE 255.
+LINKAGE SECTION.
+01  LK-LINE                 PIC X ANY LENGTH.
+01  LK-LENGTH               PIC 9(9) COMP-5.
+01  LK-QUOTE-IN             PIC X.
+COPY "plbcls.cpy".
+PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
+    CALL "PLB-SRC-CLASSIFY-COLUMNS" USING LK-LINE LK-LENGTH LK-QUOTE-IN
+        WS-MARGIN PLB-CLASSIFIED
+    GOBACK.
+END PROGRAM PLB-SRC-CLASSIFY-XCARD.
+
 *> PLB-SRC-CLASSIFY-COLUMNS: classify a line in fixed columns: the
 *> sequence area in 1 to 6, the indicator in 7, the program text from
 *> 8 to MARGIN. LENGTH is the number of significant characters in
@@ -344,14 +362,18 @@ SCAN-CONTENT.
     END-IF.
 END PROGRAM PLB-SRC-CLASSIFY-FREE.
 
-*> PLB-SRC-CLASSIFY-XOPEN and PLB-SRC-CLASSIFY-TERMINAL: free format
-*> with an indicator in column 1, as X/Open's free-form format and
-*> ACUCOBOL's terminal format have it:
+*> PLB-SRC-CLASSIFY-XOPEN, -TERMINAL, -COBOLX, and -CRT: free format
+*> with an indicator in column 1, as X/Open's free-form format,
+*> ACUCOBOL's terminal format, GCOS's COBOLX, and ICOBOL's CRT format
+*> have it. In each, * is a comment line and / a page eject; then:
 *>
-*>   X/Open    * comment   / page eject   D and a space: debugging line
-*>   terminal  * comment   \D: debugging line   - continuation line
-*>   COBOLX    * comment   / page eject   D: debugging line
-*>             - continuation line; the text ends at column 255
+*>   X/Open    D and a space: debugging line
+*>   terminal  \D: debugging line   - continuation line; the text ends
+*>             at column 320
+*>   COBOLX    D: debugging line   - continuation line; the text ends
+*>             at column 255
+*>   CRT       D: debugging line   - continuation line; the text ends
+*>             at column 320
 *>
 *> Any other line is free format from column 1.
 IDENTIFICATION DIVISION.
@@ -375,16 +397,38 @@ PROGRAM-ID. PLB-SRC-CLASSIFY-TERMINAL.
 DATA DIVISION.
 WORKING-STORAGE SECTION.
 01  WS-STYLE                PIC X VALUE "T".
+01  WS-LENGTH               PIC 9(9) COMP-5.
 LINKAGE SECTION.
 01  LK-LINE                 PIC X ANY LENGTH.
 01  LK-LENGTH               PIC 9(9) COMP-5.
 01  LK-QUOTE-IN             PIC X.
 COPY "plbcls.cpy".
 PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
-    CALL "PLB-SRC-CLASSIFY-INDICATED" USING LK-LINE LK-LENGTH
+    *> Columns past 320 are not part of the program.
+    MOVE FUNCTION MIN(LK-LENGTH, 320) TO WS-LENGTH
+    CALL "PLB-SRC-CLASSIFY-INDICATED" USING LK-LINE WS-LENGTH
         LK-QUOTE-IN WS-STYLE PLB-CLASSIFIED
     GOBACK.
 END PROGRAM PLB-SRC-CLASSIFY-TERMINAL.
+
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SRC-CLASSIFY-CRT.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-STYLE                PIC X VALUE "R".
+01  WS-LENGTH               PIC 9(9) COMP-5.
+LINKAGE SECTION.
+01  LK-LINE                 PIC X ANY LENGTH.
+01  LK-LENGTH               PIC 9(9) COMP-5.
+01  LK-QUOTE-IN             PIC X.
+COPY "plbcls.cpy".
+PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
+    *> Columns past 320 are not part of the program.
+    MOVE FUNCTION MIN(LK-LENGTH, 320) TO WS-LENGTH
+    CALL "PLB-SRC-CLASSIFY-INDICATED" USING LK-LINE WS-LENGTH
+        LK-QUOTE-IN WS-STYLE PLB-CLASSIFIED
+    GOBACK.
+END PROGRAM PLB-SRC-CLASSIFY-CRT.
 
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-SRC-CLASSIFY-COBOLX.
@@ -406,7 +450,7 @@ PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN PLB-CLASSIFIED.
 END PROGRAM PLB-SRC-CLASSIFY-COBOLX.
 
 *> PLB-SRC-CLASSIFY-INDICATED: the line in STYLE O (X/Open), T
-*> (terminal), or C (COBOLX). A debugging line is classified as free format with its
+*> (terminal), C (COBOLX), or R (CRT). A debugging line is classified as free format with its
 *> marker blanked, so that its content keeps its columns.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-SRC-CLASSIFY-INDICATED.
@@ -432,7 +476,7 @@ PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN LK-STYLE
         WHEN LK-LINE(1:1) = "*"
             PERFORM COMMENT-LINE
             MOVE "*" TO CL-KIND CL-INDICATOR
-        WHEN LK-LINE(1:1) = "/" AND (LK-STYLE = "O" OR LK-STYLE = "C")
+        WHEN LK-LINE(1:1) = "/"
             PERFORM COMMENT-LINE
             MOVE "/" TO CL-KIND CL-INDICATOR
         WHEN LK-STYLE = "O" AND (LK-LINE(1:1) = "D" OR "d")
@@ -445,11 +489,13 @@ PROCEDURE DIVISION USING LK-LINE LK-LENGTH LK-QUOTE-IN LK-STYLE
             MOVE LK-LINE TO WS-COPY
             MOVE SPACES TO WS-COPY(1:2)
             PERFORM DEBUGGING-LINE
-        WHEN LK-STYLE = "C" AND (LK-LINE(1:1) = "D" OR "d")
+        WHEN (LK-STYLE = "C" OR LK-STYLE = "R")
+             AND (LK-LINE(1:1) = "D" OR "d")
             MOVE LK-LINE TO WS-COPY
             MOVE SPACE TO WS-COPY(1:1)
             PERFORM DEBUGGING-LINE
-        WHEN (LK-STYLE = "T" OR LK-STYLE = "C") AND LK-LINE(1:1) = "-"
+        WHEN (LK-STYLE = "T" OR LK-STYLE = "C" OR LK-STYLE = "R")
+             AND LK-LINE(1:1) = "-"
             PERFORM CONTINUATION-LINE
         WHEN OTHER
             CALL "PLB-SRC-CLASSIFY-FREE" USING LK-LINE LK-LENGTH
@@ -497,10 +543,12 @@ END PROGRAM PLB-SRC-CLASSIFY-INDICATED.
 *> PLB-SRC-DIRECTIVE-FORMAT: decide whether directive TEXT switches
 *> the reference format. FORMAT receives:
 *>   "X" fixed, "F" free, "V" variable, "O" X/Open free form, "T"
-*>   ACU terminal, "C" COBOLX, space if TEXT is not a format directive,
+*>   ACU terminal, "C" COBOLX, "K" xCard, "R" CRT, space if TEXT is
+*>   not a format directive,
 *>   "?" a format directive naming a format Plumbline does not read.
 *> Recognized forms (case-insensitive):
 *>   >>SOURCE [FORMAT] [IS] FIXED|FREE|VARIABLE|XOPEN|TERMINAL|COBOLX
+*>     |XCARD|CRT, and COBOL85, which is fixed
 *>   $SET SOURCEFORMAT"FIXED"   $SET SOURCEFORMAT(FREE)   and similar
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-SRC-DIRECTIVE-FORMAT.
@@ -552,6 +600,7 @@ PROCEDURE DIVISION USING LK-TEXT LK-FORMAT.
 DECODE-FORMAT.
     EVALUATE LS-TOKEN(LS-I)
         WHEN "FIXED"
+        WHEN "COBOL85"
             MOVE "X" TO LK-FORMAT
         WHEN "FREE"
             MOVE "F" TO LK-FORMAT
@@ -563,6 +612,10 @@ DECODE-FORMAT.
             MOVE "T" TO LK-FORMAT
         WHEN "COBOLX"
             MOVE "C" TO LK-FORMAT
+        WHEN "XCARD"
+            MOVE "K" TO LK-FORMAT
+        WHEN "CRT"
+            MOVE "R" TO LK-FORMAT
         WHEN OTHER
             MOVE "?" TO LK-FORMAT
     END-EVALUATE.

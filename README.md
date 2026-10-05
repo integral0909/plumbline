@@ -63,7 +63,7 @@ $ find src -name '*.cbl' | plumbline check -I copybooks --files-from -
 | `--files-from LIST` | also analyze the files listed in `LIST`, one per line (`-` for standard input) |
 | `-D NAME`, `--define NAME` | `NAME` is defined for conditional compilation |
 | `--tab-width N` | tab stops every `N` columns (default 8), as `cobc -ftab-width` |
-| `--format fixed\|free\|variable\|xopen\|terminal\|cobolx\|auto` | reference format of the sources (default `auto`); `variable` is fixed with the text running to column 250, `xopen`, `terminal`, and `cobolx` have the indicator in column 1 |
+| `--format fixed\|free\|variable\|xopen\|terminal\|cobolx\|xcard\|crt\|auto` | reference format of the sources (default `auto`); `variable` and `xcard` are fixed with the text running to column 250 and 255, `xopen`, `terminal`, `cobolx`, and `crt` have the indicator in column 1 |
 | `--enable RULE`, `--disable RULE` | turn a rule on or off, by id or name |
 | `--fail-on error\|warning\|note\|never` | the lowest severity that fails the run |
 | `--report text\|json\|sarif\|html\|md\|codeclimate\|junit\|checkstyle` | output format (default `text`) |
@@ -257,10 +257,10 @@ with `-` in column 7, and inline comments that do not fit move to a
 line of their own.
 
 Sources in the other formats (VARIABLE, X/Open free form, ACU
-terminal, COBOLX) convert the same way to either: their comments, page
-ejects, debugging lines, and continued literals are read as the
-compiler reads them, and a VARIABLE line that fits in column 72 stays
-as it is in fixed format.
+terminal, COBOLX, ICOBOL xCard and CRT) convert the same way to either:
+their comments, page ejects, debugging lines, and continued literals
+are read as the compiler reads them, and a VARIABLE or xCard line that
+fits in column 72 stays as it is in fixed format.
 
 ## Record layouts
 
