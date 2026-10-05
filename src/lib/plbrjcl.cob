@@ -16,6 +16,7 @@
 *>   PLB-J007  dataset-created-twice  a DD creates and catalogs a data
 *>                                  set an earlier DD already did
 *>   PLB-J010  dsn-invalid          a DSN= name z/OS does not accept
+*>   PLB-J011  dd-name-repeated     a step has a DD name twice
 *>
 *> A step that runs a program of the run (EXEC PGM=name) gives that
 *> program, and the programs it calls by literal name, their files:
@@ -112,6 +113,7 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH PLB-JCL.
     CALL "PLB-RULE-J008" USING PLB-RULES PLB-FINDINGS PLB-JCL
     CALL "PLB-RULE-J009" USING PLB-RULES PLB-FINDINGS PLB-JCL
     CALL "PLB-RULE-J010" USING PLB-RULES PLB-FINDINGS PLB-JCL
+    CALL "PLB-RULE-J011" USING PLB-RULES PLB-FINDINGS PLB-JCL
     MOVE 0 TO WS-USE-COUNT
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
         IF JS-KIND(LS-S) = "P"
@@ -1097,3 +1099,82 @@ FIND-QUALIFIER.
     END-PERFORM
     MOVE 1 TO LS-PTR.
 END PROGRAM PLB-RULE-J010.
+
+*> PLB-J011 dd-name-repeated: a DD name that a step has twice, not as
+*> a concatenation:
+*>
+*>     //POST     EXEC PGM=CBTRN02C
+*>     //TRANFILE DD DSN=PROD.TRANSACT.DAILY,DISP=SHR
+*>     //XREFFILE DD DSN=PROD.CARDXREF,DISP=SHR
+*>     //TRANFILE DD DSN=PROD.TRANSACT.BACKUP,DISP=SHR
+*>
+*> The system allocates both and disposes of both as their DISP says,
+*> but directs every reference to the first: the program reads or
+*> writes the first DD's data set, and the second's (often the one
+*> meant) is not used; a NEW one is created empty. A DD with no name of its own
+*> after one with the name is a concatenation, and is not reported;
+*> nor are overrides of different procedure steps (STEP.DDNAME).
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J011.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-LAST                 PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J011" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
+        IF JS-DD-COUNT(LS-S) > 1
+            COMPUTE LS-LAST = JS-DD-FIRST(LS-S) + JS-DD-COUNT(LS-S) - 1
+            PERFORM VARYING LS-D FROM JS-DD-FIRST(LS-S) BY 1
+                    UNTIL LS-D > LS-LAST
+                IF JD-CONCAT(LS-D) = "N" AND JD-NAME(LS-D) NOT = SPACES
+                    PERFORM FIND-EARLIER
+                END-IF
+            END-PERFORM
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> An earlier DD of the step, not a concatenation, of the same name and
+*> procedure step: report DD LS-D against it.
+FIND-EARLIER.
+    PERFORM VARYING LS-E FROM JS-DD-FIRST(LS-S) BY 1 UNTIL LS-E >= LS-D
+        IF JD-CONCAT(LS-E) = "N" AND JD-NAME(LS-E) = JD-NAME(LS-D)
+           AND JD-QUALIFIER(LS-E) = JD-QUALIFIER(LS-D)
+            MOVE JD-LINE(LS-E) TO LS-NUM
+            CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+            MOVE SPACES TO LS-MESSAGE
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " is in step " DELIMITED BY SIZE
+                   JS-NAME(LS-S) DELIMITED BY SPACE
+                   " already, on line " DELIMITED BY SIZE
+                   LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+                   ": the program uses that one, and this one is"
+                   " allocated but never read or written" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+END PROGRAM PLB-RULE-J011.

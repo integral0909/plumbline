@@ -95,6 +95,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J008](#plb-j008-cond-step-unknown) | cond-step-unknown | warning | COND or IF tests a step that does not run before it |
 | [PLB-J009](#plb-j009-referback-unresolved) | referback-unresolved | error | Backward reference names a step or DD not before it |
 | [PLB-J010](#plb-j010-dsn-invalid) | dsn-invalid | error | DSN= names a data set name that z/OS does not accept |
+| [PLB-J011](#plb-j011-dd-name-repeated) | dd-name-repeated | warning | Step has the same DD name twice; the second is never used |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -2196,6 +2197,25 @@ not part of the name. Names the system resolves or substitutes are not
 checked: temporary data sets (`&&WORK`), symbols (`&HLQ..MASTER`, and
 the `%%` variables of job schedulers), backward references (`*.DD`),
 quoted names, and `NULLFILE`.
+## PLB-J011 dd-name-repeated
+
+A DD name that a step has twice, not as a concatenation:
+
+```jcl
+//POST     EXEC PGM=CBTRN02C
+//TRANFILE DD DSN=PROD.TRANSACT.DAILY,DISP=SHR
+//XREFFILE DD DSN=PROD.CARDXREF,DISP=SHR
+//TRANFILE DD DSN=PROD.TRANSACT.BACKUP,DISP=SHR          reported
+```
+
+The system allocates both DD statements and disposes of both as their
+`DISP` says, but directs every reference to the first: the program
+reads or writes the first one's data set, and the second's, often the
+one meant, is never used (a `NEW` one is created empty). A DD with no
+name of its own after one with the name is a concatenation, and is not
+reported; nor are overrides of different procedure steps
+(`STEP.DDNAME`).
+
 ## PLB-K001 cics-resource-undefined
 
 An `EXEC CICS` command that names a file, transaction, program, mapset,

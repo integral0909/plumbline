@@ -234,6 +234,8 @@ Some findings that were read and are true:
   set delete it first in an `IEFBR14` step. With that step of `DUSRSECJ`
   made to create the data set instead, the step that rebuilds it is
   reported.
+- **PLB-J011 dd-name-repeated.** None. In a copy of `READACCT` with
+  its `DD03` renamed `DD02`, it reports the second `DD02`.
 - **PLB-J010 dsn-invalid.** None, among the 90 distinct names without
   symbols in the jobs' `DSN=` parameters. In a copy of `ACCTFILE` with
   `ACCTDATA` made `ACCTDATA1`, it reports the nine-character qualifier.

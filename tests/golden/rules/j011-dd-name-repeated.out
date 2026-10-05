@@ -1,0 +1,1 @@
+tests/golden/rules/j011-dd-name-repeated.jcl:7:3: warning: DD TRANFILE is in step POST already, on line 4: the program uses that one, and this one is allocated but never read or written [PLB-J011]

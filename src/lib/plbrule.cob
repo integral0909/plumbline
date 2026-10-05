@@ -450,6 +450,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J010"
         "dsn-invalid" "E"
         "DSN= names a data set name that z/OS does not accept"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J011"
+        "dd-name-repeated" "W"
+        "Step has the same DD name twice; the second is never used"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
