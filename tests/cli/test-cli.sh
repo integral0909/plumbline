@@ -742,15 +742,15 @@ check "dynamic-call is off by default"    0 '^$' -- check --disable call-argumen
 check "dump calls lists parameters"       0 '^  parameter LK-CUST-ID reference 8$' -- dump calls $cx/custlook.cob
 check "help lists dump calls"             0 'dump calls' -- --help
 check "dump lines needs files"            2 'no input files' -- dump lines
-ix=tests/fixtures/intrinsics
+intr_fx=tests/fixtures/intrinsics
 check "intrinsics without FUNCTION are undeclared" 1 'PI is not declared \[PLB-C009\]' \
-    -- check --no-config $ix/no-function.cob
+    -- check --no-config $intr_fx/no-function.cob
 check_absent "--intrinsics all allows them"  'PLB-C009' \
-    -- check --no-config --intrinsics all $ix/no-function.cob
+    -- check --no-config --intrinsics all $intr_fx/no-function.cob
 check_absent "--intrinsics lists names"      'PLB-C009' \
-    -- check --no-config --intrinsics pi,E $ix/no-function.cob
+    -- check --no-config --intrinsics pi,E $intr_fx/no-function.cob
 check "--intrinsics allows only those listed" 1 'E is not declared \[PLB-C009\]' \
-    -- check --no-config --intrinsics pi $ix/no-function.cob
+    -- check --no-config --intrinsics pi $intr_fx/no-function.cob
 check "--intrinsics needs a value"          2 'needs all or a list of names' \
     -- check --intrinsics
 check "invalid --format value"            2 "invalid format 'wide' (expected fixed, free, variable, xopen, terminal, cobolx, xcard, crt, or auto)" \
@@ -903,6 +903,18 @@ check "impact of a data item lists calls with it" 0 '^  used at tests/fixtures/i
     -- impact CUST-ID -I $ix $ix/custlook.cob $ix/billing.cob
 check "impact of an unknown name"         1 'no copybook, program, data item, or data set named NOPE in the input' \
     -- impact NOPE -I $ix $ix/menu.cob
+check "impact of changed files: the copybook" 0 '^  tests/fixtures/impact/custio.cpy$' \
+    -- impact --changed $ix/changed.txt -I $ix $ix/custlook.cob $ix/billing.cob $ix/menu.cob
+check "impact of changed files: files not in the run" 0 '^changed files not in the run: 1$' \
+    -- impact --changed $ix/changed.txt -I $ix $ix/custlook.cob $ix/billing.cob $ix/menu.cob
+check "impact of changed files: programs that include it" 0 '^  CUSTLOOK tests/fixtures/impact/custlook.cob$' \
+    -- impact --changed $ix/changed.txt -I $ix $ix/custlook.cob $ix/billing.cob $ix/menu.cob
+check "impact of changed files: their callers" 0 '^  MENU tests/fixtures/impact/menu.cob$' \
+    -- impact --changed $ix/changed.txt -I $ix $ix/custlook.cob $ix/billing.cob $ix/menu.cob
+check "impact of changed files as JSON"     0 '{"name": "BILLING", "path": "tests/fixtures/impact/billing.cob"}' \
+    -- impact --changed $ix/changed.txt --report json -I $ix $ix/custlook.cob $ix/billing.cob $ix/menu.cob
+check "impact of changed files needs a list" 2 'cannot read the list of changed files' \
+    -- impact --changed $ix/no-such-list.txt $ix/menu.cob
 check "copybook paths keep the file's own case" 0 '^copybook tests/fixtures/case/UPPERBK.cpy$' \
     -- impact UPPERBK tests/fixtures/case/usecase.cob
 check "impact needs a name"               2 'impact needs a copybook or program name' -- impact -I $ix

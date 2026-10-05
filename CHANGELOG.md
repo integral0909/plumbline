@@ -367,6 +367,9 @@ uses [Semantic Versioning](https://semver.org/).
 - `--intrinsics all|NAME,...` (and `intrinsics` in `plumbline.conf`):
   intrinsic functions that may be named without `FUNCTION` in every
   program, as GnuCOBOL's `-fintrinsics` allows.
+- `impact --changed LIST`: the programs and job steps that a set of
+  changed files reaches, as text or JSON, for choosing what to rebuild
+  and test.
 
 ### Changed
 

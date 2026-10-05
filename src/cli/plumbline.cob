@@ -117,6 +117,10 @@ COPY "plbigr.cpy".
 *> layout: the program written to copy the copybooks given.
 01  WS-LAYOUT-WRAPPER       PIC X(512).
 COPY "plbinput.cpy".
+*> impact --changed LIST: the paths of the changed files.
+COPY "plbinput.cpy" REPLACING ==PLB-INPUTS== BY ==WS-CHANGED-FILES==
+    ==IP-MAX== BY ==CH-MAX== ==IP-PATH-SIZE== BY ==CH-PATH-SIZE==
+    ==IP-COUNT== BY ==CH-COUNT== ==IP-PATH== BY ==CH-PATH==.
 *> --define NAME: names for conditional compilation (>>IF NAME DEFINED).
 01  WS-DEFINE-COUNT         PIC 9(4) COMP-5 VALUE 0.
 01  WS-TAB-WIDTH            PIC 9(4) COMP-5 VALUE 8.
@@ -456,6 +460,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline metrics [OPTION]... FILE..."
     DISPLAY "       plumbline graph [--kind KIND] [OPTION]... FILE..."
     DISPLAY "       plumbline impact NAME [OPTION]... FILE..."
+    DISPLAY "       plumbline impact --changed LIST [--report text|json] [OPTION]... FILE..."
     DISPLAY "       plumbline inventory [--report text|json] [OPTION]... FILE..."
     DISPLAY "       plumbline layout [--report text|json|csv|md] [OPTION]... FILE..."
     DISPLAY "       plumbline doc [OPTION]... FILE..."
@@ -530,7 +535,9 @@ SHOW-USAGE.
     DISPLAY "  impact NAME      list what includes copybook NAME or"
     DISPLAY "                   calls program NAME, directly or not,"
     DISPLAY "                   where data item NAME is used, or which"
-    DISPLAY "                   job steps read and write data set NAME"
+    DISPLAY "                   job steps read and write data set NAME;"
+    DISPLAY "                   impact --changed LIST: the programs and"
+    DISPLAY "                   job steps the files in LIST reach"
     DISPLAY "  format           rewrite a file in fixed or free format"
     DISPLAY "                   (--to); --check only tells whether"
     DISPLAY "                   that would change it"
@@ -1400,6 +1407,10 @@ LAYOUT-COPY-STATEMENT.
 
 IMPACT-COMMAND.
     PERFORM NEXT-ARG
+    IF WS-ARG = "--changed"
+        PERFORM IMPACT-CHANGED
+        EXIT PARAGRAPH
+    END-IF
     IF WS-ARG-LEN = 0 OR WS-ARG(1:1) = "-"
         DISPLAY PLB-NAME ": impact needs a copybook or program name"
             UPON SYSERR
@@ -1432,6 +1443,39 @@ IMPACT-COMMAND.
             WS-IMPACT-NAME(1:WS-PATH-LEN) " in the input" UPON SYSERR
         MOVE 1 TO WS-EXIT-CODE
     END-IF
+    IF DG-ERRORS > 0
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+*> impact --changed LIST: what the files LIST names reach ("-": the
+*> list on standard input, as git diff --name-only writes it).
+IMPACT-CHANGED.
+    PERFORM NEXT-ARG
+    IF WS-ARG-LEN = 0
+        DISPLAY PLB-NAME ": --changed needs a list of changed files"
+            UPON SYSERR
+        PERFORM SUGGEST-HELP
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO CH-COUNT
+    CALL "PLB-INPUTS-READ-LIST" USING WS-ARG(1:WS-ARG-LEN)
+        WS-CHANGED-FILES
+        WS-LIST-STATUS WS-LIST-LINE
+    IF WS-LIST-STATUS NOT = 0
+        DISPLAY PLB-NAME ": cannot read the list of changed files "
+            WS-ARG(1:WS-ARG-LEN) UPON SYSERR
+        MOVE 2 TO WS-EXIT-CODE
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM ADD-INPUTS
+    PERFORM ANALYZE-RUN
+    CALL "PLB-IMPACT-CHANGED" USING PLB-SOURCE-SET PLB-CALL-GRAPH
+        PLB-INCLUDE-GRAPH PLB-JCL WS-CHANGED-FILES WS-REPORT
+    PERFORM REPORT-DIAGNOSTICS
     IF DG-ERRORS > 0
         MOVE 1 TO WS-EXIT-CODE
     END-IF.

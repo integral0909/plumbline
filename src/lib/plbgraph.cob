@@ -2280,3 +2280,459 @@ PRINT-OUT.
         DISPLAY LS-OUT(1:LS-LEN)
     END-IF.
 END PROGRAM PLB-DATA-IMPACT-PRINT.
+
+*> PLB-IMPACT-CHANGED: what a change to a set of files reaches, for
+*> choosing what to rebuild and test. CHANGED holds the paths of the
+*> files changed (as git diff --name-only lists them); a path names a
+*> file of the run when the two are the same, or one ends with "/" and
+*> the other. Reported, in REPORT text or json:
+*>
+*>   - the changed files that are files of the run, and the others;
+*>   - the programs whose source is changed or includes a changed
+*>     copybook, at any depth, and the programs that call them, at any
+*>     depth;
+*>   - the job steps that run one of those programs (or start it, as
+*>     IKJEFT01 and DFSRRC00 do), and the steps of changed JCL.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-IMPACT-CHANGED.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbigrc.cpy".
+COPY "plbcallc.cpy".
+COPY "plbjclc.cpy".
+COPY "plbsrcc.cpy".
+*> Per file of the source set: "C" changed, "I" includes a changed
+*> file, space neither. Per changed path: "Y" when a file of the run.
+01  WS-FILE-MARK            PIC X OCCURS SS-MAX-FILES TIMES.
+01  WS-PATH-FOUND           PIC X OCCURS 10000 TIMES.
+*> Per program of the call graph: "Y" when reached.
+01  WS-PROG-SEEN            PIC X OCCURS CP-MAX TIMES.
+LOCAL-STORAGE SECTION.
+01  LS-F                    PIC 9(4) COMP-5.
+01  LS-I                    PIC 9(4) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-P                    PIC 9(9) COMP-5.
+01  LS-C                    PIC 9(9) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-MORE                 PIC X.
+01  LS-MATCH                PIC X.
+01  LS-FIRST                PIC X.
+01  LS-RUNS                 PIC X(31).
+01  LS-PATH                 PIC X(512).
+01  LS-CHANGED              PIC X(512).
+*> A path without its first two characters, before it is moved back.
+01  LS-SHIFTED              PIC X(512).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-CLEN                 PIC 9(9) COMP-5.
+01  LS-COUNT                PIC 9(9) COMP-5.
+01  LS-OUT                  PIC X(1200).
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+LINKAGE SECTION.
+COPY "plbsrc.cpy".
+COPY "plbcall.cpy".
+COPY "plbigr.cpy".
+COPY "plbjcl.cpy".
+COPY "plbinput.cpy" REPLACING ==PLB-INPUTS== BY ==LK-CHANGED==
+    ==IP-MAX== BY ==CH-MAX== ==IP-PATH-SIZE== BY ==CH-PATH-SIZE==
+    ==IP-COUNT== BY ==CH-COUNT== ==IP-PATH== BY ==CH-PATH==.
+01  LK-REPORT               PIC X(11).
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-CALL-GRAPH
+        PLB-INCLUDE-GRAPH PLB-JCL LK-CHANGED LK-REPORT.
+    PERFORM MARK-CHANGED
+    PERFORM MARK-INCLUDERS
+    PERFORM MARK-PROGRAMS
+    PERFORM MARK-CALLERS
+    IF LK-REPORT = "json"
+        PERFORM PRINT-JSON
+    ELSE
+        PERFORM PRINT-TEXT
+    END-IF
+    GOBACK.
+
+*> Each file of the run that a changed path names.
+MARK-CHANGED.
+    PERFORM VARYING LS-F FROM 1 BY 1 UNTIL LS-F > SS-FILE-COUNT
+        MOVE SPACE TO WS-FILE-MARK(LS-F)
+    END-PERFORM
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > CH-COUNT
+        MOVE "N" TO WS-PATH-FOUND(LS-I)
+        MOVE CH-PATH(LS-I) TO LS-CHANGED
+        PERFORM WITHOUT-DOT-SLASH
+        CALL "PLB-STR-LENGTH" USING LS-CHANGED LS-CLEN
+        PERFORM VARYING LS-F FROM 1 BY 1 UNTIL LS-F > SS-FILE-COUNT
+            CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET LS-F LS-PATH
+            PERFORM SAME-FILE
+            IF LS-MATCH = "Y"
+                MOVE "C" TO WS-FILE-MARK(LS-F)
+                MOVE "Y" TO WS-PATH-FOUND(LS-I)
+            END-IF
+        END-PERFORM
+    END-PERFORM.
+
+*> LS-CHANGED without a leading "./".
+WITHOUT-DOT-SLASH.
+    PERFORM UNTIL LS-CHANGED(1:2) NOT = "./"
+        MOVE LS-CHANGED(3:) TO LS-SHIFTED
+        MOVE LS-SHIFTED TO LS-CHANGED
+    END-PERFORM.
+
+*> LS-MATCH = "Y" when LS-PATH and LS-CHANGED (LS-CLEN) name the same
+*> file: equal, or one ends with "/" and the other.
+SAME-FILE.
+    MOVE "N" TO LS-MATCH
+    PERFORM UNTIL LS-PATH(1:2) NOT = "./"
+        MOVE LS-PATH(3:) TO LS-SHIFTED
+        MOVE LS-SHIFTED TO LS-PATH
+    END-PERFORM
+    CALL "PLB-STR-LENGTH" USING LS-PATH LS-LEN
+    IF LS-LEN = 0 OR LS-CLEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    EVALUATE TRUE
+        WHEN LS-LEN = LS-CLEN
+            IF LS-PATH(1:LS-LEN) = LS-CHANGED(1:LS-CLEN)
+                MOVE "Y" TO LS-MATCH
+            END-IF
+        WHEN LS-LEN > LS-CLEN
+            IF LS-PATH(LS-LEN - LS-CLEN + 1:LS-CLEN)
+               = LS-CHANGED(1:LS-CLEN)
+               AND LS-PATH(LS-LEN - LS-CLEN:1) = "/"
+                MOVE "Y" TO LS-MATCH
+            END-IF
+        WHEN OTHER
+            IF LS-CHANGED(LS-CLEN - LS-LEN + 1:LS-LEN)
+               = LS-PATH(1:LS-LEN)
+               AND LS-CHANGED(LS-CLEN - LS-LEN:1) = "/"
+                MOVE "Y" TO LS-MATCH
+            END-IF
+    END-EVALUATE.
+
+*> Every file that includes a marked one, at any depth.
+MARK-INCLUDERS.
+    MOVE "Y" TO LS-MORE
+    PERFORM UNTIL LS-MORE = "N"
+        MOVE "N" TO LS-MORE
+        PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > GI-COUNT
+            IF WS-FILE-MARK(GI-TO(LS-E)) NOT = SPACE
+               AND WS-FILE-MARK(GI-FROM(LS-E)) = SPACE
+                MOVE "I" TO WS-FILE-MARK(GI-FROM(LS-E))
+                MOVE "Y" TO LS-MORE
+            END-IF
+        END-PERFORM
+    END-PERFORM.
+
+*> The programs (not ENTRY points) whose source file is marked.
+MARK-PROGRAMS.
+    PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+        MOVE "N" TO WS-PROG-SEEN(LS-P)
+        IF CP-KIND(LS-P) NOT = "E" AND CP-FILE-ID(LS-P) > 0
+            IF WS-FILE-MARK(CP-FILE-ID(LS-P)) NOT = SPACE
+                MOVE "Y" TO WS-PROG-SEEN(LS-P)
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> Every program that calls a reached one (or an entry of it), at any
+*> depth.
+MARK-CALLERS.
+    MOVE "Y" TO LS-MORE
+    PERFORM UNTIL LS-MORE = "N"
+        MOVE "N" TO LS-MORE
+        PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > CC-COUNT
+            IF CC-TO(LS-C) > 0 AND CC-FROM(LS-C) > 0
+                IF WS-PROG-SEEN(CP-OWNER(CC-TO(LS-C))) = "Y"
+                   AND WS-PROG-SEEN(CC-FROM(LS-C)) = "N"
+                    MOVE "Y" TO WS-PROG-SEEN(CC-FROM(LS-C))
+                    MOVE "Y" TO LS-MORE
+                END-IF
+            END-IF
+        END-PERFORM
+    END-PERFORM.
+
+*> LS-RUNS: the program step LS-S runs that is reached, or "CHANGED"
+*> for a step of changed JCL; spaces when the step is not reached.
+STEP-REACHED.
+    MOVE SPACES TO LS-RUNS
+    PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+        IF WS-PROG-SEEN(LS-P) = "Y" AND CP-KIND(LS-P) NOT = "E"
+            IF JS-KIND(LS-S) = "P"
+               AND (JS-TARGET(LS-S) = CP-NAME(LS-P)
+                    OR JS-INNER(LS-S) = CP-NAME(LS-P))
+                MOVE CP-NAME(LS-P) TO LS-RUNS
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+    END-PERFORM
+    IF JS-FILE-ID(LS-S) > 0
+        IF WS-FILE-MARK(JS-FILE-ID(LS-S)) = "C"
+            MOVE "CHANGED" TO LS-RUNS
+        END-IF
+    END-IF.
+
+*> Text ------------------------------------------------------------
+
+PRINT-TEXT.
+    MOVE 0 TO LS-COUNT
+    PERFORM VARYING LS-F FROM 1 BY 1 UNTIL LS-F > SS-FILE-COUNT
+        IF WS-FILE-MARK(LS-F) = "C"
+            ADD 1 TO LS-COUNT
+        END-IF
+    END-PERFORM
+    PERFORM START-OUT
+    STRING "changed files of the run: " DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR
+    PERFORM APPEND-COUNT
+    PERFORM PRINT-OUT
+    PERFORM VARYING LS-F FROM 1 BY 1 UNTIL LS-F > SS-FILE-COUNT
+        IF WS-FILE-MARK(LS-F) = "C"
+            PERFORM START-OUT
+            STRING "  " DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+            CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET LS-F LS-PATH
+            PERFORM APPEND-PATH
+            PERFORM PRINT-OUT
+        END-IF
+    END-PERFORM
+    MOVE 0 TO LS-COUNT
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > CH-COUNT
+        IF WS-PATH-FOUND(LS-I) = "N"
+            ADD 1 TO LS-COUNT
+        END-IF
+    END-PERFORM
+    IF LS-COUNT > 0
+        PERFORM START-OUT
+        STRING "changed files not in the run: " DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+        PERFORM APPEND-COUNT
+        PERFORM PRINT-OUT
+        PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > CH-COUNT
+            IF WS-PATH-FOUND(LS-I) = "N"
+                PERFORM START-OUT
+                MOVE CH-PATH(LS-I) TO LS-PATH
+                STRING "  " DELIMITED BY SIZE
+                    INTO LS-OUT WITH POINTER LS-PTR
+                PERFORM APPEND-PATH
+                PERFORM PRINT-OUT
+            END-IF
+        END-PERFORM
+    END-IF
+    MOVE 0 TO LS-COUNT
+    PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+        IF WS-PROG-SEEN(LS-P) = "Y"
+            ADD 1 TO LS-COUNT
+        END-IF
+    END-PERFORM
+    PERFORM START-OUT
+    STRING "programs: " DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    PERFORM APPEND-COUNT
+    PERFORM PRINT-OUT
+    PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+        IF WS-PROG-SEEN(LS-P) = "Y"
+            PERFORM START-OUT
+            STRING "  " DELIMITED BY SIZE
+                   CP-NAME(LS-P) DELIMITED BY SPACE
+                   " " DELIMITED BY SIZE
+                INTO LS-OUT WITH POINTER LS-PTR
+            CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET
+                CP-FILE-ID(LS-P) LS-PATH
+            PERFORM APPEND-PATH
+            PERFORM PRINT-OUT
+        END-IF
+    END-PERFORM
+    MOVE 0 TO LS-COUNT
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
+        PERFORM STEP-REACHED
+        IF LS-RUNS NOT = SPACES
+            ADD 1 TO LS-COUNT
+        END-IF
+    END-PERFORM
+    PERFORM START-OUT
+    STRING "job steps: " DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    PERFORM APPEND-COUNT
+    PERFORM PRINT-OUT
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
+        PERFORM STEP-REACHED
+        IF LS-RUNS NOT = SPACES
+            PERFORM PRINT-STEP
+        END-IF
+    END-PERFORM.
+
+*>   STEP of job JOB (of proc PROC) at PATH:LINE, runs NAME | changed
+PRINT-STEP.
+    PERFORM START-OUT
+    STRING "  " DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    IF JS-NAME(LS-S) = SPACES
+        STRING "-" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING JS-NAME(LS-S) DELIMITED BY SPACE
+            INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    EVALUATE TRUE
+        WHEN JS-PROC(LS-S) > 0
+            STRING " of proc " DELIMITED BY SIZE
+                   JP-NAME(JS-PROC(LS-S)) DELIMITED BY SPACE
+                INTO LS-OUT WITH POINTER LS-PTR
+        WHEN JS-JOB(LS-S) > 0
+            STRING " of job " DELIMITED BY SIZE
+                   JJ-NAME(JS-JOB(LS-S)) DELIMITED BY SPACE
+                INTO LS-OUT WITH POINTER LS-PTR
+    END-EVALUATE
+    STRING " at " DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET JS-FILE-ID(LS-S)
+        LS-PATH
+    PERFORM APPEND-PATH
+    STRING ":" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    MOVE JS-LINE(LS-S) TO LS-NUM
+    PERFORM APPEND-NUM
+    IF LS-RUNS = "CHANGED"
+        STRING ", changed" DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING ", runs " DELIMITED BY SIZE
+               LS-RUNS DELIMITED BY SPACE
+            INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    PERFORM PRINT-OUT.
+
+*> JSON ------------------------------------------------------------
+
+*> {"changed":[...],"notInRun":[...],"programs":[{"name","path"}],
+*>  "steps":[{"job","proc","step","path","line","runs"}]}
+PRINT-JSON.
+    DISPLAY "{"
+    PERFORM START-OUT
+    STRING '  "changed": [' DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR
+    MOVE "Y" TO LS-FIRST
+    PERFORM VARYING LS-F FROM 1 BY 1 UNTIL LS-F > SS-FILE-COUNT
+        IF WS-FILE-MARK(LS-F) = "C"
+            CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET LS-F LS-PATH
+            PERFORM APPEND-JSON-PATH
+        END-IF
+    END-PERFORM
+    STRING "]," DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    PERFORM PRINT-OUT
+    PERFORM START-OUT
+    STRING '  "notInRun": [' DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR
+    MOVE "Y" TO LS-FIRST
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > CH-COUNT
+        IF WS-PATH-FOUND(LS-I) = "N"
+            MOVE CH-PATH(LS-I) TO LS-PATH
+            PERFORM APPEND-JSON-PATH
+        END-IF
+    END-PERFORM
+    STRING "]," DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    PERFORM PRINT-OUT
+    DISPLAY '  "programs": ['
+    MOVE "Y" TO LS-FIRST
+    PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+        IF WS-PROG-SEEN(LS-P) = "Y"
+            PERFORM START-OUT
+            IF LS-FIRST = "N"
+                STRING "    ," DELIMITED BY SIZE
+                    INTO LS-OUT WITH POINTER LS-PTR
+            ELSE
+                STRING "     " DELIMITED BY SIZE
+                    INTO LS-OUT WITH POINTER LS-PTR
+            END-IF
+            MOVE "N" TO LS-FIRST
+            STRING '{"name": "' DELIMITED BY SIZE
+                   CP-NAME(LS-P) DELIMITED BY SPACE
+                   '", "path": ' DELIMITED BY SIZE
+                INTO LS-OUT WITH POINTER LS-PTR
+            CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET
+                CP-FILE-ID(LS-P) LS-PATH
+            CALL "PLB-JSON-STRING" USING LS-PATH LS-OUT LS-PTR
+            STRING "}" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+            PERFORM PRINT-OUT
+        END-IF
+    END-PERFORM
+    DISPLAY "  ],"
+    DISPLAY '  "steps": ['
+    MOVE "Y" TO LS-FIRST
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
+        PERFORM STEP-REACHED
+        IF LS-RUNS NOT = SPACES
+            PERFORM PRINT-JSON-STEP
+        END-IF
+    END-PERFORM
+    DISPLAY "  ]"
+    DISPLAY "}".
+
+PRINT-JSON-STEP.
+    PERFORM START-OUT
+    IF LS-FIRST = "N"
+        STRING "    ," DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING "     " DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    MOVE "N" TO LS-FIRST
+    STRING '{"job": "' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    IF JS-JOB(LS-S) > 0
+        STRING JJ-NAME(JS-JOB(LS-S)) DELIMITED BY SPACE
+            INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    STRING '", "proc": "' DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR
+    IF JS-PROC(LS-S) > 0
+        STRING JP-NAME(JS-PROC(LS-S)) DELIMITED BY SPACE
+            INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    STRING '", "step": "' DELIMITED BY SIZE
+           JS-NAME(LS-S) DELIMITED BY SPACE
+           '", "path": ' DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET JS-FILE-ID(LS-S)
+        LS-PATH
+    CALL "PLB-JSON-STRING" USING LS-PATH LS-OUT LS-PTR
+    STRING ', "line": ' DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    MOVE JS-LINE(LS-S) TO LS-NUM
+    PERFORM APPEND-NUM
+    IF LS-RUNS = "CHANGED"
+        STRING ', "runs": null, "changed": true}' DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+    ELSE
+        STRING ', "runs": "' DELIMITED BY SIZE
+               LS-RUNS DELIMITED BY SPACE
+               '", "changed": false}' DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    PERFORM PRINT-OUT.
+
+*> LS-PATH as a JSON string, after a comma unless it is the first.
+APPEND-JSON-PATH.
+    IF LS-FIRST = "N"
+        STRING ", " DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    END-IF
+    MOVE "N" TO LS-FIRST
+    CALL "PLB-JSON-STRING" USING LS-PATH LS-OUT LS-PTR.
+
+APPEND-COUNT.
+    MOVE LS-COUNT TO LS-NUM
+    PERFORM APPEND-NUM.
+
+APPEND-PATH.
+    CALL "PLB-STR-LENGTH" USING LS-PATH LS-LEN
+    IF LS-LEN > 0
+        STRING LS-PATH(1:LS-LEN) DELIMITED BY SIZE
+            INTO LS-OUT WITH POINTER LS-PTR
+    END-IF.
+
+APPEND-NUM.
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+        INTO LS-OUT WITH POINTER LS-PTR.
+
+START-OUT.
+    MOVE SPACES TO LS-OUT
+    MOVE 1 TO LS-PTR.
+
+PRINT-OUT.
+    CALL "PLB-STR-LENGTH" USING LS-OUT LS-LEN
+    IF LS-LEN > 0
+        DISPLAY LS-OUT(1:LS-LEN)
+    END-IF.
+END PROGRAM PLB-IMPACT-CHANGED.
