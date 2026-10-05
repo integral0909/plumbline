@@ -77,6 +77,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C063](#plb-c063-varying-refmod-out-of-range) | varying-refmod-out-of-range | error | PERFORM VARYING counter in a reference modifier goes outside the item |
 | [PLB-C064](#plb-c064-duplicate-condition-value) | duplicate-condition-value | warning | Two condition names of the same item have the same values |
 | [PLB-C065](#plb-c065-open-in-loop) | open-in-loop | warning | OPEN runs on every pass of a loop that never closes the file |
+| [PLB-C066](#plb-c066-identical-branches) | identical-branches | warning | IF does the same in its ELSE as in its THEN |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1831,6 +1832,23 @@ procedure of the range it performs. An `OPEN` under an `IF`,
 KEY`, ...) inside the loop is not reported, since it may run only once.
 Nor is one whose file the loop closes: a `CLOSE` of it among the loop's
 statements, or in a procedure they perform, at any depth.
+
+## PLB-C066 identical-branches
+
+An `IF` whose `ELSE` does what its `THEN` does:
+
+```cobol
+    IF WS-ACCOUNT-TYPE = "S"
+        MOVE SAVINGS-RATE TO WS-RATE
+    ELSE
+        MOVE SAVINGS-RATE TO WS-RATE          *> reported
+    END-IF
+```
+
+The condition decides nothing. Usually one branch was copied from the
+other and not changed. The branches are compared token by token, after
+`COPY` and `REPLACE`: spacing, line breaks, comments, and the case of
+words do not count.
 
 ## PLB-I001 pcb-dbd-unknown
 

@@ -310,6 +310,9 @@ Some findings that were read and are true:
   and `SEARCHED-ACCT-NOT-NUMERIC`, in `COACTUPC`, `COACTVWC`, `COCRDSLC`,
   and `COCRDUPC`) that no statement names; pairs the program does not
   name are no longer reported.
+- **PLB-C066 identical-branches.** None. In a copy of `CBACT01C` whose
+  `ELSE MOVE 12 TO APPL-RESULT` is made `MOVE 0`, as its `THEN` has,
+  it reports that `ELSE`.
 - **PLB-C065 open-in-loop.** None. In a copy of `CBACT01C` whose
   `PERFORM 0000-ACCTFILE-OPEN` is made `2 TIMES`, it reports the `OPEN`
   of `ACCTFILE-FILE` in that paragraph.

@@ -461,12 +461,10 @@ JOIN-CONTINUATIONS.
         END-IF
         MOVE LS-NEXT TO LS-J LS-GROUP-LAST
     END-PERFORM
-    IF LS-GROUP-LAST > LS-L
-        CALL "PLB-STR-LENGTH" USING LS-TEXT LS-TEXT-LEN
-    ELSE
-        *> No continuation after all: no padding either.
-        CALL "PLB-STR-LENGTH" USING LS-TEXT LS-TEXT-LEN
-    END-IF.
+    *> Trailing spaces end the text either way: after the last
+    *> continuation, and when there was none after all (no padding
+    *> either).
+    CALL "PLB-STR-LENGTH" USING LS-TEXT LS-TEXT-LEN.
 
 *> Free to fixed -----------------------------------------------------
 
