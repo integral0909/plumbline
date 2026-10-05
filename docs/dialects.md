@@ -21,11 +21,13 @@ as a name where a name can stand.
 | Free | yes |
 | Detecting which of the two a file uses | yes |
 | Variable (as fixed, with the text running to column 250) | yes, with `--format variable` or a directive |
-| Switching with `>>SOURCE [FORMAT] [IS] FIXED`/`FREE`/`VARIABLE`/`XOPEN`/`TERMINAL`/`COBOLX`, `$SET SOURCEFORMAT"..."`, `>>SET SOURCEFORMAT` | yes |
+| Switching with `>>SOURCE [FORMAT] [IS] FIXED`/`FREE`/`VARIABLE`/`XOPEN`/`TERMINAL`/`COBOLX`/`XCARD`/`CRT` (and `COBOL85`, read as fixed), `$SET SOURCEFORMAT"..."`, `>>SET SOURCEFORMAT` | yes |
 | X/Open free form (free, with `*`, `/`, and `D` in column 1) | yes, with `--format xopen` or a directive |
-| ACU terminal (free, with `*`, `\D`, and `-` continuations in column 1) | yes, with `--format terminal` or a directive |
+| ACU terminal (free, with `*`, `/`, `\D`, and `-` continuations in column 1, text to column 320) | yes, with `--format terminal` or a directive |
 | COBOLX (indicator in column 1, text to column 255) | yes, with `--format cobolx` or a directive |
-| Other formats (GnuCOBOL's `CRT`, `XCARD`) | no (diagnostic RD004) |
+| ICOBOL xCard (as fixed, with the text running to column 255) | yes, with `--format xcard` or a directive |
+| ICOBOL CRT (free, with `*`, `/`, `D`, and `-` continuations in column 1, text to column 320) | yes, with `--format crt` or a directive |
+| Other formats | no (diagnostic RD004) |
 | Tabs | expanded to stops every 8 columns, or `--tab-width N` |
 
 ## Compiler directives
@@ -107,7 +109,6 @@ one spelled the same way.
 
 ## Not supported
 
-- GnuCOBOL's `CRT` and `XCARD` reference formats.
 - Compiler options that change the language, such as GnuCOBOL's
   `-fintrinsics=all` or IBM's `TRUNC(BIN)`: Plumbline sees only the
   source. Rules whose result would depend on them say so.

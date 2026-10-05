@@ -26,15 +26,16 @@
 *> Lines already in the target format are kept as they are, less
 *> trailing spaces. Either way the tokens do not change.
 *>
-*> The other reference formats are read for what they are: VARIABLE as
-*> fixed with the text running to column 250, X/Open free form and ACU
-*> terminal format with their indicator in column 1 and the text from
-*> column 1, COBOLX with the text from column 2 to 255. Their
-*> continuation lines are joined, and a literal continued across lines
-*> is padded to the margin of the line it starts on, as the compiler
-*> reads it (column 250 in VARIABLE format, not at all in terminal and
-*> COBOLX format). A VARIABLE line that fits in column 72 stays as it
-*> is in fixed format, and page ejects stay page ejects.
+*> The other reference formats are read for what they are: VARIABLE and
+*> xCard as fixed with the text running to column 250 and 255, X/Open
+*> free form, ACU terminal, and CRT format with their indicator in
+*> column 1 and the text from column 1, COBOLX with the text from
+*> column 2 to 255. Their continuation lines are joined, and a literal
+*> continued across lines is padded to the margin of the line it starts
+*> on, as the compiler reads it (column 250 in VARIABLE format, 255 in
+*> xCard, not at all in terminal, COBOLX, and CRT format). A VARIABLE
+*> or xCard line that fits in column 72 stays as it is in fixed format,
+*> and page ejects stay page ejects.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-FORMAT.
@@ -243,11 +244,13 @@ FORMAT-LINE.
         END-IF
     END-IF
     PERFORM TEXT-COLUMNS
-    *> Lines already in the target format, and VARIABLE lines that
-    *> are fixed lines too: no text past column 72, and not continued.
+    *> Lines already in the target format, and VARIABLE and xCard
+    *> lines that are fixed lines too: no text past column 72, and not
+    *> continued.
     IF LK-TARGET = "free" AND SL-FORMAT(LS-L) = "F"
        OR LK-TARGET = "fixed" AND SL-FORMAT(LS-L) = "X"
-       OR LK-TARGET = "fixed" AND SL-FORMAT(LS-L) = "V"
+       OR LK-TARGET = "fixed"
+          AND (SL-FORMAT(LS-L) = "V" OR SL-FORMAT(LS-L) = "K")
           AND LS-RAW-LEN <= 72 AND NOT SL-IS-CONTINUATION(LS-L)
           AND NOT (LS-L < LS-LAST AND SL-IS-CONTINUATION(LS-L + 1))
         MOVE SPACES TO LS-LINE
@@ -273,10 +276,13 @@ TEXT-COLUMNS.
         WHEN "V"
             MOVE 8 TO LS-TEXT-FROM LS-COMMENT-FROM
             MOVE 250 TO LS-TEXT-TO LS-PAD-TO
+        WHEN "K"
+            MOVE 8 TO LS-TEXT-FROM LS-COMMENT-FROM
+            MOVE 255 TO LS-TEXT-TO LS-PAD-TO
         WHEN "C"
             MOVE 2 TO LS-TEXT-FROM LS-COMMENT-FROM
             MOVE 255 TO LS-TEXT-TO
-        WHEN "O" WHEN "T"
+        WHEN "O" WHEN "T" WHEN "R"
             MOVE 1 TO LS-TEXT-FROM
             MOVE 2 TO LS-COMMENT-FROM
             MOVE 0 TO LS-TEXT-TO
@@ -374,11 +380,11 @@ TEXT-WIDTH.
         COMPUTE LS-TEXT-WIDTH = LENGTH OF LS-RAW - LS-TEXT-FROM + 1
     END-IF.
 
-*> The marker of a debugging line in X/Open, terminal, and COBOLX
+*> The marker of a debugging line in X/Open, terminal, COBOLX, and CRT
 *> format is in its text columns: blanked.
 BLANK-DEBUG-MARKER.
     EVALUATE SL-FORMAT(LS-L)
-        WHEN "O" WHEN "C"
+        WHEN "O" WHEN "C" WHEN "R"
             IF LS-TEXT-FROM = 1
                 MOVE SPACE TO LS-TEXT(1:1)
             END-IF
@@ -496,7 +502,7 @@ FREE-TO-FIXED.
             PERFORM ADD-OUTPUT
         WHEN OTHER
             PERFORM SPLIT-FREE-LINE
-            *> A line continued in VARIABLE, terminal, or COBOLX format:
+            *> A line continued in a format other than fixed:
             *> the whole statement text, joined, to be split again.
             IF LS-L < LS-LAST
                 IF SL-IS-CONTINUATION(LS-L + 1)

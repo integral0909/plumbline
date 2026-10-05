@@ -198,6 +198,12 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C061 unchecked-numeric-move (off by default).
 - Rule PLB-C062 varying-subscript-out-of-range.
 - Rule PLB-C063 varying-refmod-out-of-range.
+- ICOBOL's xCard and CRT reference formats (`--format xcard`, `--format
+  crt`, or a directive), read as GnuCOBOL reads them: xCard as fixed
+  with the text to column 255 and continued literals padded to it, CRT
+  with the indicator in column 1 and the text to column 320. A
+  `COBOL85` format directive is read as fixed. Plumbline now reads
+  every reference format GnuCOBOL 3.2 accepts.
 - Rule PLB-M019 commented-out-code (off by default).
 - Rule PLB-M020 constant-condition.
 - Rule PLB-M018 signed-to-unsigned, off by default.
@@ -367,6 +373,8 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- In ACU terminal format, a `/` in column 1 is a page eject, as in the
+  other formats, and text past column 320 is not part of the program.
 - `lineage` writes alphanumeric literals in statement text with their
   quotes and prefix, as `MOVE "Y" TO WS-FLAG`, not `MOVE Y TO WS-FLAG`.
 - `USAGE SQL TYPE IS type` (DB2 locators, LOBs, ROWID) is one usage

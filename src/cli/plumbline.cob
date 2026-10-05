@@ -553,7 +553,8 @@ SHOW-USAGE.
     DISPLAY " "
     DISPLAY "Command options:"
     DISPLAY "  --format FORMAT  reference format: fixed, free, variable,"
-    DISPLAY "                   xopen, terminal, cobolx, or auto"
+    DISPLAY "                   xopen, terminal, cobolx, xcard, crt,"
+    DISPLAY "                   or auto"
     DISPLAY "                   (default auto)"
     DISPLAY "  --debug          treat debugging lines as code"
     DISPLAY "  -I DIR           search DIR for copybooks (repeatable)"
@@ -6151,10 +6152,14 @@ SET-MODE.
             MOVE "T" TO WS-MODE
         WHEN "cobolx"
             MOVE "C" TO WS-MODE
+        WHEN "xcard"
+            MOVE "K" TO WS-MODE
+        WHEN "crt"
+            MOVE "R" TO WS-MODE
         WHEN OTHER
             DISPLAY PLB-NAME ": invalid format '" WS-ARG(1:WS-ARG-LEN)
                 "' (expected fixed, free, variable, xopen, terminal,"
-                " cobolx, or auto)" UPON SYSERR
+                " cobolx, xcard, crt, or auto)" UPON SYSERR
             MOVE 2 TO WS-EXIT-CODE
     END-EVALUATE.
 
@@ -6220,6 +6225,8 @@ DUMP-ONE-LINE.
         WHEN "O"   MOVE "xopen" TO WS-FORMAT-NAME
         WHEN "T"   MOVE "term" TO WS-FORMAT-NAME
         WHEN "C"   MOVE "cblx" TO WS-FORMAT-NAME
+        WHEN "K"   MOVE "xcard" TO WS-FORMAT-NAME
+        WHEN "R"   MOVE "crt" TO WS-FORMAT-NAME
         WHEN OTHER MOVE "fixed" TO WS-FORMAT-NAME
     END-EVALUATE
     STRING WS-KIND-NAME " " WS-FORMAT-NAME " "

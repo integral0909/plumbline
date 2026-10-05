@@ -742,8 +742,22 @@ check "dynamic-call is off by default"    0 '^$' -- check --disable call-argumen
 check "dump calls lists parameters"       0 '^  parameter LK-CUST-ID reference 8$' -- dump calls $cx/custlook.cob
 check "help lists dump calls"             0 'dump calls' -- --help
 check "dump lines needs files"            2 'no input files' -- dump lines
-check "invalid --format value"            2 "invalid format 'crt' (expected fixed, free, variable, xopen, terminal, cobolx, or auto)" \
-    -- dump lines --format crt $fx/fixed-basic.cbl
+check "invalid --format value"            2 "invalid format 'wide' (expected fixed, free, variable, xopen, terminal, cobolx, xcard, crt, or auto)" \
+    -- dump lines --format wide $fx/fixed-basic.cbl
+check "crt format from a directive"        0 'crt.cob:11: debug     crt   - DISPLAY "SHOWN WHEN DEBUGGING"$' \
+    -- dump lines tests/fixtures/reader/crt.cob
+check "crt format has page ejects"         0 'crt.cob:5: page      crt   -$' \
+    -- dump lines tests/fixtures/reader/crt.cob
+check "crt format does not pad a continued literal" 0 'alnum    "FIRST PART AND SECOND PART"$' \
+    -- dump tokens tests/fixtures/reader/crt.cob
+check "format joins a crt continuation"    0 '^    DISPLAY "FIRST PART AND SECOND PART"$' \
+    -- format --to free tests/fixtures/reader/crt.cob
+check "xcard format reads past column 72"  0 'xcard.cbl:6: code      xcard - DISPLAY "PAST COLUMN 72" *UPON CONSOLE$' \
+    -- dump lines tests/fixtures/reader/xcard.cbl
+check "xcard format pads a literal to column 255" 0 'alnum    "A LITERAL CONTINUED IN XCARD \{191\}FORMAT"$' \
+    -- dump tokens tests/fixtures/reader/xcard.cbl
+check "xcard format from --format"         0 'xcard.cbl:6: code      xcard' \
+    -- dump lines --format xcard tests/fixtures/reader/xcard.cbl
 check "cobolx format from a directive"     0 'cobolx.cob:4: debug     cblx  - DISPLAY "SHOWN WHEN DEBUGGING"$' \
     -- dump lines tests/fixtures/reader/cobolx.cob
 check "cobolx format joins a continued literal" 0 'alnum    "FIRST PART AND SECOND PART"$' \
