@@ -199,6 +199,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C062 varying-subscript-out-of-range.
 - Rule PLB-C063 varying-refmod-out-of-range.
 - Rule PLB-C064 duplicate-condition-value.
+- Rule PLB-C065 open-in-loop.
 - ICOBOL's xCard and CRT reference formats (`--format xcard`, `--format
   crt`, or a directive), read as GnuCOBOL reads them: xCard as fixed
   with the text to column 255 and continued literals padded to it, CRT
