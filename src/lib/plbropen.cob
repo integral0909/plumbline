@@ -1,5 +1,8 @@
 *> ---------------------------------------------------------------
-*> plbropen: PLB-C065 open-in-loop.
+*> plbropen: OPEN statements on every pass of a loop.
+*>
+*>   PLB-C065  open-in-loop            a COBOL file
+*>   PLB-Q011  cursor-opened-in-loop   an SQL cursor (EXEC SQL OPEN)
 *>
 *> An OPEN that runs on every pass of a loop, of a file the loop never
 *> closes:
@@ -21,6 +24,10 @@
 *> closes the file when a CLOSE of it is in the loop's statements or in
 *> a procedure they perform, at any depth.
 *>
+*> PLB-Q011 checks EXEC SQL OPEN of a cursor the same way, against EXEC
+*> SQL CLOSE of the same cursor: the second OPEN of a cursor that is
+*> still open fails with SQLCODE -502.
+*>
 *> The search starts from each OPEN, which are few, and walks up the
 *> syntax tree to the loop, or to the paragraph, then to the PERFORM
 *> statements that loop over it.
@@ -34,6 +41,16 @@ WORKING-STORAGE SECTION.
 01  WS-UNIT-MARK            PIC X OCCURS 20000 TIMES.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-RULE-CURSOR          PIC 9(4) COMP-5.
+*> F a file (C065), C a cursor (Q011); the token to report at.
+01  LS-MODE                 PIC X.
+01  LS-AT                   PIC 9(9) COMP-5.
+01  LS-NODE                 PIC 9(9) COMP-5.
+*> The EXEC statement SQL-COMMAND reads, and the node and token kept
+*> while CLOSE statements are looked for.
+01  LS-CMD-NODE             PIC 9(9) COMP-5.
+01  LS-SAVED-AT             PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
 01  LS-R                    PIC 9(9) COMP-5.
 01  LS-C                    PIC 9(9) COMP-5.
 01  LS-STMT                 PIC 9(9) COMP-5.
@@ -83,24 +100,64 @@ COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
         PLB-REFS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C065" LS-RULE
-    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q011" LS-RULE-CURSOR
+    IF AS-COUNT = 0
         GOBACK
     END-IF
-    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
-        IF RF-KIND(LS-R) = "O" AND RF-STMT(LS-R) > 0
-            IF ND-DETAIL(RF-STMT(LS-R)) = "OPEN"
-                PERFORM CHECK-OPEN
+    IF RL-ENABLED(LS-RULE) = "Y"
+        MOVE "F" TO LS-MODE
+        PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+            IF RF-KIND(LS-R) = "O" AND RF-STMT(LS-R) > 0
+                IF ND-DETAIL(RF-STMT(LS-R)) = "OPEN"
+                    MOVE RF-STMT(LS-R) TO LS-STMT
+                    MOVE RF-TOKEN(LS-R) TO LS-AT
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-AT LS-FILE
+                        LS-LEN
+                    MOVE FUNCTION UPPER-CASE(LS-FILE) TO LS-FILE
+                    PERFORM CHECK-OPEN
+                END-IF
             END-IF
-        END-IF
-    END-PERFORM
+        END-PERFORM
+    END-IF
+    IF RL-ENABLED(LS-RULE-CURSOR) = "Y"
+        MOVE "C" TO LS-MODE
+        PERFORM VARYING LS-NODE FROM 1 BY 1 UNTIL LS-NODE > AS-COUNT
+            IF ND-KIND(LS-NODE) = "STMT" AND ND-DETAIL(LS-NODE) = "EXEC"
+                MOVE LS-NODE TO LS-CMD-NODE
+                PERFORM SQL-COMMAND
+                IF LS-WORD = "OPEN"
+                    MOVE LS-NODE TO LS-STMT
+                    PERFORM CHECK-OPEN
+                END-IF
+            END-IF
+        END-PERFORM
+    END-IF
     GOBACK.
 
-*> The file at reference LS-R, opened by statement RF-STMT(LS-R): the
-*> loop that runs the OPEN on every pass, if one does.
+*> EXEC statement LS-CMD-NODE: LS-WORD the SQL command (OPEN, CLOSE, ...)
+*> and, for OPEN and CLOSE, LS-FILE the cursor and LS-AT its token;
+*> LS-WORD is spaces when it is not EXEC SQL.
+SQL-COMMAND.
+    MOVE SPACES TO LS-WORD LS-FILE
+    COMPUTE LS-K = ND-TOK-FIRST(LS-CMD-NODE) + 1
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-WORD LS-LEN
+    IF FUNCTION UPPER-CASE(LS-WORD) NOT = "SQL"
+        MOVE SPACES TO LS-WORD
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-K
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-WORD LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD
+    IF LS-WORD = "OPEN" OR LS-WORD = "CLOSE"
+        ADD 1 TO LS-K
+        MOVE LS-K TO LS-AT
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-FILE LS-LEN
+        MOVE FUNCTION UPPER-CASE(LS-FILE) TO LS-FILE
+    END-IF.
+
+*> The file or cursor LS-FILE, opened by statement LS-STMT: the loop
+*> that runs the OPEN on every pass, if one does.
 CHECK-OPEN.
-    MOVE RF-STMT(LS-R) TO LS-STMT
-    CALL "PLB-TOK-TEXT" USING PLB-TOKENS RF-TOKEN(LS-R) LS-FILE LS-LEN
-    MOVE FUNCTION UPPER-CASE(LS-FILE) TO LS-FILE
     PERFORM WALK-UP
     EVALUATE LS-STATE
         WHEN "L"
@@ -291,6 +348,10 @@ FIND-CLOSE.
         MOVE "Y" TO LS-CLOSED
         EXIT PARAGRAPH
     END-IF
+    IF LS-MODE = "C"
+        PERFORM FIND-SQL-CLOSE
+        EXIT PARAGRAPH
+    END-IF
     PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > RF-COUNT
         IF RF-KIND(LS-C) = "O" AND RF-STMT(LS-C) > 0
             IF ND-DETAIL(RF-STMT(LS-C)) = "CLOSE"
@@ -310,10 +371,48 @@ FIND-CLOSE.
         END-IF
     END-PERFORM.
 
+*> An EXEC SQL CLOSE of the cursor LS-FILE in the ranges. The cursor
+*> name is kept aside, as SQL-COMMAND sets LS-FILE.
+FIND-SQL-CLOSE.
+    MOVE LS-FILE TO LS-PREVIOUS
+    MOVE LS-AT TO LS-SAVED-AT
+    PERFORM VARYING LS-CMD-NODE FROM 1 BY 1 UNTIL LS-CMD-NODE > AS-COUNT
+        IF ND-KIND(LS-CMD-NODE) = "STMT"
+           AND ND-DETAIL(LS-CMD-NODE) = "EXEC"
+            PERFORM SQL-COMMAND
+            IF LS-WORD = "CLOSE" AND LS-FILE = LS-PREVIOUS
+                PERFORM VARYING LS-RG FROM 1 BY 1
+                        UNTIL LS-RG > LS-RANGE-COUNT
+                    IF ND-TOK-FIRST(LS-CMD-NODE) >= LS-RANGE-FROM(LS-RG)
+                       AND ND-TOK-FIRST(LS-CMD-NODE) <= LS-RANGE-TO(LS-RG)
+                        MOVE "Y" TO LS-CLOSED
+                    END-IF
+                END-PERFORM
+            END-IF
+        END-IF
+        IF LS-CLOSED = "Y"
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    MOVE LS-PREVIOUS TO LS-FILE
+    MOVE LS-SAVED-AT TO LS-AT.
+
 REPORT-OPEN.
     MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-FIRST(LS-LOOP-STMT))) TO LS-NUM
     CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
     MOVE SPACES TO LS-MESSAGE
+    IF LS-MODE = "C"
+        STRING "cursor " DELIMITED BY SIZE
+               LS-FILE DELIMITED BY SPACE
+               " is opened on every pass of the loop on line "
+               LS-NUM-TEXT(1:LS-NUM-LEN)
+               ", which never closes it: the second OPEN fails"
+               " (SQLCODE -502)" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE-CURSOR LS-AT LS-MESSAGE
+        EXIT PARAGRAPH
+    END-IF
     STRING LS-FILE DELIMITED BY SPACE
            " is opened on every pass of the loop on line "
            LS-NUM-TEXT(1:LS-NUM-LEN)
@@ -321,5 +420,5 @@ REPORT-OPEN.
            " (file status 41)" DELIMITED BY SIZE
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
-        PLB-FINDINGS LS-RULE RF-TOKEN(LS-R) LS-MESSAGE.
+        PLB-FINDINGS LS-RULE LS-AT LS-MESSAGE.
 END PROGRAM PLB-RULE-C065.
