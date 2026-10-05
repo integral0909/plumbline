@@ -12,7 +12,7 @@ On an Apple M1, with GnuCOBOL 3.2 and the default `make` build
 
 | Input | Lines | `plumbline check` |
 |---|---:|---:|
-| NIST COBOL-85 suite, 459 programs in one run | 345,140 | 12.0 s, 276 MB |
+| NIST COBOL-85 suite, 459 programs in one run | 345,140 | 11.9 s, 279 MB |
 | CardDemo's 29 base programs (without copybooks) with their JCL, maps, and CICS definitions | 19,496 | 1.2 s |
 | Generated program, 2,500 paragraphs (`make bench`) | 25,259 | 0.8 s |
 | Generated program, 5,000 paragraphs | 50,509 | 1.6 s |
@@ -51,6 +51,15 @@ frees a program's `LOCAL-STORAGE` on every call, which a profile showed
 as a cost of its own. None of them is called while it runs, and none
 needs an item's `VALUE` set again on entry. That took another 7% off
 the NIST run.
+
+The scan of each source line for literals and inline comments
+(`PLB-SRC-SCAN`, once for every line read) compared its position with
+`FUNCTION LENGTH` of the line on every character; GnuCOBOL works out
+an intrinsic function and compares with it in its general numeric
+code. The end column is now worked out once. With the rules added
+since, the NIST run had grown to 12.4 to 12.9 seconds (12.1 s of user
+time); the change brought it to 11.9 seconds (11.5 s), with the same
+findings on all three corpora.
 
 ## Limits
 
