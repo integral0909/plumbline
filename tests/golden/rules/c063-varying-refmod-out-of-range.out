@@ -1,0 +1,5 @@
+tests/golden/rules/c063-varying-refmod-out-of-range.cob:15:12: error: Reference modification of WS-NAME starts at 30 in the PERFORM VARYING on line 14, past its 20 characters [PLB-C063]
+tests/golden/rules/c063-varying-refmod-out-of-range.cob:21:17: error: Reference modification of WS-NAME starts at 0 on the first pass of the PERFORM VARYING on line 20; positions start at 1 [PLB-C063]
+tests/golden/rules/c063-varying-refmod-out-of-range.cob:25:17: error: Reference modification of WS-NAME ends at 21 in the PERFORM VARYING on line 24, past its 20 characters [PLB-C063]
+tests/golden/rules/c063-varying-refmod-out-of-range.cob:29:17: error: Reference modification of WS-NAME has length 0 on the first pass of the PERFORM VARYING on line 28 [PLB-C063]
+tests/golden/rules/c063-varying-refmod-out-of-range.cob:32:17: error: Reference modification of WS-NAME ends at 22 in the PERFORM VARYING on line 31, past its 20 characters [PLB-C063]

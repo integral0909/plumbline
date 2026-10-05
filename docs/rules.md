@@ -74,6 +74,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C060](#plb-c060-spaces-into-numeric) | spaces-into-numeric | warning | Numeric item read after MOVE SPACES to its group |
 | [PLB-C061](#plb-c061-unchecked-numeric-move) | unchecked-numeric-move | note, off | Alphanumeric item moved to a numeric one without a NUMERIC test |
 | [PLB-C062](#plb-c062-varying-subscript-out-of-range) | varying-subscript-out-of-range | error | PERFORM VARYING counter used as a subscript goes outside the table |
+| [PLB-C063](#plb-c063-varying-refmod-out-of-range) | varying-refmod-out-of-range | error | PERFORM VARYING counter in a reference modifier goes outside the item |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1730,7 +1731,33 @@ from the procedure through its `THRU`.
 A loop is left alone when it may not run as written: `WITH TEST AFTER`;
 a statement in the loop changes the counter (PLB-C044 reports that);
 or an `IF`, `EVALUATE`, `PERFORM`, or `SEARCH` in the loop tests the
-counter, other than in a subscript, which may guard the reference.
+counter, other than in a subscript or reference modifier, which may
+guard the reference.
+
+## PLB-C063 varying-refmod-out-of-range
+
+The counter of a `PERFORM VARYING` loop, as the start or the length of
+a reference modifier in the loop, takes a value outside the item:
+
+```cobol
+01  WS-NAME             PIC X(20).
+    ...
+    PERFORM VARYING IX FROM 1 BY 1 UNTIL IX > 30
+        IF WS-NAME(IX:1) = SPACE                   *> reported
+            ADD 1 TO BLANKS
+        END-IF
+    END-PERFORM
+```
+
+`IX` reaches 30, past the 20 characters of `WS-NAME`. The rule reports
+a start below 1 or past the last character, a length below 1, and an
+end (start plus length, less one) past the last character, each for
+the values of the counter that PLB-C062 works out, from the same forms
+of loop. One side of the modifier is the counter, or the counter plus
+or minus a number; the other is a number or, for the length, left out.
+Items whose size is not their number of characters (binary, packed,
+national) and items whose size changes (`OCCURS DEPENDING ON`) are not
+checked. Loops are left alone for the same reasons as in PLB-C062.
 
 ## PLB-I001 pcb-dbd-unknown
 

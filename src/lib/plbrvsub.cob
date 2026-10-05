@@ -1,5 +1,8 @@
 *> ---------------------------------------------------------------
-*> plbrvsub: PLB-C062 varying-subscript-out-of-range.
+*> plbrvsub: PERFORM VARYING counters used as positions.
+*>
+*>   PLB-C062  varying-subscript-out-of-range
+*>   PLB-C063  varying-refmod-out-of-range
 *>
 *> A PERFORM VARYING loop whose counter, used as a subscript in the
 *> loop, takes a value outside the table:
@@ -21,6 +24,18 @@
 *> counter alone, or the counter plus or minus an integer, against the
 *> OCCURS of that dimension. The counter is a data item or an index.
 *>
+*> PLB-C063 checks reference modifications the same way, where the
+*> start or the length is the counter (plus or minus an integer) and
+*> the other is an integer or, for the length, left out:
+*>
+*>     01  WS-NAME  PIC X(20).
+*>     PERFORM VARYING IX FROM 1 BY 1 UNTIL IX > 30
+*>         IF WS-NAME(IX:1) = SPACE ...
+*>
+*> starts past the 20 characters of WS-NAME. Items whose size is not
+*> their characters (binary, packed, national) or that change size
+*> (OCCURS DEPENDING ON) are not checked.
+*>
 *> The loop is the inline body, or, for PERFORM procedure VARYING, the
 *> paragraphs from the procedure through its THRU; procedures they
 *> perform in turn are not followed. The rule leaves a loop alone when
@@ -36,11 +51,32 @@ WORKING-STORAGE SECTION.
 78  DIM-MAX                 VALUE 16.
 78  RANGE-MAX               VALUE 64.
 *> Reference starting at each token (0: none), and whether the token
-*> is in the subscripts of a reference, for the tokens of the file.
+*> is in the subscripts or reference modifier of a reference, for the
+*> tokens of the file.
 01  WS-TOKEN-REF            PIC 9(9) COMP-5 OCCURS 500000 TIMES.
 01  WS-IN-SUBSCRIPT         PIC X OCCURS 500000 TIMES.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-RULE-REFMOD          PIC 9(4) COMP-5.
+01  LS-FINDING-RULE         PIC 9(4) COMP-5.
+01  LS-FINDING-TOKEN        PIC 9(9) COMP-5.
+*> A reference modification: the colon, the characters of the item,
+*> and each side (start, length): L an integer (LS-x-VALUE), C the
+*> counter plus LS-x-VALUE, N left out (the length only), X other.
+01  LS-COLON                PIC 9(9) COMP-5.
+01  LS-CHARS                PIC 9(9) COMP-5.
+01  LS-SIDE-FROM            PIC 9(9) COMP-5.
+01  LS-SIDE-TO              PIC 9(9) COMP-5.
+01  LS-SIDE-KIND            PIC X.
+01  LS-SIDE-VALUE           PIC S9(18) COMP-5.
+01  LS-START-KIND           PIC X.
+01  LS-START-VALUE          PIC S9(18) COMP-5.
+01  LS-LENGTH-KIND          PIC X.
+01  LS-LENGTH-VALUE         PIC S9(18) COMP-5.
+01  LS-START-LOW            PIC S9(18) COMP-5.
+01  LS-START-HIGH           PIC S9(18) COMP-5.
+01  LS-LENGTH-LOW           PIC S9(18) COMP-5.
+01  LS-LENGTH-HIGH          PIC S9(18) COMP-5.
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-DEPTH                PIC S9(9) COMP-5.
@@ -117,7 +153,9 @@ COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         PLB-FLOW PLB-REFS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C062" LS-RULE
-    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C063" LS-RULE-REFMOD
+    IF (RL-ENABLED(LS-RULE) NOT = "Y"
+        AND RL-ENABLED(LS-RULE-REFMOD) NOT = "Y") OR AS-COUNT = 0
         GOBACK
     END-IF
     PERFORM MARK-TOKENS
@@ -135,7 +173,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
 MARK-TOKENS.
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
         MOVE LS-R TO WS-TOKEN-REF(RF-TOKEN(LS-R))
-        IF RF-SUBSCRIPTED(LS-R) = "Y"
+        IF RF-SUBSCRIPTED(LS-R) = "Y" OR RF-REFMOD(LS-R) = "Y"
             PERFORM VARYING LS-T FROM RF-TOKEN(LS-R) BY 1
                     UNTIL LS-T >= RF-LAST(LS-R)
                 MOVE "Y" TO WS-IN-SUBSCRIPT(LS-T + 1)
@@ -146,7 +184,7 @@ MARK-TOKENS.
 UNMARK-TOKENS.
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
         MOVE 0 TO WS-TOKEN-REF(RF-TOKEN(LS-R))
-        IF RF-SUBSCRIPTED(LS-R) = "Y"
+        IF RF-SUBSCRIPTED(LS-R) = "Y" OR RF-REFMOD(LS-R) = "Y"
             PERFORM VARYING LS-T FROM RF-TOKEN(LS-R) BY 1
                     UNTIL LS-T >= RF-LAST(LS-R)
                 MOVE SPACE TO WS-IN-SUBSCRIPT(LS-T + 1)
@@ -454,7 +492,12 @@ CHECK-LOOP.
             IF WS-TOKEN-REF(LS-S) > 0
                 MOVE WS-TOKEN-REF(LS-S) TO LS-R
                 IF RF-SUBSCRIPTED(LS-R) = "Y" AND RF-KIND(LS-R) = "D"
+                   AND RL-ENABLED(LS-RULE) = "Y"
                     PERFORM CHECK-TABLE-REFERENCE
+                END-IF
+                IF RF-REFMOD(LS-R) = "Y" AND RF-KIND(LS-R) = "D"
+                   AND RL-ENABLED(LS-RULE-REFMOD) = "Y"
+                    PERFORM CHECK-REFMOD-REFERENCE
                 END-IF
             END-IF
         END-PERFORM
@@ -477,7 +520,8 @@ IS-COUNTER.
     END-IF.
 
 *> The counter at reference LS-R, in the loop: LS-USABLE = "N" when
-*> its statement changes it, or tests it outside a subscript.
+*> its statement changes it, or tests it outside a subscript or
+*> reference modifier.
 CHECK-COUNTER-USE.
     IF RF-ROLE(LS-R) = "D" OR RF-ROLE(LS-R) = "B"
        OR RF-ROLE(LS-R) = "X"
@@ -652,6 +696,226 @@ READ-RELATIVE.
     ELSE
         MOVE LS-VALUE TO LS-SUB-OFFSET(LS-SUB-COUNT)
     END-IF.
+
+*> PLB-C063 ----------------------------------------------------------
+
+*> Reference LS-R with a reference modifier: its start and length,
+*> when one of them is on the counter, against the item's characters.
+CHECK-REFMOD-REFERENCE.
+    PERFORM FIND-REFMOD
+    IF LS-COLON = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM ITEM-CHARACTERS
+    IF LS-CHARS = 0
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-SIDE-FROM = LS-OPEN + 1
+    COMPUTE LS-SIDE-TO = LS-COLON - 1
+    PERFORM READ-SIDE
+    MOVE LS-SIDE-KIND TO LS-START-KIND
+    MOVE LS-SIDE-VALUE TO LS-START-VALUE
+    COMPUTE LS-SIDE-FROM = LS-COLON + 1
+    COMPUTE LS-SIDE-TO = LS-CLOSE - 1
+    PERFORM READ-SIDE
+    MOVE LS-SIDE-KIND TO LS-LENGTH-KIND
+    MOVE LS-SIDE-VALUE TO LS-LENGTH-VALUE
+    IF LS-START-KIND = "X" OR LS-START-KIND = "N"
+       OR LS-LENGTH-KIND = "X"
+       OR (LS-START-KIND NOT = "C" AND LS-LENGTH-KIND NOT = "C")
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-START-VALUE TO LS-START-LOW LS-START-HIGH
+    IF LS-START-KIND = "C"
+        ADD LS-SMALLEST TO LS-START-LOW
+        ADD LS-LARGEST TO LS-START-HIGH
+    END-IF
+    MOVE LS-LENGTH-VALUE TO LS-LENGTH-LOW LS-LENGTH-HIGH
+    IF LS-LENGTH-KIND = "C"
+        ADD LS-SMALLEST TO LS-LENGTH-LOW
+        ADD LS-LARGEST TO LS-LENGTH-HIGH
+    END-IF
+    MOVE LS-RULE-REFMOD TO LS-FINDING-RULE
+    MOVE RF-TOKEN(LS-R) TO LS-FINDING-TOKEN
+    PERFORM LOOP-LINE
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    STRING "Reference modification of " DELIMITED BY SIZE
+           SY-NAME(RF-SYMBOL(LS-R)) DELIMITED BY SPACE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    *> Both sides on the counter move together: the end is reached
+    *> with the largest of each.
+    EVALUATE TRUE
+        WHEN LS-START-LOW < 1
+            MOVE LS-START-LOW TO LS-NUM
+            STRING " starts at " DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+            PERFORM APPEND-FIRST-PASS
+            STRING "; positions start at 1" DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+        WHEN LS-START-HIGH > LS-CHARS
+            MOVE LS-START-HIGH TO LS-NUM
+            STRING " starts at " DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+            PERFORM APPEND-PAST-CHARACTERS
+        WHEN LS-LENGTH-KIND = "C" AND LS-LENGTH-LOW < 1
+            MOVE LS-LENGTH-LOW TO LS-NUM
+            STRING " has length " DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+            PERFORM APPEND-FIRST-PASS
+        WHEN LS-LENGTH-KIND NOT = "N"
+             AND LS-START-HIGH + LS-LENGTH-HIGH - 1 > LS-CHARS
+            COMPUTE LS-NUM = LS-START-HIGH + LS-LENGTH-HIGH - 1
+            STRING " ends at " DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+            PERFORM APPEND-PAST-CHARACTERS
+        WHEN OTHER
+            EXIT PARAGRAPH
+    END-EVALUATE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-FINDING-RULE LS-FINDING-TOKEN LS-MESSAGE.
+
+*> " N on the first pass of the PERFORM VARYING on line L"
+APPEND-FIRST-PASS.
+    PERFORM APPEND-SIGNED-NUM
+    STRING " on the first pass of the PERFORM VARYING on line "
+           LS-LINE-TEXT(1:LS-LINE-LEN) DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR.
+
+*> " N in the PERFORM VARYING on line L, past its C characters"
+APPEND-PAST-CHARACTERS.
+    PERFORM APPEND-SIGNED-NUM
+    STRING " in the PERFORM VARYING on line "
+           LS-LINE-TEXT(1:LS-LINE-LEN) ", past its " DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    MOVE LS-CHARS TO LS-NUM
+    PERFORM APPEND-SIGNED-NUM
+    STRING " characters" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR.
+
+APPEND-SIGNED-NUM.
+    IF LS-NUM < 0
+        STRING "-" DELIMITED BY SIZE INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR.
+
+*> LS-OPEN, LS-COLON, LS-CLOSE: the parentheses of reference LS-R
+*> with a colon at their top level (LS-COLON 0 when there are none).
+FIND-REFMOD.
+    MOVE 0 TO LS-COLON
+    MOVE RF-TOKEN(LS-R) TO LS-Q
+    PERFORM UNTIL LS-Q > RF-LAST(LS-R) OR LS-COLON > 0
+        IF TK-IS-LPAREN(LS-Q)
+            MOVE LS-Q TO LS-OPEN
+            MOVE 0 TO LS-LEVEL LS-CLOSE
+            PERFORM VARYING LS-Q FROM LS-OPEN BY 1
+                    UNTIL LS-Q > RF-LAST(LS-R)
+                EVALUATE TRUE
+                    WHEN TK-IS-LPAREN(LS-Q)
+                        ADD 1 TO LS-LEVEL
+                    WHEN TK-IS-RPAREN(LS-Q)
+                        SUBTRACT 1 FROM LS-LEVEL
+                        IF LS-LEVEL = 0
+                            MOVE LS-Q TO LS-CLOSE
+                            EXIT PERFORM
+                        END-IF
+                    WHEN TK-IS-COLON(LS-Q) AND LS-LEVEL = 1
+                        MOVE LS-Q TO LS-COLON
+                END-EVALUATE
+            END-PERFORM
+            IF LS-CLOSE = 0
+                MOVE 0 TO LS-COLON
+                EXIT PERFORM
+            END-IF
+            MOVE LS-CLOSE TO LS-Q
+        END-IF
+        ADD 1 TO LS-Q
+    END-PERFORM.
+
+*> The characters of the item of reference LS-R, or 0 when its size is
+*> not its characters or changes at run time.
+ITEM-CHARACTERS.
+    MOVE RF-SYMBOL(LS-R) TO LS-UP
+    MOVE SY-SIZE(LS-UP) TO LS-CHARS
+    EVALUATE SY-CATEGORY(LS-UP)
+        WHEN "N" WHEN "M" WHEN "1" WHEN "?" WHEN "U" WHEN "C" WHEN "K"
+            MOVE 0 TO LS-CHARS
+        WHEN "9" WHEN "E"
+            IF SY-USAGE(LS-UP) NOT = SPACES
+               AND SY-USAGE(LS-UP) NOT = "DISPLAY"
+                MOVE 0 TO LS-CHARS
+            END-IF
+    END-EVALUATE
+    IF SY-VARIABLE(LS-UP) = "Y"
+        MOVE 0 TO LS-CHARS
+    END-IF.
+
+*> One side of a reference modifier, LS-SIDE-FROM to LS-SIDE-TO: an
+*> integer, the counter, the counter + or - an integer, nothing, or
+*> something else.
+READ-SIDE.
+    MOVE "X" TO LS-SIDE-KIND
+    MOVE 0 TO LS-SIDE-VALUE
+    IF LS-SIDE-FROM > LS-SIDE-TO
+        MOVE "N" TO LS-SIDE-KIND
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-SIDE-TO TO LS-BOUND
+    MOVE LS-SIDE-FROM TO LS-Q
+    IF LS-SIDE-FROM = LS-SIDE-TO AND TK-IS-NUMBER(LS-Q)
+        PERFORM READ-INTEGER
+        IF LS-VALUE-OK = "Y"
+            MOVE "L" TO LS-SIDE-KIND
+            MOVE LS-VALUE TO LS-SIDE-VALUE
+        END-IF
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-TOKEN-REF(LS-Q) = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE WS-TOKEN-REF(LS-Q) TO LS-E
+    IF RF-LAST(LS-E) NOT = LS-Q
+        EXIT PARAGRAPH
+    END-IF
+    *> IS-COUNTER works on LS-R: lend it the side's reference.
+    MOVE LS-R TO LS-U
+    MOVE LS-E TO LS-R
+    PERFORM IS-COUNTER
+    MOVE LS-U TO LS-R
+    IF LS-VALUE-OK NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-SIDE-FROM = LS-SIDE-TO
+        MOVE "C" TO LS-SIDE-KIND
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-SIDE-FROM + 2 NOT = LS-SIDE-TO
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-Q
+    IF NOT TK-IS-OPERATOR(LS-Q)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-Q LS-WORD LS-LEN
+    MOVE LS-WORD(1:1) TO LS-SIGN
+    IF LS-SIGN NOT = "+" AND LS-SIGN NOT = "-"
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-Q
+    PERFORM READ-INTEGER
+    IF LS-VALUE-OK NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "C" TO LS-SIDE-KIND
+    IF LS-SIGN = "-"
+        COMPUTE LS-SIDE-VALUE = 0 - LS-VALUE
+    ELSE
+        MOVE LS-VALUE TO LS-SIDE-VALUE
+    END-IF.
+
+*> PLB-C062 reports ----------------------------------------------------
 
 REPORT-PAST-END.
     PERFORM LOOP-LINE
