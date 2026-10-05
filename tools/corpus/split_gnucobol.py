@@ -137,6 +137,7 @@ def main(argv):
         with open(os.path.join(suite, name), encoding="latin-1") as at:
             text = at.read()
         for title, body in test_cases(text):
+            title = unquote(title)
             if re.search(r"AT_XFAIL_IF\(\[true\]\)", body):
                 continue
             files, compiles = files_and_compiles(body)
