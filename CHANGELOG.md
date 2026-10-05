@@ -207,6 +207,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C068 odo-count-out-of-range.
 - Rule PLB-C069 search-index-used-unchecked.
 - Rule PLB-Q011 cursor-opened-in-loop.
+- Rule PLB-Q012 fetch-after-commit.
 - ICOBOL's xCard and CRT reference formats (`--format xcard`, `--format
   crt`, or a directive), read as GnuCOBOL reads them: xCard as fixed
   with the text to column 255 and continued literals padded to it, CRT

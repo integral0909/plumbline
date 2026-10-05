@@ -134,6 +134,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q009](#plb-q009-update-of-read-only-cursor) | update-of-read-only-cursor | warning | UPDATE or DELETE WHERE CURRENT OF a cursor without FOR UPDATE |
 | [PLB-Q010](#plb-q010-cursor-undeclared) | cursor-undeclared | error | SQL cursor is opened, fetched, or closed but never declared |
 | [PLB-Q011](#plb-q011-cursor-opened-in-loop) | cursor-opened-in-loop | error | SQL cursor opened on every pass of a loop that never closes it |
+| [PLB-Q012](#plb-q012-fetch-after-commit) | fetch-after-commit | error | Loop fetches from a cursor and commits, which closes the cursor |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -2909,6 +2910,30 @@ the `OPEN` statements counted are those of
 [PLB-C065](#plb-c065-open-in-loop), and an `EXEC SQL CLOSE` of the
 cursor among the loop's statements, or in a procedure they perform,
 closes it.
+
+## PLB-Q012 fetch-after-commit
+
+A loop that fetches from a cursor and commits, when the cursor is not
+declared `WITH HOLD`:
+
+```cobol
+    EXEC SQL DECLARE ACCT-CUR CURSOR FOR SELECT ... END-EXEC
+    ...
+    PERFORM UNTIL WS-DONE = "Y"
+        EXEC SQL FETCH ACCT-CUR INTO :WS-ID END-EXEC    *> reported
+        ...
+        IF WS-COUNT = 100
+            EXEC SQL COMMIT END-EXEC
+        END-IF
+    END-PERFORM
+```
+
+`COMMIT` and `ROLLBACK`, and `EXEC CICS SYNCPOINT`, close every
+cursor not declared `WITH HOLD`: the first `FETCH` after them fails
+with SQLCODE -501, and the loop ends early or goes on with no rows. The
+loop and its statements are found as for
+[PLB-C065](#plb-c065-open-in-loop), from the `FETCH`. A loop that opens
+the cursor again among its statements is not reported.
 
 ## PLB-S001 dynamic-sql
 
