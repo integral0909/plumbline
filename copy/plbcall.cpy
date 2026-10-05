@@ -39,6 +39,9 @@
         10  CP-RECURSIVE        PIC X.
         *> "Y" when the program has EXEC CICS commands.
         10  CP-CICS             PIC X.
+        *> Bytes of the program's DFHCOMMAREA (0: none, or its size
+        *> changes at run time).
+        10  CP-COMMAREA-SIZE    PIC 9(9) COMP-5.
         10  CP-PARAM-FIRST      PIC 9(9) COMP-5.
         10  CP-PARAM-COUNT      PIC 9(4) COMP-5.
         *> Where the program's first STOP RUN is (CP-STOP-LINE 0:
@@ -147,6 +150,10 @@
         10  PU-NAME             PIC X(8).
         *> The command: READ, XCTL, RETURN, ...
         10  PU-COMMAND          PIC X(12).
+        *> For XCTL and LINK, the bytes of COMMAREA passed: the
+        *> LENGTH, or the size of the COMMAREA item; 0 when unknown or
+        *> none.
+        10  PU-COMMAREA         PIC 9(9) COMP-5.
         10  PU-FILE-ID          PIC 9(4) COMP-5.
         10  PU-LINE             PIC 9(9) COMP-5.
         10  PU-COLUMN           PIC 9(4) COMP-5.
