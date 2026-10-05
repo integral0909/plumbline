@@ -841,6 +841,15 @@ check_absent "commented-out-code leaves prose alone" 'oldcode.cbl:1[67]:' \
 check_absent "commented-out-code is off by default" 'PLB-M019' \
     -- check $co_fx
 nm_fx=tests/fixtures/numeric/nummove.cob
+dv_fx=tests/fixtures/division/average.cob
+check "divisor-not-checked when enabled"   1 'average.cob:26:24: warning: WS-COUNT may be zero here: nothing before this division tests it, and the statement has no ON SIZE ERROR \[PLB-C067\]' \
+    -- check --enable divisor-not-checked $dv_fx
+check "divisor-not-checked after /"        1 'average.cob:27:37: warning: WS-COUNT may be zero' \
+    -- check --enable divisor-not-checked $dv_fx
+check_absent "divisor-not-checked takes tests, constants, and SIZE ERROR" 'average.cob:\(3[0-9]\|4[0-9]\):.*PLB-C067' \
+    -- check --enable divisor-not-checked $dv_fx
+check_absent "divisor-not-checked is off by default" 'PLB-C067' \
+    -- check $dv_fx
 check "unchecked-numeric-move when enabled" 1 'nummove.cob:18:25: note: MOVE of alphanumeric IN-AMOUNT-X to numeric WS-AMOUNT, which nothing in the paragraph tests with NUMERIC \[PLB-C061\]' \
     -- check --enable unchecked-numeric-move --fail-on note $nm_fx
 check_absent "unchecked-numeric-move takes a NUMERIC test" 'WS-COUNT, which' \

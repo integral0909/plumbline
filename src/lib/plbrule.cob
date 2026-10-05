@@ -342,6 +342,12 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C066"
         "identical-branches" "W"
         "IF does the same in its ELSE as in its THEN"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C067"
+        "divisor-not-checked" "W"
+        "Division by a data item that nothing checks for zero"
+    *> A divisor is often known not to be zero for reasons the program
+    *> does not show: only on request.
+    MOVE "N" TO RL-ENABLED(RL-COUNT)
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-A002"
         "record-length-conflict" "W"
         "Programs sharing a data set disagree on its record length"

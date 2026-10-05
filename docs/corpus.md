@@ -271,6 +271,13 @@ The findings were checked by rule:
 
 - **PLB-C065 open-in-loop.** None in NIST or in GnuCOBOL's tests.
 
+- **PLB-C067 divisor-not-checked** (off by default). Enabled, 37 in 7
+  NIST programs, which set their divisors to known values in ways the
+  rule does not follow: a table filled by a performed paragraph, an
+  item with a `VALUE` that other tests change. 5 in one of GnuCOBOL's
+  tests, `sample-payroll-report`, which divides by Report Writer `SUM`
+  totals in a declarative: with no detail lines, they are zero.
+
 - **PLB-C066 identical-branches.** 2 in NIST, in `NC174A` and `NC254A`,
   which test `IF ... NEXT SENTENCE ELSE NEXT SENTENCE` on purpose: both
   branches do the same. None in GnuCOBOL's tests.

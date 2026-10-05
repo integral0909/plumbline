@@ -314,6 +314,8 @@ Some findings that were read and are true:
   and `SEARCHED-ACCT-NOT-NUMERIC`, in `COACTUPC`, `COACTVWC`, `COCRDSLC`,
   and `COCRDUPC`) that no statement names; pairs the program does not
   name are no longer reported.
+- **PLB-C067 divisor-not-checked** (off by default). None when
+  enabled: CardDemo divides only by literals.
 - **PLB-C066 identical-branches.** None. In a copy of `CBACT01C` whose
   `ELSE MOVE 12 TO APPL-RESULT` is made `MOVE 0`, as its `THEN` has,
   it reports that `ELSE`.
