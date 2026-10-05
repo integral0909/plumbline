@@ -3,6 +3,8 @@
 *>
 *>   PLB-C065  open-in-loop            a COBOL file
 *>   PLB-Q011  cursor-opened-in-loop   an SQL cursor (EXEC SQL OPEN)
+*>   PLB-Q012  fetch-after-commit      a loop that FETCHes from a cursor
+*>                                     and commits
 *>
 *> An OPEN that runs on every pass of a loop, of a file the loop never
 *> closes:
@@ -28,6 +30,12 @@
 *> SQL CLOSE of the same cursor: the second OPEN of a cursor that is
 *> still open fails with SQLCODE -502.
 *>
+*> PLB-Q012 starts from EXEC SQL FETCH instead, and looks among the
+*> loop's statements for EXEC SQL COMMIT or ROLLBACK, or EXEC CICS
+*> SYNCPOINT: they close every cursor not declared WITH HOLD, and the
+*> next FETCH fails with SQLCODE -501. A loop that opens the cursor
+*> again is left alone.
+*>
 *> The search starts from each OPEN, which are few, and walks up the
 *> syntax tree to the loop, or to the paragraph, then to the PERFORM
 *> statements that loop over it.
@@ -42,7 +50,14 @@ WORKING-STORAGE SECTION.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-RULE-CURSOR          PIC 9(4) COMP-5.
-*> F a file (C065), C a cursor (Q011); the token to report at.
+01  LS-RULE-COMMIT          PIC 9(4) COMP-5.
+*> Q012: the COMMIT or SYNCPOINT found in the loop, its line, and
+*> whether the loop opens the cursor again.
+01  LS-COMMIT-NODE          PIC 9(9) COMP-5.
+01  LS-REOPENED             PIC X.
+01  LS-HELD                 PIC X.
+*> F a file (C065), C a cursor (Q011), H a fetched cursor (Q012); the
+*> token to report at.
 01  LS-MODE                 PIC X.
 01  LS-AT                   PIC 9(9) COMP-5.
 01  LS-NODE                 PIC 9(9) COMP-5.
@@ -51,6 +66,8 @@ LOCAL-STORAGE SECTION.
 01  LS-CMD-NODE             PIC 9(9) COMP-5.
 01  LS-SAVED-AT             PIC 9(9) COMP-5.
 01  LS-K                    PIC 9(9) COMP-5.
+*> The tokens after DECLARE name, looked through for HOLD.
+01  LS-H                    PIC 9(9) COMP-5.
 01  LS-R                    PIC 9(9) COMP-5.
 01  LS-C                    PIC 9(9) COMP-5.
 01  LS-STMT                 PIC 9(9) COMP-5.
@@ -101,6 +118,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
         PLB-REFS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C065" LS-RULE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q011" LS-RULE-CURSOR
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q012" LS-RULE-COMMIT
     IF AS-COUNT = 0
         GOBACK
     END-IF
@@ -132,15 +150,72 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
             END-IF
         END-PERFORM
     END-IF
+    IF RL-ENABLED(LS-RULE-COMMIT) = "Y"
+        MOVE "H" TO LS-MODE
+        PERFORM VARYING LS-NODE FROM 1 BY 1 UNTIL LS-NODE > AS-COUNT
+            IF ND-KIND(LS-NODE) = "STMT" AND ND-DETAIL(LS-NODE) = "EXEC"
+                MOVE LS-NODE TO LS-CMD-NODE
+                PERFORM SQL-COMMAND
+                IF LS-WORD = "FETCH" AND LS-FILE NOT = SPACES
+                    PERFORM CURSOR-HELD
+                    IF LS-HELD = "N"
+                        MOVE LS-NODE TO LS-STMT
+                        PERFORM CHECK-OPEN
+                    END-IF
+                END-IF
+            END-IF
+        END-PERFORM
+    END-IF
     GOBACK.
 
-*> EXEC statement LS-CMD-NODE: LS-WORD the SQL command (OPEN, CLOSE, ...)
-*> and, for OPEN and CLOSE, LS-FILE the cursor and LS-AT its token;
-*> LS-WORD is spaces when it is not EXEC SQL.
+*> LS-HELD = "Y" when the DECLARE of cursor LS-FILE says WITH HOLD, or
+*> no DECLARE of it is found.
+CURSOR-HELD.
+    MOVE "Y" TO LS-HELD
+    PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K + 2 > TK-COUNT
+        IF TK-IS-WORD(LS-K)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-WORD LS-LEN
+            IF FUNCTION UPPER-CASE(LS-WORD) = "DECLARE"
+                COMPUTE LS-H = LS-K + 1
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-H LS-WORD LS-LEN
+                IF FUNCTION UPPER-CASE(LS-WORD) = LS-FILE
+                    MOVE "N" TO LS-HELD
+                    PERFORM UNTIL LS-H >= TK-COUNT
+                        ADD 1 TO LS-H
+                        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-H LS-WORD
+                            LS-LEN
+                        EVALUATE FUNCTION UPPER-CASE(LS-WORD)
+                            WHEN "HOLD"
+                                MOVE "Y" TO LS-HELD
+                                EXIT PERFORM
+                            WHEN "FOR" WHEN "END-EXEC"
+                                EXIT PERFORM
+                        END-EVALUATE
+                    END-PERFORM
+                    EXIT PERFORM
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> EXEC statement LS-CMD-NODE: LS-WORD the SQL command (OPEN, CLOSE,
+*> FETCH, COMMIT, ...) and, for OPEN, CLOSE, and FETCH, LS-FILE the
+*> cursor and LS-AT its token; LS-WORD is SYNCPOINT for EXEC CICS
+*> SYNCPOINT, and spaces for other commands.
 SQL-COMMAND.
     MOVE SPACES TO LS-WORD LS-FILE
     COMPUTE LS-K = ND-TOK-FIRST(LS-CMD-NODE) + 1
     CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-WORD LS-LEN
+    IF FUNCTION UPPER-CASE(LS-WORD) = "CICS"
+        ADD 1 TO LS-K
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-WORD LS-LEN
+        IF FUNCTION UPPER-CASE(LS-WORD) = "SYNCPOINT"
+            MOVE "SYNCPOINT" TO LS-WORD
+        ELSE
+            MOVE SPACES TO LS-WORD
+        END-IF
+        EXIT PARAGRAPH
+    END-IF
     IF FUNCTION UPPER-CASE(LS-WORD) NOT = "SQL"
         MOVE SPACES TO LS-WORD
         EXIT PARAGRAPH
@@ -153,6 +228,27 @@ SQL-COMMAND.
         MOVE LS-K TO LS-AT
         CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-FILE LS-LEN
         MOVE FUNCTION UPPER-CASE(LS-FILE) TO LS-FILE
+    END-IF
+    *> FETCH [orientation] [FROM] cursor
+    IF LS-WORD = "FETCH"
+        PERFORM UNTIL LS-K >= ND-TOK-LAST(LS-CMD-NODE)
+            ADD 1 TO LS-K
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-FILE LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-FILE) TO LS-FILE
+            EVALUATE LS-FILE
+                WHEN "NEXT" WHEN "PRIOR" WHEN "FIRST" WHEN "LAST"
+                WHEN "CURRENT" WHEN "BEFORE" WHEN "AFTER" WHEN "FROM"
+                WHEN "SENSITIVE" WHEN "INSENSITIVE"
+                    CONTINUE
+                WHEN OTHER
+                    IF TK-IS-WORD(LS-K)
+                        MOVE LS-K TO LS-AT
+                    ELSE
+                        MOVE SPACES TO LS-FILE
+                    END-IF
+                    EXIT PERFORM
+            END-EVALUATE
+        END-PERFORM
     END-IF.
 
 *> The file or cursor LS-FILE, opened by statement LS-STMT: the loop
@@ -269,7 +365,11 @@ STATEMENT-LOOPS.
 *> unless a CLOSE of the file is among what the loop runs.
 CHECK-LOOP.
     PERFORM COLLECT-RANGES
-    PERFORM FIND-CLOSE
+    IF LS-MODE = "H"
+        PERFORM FIND-COMMIT
+    ELSE
+        PERFORM FIND-CLOSE
+    END-IF
     PERFORM CLEAR-MARKS
     IF LS-CLOSED = "N"
         PERFORM REPORT-OPEN
@@ -397,10 +497,65 @@ FIND-SQL-CLOSE.
     MOVE LS-PREVIOUS TO LS-FILE
     MOVE LS-SAVED-AT TO LS-AT.
 
+*> LS-CLOSED = "N" (to report) when the ranges hold a COMMIT, ROLLBACK,
+*> or SYNCPOINT (LS-COMMIT-NODE) and no OPEN of the cursor LS-FILE.
+FIND-COMMIT.
+    MOVE "Y" TO LS-CLOSED
+    IF LS-RANGE-COUNT = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-FILE TO LS-PREVIOUS
+    MOVE LS-AT TO LS-SAVED-AT
+    MOVE 0 TO LS-COMMIT-NODE
+    MOVE "N" TO LS-REOPENED
+    PERFORM VARYING LS-CMD-NODE FROM 1 BY 1 UNTIL LS-CMD-NODE > AS-COUNT
+        IF ND-KIND(LS-CMD-NODE) = "STMT"
+           AND ND-DETAIL(LS-CMD-NODE) = "EXEC"
+            PERFORM VARYING LS-RG FROM 1 BY 1
+                    UNTIL LS-RG > LS-RANGE-COUNT
+                IF ND-TOK-FIRST(LS-CMD-NODE) >= LS-RANGE-FROM(LS-RG)
+                   AND ND-TOK-FIRST(LS-CMD-NODE) <= LS-RANGE-TO(LS-RG)
+                    PERFORM SQL-COMMAND
+                    EVALUATE TRUE
+                        WHEN LS-WORD = "COMMIT" OR LS-WORD = "ROLLBACK"
+                             OR LS-WORD = "SYNCPOINT"
+                            IF LS-COMMIT-NODE = 0
+                                MOVE LS-CMD-NODE TO LS-COMMIT-NODE
+                            END-IF
+                        WHEN LS-WORD = "OPEN" AND LS-FILE = LS-PREVIOUS
+                            MOVE "Y" TO LS-REOPENED
+                    END-EVALUATE
+                    EXIT PERFORM
+                END-IF
+            END-PERFORM
+        END-IF
+    END-PERFORM
+    MOVE LS-PREVIOUS TO LS-FILE
+    MOVE LS-SAVED-AT TO LS-AT
+    IF LS-COMMIT-NODE > 0 AND LS-REOPENED = "N"
+        MOVE "N" TO LS-CLOSED
+    END-IF.
+
 REPORT-OPEN.
     MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-FIRST(LS-LOOP-STMT))) TO LS-NUM
     CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
     MOVE SPACES TO LS-MESSAGE
+    IF LS-MODE = "H"
+        MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-FIRST(LS-COMMIT-NODE)))
+            TO LS-NUM
+        CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+        STRING "cursor " DELIMITED BY SIZE
+               LS-FILE DELIMITED BY SPACE
+               " is fetched in a loop that commits on line "
+               LS-NUM-TEXT(1:LS-NUM-LEN)
+               "; it is not declared WITH HOLD, so the commit closes"
+               " it and the next FETCH fails (SQLCODE -501)"
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE-COMMIT LS-AT LS-MESSAGE
+        EXIT PARAGRAPH
+    END-IF
     IF LS-MODE = "C"
         STRING "cursor " DELIMITED BY SIZE
                LS-FILE DELIMITED BY SPACE

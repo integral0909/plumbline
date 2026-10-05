@@ -317,6 +317,11 @@ Some findings that were read and are true:
 - **PLB-C068 odo-count-out-of-range.** None.
 - **PLB-C069 search-index-used-unchecked.** None: CardDemo has no
   `SEARCH`.
+- **PLB-Q012 fetch-after-commit.** None: the `SYNCPOINT` statements of
+  `COTRTLIC` and `COTRTUPC` are in their update and delete paragraphs,
+  not in the loops that fetch. In a copy of `COTRTLIC` with an `EXEC
+  SQL COMMIT` added before the `FETCH` of its forward read loop, it
+  reports that `FETCH`.
 - **PLB-Q011 cursor-opened-in-loop.** None. In a copy of `COTRTLIC`
   that performs `9400-OPEN-FORWARD-CURSOR` `2 TIMES`, it reports the
   `OPEN` of `C-TR-TYPE-FORWARD` there.
