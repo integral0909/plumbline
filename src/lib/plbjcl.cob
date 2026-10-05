@@ -115,6 +115,14 @@ LOCAL-STORAGE SECTION.
 01  LS-PART-COUNT           PIC 9(4) COMP-5.
 01  LS-REF-KEY              PIC X(5).
 01  LS-REF-TEXT             PIC X(26).
+*> Checking the name in DSN=: its length without a member or
+*> generation, the position in it, and the current qualifier's number
+*> and length.
+01  LS-NAME-LEN             PIC 9(4) COMP-5.
+01  LS-DSN-I                PIC 9(4) COMP-5.
+01  LS-QUAL-NO              PIC 9(4) COMP-5.
+01  LS-QUAL-LEN             PIC 9(4) COMP-5.
+01  LS-CHAR                 PIC X.
 LINKAGE SECTION.
 COPY "plbjclc.cpy".
 01  LK-PATH                 PIC X ANY LENGTH.
@@ -503,8 +511,8 @@ ADD-DD.
     MOVE SPACES TO JD-QUALIFIER(LS-D) JD-NAME(LS-D) JD-DSN(LS-D)
         JD-DISP(LS-D) JD-NORMAL(LS-D)
     MOVE "N" TO JD-CONCAT(LS-D)
-    MOVE 0 TO JD-LRECL(LS-D)
-    MOVE SPACES TO JD-RECFM(LS-D)
+    MOVE 0 TO JD-LRECL(LS-D) JD-DSN-AT(LS-D)
+    MOVE SPACES TO JD-RECFM(LS-D) JD-DSN-PROBLEM(LS-D)
     MOVE 0 TO LS-DOT
     INSPECT ST-NAME TALLYING LS-DOT FOR CHARACTERS BEFORE "."
     EVALUATE TRUE
@@ -529,6 +537,7 @@ ADD-DD.
             WHEN OP-KEY = "DSN" OR OP-KEY = "DSNAME"
                 MOVE "D" TO JD-KIND(LS-D)
                 MOVE OP-VALUE TO JD-DSN(LS-D)
+                PERFORM CHECK-DSN-NAME
                 IF OP-VALUE(1:2) = "*."
                     MOVE "DSN" TO LS-REF-KEY
                     MOVE OP-VALUE(3:) TO LS-REF-TEXT
@@ -571,6 +580,82 @@ VOLUME-REFERENCE.
         UNSTRING OP-VALUE(LS-E + 7:) DELIMITED BY "," OR ")"
             INTO LS-REF-TEXT
         PERFORM NOTE-REFERENCE
+    END-IF.
+
+*> JD-DSN-PROBLEM and JD-DSN-AT for the name in OP-VALUE. Names the
+*> system resolves or substitutes are not checked: temporary data sets
+*> (&&NAME), symbols (&NAME, and the %% variables of schedulers),
+*> backward references (*.), quoted names, and NULLFILE. A member or
+*> generation in parentheses is not part of the name.
+CHECK-DSN-NAME.
+    IF OP-VALUE(1:2) = "*." OR OP-VALUE(1:1) = "'"
+       OR OP-VALUE = "NULLFILE"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-NAME-LEN
+    INSPECT OP-VALUE TALLYING LS-NAME-LEN FOR ALL "&" ALL "%"
+    IF LS-NAME-LEN > 0
+        EXIT PARAGRAPH
+    END-IF
+    INSPECT OP-VALUE TALLYING LS-NAME-LEN
+        FOR CHARACTERS BEFORE INITIAL "("
+    IF LS-NAME-LEN > LENGTH OF OP-VALUE
+        MOVE LENGTH OF OP-VALUE TO LS-NAME-LEN
+    END-IF
+    PERFORM UNTIL LS-NAME-LEN = 0
+        IF OP-VALUE(LS-NAME-LEN:1) NOT = SPACE
+            EXIT PERFORM
+        END-IF
+        SUBTRACT 1 FROM LS-NAME-LEN
+    END-PERFORM
+    IF LS-NAME-LEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-NAME-LEN > 44
+        MOVE "L" TO JD-DSN-PROBLEM(LS-D)
+        MOVE LS-NAME-LEN TO JD-DSN-AT(LS-D)
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 1 TO LS-QUAL-NO
+    MOVE 0 TO LS-QUAL-LEN
+    PERFORM VARYING LS-DSN-I FROM 1 BY 1
+            UNTIL LS-DSN-I > LS-NAME-LEN + 1
+        IF LS-DSN-I > LS-NAME-LEN
+            MOVE "." TO LS-CHAR
+        ELSE
+            MOVE OP-VALUE(LS-DSN-I:1) TO LS-CHAR
+        END-IF
+        EVALUATE TRUE
+            WHEN LS-CHAR = "."
+                EVALUATE TRUE
+                    WHEN LS-QUAL-LEN = 0
+                        MOVE "E" TO JD-DSN-PROBLEM(LS-D)
+                    WHEN LS-QUAL-LEN > 8
+                        MOVE "Q" TO JD-DSN-PROBLEM(LS-D)
+                END-EVALUATE
+                IF JD-DSN-PROBLEM(LS-D) NOT = SPACE
+                    EXIT PERFORM
+                END-IF
+                ADD 1 TO LS-QUAL-NO
+                MOVE 0 TO LS-QUAL-LEN
+            WHEN LS-QUAL-LEN = 0
+                 AND NOT ((LS-CHAR >= "A" AND LS-CHAR <= "Z")
+                          OR LS-CHAR = "#" OR LS-CHAR = "@"
+                          OR LS-CHAR = "$")
+                MOVE "F" TO JD-DSN-PROBLEM(LS-D)
+                EXIT PERFORM
+            WHEN (LS-CHAR >= "A" AND LS-CHAR <= "Z")
+                 OR (LS-CHAR >= "0" AND LS-CHAR <= "9")
+                 OR LS-CHAR = "#" OR LS-CHAR = "@" OR LS-CHAR = "$"
+                 OR LS-CHAR = "-"
+                ADD 1 TO LS-QUAL-LEN
+            WHEN OTHER
+                MOVE "C" TO JD-DSN-PROBLEM(LS-D)
+                EXIT PERFORM
+        END-EVALUATE
+    END-PERFORM
+    IF JD-DSN-PROBLEM(LS-D) NOT = SPACE
+        MOVE LS-QUAL-NO TO JD-DSN-AT(LS-D)
     END-IF.
 
 NOTE-REFERENCE.

@@ -75,6 +75,16 @@
         *> spaces when the DD gives none (or a symbol).
         10  JD-LRECL            PIC 9(9) COMP-5.
         10  JD-RECFM            PIC X(4).
+        *> What is wrong with the name in DSN=, as z/OS forms data set
+        *> names: space when nothing is (or the name is a temporary
+        *> data set, a backward reference, or holds a symbol); L longer
+        *> than 44 characters (JD-DSN-AT: its length); E an empty
+        *> qualifier; Q a qualifier longer than 8 characters; F one that
+        *> does not start with a letter or national character; C one
+        *> with another character (JD-DSN-AT: the qualifier's number,
+        *> from 1, for E, Q, F, and C).
+        10  JD-DSN-PROBLEM      PIC X.
+        10  JD-DSN-AT           PIC 9(4) COMP-5.
         10  JD-FILE-ID          PIC 9(4) COMP-5.
         10  JD-LINE             PIC 9(9) COMP-5.
     *> The steps that IF statements test (IF STEP.RC > 4 THEN, ...):

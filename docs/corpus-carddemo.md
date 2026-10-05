@@ -234,6 +234,9 @@ Some findings that were read and are true:
   set delete it first in an `IEFBR14` step. With that step of `DUSRSECJ`
   made to create the data set instead, the step that rebuilds it is
   reported.
+- **PLB-J010 dsn-invalid.** None, among the 90 distinct names without
+  symbols in the jobs' `DSN=` parameters. In a copy of `ACCTFILE` with
+  `ACCTDATA` made `ACCTDATA1`, it reports the nine-character qualifier.
 - **PLB-J009 referback-unresolved.** None: CardDemo's jobs have no
   backward references. In a copy of `TRANEXTR` with two `DSN=` changed
   to `*.STEP10.SYSUT1` and `*.STEP10.SYSUT9`, the first takes the data

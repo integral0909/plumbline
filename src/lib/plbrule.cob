@@ -420,6 +420,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J009"
         "referback-unresolved" "E"
         "Backward reference names a step or DD not before it"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J010"
+        "dsn-invalid" "E"
+        "DSN= names a data set name that z/OS does not accept"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
