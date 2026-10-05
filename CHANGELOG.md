@@ -362,6 +362,9 @@ uses [Semantic Versioning](https://semver.org/).
   PLB-C017 report-not-terminated, and PLB-M007 detail-never-generated.
 - SORT and MERGE INPUT and OUTPUT PROCEDUREs, ALTER, CD entries, the
   fields of DEBUG-ITEM, DECIMAL-POINT IS COMMA, and CURRENCY SIGN.
+- `--intrinsics all|NAME,...` (and `intrinsics` in `plumbline.conf`):
+  intrinsic functions that may be named without `FUNCTION` in every
+  program, as GnuCOBOL's `-fintrinsics` allows.
 
 ### Changed
 
@@ -373,6 +376,10 @@ uses [Semantic Versioning](https://semver.org/).
 - The rules of embedded SQL and CICS commands run only for files with
   `EXEC SQL` or `EXEC CICS` statements: the NIST suite, with more rules
   than before, takes 12.7 seconds instead of 14.9.
+- `make corpus-gnucobol` leaves out the test cases GnuCOBOL expects to
+  fail (`AT_XFAIL_IF([true])`), 36 programs, and checks each program
+  with its test's `-fintrinsics`: no names are reported as undefined
+  on the corpus now.
 - PLB-C028 comparison-never-true also reports an alphanumeric item
   compared for equality with a literal longer than the item, also as
   the subject of an `EVALUATE` with that literal in a `WHEN`.

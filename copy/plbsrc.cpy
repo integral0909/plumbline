@@ -30,6 +30,11 @@
     *> >>IF NAME DEFINED in any file of the run is true for them.
     *> Columns between tab stops (--tab-width; 8 unless set).
     05  SS-TAB-WIDTH            PIC 9(4) COMP-5.
+    *> Intrinsic functions that may be named without FUNCTION in every
+    *> program (--intrinsics, as cobc's -fintrinsics): "ALL", or the
+    *> names in upper case, each between commas (",PI,E,"); spaces
+    *> for none.
+    05  SS-INTRINSICS           PIC X(256).
     05  SS-DEFINE-COUNT         PIC 9(4) COMP-5.
     05  SS-DEFINE               PIC X(31) OCCURS SS-MAX-DEFINES TIMES.
     05  SS-FILE                 OCCURS SS-MAX-FILES TIMES.

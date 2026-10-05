@@ -53,15 +53,19 @@ start=$(date +%s)
 programs=0
 skipped=0
 tab=$(printf '\t')
-while IFS="$tab" read -r dir program format dialect title; do
+while IFS="$tab" read -r dir program format dialect intrinsics title; do
     case $format in
         fixed|free|variable|xopen|terminal|cobolx|xcard|crt) ;;
         *) skipped=$((skipped + 1)); continue ;;
     esac
     programs=$((programs + 1))
     name=$dir--$program
-    (cd "$work/src/$dir" &&
-        "$bin" check --no-config --format "$format" -I . -I "$copy_dir" \
+    (cd "$work/src/$dir" || exit 0
+        set -- --no-config --format "$format"
+        if [ "$intrinsics" != "-" ]; then
+            set -- "$@" --intrinsics "$intrinsics"
+        fi
+        "$bin" check "$@" -I . -I "$copy_dir" \
             --fail-on never \
             "$program" > "../../out/$name.out" 2> "../../out/$name.err") || true
 done < "$work/src/MANIFEST"

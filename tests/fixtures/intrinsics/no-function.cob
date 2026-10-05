@@ -1,0 +1,13 @@
+*> Intrinsic functions named without FUNCTION, as cobc allows with
+*> -fintrinsics=all or -fintrinsics=pi,e.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. NOFUNC.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  CIRCLE-RATIO    PIC 9V9(4).
+01  GROWTH          PIC 9V9(4).
+PROCEDURE DIVISION.
+    MOVE PI TO CIRCLE-RATIO
+    MOVE E TO GROWTH
+    DISPLAY CIRCLE-RATIO " " GROWTH
+    GOBACK.

@@ -120,6 +120,8 @@ COPY "plbinput.cpy".
 *> --define NAME: names for conditional compilation (>>IF NAME DEFINED).
 01  WS-DEFINE-COUNT         PIC 9(4) COMP-5 VALUE 0.
 01  WS-TAB-WIDTH            PIC 9(4) COMP-5 VALUE 8.
+*> --intrinsics: SS-INTRINSICS for the source set.
+01  WS-INTRINSICS           PIC X(256) VALUE SPACES.
 01  WS-DEFINES.
     05  WS-DEFINE           PIC X(31) OCCURS 64 TIMES.
 01  WS-LIST-STATUS          PIC 9(4) COMP-5.
@@ -559,6 +561,9 @@ SHOW-USAGE.
     DISPLAY "  --debug          treat debugging lines as code"
     DISPLAY "  -I DIR           search DIR for copybooks (repeatable)"
     DISPLAY "  --tab-width N    tab stops every N columns (default 8)"
+    DISPLAY "  --intrinsics all|NAME,..."
+    DISPLAY "                   intrinsic functions that may be named"
+    DISPLAY "                   without FUNCTION (cobc -fintrinsics)"
     DISPLAY "  -D, --define NAME"
     DISPLAY "                   NAME is defined for conditional"
     DISPLAY "                   compilation (>>IF NAME DEFINED)"
@@ -5684,6 +5689,9 @@ PARSE-INPUT-ARGS.
             WHEN WS-ARG = "--tab-width"
                 PERFORM NEXT-ARG
                 PERFORM SET-TAB-WIDTH
+            WHEN WS-ARG = "--intrinsics"
+                PERFORM NEXT-ARG
+                PERFORM SET-INTRINSICS
             WHEN WS-ARG = "--define" OR WS-ARG = "-D"
                 PERFORM NEXT-ARG
                 PERFORM ADD-DEFINE
@@ -5847,14 +5855,32 @@ SET-TAB-WIDTH.
     *> plumbline: ignore move-truncation -- checked to be 1 to 12 above
     MOVE WS-NUM TO WS-TAB-WIDTH.
 
-*> The --define names and the tab width, for the source set just
-*> initialized.
+*> --intrinsics all|NAME,...: "ALL", or the names in upper case between
+*> commas, as SS-INTRINSICS holds them.
+SET-INTRINSICS.
+    IF WS-ARG-LEN = 0 OR WS-ARG-LEN > 250
+        DISPLAY PLB-NAME ": --intrinsics needs all or a list of names"
+            UPON SYSERR
+        MOVE 2 TO WS-EXIT-CODE
+        EXIT PARAGRAPH
+    END-IF
+    IF FUNCTION UPPER-CASE(WS-ARG(1:WS-ARG-LEN)) = "ALL"
+        MOVE "ALL" TO WS-INTRINSICS
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO WS-INTRINSICS
+    STRING "," FUNCTION UPPER-CASE(WS-ARG(1:WS-ARG-LEN)) ","
+        DELIMITED BY SIZE INTO WS-INTRINSICS.
+
+*> The --define names, the tab width, and the intrinsics, for the
+*> source set just initialized.
 APPLY-DEFINES.
     PERFORM VARYING WS-J FROM 1 BY 1 UNTIL WS-J > WS-DEFINE-COUNT
         MOVE WS-DEFINE(WS-J) TO SS-DEFINE(WS-J)
     END-PERFORM
     MOVE WS-DEFINE-COUNT TO SS-DEFINE-COUNT
-    MOVE WS-TAB-WIDTH TO SS-TAB-WIDTH.
+    MOVE WS-TAB-WIDTH TO SS-TAB-WIDTH
+    MOVE WS-INTRINSICS TO SS-INTRINSICS.
 
 *> --files-from WS-ARG: add the files it lists ("-": standard input).
 READ-FILE-LIST.
@@ -5967,6 +5993,8 @@ APPLY-SETTING.
             PERFORM ADD-DEFINE
         WHEN "tab-width"
             PERFORM SET-TAB-WIDTH
+        WHEN "intrinsics"
+            PERFORM SET-INTRINSICS
         WHEN OTHER
             DISPLAY PLB-NAME ": unknown setting '"
                 FUNCTION TRIM(CF-KEY(WS-SETTING)) "'" UPON SYSERR

@@ -109,8 +109,9 @@ one spelled the same way.
 
 ## Not supported
 
-- Compiler options that change the language, such as GnuCOBOL's
-  `-fintrinsics=all` or IBM's `TRUNC(BIN)`: Plumbline sees only the
-  source. Rules whose result would depend on them say so.
+- Compiler options that change the language, such as IBM's
+  `TRUNC(BIN)`: Plumbline sees only the source. Rules whose result
+  would depend on them say so. GnuCOBOL's `-fintrinsics` has an
+  option of its own, `--intrinsics all` or `--intrinsics NAME,...`.
 - Conditional compilation on conditions other than `DEFINED` and `SET`.
 - Object-oriented COBOL beyond the structure of its definitions.
