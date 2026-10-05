@@ -363,6 +363,8 @@ uses [Semantic Versioning](https://semver.org/).
 - The rules of embedded SQL and CICS commands run only for files with
   `EXEC SQL` or `EXEC CICS` statements: the NIST suite, with more rules
   than before, takes 12.7 seconds instead of 14.9.
+- PLB-C028 comparison-never-true also reports an alphanumeric item
+  compared for equality with a literal longer than the item.
 
 ### Fixed
 

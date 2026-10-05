@@ -1,0 +1,5 @@
+tests/golden/rules/c028-long-literal.cob:16:21: warning: STATE-CODE has 2 characters and the literal 3, so this comparison is never true [PLB-C028]
+tests/golden/rules/c028-long-literal.cob:19:25: warning: FLAG has 1 character and the literal 3, so this comparison is never true [PLB-C028]
+tests/golden/rules/c028-long-literal.cob:23:29: warning: ACCOUNT-TYPE has 3 characters and the literal 7, so this comparison is never true [PLB-C028]
+tests/golden/rules/c028-long-literal.cob:25:24: warning: ACCOUNT has 8 characters and the literal 9, so this comparison is never true [PLB-C028]
+tests/golden/rules/c028-long-literal.cob:28:32: warning: STATE-CODE has 2 characters and the literal 4, so this comparison is never true [PLB-C028]

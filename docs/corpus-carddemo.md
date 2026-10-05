@@ -283,6 +283,10 @@ Some findings that were read and are true:
   `INVALID KEY` phrase, or its file a `FILE STATUS`.
 - **PLB-C059 key-error-not-handled.** None, for the same reason.
 - **PLB-C060 spaces-into-numeric.** None.
+- **PLB-C028 comparison-never-true**, for alphanumeric items compared
+  with longer literals: none. In a copy of `CBACT01C` with `IF
+  END-OF-FILE = 'N'` changed to `'NO'` (the item is `PIC X(01)`), it
+  reports that comparison.
 - **PLB-C062 varying-subscript-out-of-range.** None. In a copy of
   `COCRDLIC` with the limit of its loop over the 7 rows of the screen
   raised from `I > 7` to `I > 8`, it reports the 4 subscripts of that

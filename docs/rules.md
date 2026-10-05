@@ -891,6 +891,21 @@ not report:
 A numeric item that holds invalid data (spaces, after a `MOVE` to its
 group) still never compares greater than its picture allows.
 
+For an alphanumeric item (or alphabetic, or a group of fixed size), the
+rule reports an equality with a literal that has more characters than
+the item:
+
+```cobol
+01  STATE-CODE  PIC X(2).
+    ...
+    IF STATE-CODE = "TEX"                   *> reported
+```
+
+The shorter operand is compared as if padded with spaces, so the item
+never holds the literal's last characters. Trailing spaces of the
+literal do not count, and literals with a prefix (`X"..."`, `N"..."`)
+are not checked.
+
 ## PLB-C029 go-to-leaves-perform
 
 A `GO TO` inside a performed range whose target is outside it:

@@ -127,6 +127,13 @@ CHECK-COMPARISON.
     IF LS-OP = SPACE
         EXIT PARAGRAPH
     END-IF
+    IF LS-T <= LS-LIMIT AND TK-IS-ALNUM(LS-T)
+        IF LS-OP = "E" AND RL-ENABLED(LS-RULE-COMPARE) = "Y"
+            MOVE RF-SYMBOL(LS-R) TO LS-S
+            PERFORM CHECK-LONG-LITERAL
+        END-IF
+        EXIT PARAGRAPH
+    END-IF
     PERFORM READ-LITERAL
     IF LS-VALUE-TOKEN = 0
         EXIT PARAGRAPH
@@ -158,6 +165,57 @@ CHECK-COMPARISON.
         MOVE SY-NAME(LS-S) TO LS-COUNTER
         PERFORM REPORT-COMPARISON
     END-IF.
+
+*> PLB-C028 for alphanumeric items: item = "literal", where the
+*> literal has more characters than the item, not counting its
+*> trailing spaces. The shorter operand is padded with spaces, so the
+*> item never equals it. Only plain literals (no X, N, or other
+*> prefix) and items of characters (alphanumeric, alphabetic, or a
+*> group of fixed size) are checked.
+CHECK-LONG-LITERAL.
+    IF TK-PREFIX(LS-T) NOT = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    IF SY-CATEGORY(LS-S) NOT = "X" AND NOT = "A" AND NOT = "G"
+        EXIT PARAGRAPH
+    END-IF
+    IF SY-USAGE(LS-S) NOT = SPACES AND SY-USAGE(LS-S) NOT = "DISPLAY"
+        EXIT PARAGRAPH
+    END-IF
+    IF SY-VARIABLE(LS-S) = "Y" OR SY-SIZE(LS-S) = 0
+       OR TK-TEXT-LEN(LS-T) <= SY-SIZE(LS-S)
+        EXIT PARAGRAPH
+    END-IF
+    *> Not the concatenation of several literals (A = "AB" & "C").
+    COMPUTE LS-NEXT = LS-T + 1
+    IF LS-NEXT <= LS-LIMIT AND TK-IS-OPERATOR(LS-NEXT)
+        EXIT PARAGRAPH
+    END-IF
+    IF TK-TEXT(TK-TEXT-OFF(LS-T) + SY-SIZE(LS-S):
+               TK-TEXT-LEN(LS-T) - SY-SIZE(LS-S)) = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    MOVE SY-SIZE(LS-S) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING SY-NAME(LS-S) DELIMITED BY SPACE
+           " has " LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    IF LS-NUM = 1
+        STRING " character" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    ELSE
+        STRING " characters" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    MOVE TK-TEXT-LEN(LS-T) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING " and the literal " LS-NUM-TEXT(1:LS-NUM-LEN)
+           ", so this comparison is never true" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-COMPARE LS-T LS-MESSAGE.
 
 *> PLB-C045 alnum-compared-to-number: an alphanumeric item (or group)
 *> compared with a numeric literal that has fewer digits than the item
