@@ -1,0 +1,2 @@
+tests/golden/rules/c066-identical-branches.cob:16:5: warning: the ELSE of the IF on line 14 does what its THEN does: the condition decides nothing [PLB-C066]
+tests/golden/rules/c066-identical-branches.cob:25:9: warning: the ELSE of the IF on line 22 does what its THEN does: the condition decides nothing [PLB-C066]
