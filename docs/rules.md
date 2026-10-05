@@ -76,6 +76,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C062](#plb-c062-varying-subscript-out-of-range) | varying-subscript-out-of-range | error | PERFORM VARYING counter used as a subscript goes outside the table |
 | [PLB-C063](#plb-c063-varying-refmod-out-of-range) | varying-refmod-out-of-range | error | PERFORM VARYING counter in a reference modifier goes outside the item |
 | [PLB-C064](#plb-c064-duplicate-condition-value) | duplicate-condition-value | warning | Two condition names of the same item have the same values |
+| [PLB-C065](#plb-c065-open-in-loop) | open-in-loop | warning | OPEN runs on every pass of a loop that never closes the file |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1804,6 +1805,31 @@ the values of several others, is not reported, nor is the `WHEN SET TO
 FALSE` phrase compared. A pair is reported only when the program's
 procedures name one of the two: two condition names that nothing tests
 or sets, as two messages with the same text, mislead no statement.
+
+## PLB-C065 open-in-loop
+
+An `OPEN` that runs on every pass of a loop, of a file the loop never
+closes:
+
+```cobol
+    PERFORM WRITE-REPORT 3 TIMES
+    ...
+WRITE-REPORT.
+    OPEN OUTPUT OUT-FILE                    *> reported
+    WRITE OUT-REC.
+```
+
+The second pass opens a file that is already open. The `OPEN` fails
+with file status 41; without a `FILE STATUS` check the program goes on
+with the file as the first pass left it, or stops.
+
+A loop is a `PERFORM` with `UNTIL`, `VARYING`, `FOREVER`, or `TIMES`
+(but not `1 TIMES`). The `OPEN` is in its inline body, or in a
+procedure of the range it performs. An `OPEN` under an `IF`,
+`EVALUATE`, `SEARCH`, or a conditional phrase (`AT END`, `INVALID
+KEY`, ...) inside the loop is not reported, since it may run only once.
+Nor is one whose file the loop closes: a `CLOSE` of it among the loop's
+statements, or in a procedure they perform, at any depth.
 
 ## PLB-I001 pcb-dbd-unknown
 
