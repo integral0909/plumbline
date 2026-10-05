@@ -1,0 +1,4 @@
+tests/golden/rules/c069-search-index-used-unchecked.cob:17:20: warning: MOVE SPACES to RATE-TABLE puts spaces in its numeric item RATE-VALUE, which line 23 reads before anything gives it a value [PLB-C060]
+tests/golden/rules/c069-search-index-used-unchecked.cob:23:22: warning: RATE-IX is used after the SEARCH on line 19, which has no AT END: when nothing matched, it is past the entry looked for [PLB-C069]
+tests/golden/rules/c069-search-index-used-unchecked.cob:23:34: note: WS-RATE is given a value but never read [PLB-M005]
+tests/golden/rules/c069-search-index-used-unchecked.cob:30:24: warning: WS-SLOT is used after the SEARCH on line 26, which has no AT END: when nothing matched, it is past the entry looked for [PLB-C069]

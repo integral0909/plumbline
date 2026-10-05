@@ -80,6 +80,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C066](#plb-c066-identical-branches) | identical-branches | warning | IF does the same in its ELSE as in its THEN |
 | [PLB-C067](#plb-c067-divisor-not-checked) | divisor-not-checked | warning, off | Division by a data item that nothing checks for zero |
 | [PLB-C068](#plb-c068-odo-count-out-of-range) | odo-count-out-of-range | error | OCCURS DEPENDING ON count given a value outside the table |
+| [PLB-C069](#plb-c069-search-index-used-unchecked) | search-index-used-unchecked | warning | Index used after a SEARCH that has no AT END |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1903,6 +1904,28 @@ a `MOVE` of a numeric literal to the count, a `COMPUTE` whose
 expression is one, and the count's `VALUE` clause. As for
 [PLB-C040](#plb-c040-odo-object-too-small), the count is the item of
 that name in the same program.
+
+## PLB-C069 search-index-used-unchecked
+
+A `SEARCH` without `AT END`, after which the paragraph uses the
+table's index as if the search had found an entry:
+
+```cobol
+    SEARCH RATE-ENTRY
+        WHEN RATE-CODE (RATE-IX) = WS-CODE
+            CONTINUE
+    END-SEARCH
+    MOVE RATE-VALUE (RATE-IX) TO WS-RATE            *> reported
+```
+
+When no entry matches, the index is left past the last entry (or where
+`SEARCH ALL` stopped), and the `MOVE` reads the storage after the
+table, or a wrong entry. The index is the first `INDEXED BY` name of
+the table searched, or the item after `VARYING`. Its uses are looked
+for after the `SEARCH`, to the end of the paragraph, as subscripts in
+statements directly in the paragraph. A `SET` of the index or another
+`SEARCH` ends the look, and a use under an `IF` or `EVALUATE`, which
+may test whether the search found anything, is not reported.
 
 ## PLB-I001 pcb-dbd-unknown
 
