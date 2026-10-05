@@ -97,6 +97,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
 | [PLB-K004](#plb-k004-commarea-length-too-long) | commarea-length-too-long | warning | CICS command passes more bytes than its COMMAREA item has |
 | [PLB-K005](#plb-k005-batch-io-in-cics) | batch-io-in-cics | error | COBOL file statement or ACCEPT in a CICS program |
+| [PLB-K006](#plb-k006-return-transid-without-commarea) | return-transid-without-commarea | warning | RETURN TRANSID passes no COMMAREA to a program that receives one |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -2235,6 +2236,25 @@ from a batch program. `ACCEPT ... FROM DATE`, `DAY`, `DAY-OF-WEEK`, and
 
 A program counts as a CICS program when its own text has an `EXEC
 CICS` command; programs nested in it are checked on their own.
+## PLB-K006 return-transid-without-commarea
+
+A pseudo-conversational `RETURN` that names the next transaction but
+passes no `COMMAREA`, in a program that receives one:
+
+```cobol
+LINKAGE SECTION.
+01  DFHCOMMAREA          PIC X(100).
+    ...
+    EXEC CICS RETURN TRANSID('ACCT') END-EXEC     *> reported
+```
+
+The next task of the conversation starts with `EIBCALEN` 0, as on a
+first entry from the terminal: the program sets its state up again,
+and the user's place in the conversation is lost. A program receives a
+`COMMAREA` when it declares `DFHCOMMAREA` in its `LINKAGE SECTION`; a
+`RETURN` without `TRANSID`, which ends the conversation, is not
+reported, nor is one in a program nested in it without `DFHCOMMAREA`.
+
 ## PLB-M001 go-to
 
 Every `GO TO` statement, reported as a note. `GO TO` makes the flow of

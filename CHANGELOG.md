@@ -202,6 +202,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C065 open-in-loop.
 - Rule PLB-J010 dsn-invalid.
 - Rule PLB-C066 identical-branches.
+- Rule PLB-K006 return-transid-without-commarea.
 - ICOBOL's xCard and CRT reference formats (`--format xcard`, `--format
   crt`, or a directive), read as GnuCOBOL reads them: xCard as fixed
   with the text to column 255 and continued literals padded to it, CRT
