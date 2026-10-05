@@ -251,11 +251,11 @@ The findings were checked by rule:
   leaves is now left alone. GnuCOBOL's tests have none.
 
 - **PLB-C058 read-not-handled.** None in NIST, whose `READ` statements
-  all have `AT END` or `INVALID KEY`. 46 in 15 of GnuCOBOL's tests. Most
-  read back exactly the records they have just written; `turn-ec-i-o`
-  reads file `g` once too often on purpose ("Read g too many times with
-  libcob error"), and is reported there and not for file `f`, which has
-  a `FILE STATUS`.
+  all have `AT END` or `INVALID KEY`. 45 in 14 of GnuCOBOL's tests
+  (46 in 15 before the tests GnuCOBOL expects to fail were left out;
+  one of those, `turn-ec-i-o`, reads a file once too often on
+  purpose). Most read back exactly the records they have just
+  written.
 
 - **PLB-C028 comparison-never-true**, for alphanumeric items compared
   with longer literals: none in NIST or in GnuCOBOL's tests.
