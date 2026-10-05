@@ -75,6 +75,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C061](#plb-c061-unchecked-numeric-move) | unchecked-numeric-move | note, off | Alphanumeric item moved to a numeric one without a NUMERIC test |
 | [PLB-C062](#plb-c062-varying-subscript-out-of-range) | varying-subscript-out-of-range | error | PERFORM VARYING counter used as a subscript goes outside the table |
 | [PLB-C063](#plb-c063-varying-refmod-out-of-range) | varying-refmod-out-of-range | error | PERFORM VARYING counter in a reference modifier goes outside the item |
+| [PLB-C064](#plb-c064-duplicate-condition-value) | duplicate-condition-value | warning | Two condition names of the same item have the same values |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1777,6 +1778,32 @@ or minus a number; the other is a number or, for the length, left out.
 Items whose size is not their number of characters (binary, packed,
 national) and items whose size changes (`OCCURS DEPENDING ON`) are not
 checked. Loops are left alone for the same reasons as in PLB-C062.
+
+## PLB-C064 duplicate-condition-value
+
+Two condition names (level 88) of the same item with the same values:
+
+```cobol
+01  WS-DELETE-FLAG          PIC X.
+    88  DELETE-NOT-REQUESTED  VALUE LOW-VALUES.
+    88  DELETE-REQUESTED      VALUE 'Y'.
+    88  DELETE-SUCCEEDED      VALUE LOW-VALUES.   *> reported
+```
+
+Usually one was copied from the other and its value not changed. Each
+is true whenever the other is, and `SET DELETE-SUCCEEDED TO TRUE`
+stores what `SET DELETE-NOT-REQUESTED TO TRUE` does: here, a delete
+that was never requested tests as one that succeeded.
+
+The values are compared as a set, in any order: trailing spaces of an
+alphanumeric literal, leading zeros and trailing decimal zeros of a
+number, and the spelling of a figurative constant (`SPACE`, `SPACES`;
+`ZERO` and `0` for a numeric item) do not count. A condition whose
+values include another's and more, as a `VALID` condition that lists
+the values of several others, is not reported, nor is the `WHEN SET TO
+FALSE` phrase compared. A pair is reported only when the program's
+procedures name one of the two: two condition names that nothing tests
+or sets, as two messages with the same text, mislead no statement.
 
 ## PLB-I001 pcb-dbd-unknown
 

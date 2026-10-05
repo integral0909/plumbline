@@ -1,0 +1,4 @@
+tests/golden/rules/c064-duplicate-condition-value.cob:10:9: warning: STATUS-ACTIVE has the same values as STATUS-OPEN on line 8, another condition of ACCOUNT-STATUS: the two cannot be told apart [PLB-C064]
+tests/golden/rules/c064-duplicate-condition-value.cob:13:9: warning: FIRST-TRY has the same values as NO-RETRIES on line 12, another condition of RETRY-COUNT: the two cannot be told apart [PLB-C064]
+tests/golden/rules/c064-duplicate-condition-value.cob:15:9: warning: SOME-RETRIES has the same values as FEW-RETRIES on line 14, another condition of RETRY-COUNT: the two cannot be told apart [PLB-C064]
+tests/golden/rules/c064-duplicate-condition-value.cob:18:9: warning: REGION-UPPER has the same values as REGION-NORTH on line 17, another condition of REGION-CODE: the two cannot be told apart [PLB-C064]

@@ -296,6 +296,17 @@ Some findings that were read and are true:
 - **PLB-C063 varying-refmod-out-of-range.** None. The two loops with
   the counter in a reference modifier, in `COMEN01C` and `COADM01C`,
   count down from `LENGTH OF`, which the rule does not work out.
+- **PLB-C064 duplicate-condition-value.** 2, both in `COTRTLIC`:
+  `CA-DELETE-SUCCEEDED` and `CA-UPDATE-SUCCEEDED` have the value
+  `LOW-VALUES` of `CA-DELETE-NOT-REQUESTED` and
+  `CA-UPDATE-NOT-REQUESTED`. The program tests `IF CA-DELETE-SUCCEEDED`
+  after `9300-DELETE-RECORD`, whose `WHEN OTHER` branch (a failed
+  delete) leaves the flag as it was: a flag that was never set to
+  requested would read as a delete that succeeded. A first version also
+  reported 4 pairs of messages with the same text (`SEARCHED-ACCT-ZEROES`
+  and `SEARCHED-ACCT-NOT-NUMERIC`, in `COACTUPC`, `COACTVWC`, `COCRDSLC`,
+  and `COCRDUPC`) that no statement names; pairs the program does not
+  name are no longer reported.
 - **PLB-M020 constant-condition.** None.
 - **PLB-Q008 null-without-indicator.** None: the tables that are fetched
   from declare their columns `NOT NULL`, and the one with nullable
