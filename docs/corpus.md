@@ -271,6 +271,11 @@ The findings were checked by rule:
 
 - **PLB-C065 open-in-loop.** None in NIST or in GnuCOBOL's tests.
 
+- **PLB-C068 odo-count-out-of-range.** None in NIST. 2 in GnuCOBOL's
+  test `Value of DEPENDING ON N out of bounds`, which checks the
+  run-time error on purpose: `MOVE 3 TO N` for a table of 4 to 6
+  entries, and `VALUE 7` in its second program.
+
 - **PLB-C067 divisor-not-checked** (off by default). Enabled, 37 in 7
   NIST programs, which set their divisors to known values in ways the
   rule does not follow: a table filled by a performed paragraph, an

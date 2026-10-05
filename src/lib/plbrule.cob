@@ -348,6 +348,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     *> A divisor is often known not to be zero for reasons the program
     *> does not show: only on request.
     MOVE "N" TO RL-ENABLED(RL-COUNT)
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C068"
+        "odo-count-out-of-range" "E"
+        "OCCURS DEPENDING ON count given a value outside the table"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-A002"
         "record-length-conflict" "W"
         "Programs sharing a data set disagree on its record length"

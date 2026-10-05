@@ -79,6 +79,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C065](#plb-c065-open-in-loop) | open-in-loop | warning | OPEN runs on every pass of a loop that never closes the file |
 | [PLB-C066](#plb-c066-identical-branches) | identical-branches | warning | IF does the same in its ELSE as in its THEN |
 | [PLB-C067](#plb-c067-divisor-not-checked) | divisor-not-checked | warning, off | Division by a data item that nothing checks for zero |
+| [PLB-C068](#plb-c068-odo-count-out-of-range) | odo-count-out-of-range | error | OCCURS DEPENDING ON count given a value outside the table |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1877,6 +1878,31 @@ WS-COUNT > 0 PERFORM REPORT-AVERAGE`).
 A divisor is often known not to be zero for reasons the program does
 not show, as a count of a file that is never empty, so the rule only
 runs on request (`--enable divisor-not-checked`).
+
+## PLB-C068 odo-count-out-of-range
+
+The count of a table with `OCCURS ... DEPENDING ON` given a value the
+table cannot have:
+
+```cobol
+01  ORDER-COUNT         PIC 999.
+01  ORDER-TABLE.
+    05  ORDER-LINE      PIC X(40)
+                        OCCURS 1 TO 50 DEPENDING ON ORDER-COUNT.
+    ...
+    MOVE 60 TO ORDER-COUNT                  *> reported
+```
+
+A count above the maximum makes the table, and the record it is in,
+reach past the storage they were given; one below the minimum is not
+allowed either. Zero is not reported: `VALUE 0` and `MOVE 0` are the
+usual count of a table not filled yet, whatever its minimum. GnuCOBOL with run-time checks stops the program there
+(`EC-BOUND-ODO`); without them, the program reads and writes storage
+that is not the table's. The rule checks the values written as numbers:
+a `MOVE` of a numeric literal to the count, a `COMPUTE` whose
+expression is one, and the count's `VALUE` clause. As for
+[PLB-C040](#plb-c040-odo-object-too-small), the count is the item of
+that name in the same program.
 
 ## PLB-I001 pcb-dbd-unknown
 
