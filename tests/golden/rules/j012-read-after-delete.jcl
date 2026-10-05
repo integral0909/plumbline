@@ -1,0 +1,16 @@
+//* PLB-J012 read-after-delete: a step reads a data set an earlier step
+//* deleted, with nothing creating it again in between.
+//MONTHEND JOB (ACCT),'MONTHEND',CLASS=A
+//CLEANUP  EXEC PGM=IEFBR14
+//OLDEXT   DD DSN=PROD.ACCT.EXTRACT,DISP=(OLD,DELETE)
+//OLDSUM   DD DSN=PROD.ACCT.SUMMARY,DISP=(MOD,DELETE,DELETE)
+//OLDLIST  DD DSN=PROD.ACCT.LIST,DISP=(OLD,UNCATLG)
+//* Not reported: SUMMARY is created again before it is read.
+//BUILD    EXEC PGM=IEFBR14
+//SUMMARY  DD DSN=PROD.ACCT.SUMMARY,DISP=(NEW,CATLG,DELETE),
+//            UNIT=SYSDA,SPACE=(TRK,(5,5))
+//* Reported: EXTRACT was deleted, LIST uncataloged.
+//REPORT   EXEC PGM=IEFBR14
+//INPUT    DD DSN=PROD.ACCT.EXTRACT,DISP=SHR
+//SUMIN    DD DSN=PROD.ACCT.SUMMARY,DISP=SHR
+//LISTIN   DD DSN=PROD.ACCT.LIST,DISP=OLD

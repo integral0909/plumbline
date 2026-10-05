@@ -202,6 +202,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C065 open-in-loop.
 - Rule PLB-J010 dsn-invalid.
 - Rule PLB-J011 dd-name-repeated.
+- Rule PLB-J012 read-after-delete.
 - Rule PLB-C066 identical-branches.
 - Rule PLB-K006 return-transid-without-commarea.
 - Rule PLB-K007 commarea-too-short.

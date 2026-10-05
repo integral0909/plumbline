@@ -1,0 +1,2 @@
+tests/golden/rules/j012-read-after-delete.jcl:14:3: error: PROD.ACCT.EXTRACT is read here, but the DD on line 5 deletes it and no step creates it again before [PLB-J012]
+tests/golden/rules/j012-read-after-delete.jcl:16:3: error: PROD.ACCT.LIST is read here, but the DD on line 7 uncatalogs it and no step creates it again before [PLB-J012]
