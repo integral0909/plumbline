@@ -153,6 +153,9 @@ WORKING-STORAGE SECTION.
 01  WS-MESSAGE              PIC X(200).
 01  WS-DONE                 PIC X.
 01  WS-NO-FILE              PIC 9(4) COMP-5 VALUE 0.
+*> The path ended by a NUL for opendir, and the directory it opens.
+01  WS-C-PATH               PIC X(513).
+01  WS-DIRECTORY            USAGE POINTER.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -164,6 +167,24 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS LK-FILE-ID
     MOVE 1 TO LK-STATUS
     MOVE SF-PATH(LK-FILE-ID) TO WS-PATH
     MOVE 0 TO WS-LINE-NO WS-COLUMN
+
+    *> A directory opens, and reads as an empty file: the run would
+    *> pass without a word. opendir tells it apart.
+    MOVE SPACES TO WS-C-PATH
+    STRING FUNCTION TRIM(WS-PATH TRAILING) X"00" DELIMITED BY SIZE
+        INTO WS-C-PATH
+    CALL STATIC "opendir" USING BY REFERENCE WS-C-PATH
+        RETURNING WS-DIRECTORY
+    IF WS-DIRECTORY NOT = NULL
+        CALL STATIC "closedir" USING BY VALUE WS-DIRECTORY
+        MOVE SPACES TO WS-MESSAGE
+        STRING FUNCTION TRIM(WS-PATH TRAILING) " is a directory: give"
+            " its files (DIR/*.cbl), or list them with --files-from"
+            DELIMITED BY SIZE INTO WS-MESSAGE
+        CALL "PLB-DIAG-ADD" USING PLB-DIAGNOSTICS "E" "RD001"
+            WS-NO-FILE WS-LINE-NO WS-COLUMN WS-MESSAGE
+        GOBACK
+    END-IF
 
     OPEN INPUT SOURCE-FILE
     IF WS-STATUS NOT = "00"

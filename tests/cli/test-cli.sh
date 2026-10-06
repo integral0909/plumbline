@@ -752,6 +752,8 @@ else
     echo "not ok $n - a closed pipe ends plumbline quietly"
     printf '%s\n' "$pipe_err" | sed 's/^/    /'
 fi
+check "a directory is not taken for a file" 1 'tests/fixtures/impact is a directory: give its files' \
+    -- check --no-config tests/fixtures/impact
 check "dump lines needs files"            2 'no input files' -- dump lines
 intr_fx=tests/fixtures/intrinsics
 check "intrinsics without FUNCTION are undeclared" 1 'PI is not declared \[PLB-C009\]' \
