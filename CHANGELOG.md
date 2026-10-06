@@ -400,6 +400,9 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- A pipe closed early (`plumbline rules | head`) ends plumbline quietly,
+  as it does other tools; the run-time library reported it as a crash,
+  with a stack of COBOL statements on standard error.
 - In ACU terminal format, a `/` in column 1 is a page eject, as in the
   other formats, and text past column 320 is not part of the program.
 - `lineage` writes alphanumeric literals in statement text with their
@@ -410,7 +413,6 @@ uses [Semantic Versioning](https://semver.org/).
 - A doubled quote split by the right margin of fixed format (the first
   quote in column 72, the second after the continuation line's quote)
   no longer ends the literal; NIST's NC215A now reads without errors.
-
 - A signed literal at the start of pseudo-text (`==+1==`) was read as
   an operator and a number, so `COPY ... REPLACING ==+1== BY ...` never
   matched the literal `+1` of the copybook.

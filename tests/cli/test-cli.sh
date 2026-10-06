@@ -741,6 +741,17 @@ rm -f "$tmp_baseline"
 check "dynamic-call is off by default"    0 '^$' -- check --disable call-argument-count --disable call-argument-mismatch --disable recursive-call $rx/c013-c015-calls.cob
 check "dump calls lists parameters"       0 '^  parameter LK-CUST-ID reference 8$' -- dump calls $cx/custlook.cob
 check "help lists dump calls"             0 'dump calls' -- --help
+# A reader that stops early closes the pipe: plumbline ends without a
+# word on standard error.
+n=$((n + 1))
+pipe_err=$( { "$bin_abs" rules | head -n 1 >/dev/null; } 2>&1 )
+if [ -z "$pipe_err" ]; then
+    echo "ok $n - a closed pipe ends plumbline quietly"
+else
+    failed=$((failed + 1))
+    echo "not ok $n - a closed pipe ends plumbline quietly"
+    printf '%s\n' "$pipe_err" | sed 's/^/    /'
+fi
 check "dump lines needs files"            2 'no input files' -- dump lines
 intr_fx=tests/fixtures/intrinsics
 check "intrinsics without FUNCTION are undeclared" 1 'PI is not declared \[PLB-C009\]' \
