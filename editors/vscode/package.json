@@ -47,6 +47,10 @@
       {
         "command": "plumbline.document",
         "title": "Plumbline: Document this program"
+      },
+      {
+        "command": "plumbline.impact",
+        "title": "Plumbline: Show what the name under the cursor reaches"
       }
     ]
   },
