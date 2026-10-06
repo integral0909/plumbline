@@ -85,6 +85,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
 | [PLB-I004](#plb-i004-procopt-forbids-call) | procopt-forbids-call | error | DL/I call that no PCB of the segment allows |
+| [PLB-I005](#plb-i005-dli-status-not-checked) | dli-status-not-checked | warning | Status code of a DL/I call is not tested |
 | [PLB-J001](#plb-j001-dd-missing) | dd-missing | error | A file the step's programs open has no DD in the step |
 | [PLB-J002](#plb-j002-dd-unused) | dd-unused | note | DD is not a file of the step's programs |
 | [PLB-J003](#plb-j003-program-not-in-run) | program-not-in-run | note, off | Step runs a program that is not among those checked |
@@ -1986,6 +1987,25 @@ and the get calls with `G`; `A` allows all of them.
 ```
 
 when the PCB has `PROCOPT=G`. IMS rejects the call (status code `AM`).
+
+## PLB-I005 dli-status-not-checked
+
+A DL/I call whose status code nothing tests before the next call:
+
+```cobol
+    CALL 'CBLTDLI' USING FUNC-GU ACCTPCB ACCT-SEGMENT   *> reported
+    MOVE ACCT-SEGMENT(1:11) TO WS-ACCT-ID
+```
+
+When the segment is not found (`GE`) or the call fails, the I/O area
+holds what it held before, and the program goes on with it. For `CALL
+'CBLTDLI'` the status is in the PCB mask passed (the second argument):
+the mask, or any item of it, named after the call counts as the test.
+For `EXEC DLI` it is `DIBSTAT`. The test is looked for as for
+[PLB-C018](#plb-c018-sql-not-checked): after the call in its paragraph,
+before the next DL/I call that can run after it (one in another branch
+of the same `IF` or `EVALUATE` cannot), or in a paragraph performed
+from there. `EXEC DLI TERM` is left alone.
 
 ## PLB-J001 dd-missing
 

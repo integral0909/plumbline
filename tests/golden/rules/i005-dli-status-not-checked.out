@@ -1,0 +1,2 @@
+tests/golden/rules/i005-dli-status-not-checked.cob:20:5: warning: the status of CALL 'CBLTDLI' FUNC-GU in PCB ACCTPCB is not tested before the next DL/I call [PLB-I005]
+tests/golden/rules/i005-dli-status-not-checked.cob:27:5: warning: the status of EXEC DLI GU (DIBSTAT) is not tested before the next DL/I call [PLB-I005]
