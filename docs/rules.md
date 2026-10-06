@@ -81,6 +81,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C067](#plb-c067-divisor-not-checked) | divisor-not-checked | warning, off | Division by a data item that nothing checks for zero |
 | [PLB-C068](#plb-c068-odo-count-out-of-range) | odo-count-out-of-range | error | OCCURS DEPENDING ON count given a value outside the table |
 | [PLB-C069](#plb-c069-search-index-used-unchecked) | search-index-used-unchecked | warning | Index used after a SEARCH that has no AT END |
+| [PLB-C070](#plb-c070-mq-completion-not-checked) | mq-completion-not-checked | warning | Completion code of an MQ call is not tested |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1932,6 +1933,25 @@ for after the `SEARCH`, to the end of the paragraph, as subscripts in
 statements directly in the paragraph. A `SET` of the index or another
 `SEARCH` ends the look, and a use under an `IF` or `EVALUATE`, which
 may test whether the search found anything, is not reported.
+
+## PLB-C070 mq-completion-not-checked
+
+A call of the IBM MQ interface (`MQGET`, `MQPUT`, `MQOPEN`, ...) whose
+completion code and reason, its last two arguments, nothing tests
+before the next MQ call:
+
+```cobol
+    CALL 'MQGET' USING HCONN HOBJ MQMD MQGMO BUFLEN BUFFER DATALEN
+                       MQ-CC MQ-RC                  *> reported
+    MOVE BUFFER TO REQUEST-RECORD
+```
+
+A failed `MQGET` (no message, or a buffer too short) leaves the buffer
+as it was; a failed `MQPUT` loses the message. The test is looked for
+as for [PLB-C018](#plb-c018-sql-not-checked): after the call in its
+paragraph, before the next MQ call that can run after it, or in a
+paragraph performed from there, up to the first MQ call in it. Passing
+the codes to a later MQ call does not count: that call sets them anew.
 
 ## PLB-I001 pcb-dbd-unknown
 

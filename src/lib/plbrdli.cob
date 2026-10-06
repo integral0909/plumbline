@@ -1,5 +1,8 @@
 *> ---------------------------------------------------------------
-*> plbrdli: PLB-I005 dli-status-not-checked.
+*> plbrdli: the status of DL/I and MQ calls.
+*>
+*>   PLB-I005  dli-status-not-checked
+*>   PLB-C070  mq-completion-not-checked
 *>
 *> A DL/I call whose status code nothing tests before the next call:
 *>
@@ -17,6 +20,12 @@
 *> one in another branch of the same IF or EVALUATE), or in a
 *> paragraph performed from there. EXEC DLI TERM, which ends the use
 *> of the PSB, is left alone.
+*>
+*> PLB-C070 does the same for the calls of the IBM MQ interface (MQGET,
+*> MQPUT, MQOPEN, ...), whose last two arguments are the completion
+*> code and the reason: either named after the call counts as the
+*> test. A failed MQGET leaves the buffer as it was; a failed MQPUT
+*> loses the message.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-I005.
@@ -26,6 +35,11 @@ WORKING-STORAGE SECTION.
 01  WS-TOKEN-REF            PIC 9(9) COMP-5 OCCURS 500000 TIMES.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-RULE-MQ              PIC 9(4) COMP-5.
+*> MQ: the tokens of the last two arguments, and the call's name.
+01  LS-ARG-1                PIC 9(9) COMP-5.
+01  LS-ARG-2                PIC 9(9) COMP-5.
+01  LS-CALLED               PIC X(31).
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-STMT                 PIC 9(9) COMP-5.
 01  LS-N                    PIC 9(9) COMP-5.
@@ -63,7 +77,9 @@ COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         PLB-FLOW PLB-REFS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-I005" LS-RULE
-    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C070" LS-RULE-MQ
+    IF (RL-ENABLED(LS-RULE) NOT = "Y"
+        AND RL-ENABLED(LS-RULE-MQ) NOT = "Y") OR AS-COUNT = 0
         GOBACK
     END-IF
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
@@ -72,13 +88,16 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     PERFORM VARYING LS-NODE FROM 1 BY 1 UNTIL LS-NODE > AS-COUNT
         MOVE LS-NODE TO LS-N
         PERFORM DLI-KIND
-        EVALUATE LS-OTHER-KIND
-            WHEN "C"
+        EVALUATE TRUE
+            WHEN LS-OTHER-KIND = "C" AND RL-ENABLED(LS-RULE) = "Y"
                 MOVE LS-NODE TO LS-STMT
                 PERFORM CHECK-CALL
-            WHEN "E"
+            WHEN LS-OTHER-KIND = "E" AND RL-ENABLED(LS-RULE) = "Y"
                 MOVE LS-NODE TO LS-STMT
                 PERFORM CHECK-EXEC
+            WHEN LS-OTHER-KIND = "M" AND RL-ENABLED(LS-RULE-MQ) = "Y"
+                MOVE LS-NODE TO LS-STMT
+                PERFORM CHECK-MQ
         END-EVALUATE
     END-PERFORM
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
@@ -86,8 +105,8 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     END-PERFORM
     GOBACK.
 
-*> LS-OTHER-KIND for node LS-N: C a CALL of CBLTDLI, E an EXEC DLI,
-*> space anything else.
+*> LS-OTHER-KIND for node LS-N: C a CALL of CBLTDLI, E an EXEC DLI, M
+*> a CALL of the MQ interface, space anything else.
 DLI-KIND.
     MOVE SPACE TO LS-OTHER-KIND
     IF ND-KIND(LS-N) NOT = "STMT"
@@ -98,9 +117,16 @@ DLI-KIND.
         WHEN "CALL"
             IF TK-IS-ALNUM(LS-T)
                 CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
-                IF FUNCTION UPPER-CASE(LS-TEXT) = "CBLTDLI"
-                    MOVE "C" TO LS-OTHER-KIND
-                END-IF
+                EVALUATE FUNCTION UPPER-CASE(LS-TEXT)
+                    WHEN "CBLTDLI"
+                        MOVE "C" TO LS-OTHER-KIND
+                    WHEN "MQCONN" WHEN "MQCONNX" WHEN "MQOPEN"
+                    WHEN "MQGET" WHEN "MQPUT" WHEN "MQPUT1"
+                    WHEN "MQCLOSE" WHEN "MQDISC" WHEN "MQINQ"
+                    WHEN "MQSET" WHEN "MQCMIT" WHEN "MQBACK"
+                    WHEN "MQBEGIN"
+                        MOVE "M" TO LS-OTHER-KIND
+                END-EVALUATE
             END-IF
         WHEN "EXEC"
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
@@ -179,6 +205,54 @@ CHECK-CALL.
         INTO LS-MESSAGE WITH POINTER LS-PTR
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE ND-TOK-FIRST(LS-STMT) LS-MESSAGE.
+
+*> CALL 'MQxxx' USING ... compcode reason: either named after it.
+CHECK-MQ.
+    MOVE "M" TO LS-KIND
+    COMPUTE LS-T = ND-TOK-FIRST(LS-STMT) + 1
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-CALLED LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-CALLED) TO LS-CALLED
+    MOVE 0 TO LS-ARG-1 LS-ARG-2
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-STMT) BY 1
+            UNTIL LS-T > ND-TOK-LAST(LS-STMT)
+        IF WS-TOKEN-REF(LS-T) > 0
+            MOVE WS-TOKEN-REF(LS-T) TO LS-R
+            IF RF-KIND(LS-R) = "D"
+                MOVE LS-ARG-2 TO LS-ARG-1
+                MOVE LS-T TO LS-ARG-2
+                *> plumbline: ignore varying-control-changed -- skips the reference's subscripts
+                MOVE RF-LAST(LS-R) TO LS-T
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-ARG-1 = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 2 TO NL-COUNT
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-ARG-1 NL-NAME(1) LS-LEN
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-ARG-2 NL-NAME(2) LS-LEN
+    MOVE FUNCTION UPPER-CASE(NL-NAME(1)) TO NL-NAME(1)
+    MOVE FUNCTION UPPER-CASE(NL-NAME(2)) TO NL-NAME(2)
+    PERFORM FIND-STOP
+    *> The codes passed to a later MQ call are set there, not tested.
+    MOVE "MQ" TO NL-SKIP-PREFIX
+    CALL "PLB-NAMED-AFTER" USING PLB-TOKENS PLB-AST PLB-FLOW LS-STMT
+        LS-STOP PLB-NAME-LIST LS-FOUND
+    MOVE SPACES TO NL-SKIP-PREFIX
+    IF LS-FOUND = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    STRING "the completion code of CALL '" DELIMITED BY SIZE
+           LS-CALLED DELIMITED BY SPACE
+           "' (" DELIMITED BY SIZE
+           NL-NAME(1) DELIMITED BY SPACE
+           ", " DELIMITED BY SIZE
+           NL-NAME(2) DELIMITED BY SPACE
+           ") is not tested before the next MQ call" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-MQ ND-TOK-FIRST(LS-STMT) LS-MESSAGE.
 
 *> EXEC DLI: DIBSTAT.
 CHECK-EXEC.
