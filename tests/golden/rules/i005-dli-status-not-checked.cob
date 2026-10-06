@@ -1,0 +1,46 @@
+*> PLB-I005 dli-status-not-checked: the status of a DL/I call is not
+*> tested before the next call.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. DLISTAT.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  FUNC-GU             PIC X(4) VALUE "GU  ".
+01  FUNC-GN             PIC X(4) VALUE "GN  ".
+01  ACCT-SEGMENT        PIC X(100).
+01  WS-ACCT-ID          PIC X(11).
+LINKAGE SECTION.
+01  ACCTPCB.
+    05  ACCT-DBD-NAME   PIC X(8).
+    05  ACCT-SEG-LEVEL  PIC XX.
+    05  ACCT-STATUS     PIC XX.
+    05  FILLER          PIC X(20).
+PROCEDURE DIVISION USING ACCTPCB.
+READ-FIRST.
+    *> Reported: the GU's status is never looked at.
+    CALL 'CBLTDLI' USING FUNC-GU ACCTPCB ACCT-SEGMENT
+    MOVE ACCT-SEGMENT(1:11) TO WS-ACCT-ID
+    *> Not reported: tested in a paragraph performed after the call.
+    CALL 'CBLTDLI' USING FUNC-GN ACCTPCB ACCT-SEGMENT
+    PERFORM CHECK-STATUS.
+READ-EXEC.
+    *> Reported: EXEC DLI with DIBSTAT not tested.
+    EXEC DLI GU USING PCB(1) SEGMENT(ACCOUNT) INTO(ACCT-SEGMENT)
+    END-EXEC
+    MOVE ACCT-SEGMENT(1:11) TO WS-ACCT-ID
+    *> Not reported: either branch is tested after the IF, and TERM.
+    IF WS-ACCT-ID = SPACES
+        EXEC DLI ISRT USING PCB(1) SEGMENT(ACCOUNT) FROM(ACCT-SEGMENT)
+        END-EXEC
+    ELSE
+        EXEC DLI REPL USING PCB(1) SEGMENT(ACCOUNT) FROM(ACCT-SEGMENT)
+        END-EXEC
+    END-IF
+    IF DIBSTAT NOT = SPACES
+        DISPLAY "UPDATE FAILED " DIBSTAT
+    END-IF
+    EXEC DLI TERM END-EXEC
+    GOBACK.
+CHECK-STATUS.
+    IF ACCT-STATUS NOT = SPACES
+        DISPLAY "GN FAILED " ACCT-STATUS
+    END-IF.

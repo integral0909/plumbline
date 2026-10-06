@@ -359,6 +359,12 @@ Some findings that were read and are true:
   `CLOSE` statements of `COTRTLIC` name its two declared cursors. With
   one `FETCH` of `C-TR-TYPE-BACKWARD` misspelled in a copy, the rule
   reports it there.
+- **PLB-I005 dli-status-not-checked.** None: each DL/I call of the IMS
+  programs is followed by a test of its PCB status or of `DIBSTAT`. A
+  first version reported 4 `EXEC DLI TERM` statements, now left alone,
+  and a `REPL` whose test came after the `ISRT` of the `ELSE` branch.
+  In copies of `PAUDBLOD` and `COPAUA0C` with the tests after a call
+  taken out, it reports those calls.
 - **PLB-I001 to PLB-I004.** None: the IMS extension's PSBs match its
   databases, and every DL/I call of its programs names a segment their
   PSB (`PSBPAUTB`, scheduled with `SCHD` or by the job's `DFSRRC00` step)

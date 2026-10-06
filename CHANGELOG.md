@@ -206,6 +206,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C066 identical-branches.
 - Rule PLB-K006 return-transid-without-commarea.
 - Rule PLB-K007 commarea-too-short.
+- Rule PLB-I005 dli-status-not-checked.
 - Rule PLB-C067 divisor-not-checked (off by default).
 - Rule PLB-C068 odo-count-out-of-range.
 - Rule PLB-C069 search-index-used-unchecked.
