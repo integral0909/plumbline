@@ -1,0 +1,1 @@
+tests/golden/rules/c070-mq-completion-not-checked.cob:17:5: warning: the completion code of CALL 'MQGET' (MQ-CC, MQ-RC) is not tested before the next MQ call [PLB-C070]

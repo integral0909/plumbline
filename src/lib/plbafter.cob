@@ -24,6 +24,9 @@ LOCAL-STORAGE SECTION.
 01  LS-LAST                 PIC 9(9) COMP-5.
 01  LS-STOP                 PIC 9(9) COMP-5.
 01  LS-N                    PIC 9(4) COMP-5.
+*> SKIP-CALL: the length of the prefix, and the token after CALL.
+01  LS-PREFIX-LEN           PIC 9(4) COMP-5.
+01  LS-AFTER-CALL           PIC 9(9) COMP-5.
 01  LS-TEXT                 PIC X(31).
 01  LS-LEN                  PIC 9(9) COMP-5.
 LINKAGE SECTION.
@@ -85,6 +88,9 @@ SCAN-RANGE.
     PERFORM UNTIL LS-T > LS-LAST OR LK-FOUND = "Y"
         IF TK-IS-WORD(LS-T)
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            IF LS-TEXT = "CALL" AND NL-SKIP-PREFIX NOT = SPACES
+                PERFORM SKIP-CALL
+            END-IF
             PERFORM VARYING LS-N FROM 1 BY 1 UNTIL LS-N > NL-COUNT
                 IF LS-TEXT = NL-NAME(LS-N)
                     MOVE "Y" TO LK-FOUND
@@ -94,6 +100,24 @@ SCAN-RANGE.
         END-IF
         ADD 1 TO LS-T
     END-PERFORM.
+
+*> At CALL (token LS-T): when it calls a program whose name starts
+*> with NL-SKIP-PREFIX, the range ends here (LS-T moves past LS-LAST),
+*> and LS-TEXT is cleared so the word CALL itself matches nothing.
+SKIP-CALL.
+    COMPUTE LS-PREFIX-LEN = FUNCTION LENGTH(FUNCTION TRIM(NL-SKIP-PREFIX))
+    COMPUTE LS-AFTER-CALL = LS-T + 1
+    IF NOT TK-IS-ALNUM(LS-AFTER-CALL)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-AFTER-CALL LS-TEXT LS-LEN
+    IF FUNCTION UPPER-CASE(LS-TEXT(1:LS-PREFIX-LEN))
+       NOT = NL-SKIP-PREFIX(1:LS-PREFIX-LEN)
+        MOVE "CALL" TO LS-TEXT
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-LAST TO LS-T
+    MOVE SPACES TO LS-TEXT.
 
 *> LS-U = the innermost unit (paragraph, else section or division
 *> start) whose tokens hold the statement; 0 when none does.

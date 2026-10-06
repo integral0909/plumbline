@@ -359,6 +359,12 @@ Some findings that were read and are true:
   `CLOSE` statements of `COTRTLIC` name its two declared cursors. With
   one `FETCH` of `C-TR-TYPE-BACKWARD` misspelled in a copy, the rule
   reports it there.
+- **PLB-C070 mq-completion-not-checked.** None: the MQ programs test
+  `MQ-CONDITION-CODE` after each call. In a copy of `COACCT01` with the
+  tests after its `MQGET` made to name another item, it reports that
+  call; a first version took the `MQCLOSE` of the paragraph performed
+  at the end, and the test of its own codes after it, for the
+  `MQGET`'s test.
 - **PLB-I005 dli-status-not-checked.** None: each DL/I call of the IMS
   programs is followed by a test of its PCB status or of `DIBSTAT`. A
   first version reported 4 `EXEC DLI TERM` statements, now left alone,
