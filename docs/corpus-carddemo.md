@@ -322,6 +322,9 @@ Some findings that were read and are true:
   and `COCRDUPC`) that no statement names; pairs the program does not
   name are no longer reported.
 - **PLB-C068 odo-count-out-of-range.** None.
+- **PLB-C071 contradictory-condition.** None. In a copy of `CBACT04C`
+  whose `IF DISCGRP-STATUS = '00' OR '23'` is made `AND`, it reports
+  that condition.
 - **PLB-C069 search-index-used-unchecked.** None: CardDemo has no
   `SEARCH`.
 - **PLB-Q012 fetch-after-commit.** None: the `SYNCPOINT` statements of

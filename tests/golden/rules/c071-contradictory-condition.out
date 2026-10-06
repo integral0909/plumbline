@@ -1,0 +1,5 @@
+tests/golden/rules/c071-contradictory-condition.cob:13:8: warning: this condition is never true: WS-STATUS cannot be both "00" and "23" [PLB-C071]
+tests/golden/rules/c071-contradictory-condition.cob:16:8: warning: this condition is never true: WS-STATUS cannot be both "00" and "23" [PLB-C071]
+tests/golden/rules/c071-contradictory-condition.cob:19:8: warning: WS-FLAG is read but never given a value [PLB-C011]
+tests/golden/rules/c071-contradictory-condition.cob:19:8: warning: this condition is never true: WS-FLAG(1) cannot be both "Y" and "N" [PLB-C071]
+tests/golden/rules/c071-contradictory-condition.cob:23:8: warning: this condition is always true: WS-CODE is always unequal to 100 or to 200 [PLB-C071]

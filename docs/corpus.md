@@ -276,6 +276,9 @@ The findings were checked by rule:
   run-time error on purpose: `MOVE 3 TO N` for a table of 4 to 6
   entries, and `VALUE 7` in its second program.
 
+- **PLB-C071 contradictory-condition.** None in NIST or in GnuCOBOL's
+  tests.
+
 - **PLB-C069 search-index-used-unchecked.** None in NIST or in
   GnuCOBOL's tests: their `SEARCH` statements have `AT END`, or do not
   use the index after it.
