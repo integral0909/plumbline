@@ -407,6 +407,8 @@ uses [Semantic Versioning](https://semver.org/).
 - A pipe closed early (`plumbline rules | head`) ends plumbline quietly,
   as it does other tools; the run-time library reported it as a crash,
   with a stack of COBOL statements on standard error.
+- A directory given as an input is reported (RD001) instead of read as
+  an empty file, which let `plumbline check src` pass without a word.
 - In ACU terminal format, a `/` in column 1 is a page eject, as in the
   other formats, and text past column 320 is not part of the program.
 - `lineage` writes alphanumeric literals in statement text with their

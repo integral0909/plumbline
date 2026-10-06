@@ -22,7 +22,7 @@ The code's letters name the stage that reports it.
 
 | Code | Severity | Meaning |
 |------|----------|---------|
-| RD001 | error | The file cannot be opened or read. |
+| RD001 | error | The file cannot be opened or read, or is a directory (give its files, or list them with `--files-from`). |
 | RD002 | warning | A line is longer than 1024 characters (after tab expansion); the rest of it is ignored. |
 | RD003 | error | Column 7 of a fixed-format line holds a character that is not an indicator. This usually means the file is in free format; give `--format free`. |
 | RD004 | warning | A `>>SOURCE` or `$SET` directive selects a format Plumbline cannot read, such as `VARIABLE`. |
