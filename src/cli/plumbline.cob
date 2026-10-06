@@ -357,6 +357,10 @@ COPY "plbinput.cpy" REPLACING ==PLB-INPUTS== BY ==WS-CHANGED-FILES==
 
 PROCEDURE DIVISION.
 MAIN-LOGIC.
+    *> A closed pipe (plumbline rules | head) ends the program quietly,
+    *> as it does other tools: the run-time library would report it as
+    *> a crash. SIGPIPE is 13 and SIG_DFL 0 on Linux and macOS.
+    CALL STATIC "signal" USING BY VALUE 13 BY VALUE 0
     ACCEPT WS-ARG-COUNT FROM ARGUMENT-NUMBER
     IF WS-ARG-COUNT = 0
         PERFORM SHOW-USAGE
