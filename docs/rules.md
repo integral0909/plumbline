@@ -96,6 +96,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J009](#plb-j009-referback-unresolved) | referback-unresolved | error | Backward reference names a step or DD not before it |
 | [PLB-J010](#plb-j010-dsn-invalid) | dsn-invalid | error | DSN= names a data set name that z/OS does not accept |
 | [PLB-J011](#plb-j011-dd-name-repeated) | dd-name-repeated | warning | Step has the same DD name twice; the second is never used |
+| [PLB-J012](#plb-j012-read-after-delete) | read-after-delete | error | Step reads a data set that an earlier step deleted |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -2215,6 +2216,27 @@ one meant, is never used (a `NEW` one is created empty). A DD with no
 name of its own after one with the name is a concatenation, and is not
 reported; nor are overrides of different procedure steps
 (`STEP.DDNAME`).
+
+## PLB-J012 read-after-delete
+
+A DD that reads a data set (`DISP=OLD` or `SHR`) that an earlier DD of
+the same job, or procedure, deleted or uncataloged, with no DD in
+between that creates it again:
+
+```jcl
+//CLEANUP  EXEC PGM=IEFBR14
+//OLDEXT   DD DSN=PROD.ACCT.EXTRACT,DISP=(OLD,DELETE)
+//REPORT   EXEC PGM=ACCTRPT
+//INPUT    DD DSN=PROD.ACCT.EXTRACT,DISP=SHR              reported
+```
+
+When the step comes, the data set is gone, and the job ends with a JCL
+error at that step. A DD creates a data set when its `DISP` is `NEW`
+or `MOD`, or left out. Temporary data sets
+([PLB-J005](#plb-j005-temp-not-created) checks those), generations, and
+names with symbols are not compared, as for
+[PLB-J007](#plb-j007-dataset-created-twice). Steps that may not run
+(`COND`, `IF`) are counted as running.
 
 ## PLB-K001 cics-resource-undefined
 

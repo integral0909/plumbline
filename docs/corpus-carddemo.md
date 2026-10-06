@@ -236,6 +236,11 @@ Some findings that were read and are true:
   reported.
 - **PLB-J011 dd-name-repeated.** None. In a copy of `READACCT` with
   its `DD03` renamed `DD02`, it reports the second `DD02`.
+- **PLB-J012 read-after-delete.** None: the jobs that delete their
+  data sets first (`PREDEL` steps, `DISP=(MOD,DELETE,DELETE)`) create
+  them again before reading them. In a copy of `READACCT` whose
+  `OUTFILE` is made `DISP=SHR` instead of `(NEW,CATLG,DELETE)`, it
+  reports that DD.
 - **PLB-J010 dsn-invalid.** None, among the 90 distinct names without
   symbols in the jobs' `DSN=` parameters. In a copy of `ACCTFILE` with
   `ACCTDATA` made `ACCTDATA1`, it reports the nine-character qualifier.

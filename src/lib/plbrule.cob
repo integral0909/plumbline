@@ -453,6 +453,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J011"
         "dd-name-repeated" "W"
         "Step has the same DD name twice; the second is never used"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J012"
+        "read-after-delete" "E"
+        "Step reads a data set that an earlier step deleted"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

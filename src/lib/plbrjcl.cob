@@ -17,6 +17,8 @@
 *>                                  set an earlier DD already did
 *>   PLB-J010  dsn-invalid          a DSN= name z/OS does not accept
 *>   PLB-J011  dd-name-repeated     a step has a DD name twice
+*>   PLB-J012  read-after-delete    a step reads a data set an earlier
+*>                                  step deleted
 *>
 *> A step that runs a program of the run (EXEC PGM=name) gives that
 *> program, and the programs it calls by literal name, their files:
@@ -114,6 +116,7 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH PLB-JCL.
     CALL "PLB-RULE-J009" USING PLB-RULES PLB-FINDINGS PLB-JCL
     CALL "PLB-RULE-J010" USING PLB-RULES PLB-FINDINGS PLB-JCL
     CALL "PLB-RULE-J011" USING PLB-RULES PLB-FINDINGS PLB-JCL
+    CALL "PLB-RULE-J012" USING PLB-RULES PLB-FINDINGS PLB-JCL
     MOVE 0 TO WS-USE-COUNT
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
         IF JS-KIND(LS-S) = "P"
@@ -1178,3 +1181,115 @@ FIND-EARLIER.
         END-IF
     END-PERFORM.
 END PROGRAM PLB-RULE-J011.
+
+*> PLB-J012 read-after-delete: a DD that reads a data set (DISP=OLD or
+*> SHR) that an earlier DD of the same job, or procedure, deleted or
+*> uncataloged, with no DD in between that creates it again:
+*>
+*>     //CLEANUP  EXEC PGM=IEFBR14
+*>     //OLDEXT   DD DSN=PROD.ACCT.EXTRACT,DISP=(OLD,DELETE)
+*>     //REPORT   EXEC PGM=ACCTRPT
+*>     //INPUT    DD DSN=PROD.ACCT.EXTRACT,DISP=SHR
+*>
+*> When the step comes, the data set is gone: the job ends with a JCL
+*> error (data set not found) at that step. A DD creates a data set
+*> when its DISP is NEW or MOD, or left out. Temporary data sets
+*> (PLB-J005 checks them), generations, and names with symbols are not
+*> compared, as for PLB-J007.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J012.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-GONE                 PIC 9(9) COMP-5.
+01  LS-N                    PIC 9(9) COMP-5.
+01  LS-SAME-SCOPE           PIC X.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J012" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-KIND(LS-D) = "D" AND JD-QUALIFIER(LS-D) = SPACES
+           AND JD-STEP(LS-D) > 0
+           AND (JD-DISP(LS-D) = "OLD" OR JD-DISP(LS-D) = "SHR")
+            MOVE 0 TO LS-N
+            INSPECT JD-DSN(LS-D) TALLYING LS-N FOR ALL "&" ALL "("
+                ALL "*"
+            IF LS-N = 0
+                PERFORM CHECK-EARLIER
+            END-IF
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> The earlier DDs of the job or procedure for the same data set: the
+*> last that deletes or uncatalogs it, unless one after it creates it.
+CHECK-EARLIER.
+    MOVE 0 TO LS-GONE
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E >= LS-D
+        IF JD-DSN(LS-E) = JD-DSN(LS-D) AND JD-STEP(LS-E) > 0
+           AND JD-STEP(LS-E) NOT = JD-STEP(LS-D)
+           AND JD-QUALIFIER(LS-E) = SPACES
+            PERFORM TEST-SAME-SCOPE
+            IF LS-SAME-SCOPE = "Y"
+                EVALUATE TRUE
+                    WHEN JD-NORMAL(LS-E) = "DELETE"
+                    WHEN JD-NORMAL(LS-E) = "UNCATLG"
+                        MOVE LS-E TO LS-GONE
+                    WHEN JD-DISP(LS-E) = "NEW" OR JD-DISP(LS-E) = "MOD"
+                    WHEN JD-DISP(LS-E) = SPACES
+                        MOVE 0 TO LS-GONE
+                END-EVALUATE
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-GONE > 0
+        PERFORM REPORT-GONE
+    END-IF.
+
+TEST-SAME-SCOPE.
+    MOVE "N" TO LS-SAME-SCOPE
+    IF (JS-JOB(JD-STEP(LS-E)) > 0
+        AND JS-JOB(JD-STEP(LS-E)) = JS-JOB(JD-STEP(LS-D)))
+       OR (JS-PROC(JD-STEP(LS-E)) > 0
+           AND JS-PROC(JD-STEP(LS-E)) = JS-PROC(JD-STEP(LS-D)))
+        MOVE "Y" TO LS-SAME-SCOPE
+    END-IF.
+
+REPORT-GONE.
+    MOVE JD-LINE(LS-GONE) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    STRING JD-DSN(LS-D) DELIMITED BY SPACE
+           " is read here, but the DD on line " DELIMITED BY SIZE
+           LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    IF JD-NORMAL(LS-GONE) = "UNCATLG"
+        STRING " uncatalogs it" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    ELSE
+        STRING " deletes it" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    STRING " and no step creates it again before" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
+END PROGRAM PLB-RULE-J012.
