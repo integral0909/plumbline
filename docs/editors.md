@@ -40,7 +40,10 @@ the file is closed and when the server stops.
 
 `editors/vscode` holds an extension that starts `plumbline lsp` for
 COBOL files; its README says how to build and install it, and its
-settings name the program and its options.
+settings name the program and its options. Two commands run Plumbline
+itself: one documents the open program (`plumbline doc`), the other
+shows what the name under the cursor reaches (`plumbline impact`) over
+the files of the workspace.
 
 ## Neovim
 

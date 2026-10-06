@@ -34,6 +34,11 @@ class ExtensionTest(unittest.TestCase):
         self.assertIn('["lsp", ...settings.get("arguments", [])]',
                       self.source)
 
+    def test_impact_reads_the_files_from_a_list(self):
+        self.assertIn('const args = ["impact", name, '
+                      '...settings.get("arguments", [])', self.source)
+        self.assertIn('"--files-from", list]', self.source)
+
     def test_documents_with_plumbline_doc(self):
         self.assertIn('const args = ["doc", ...settings.get("arguments", [])',
                       self.source)

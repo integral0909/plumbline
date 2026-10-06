@@ -34,3 +34,12 @@ which a change of the settings also does.
 file, with the same `plumbline.arguments`, and shows the page in the
 Markdown preview: how the program starts, what it uses, its paragraphs,
 and its records.
+
+`Plumbline: Show what the name under the cursor reaches` runs
+`plumbline impact` on the word under the cursor (a copybook, program,
+data item, or data set name), or on the file's own name when the cursor
+is on none, over the `.cbl`, `.cob`, and `.jcl` files of the workspace,
+with the same `plumbline.arguments`. The answer goes to the "Plumbline
+impact" output: the files that include a copybook, the programs that
+call a program and the job steps that run them, where a data item is
+read and set, or which steps read and write a data set.

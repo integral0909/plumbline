@@ -380,6 +380,9 @@ uses [Semantic Versioning](https://semver.org/).
 - `impact --changed LIST`: the programs and job steps that a set of
   changed files reaches, as text or JSON, for choosing what to rebuild
   and test.
+- Visual Studio Code: `Plumbline: Show what the name under the cursor
+  reaches` runs `plumbline impact` over the workspace's COBOL and JCL
+  files.
 
 ### Changed
 
