@@ -53,7 +53,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-RULES
         PLB-FINDINGS.
     PERFORM COUNT-FINDINGS
     DISPLAY "## Plumbline " FUNCTION TRIM(PLB-VERSION)
-    DISPLAY " "
+    CALL STATIC "putchar" USING BY VALUE 10
     PERFORM WRITE-SUMMARY
     IF LS-SHOWN > 0
         PERFORM WRITE-RULES
@@ -117,7 +117,7 @@ WRITE-SUMMARY.
         STRING "." DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
     END-IF
     PERFORM PRINT-OUT
-    DISPLAY " ".
+    CALL STATIC "putchar" USING BY VALUE 10.
 
 WRITE-RULES.
     DISPLAY "| Rule | Name | Severity | Findings |"
@@ -140,7 +140,7 @@ WRITE-RULES.
             PERFORM PRINT-OUT
         END-IF
     END-PERFORM
-    DISPLAY " ".
+    CALL STATIC "putchar" USING BY VALUE 10.
 
 *> | severity | `path:line:col` | rule | message |
 WRITE-FINDINGS.
@@ -173,11 +173,11 @@ WRITE-FINDINGS.
         END-IF
     END-PERFORM
     PERFORM WRITE-MORE
-    DISPLAY " ".
+    CALL STATIC "putchar" USING BY VALUE 10.
 
 WRITE-DIAGNOSTICS.
     DISPLAY "Problems reading the input:"
-    DISPLAY " "
+    CALL STATIC "putchar" USING BY VALUE 10
     DISPLAY "| | Where | Code | Problem |"
     DISPLAY "|---|---|---|---|"
     MOVE 0 TO LS-ROWS
@@ -203,12 +203,12 @@ WRITE-DIAGNOSTICS.
         END-IF
     END-PERFORM
     PERFORM WRITE-MORE
-    DISPLAY " ".
+    CALL STATIC "putchar" USING BY VALUE 10.
 
 *> After a table cut at MD-SHOWN rows.
 WRITE-MORE.
     IF LS-ROWS > MD-SHOWN
-        DISPLAY " "
+        CALL STATIC "putchar" USING BY VALUE 10
         PERFORM START-OUT
         STRING "... and " DELIMITED BY SIZE
             INTO LS-OUT WITH POINTER LS-PTR

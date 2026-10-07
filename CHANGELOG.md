@@ -472,3 +472,6 @@ uses [Semantic Versioning](https://semver.org/).
   varying-refmod-out-of-range had two minus signs.
 - `format` wrote a blank line as a single space where standard output
   could not be opened as a file (macOS); it writes it empty everywhere.
+- Blank lines of the help and of text and Markdown reports (doc,
+  summary, inventory, layout, and others) were written as a single
+  space; they are empty.

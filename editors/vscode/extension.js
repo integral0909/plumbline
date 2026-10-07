@@ -57,10 +57,8 @@ function documentProgram() {
           "Plumbline: doc failed: " + (stderr || String(error)));
         return;
       }
-      // Blank lines are written as a single space.
-      const content = stdout.replace(/^ $/gm, "");
       const page = await vscode.workspace.openTextDocument(
-        { language: "markdown", content });
+        { language: "markdown", content: stdout });
       await vscode.window.showTextDocument(page);
       await vscode.commands.executeCommand("markdown.showPreview", page.uri);
     });

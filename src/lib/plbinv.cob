@@ -177,7 +177,7 @@ TEXT-INVENTORY.
 *> "NAME: COUNT", after a blank line except at the start.
 TEXT-HEADING.
     IF LS-NAME NOT = "programs"
-        DISPLAY " "
+        CALL STATIC "putchar" USING BY VALUE 10
     END-IF
     PERFORM START-OUT
     MOVE LS-COUNT TO LS-NUM
@@ -198,9 +198,9 @@ TEXT-PROGRAM.
         PERFORM APPEND-PROGRAM-PLACE
         STRING "`." DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
         PERFORM PRINT-OUT
-        DISPLAY " "
+        CALL STATIC "putchar" USING BY VALUE 10
         DISPLAY "## How it starts"
-        DISPLAY " "
+        CALL STATIC "putchar" USING BY VALUE 10
     ELSE
         STRING "program " DELIMITED BY SIZE
                CP-NAME(LS-P) DELIMITED BY SPACE
@@ -261,9 +261,9 @@ TEXT-PROGRAM.
         IF LS-LINES = 0
             DISPLAY "Nothing in the run starts it."
         END-IF
-        DISPLAY " "
+        CALL STATIC "putchar" USING BY VALUE 10
         DISPLAY "## What it uses"
-        DISPLAY " "
+        CALL STATIC "putchar" USING BY VALUE 10
         MOVE 0 TO LS-LINES
     END-IF
     *> What it uses.
@@ -330,7 +330,7 @@ TEXT-PROGRAM.
         DISPLAY "Nothing outside the program that the run shows."
     END-IF
     IF LS-MD = "Y"
-        DISPLAY " "
+        CALL STATIC "putchar" USING BY VALUE 10
     END-IF.
 
 *> A nested program, which the run sees as part of its outermost
@@ -350,9 +350,9 @@ NESTED-PROGRAM.
     PERFORM APPEND-PROGRAM-PLACE
     STRING "`." DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
     PERFORM PRINT-OUT
-    DISPLAY " "
+    CALL STATIC "putchar" USING BY VALUE 10
     DISPLAY "## How it starts"
-    DISPLAY " "
+    CALL STATIC "putchar" USING BY VALUE 10
     MOVE 0 TO LS-LINES
     PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > CC-COUNT
         IF CC-TO(LS-I) > 0 AND CP-OWNER(CC-TO(LS-I)) = LS-P
@@ -364,9 +364,9 @@ NESTED-PROGRAM.
     IF LS-LINES = 0
         DISPLAY "Nothing in the run calls it."
     END-IF
-    DISPLAY " "
+    CALL STATIC "putchar" USING BY VALUE 10
     DISPLAY "## What it uses"
-    DISPLAY " "
+    CALL STATIC "putchar" USING BY VALUE 10
     MOVE 0 TO LS-LINES
     PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > CC-COUNT
         IF CP-OWNER(CC-FROM(LS-I)) = LS-P
@@ -377,7 +377,7 @@ NESTED-PROGRAM.
     IF LS-LINES = 0
         DISPLAY "It calls no programs."
     END-IF
-    DISPLAY " ".
+    CALL STATIC "putchar" USING BY VALUE 10.
 
 *> One line for call LS-I: "called by" program LS-K, or "calls" its
 *> target, once for each.
