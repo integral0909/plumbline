@@ -1,0 +1,2 @@
+tests/golden/rules/c080-initialize-loses-value.cob:26:16: warning: INITIALIZE replaces the VALUE of HL-TITLE and of 1 other item with spaces or zeros [PLB-C080]
+tests/golden/rules/c080-initialize-loses-value.cob:32:16: warning: INITIALIZE replaces the VALUE of WA-DEFAULT with spaces or zeros [PLB-C080]
