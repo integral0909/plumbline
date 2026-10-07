@@ -29,6 +29,8 @@
 *>   plumbline impact NAME [-I DIR]... FILE...
 *>   plumbline format --to fixed|free [--format ...] FILE
 *>   plumbline format --to fixed|free --check [--format ...] FILE...
+*>   plumbline fix [-I DIR]... [--format ...] FILE
+*>   plumbline fix --check [-I DIR]... [--format ...] FILE...
 *>   plumbline lsp [-I DIR]... [--format ...] [--enable RULE]...
 *>       a language server on standard input and output
 *>   plumbline dump lines  [--format fixed|free|variable|auto] FILE...
@@ -207,6 +209,11 @@ COPY "plbinput.cpy" REPLACING ==PLB-INPUTS== BY ==WS-CHANGED-FILES==
 01  WS-FORMAT-TO            PIC X(5) VALUE SPACES.
 01  WS-FORMAT-CHECK         PIC X VALUE "N".
 01  WS-CHANGED              PIC X.
+*> fix: the edits accepted for the file, what became of a fix, and the
+*> fixes found.
+COPY "plbfixl.cpy".
+01  WS-FIX-RESULT           PIC X.
+01  WS-FIX-COUNT            PIC 9(9) COMP-5.
 *> Language server: one message in, one out, the text of a document.
 78  LSP-SIZE                    VALUE 4000000.
 01  WS-LSP-IN               PIC X(LSP-SIZE).
@@ -394,6 +401,9 @@ MAIN-LOGIC.
             WHEN "format"
                 MOVE "format" TO WS-COMMAND
                 PERFORM FORMAT-COMMAND
+            WHEN "fix"
+                MOVE "fix" TO WS-COMMAND
+                PERFORM FIX-COMMAND
             WHEN "lsp"
                 MOVE "lsp" TO WS-COMMAND
                 PERFORM LSP-COMMAND
@@ -478,6 +488,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline summary [--report text|md|csv|json] [OPTION]... FILE..."
     DISPLAY "       plumbline lineage NAME [--depth N] [--forward] [--report text|json|dot] [OPTION]... FILE..."
     DISPLAY "       plumbline format --to fixed|free [--check] FILE..."
+    DISPLAY "       plumbline fix [--check] [OPTION]... FILE..."
     DISPLAY "       plumbline lsp [OPTION]..."
     DISPLAY "       plumbline rules [--report text|json] [OPTION]..."
     DISPLAY "       plumbline dump lines [--format FORMAT] FILE..."
@@ -548,6 +559,9 @@ SHOW-USAGE.
     DISPLAY "  format           rewrite a file in fixed or free format"
     DISPLAY "                   (--to); --check only tells whether"
     DISPLAY "                   that would change it"
+    DISPLAY "  fix              rewrite a file with the fixes of its"
+    DISPLAY "                   findings that have one; --check lists"
+    DISPLAY "                   them"
     DISPLAY "  rules            list the rules, with their severity and"
     DISPLAY "                   whether they are on, as configured"
     DISPLAY "  lsp              run as a language server for editors, on"
@@ -1528,6 +1542,118 @@ FORMAT-COMMAND.
             MOVE 1 TO WS-EXIT-CODE
         END-IF
     END-PERFORM.
+
+*> fix --------------------------------------------------------------
+
+*> Each input is checked as by check, and the findings that have a fix
+*> (PLB-FIX-FINDING) are fixed: the file is written to standard output
+*> with the fixes made, or, with --check, the fixes are listed and the
+*> exit code is 1 when there are any. A fix that cannot be made here
+*> (one that spans lines, or would push a fixed-format line past
+*> column 72) is reported on standard error.
+FIX-COMMAND.
+    PERFORM PARSE-INPUT-ARGS
+    IF WS-EXIT-CODE NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-FORMAT-CHECK = "N" AND IP-COUNT > 1
+        DISPLAY PLB-NAME ": fix writes one file to standard output;"
+            " give one file, or use --check" UPON SYSERR
+        MOVE 2 TO WS-EXIT-CODE
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM ADD-INPUTS
+    CALL "PLB-FIND-INIT" USING PLB-FINDINGS
+    MOVE 0 TO WS-FIX-COUNT
+    MOVE SS-FILE-COUNT TO WS-MAIN-FILES
+    PERFORM VARYING WS-FILE-ID FROM 1 BY 1
+            UNTIL WS-FILE-ID > WS-MAIN-FILES
+        PERFORM TEST-JCL-INPUT
+        IF WS-IS-JCL = "N"
+            PERFORM START-INPUT
+            IF SF-LOADED(WS-FILE-ID) = "Y"
+                COMPUTE WS-FIRST-FINDING = FN-COUNT + 1
+                PERFORM ANALYZE-FILE
+                CALL "PLB-CHECK-RUN" USING PLB-SOURCE-SET PLB-TOKENS
+                    PLB-AST PLB-SYMBOLS PLB-FLOW PLB-REFS
+                    PLB-INCLUSIONS PLB-RULES PLB-FINDINGS
+                CALL "PLB-FIND-SUPPRESS-RANGE" USING PLB-SOURCE-SET
+                    PLB-RULES PLB-FINDINGS WS-FIRST-FINDING FN-COUNT
+                PERFORM FIX-FILE
+                PERFORM FORGET-SOURCE-LINES
+            END-IF
+        END-IF
+    END-PERFORM
+    PERFORM REPORT-DIAGNOSTICS
+    IF DG-ERRORS > 0
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF
+    IF WS-FORMAT-CHECK = "Y" AND WS-FIX-COUNT > 0
+        MOVE 1 TO WS-EXIT-CODE
+    END-IF.
+
+*> The fixes of the findings of input WS-FILE-ID, made since
+*> WS-FIRST-FINDING; then the file with them, unless --check, or the
+*> file has errors.
+FIX-FILE.
+    MOVE 0 TO FXL-COUNT
+    CALL "PLB-SRC-FILE-PATH" USING PLB-SOURCE-SET WS-FILE-ID WS-PATH
+    CALL "PLB-STR-LENGTH" USING WS-PATH WS-PATH-LEN
+    PERFORM VARYING WS-I FROM WS-FIRST-FINDING BY 1
+            UNTIL WS-I > FN-COUNT
+        IF FN-SUPPRESSED(WS-I) = "N" AND FN-FILE-ID(WS-I) = WS-FILE-ID
+            CALL "PLB-FIX-FINDING" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-AST PLB-RULES PLB-FINDINGS WS-I PLB-FIX
+            IF FX-EDIT-COUNT > 0
+                CALL "PLB-FIX-ACCEPT" USING PLB-SOURCE-SET WS-FILE-ID
+                    PLB-FIX PLB-FIX-LIST WS-FIX-RESULT
+                PERFORM REPORT-FIX
+            END-IF
+        END-IF
+    END-PERFORM
+    IF WS-FORMAT-CHECK = "N" AND DG-ERRORS = 0
+        CALL "PLB-FIX-WRITE" USING PLB-SOURCE-SET WS-FILE-ID
+            PLB-FIX-LIST
+    END-IF.
+
+*> path:line:column: RULE: title, on standard output for a fix that
+*> --check lists, on standard error for one that cannot be made.
+REPORT-FIX.
+    MOVE FN-LINE(WS-I) TO WS-NUM
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    MOVE SPACES TO WS-OUT
+    MOVE 1 TO WS-PTR
+    STRING WS-PATH(1:WS-PATH-LEN) ":" WS-NUM-TEXT(1:WS-NUM-LEN) ":"
+           DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    MOVE FN-COLUMN(WS-I) TO WS-NUM
+    CALL "PLB-STR-FROM-INT" USING WS-NUM WS-NUM-TEXT WS-NUM-LEN
+    STRING WS-NUM-TEXT(1:WS-NUM-LEN) ": " DELIMITED BY SIZE
+           RL-ID(FN-RULE(WS-I)) DELIMITED BY SPACE
+           ": " DELIMITED BY SIZE
+           FX-TITLE DELIMITED BY "  "
+        INTO WS-OUT WITH POINTER WS-PTR
+    EVALUATE WS-FIX-RESULT
+        WHEN "Y"
+            ADD 1 TO WS-FIX-COUNT
+            IF WS-FORMAT-CHECK = "Y"
+                DISPLAY WS-OUT(1:WS-PTR - 1)
+            END-IF
+            EXIT PARAGRAPH
+        WHEN "S"
+            STRING ": not made, as it spans lines (an editor can make"
+                   " it)" DELIMITED BY SIZE
+                INTO WS-OUT WITH POINTER WS-PTR
+        WHEN "M"
+            STRING ": not made, as the line would run past column 72"
+                DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+        WHEN "O"
+            STRING ": not made, as it overlaps another fix"
+                DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+        WHEN OTHER
+            STRING ": not made, as the file has too many fixes"
+                DELIMITED BY SIZE INTO WS-OUT WITH POINTER WS-PTR
+    END-EVALUATE
+    DISPLAY WS-OUT(1:WS-PTR - 1) UPON SYSERR.
 
 *> lsp --------------------------------------------------------------
 
@@ -5943,7 +6069,8 @@ PARSE-INPUT-ARGS.
                         UPON SYSERR
                     MOVE 2 TO WS-EXIT-CODE
                 END-IF
-            WHEN WS-ARG = "--check" AND WS-COMMAND = "format"
+            WHEN WS-ARG = "--check"
+                 AND (WS-COMMAND = "format" OR WS-COMMAND = "fix")
                 MOVE "Y" TO WS-FORMAT-CHECK
             WHEN WS-ARG = "--kind" AND WS-COMMAND = "graph"
                 PERFORM NEXT-ARG

@@ -270,3 +270,234 @@ ADD-EDIT.
     MOVE LS-NEW TO FX-TEXT(FX-EDIT-COUNT)
     MOVE LS-NEW-LEN TO FX-TEXT-LEN(FX-EDIT-COUNT).
 END PROGRAM PLB-FIX-FINDING.
+
+*> ---------------------------------------------------------------
+*> PLB-FIX-ACCEPT USING SOURCE FILE-ID FIX LIST RESULT adds the edits
+*> of FIX to LIST, all or none, and sets RESULT:
+*>   Y  added
+*>   S  an edit spans lines (an editor can make it; this cannot)
+*>   O  an edit overlaps one already in LIST
+*>   M  in fixed format, a line would grow past column 72: the blanks
+*>      before column 73 are what a line may grow into, so that the
+*>      sequence area stays where it is
+*>   F  LIST is full
+*> The lines of FILE-ID must be loaded.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-FIX-ACCEPT.
+DATA DIVISION.
+LOCAL-STORAGE SECTION.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-L                    PIC 9(9) COMP-5.
+01  LS-GROWTH               PIC S9(9) COMP-5.
+01  LS-SPARE                PIC S9(9) COMP-5.
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+01  LK-FILE-ID              PIC 9(4) COMP-5.
+COPY "plbfix.cpy".
+COPY "plbfixl.cpy".
+01  LK-RESULT               PIC X.
+PROCEDURE DIVISION USING PLB-SOURCE-SET LK-FILE-ID PLB-FIX PLB-FIX-LIST
+        LK-RESULT.
+    IF FXL-COUNT + FX-EDIT-COUNT > FXL-MAX
+        MOVE "F" TO LK-RESULT
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > FX-EDIT-COUNT
+        IF FX-END-LINE(LS-E) NOT = FX-LINE(LS-E)
+            MOVE "S" TO LK-RESULT
+            GOBACK
+        END-IF
+        PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K > FXL-COUNT
+            IF FXL-LINE(LS-K) = FX-LINE(LS-E)
+               AND FXL-COLUMN(LS-K) < FX-END-COLUMN(LS-E)
+               AND FX-COLUMN(LS-E) < FXL-END-COLUMN(LS-K)
+                MOVE "O" TO LK-RESULT
+                GOBACK
+            END-IF
+        END-PERFORM
+    END-PERFORM
+    *> Each line an edit is on: how much the line grows, with the edits
+    *> already accepted, against the blanks it has before column 73.
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > FX-EDIT-COUNT
+        COMPUTE LS-L = SF-FIRST-LINE(LK-FILE-ID) + FX-LINE(LS-E) - 1
+        IF SL-FORMAT(LS-L) = "X"
+            MOVE 0 TO LS-GROWTH
+            PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K > FX-EDIT-COUNT
+                IF FX-LINE(LS-K) = FX-LINE(LS-E)
+                    COMPUTE LS-GROWTH = LS-GROWTH + FX-TEXT-LEN(LS-K)
+                        - FX-END-COLUMN(LS-K) + FX-COLUMN(LS-K)
+                END-IF
+            END-PERFORM
+            PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K > FXL-COUNT
+                IF FXL-LINE(LS-K) = FX-LINE(LS-E)
+                    COMPUTE LS-GROWTH = LS-GROWTH + FXL-TEXT-LEN(LS-K)
+                        - FXL-END-COLUMN(LS-K) + FXL-COLUMN(LS-K)
+                END-IF
+            END-PERFORM
+            IF LS-GROWTH > 0
+                PERFORM FIND-SPARE
+                IF LS-GROWTH > LS-SPARE
+                    MOVE "M" TO LK-RESULT
+                    GOBACK
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > FX-EDIT-COUNT
+        ADD 1 TO FXL-COUNT
+        MOVE FX-LINE(LS-E) TO FXL-LINE(FXL-COUNT)
+        MOVE FX-COLUMN(LS-E) TO FXL-COLUMN(FXL-COUNT)
+        MOVE FX-END-COLUMN(LS-E) TO FXL-END-COLUMN(FXL-COUNT)
+        MOVE FX-TEXT(LS-E) TO FXL-TEXT(FXL-COUNT)
+        MOVE FX-TEXT-LEN(LS-E) TO FXL-TEXT-LEN(FXL-COUNT)
+    END-PERFORM
+    MOVE "Y" TO LK-RESULT
+    GOBACK.
+
+*> LS-SPARE: the blanks at the end of columns 1 to 72 of line LS-L.
+FIND-SPARE.
+    MOVE 72 TO LS-SPARE
+    IF SL-TEXT-LEN(LS-L) < 72
+        MOVE SL-TEXT-LEN(LS-L) TO LS-K
+    ELSE
+        MOVE 72 TO LS-K
+    END-IF
+    PERFORM UNTIL LS-K = 0
+        IF SS-HEAP(SL-TEXT-OFF(LS-L) + LS-K - 1:1) NOT = SPACE
+            EXIT PERFORM
+        END-IF
+        SUBTRACT 1 FROM LS-K
+    END-PERFORM
+    COMPUTE LS-SPARE = 72 - LS-K.
+END PROGRAM PLB-FIX-ACCEPT.
+
+*> ---------------------------------------------------------------
+*> PLB-FIX-WRITE USING SOURCE FILE-ID LIST writes file FILE-ID to
+*> standard output with the edits of LIST made, one line at a time, as
+*> it was read: tabs expanded, trailing spaces dropped, a blank line
+*> empty (DISPLAY cannot write an empty line, so the C library's
+*> putchar writes its line feed). In fixed format
+*> a line that grows or shrinks keeps its columns 73 on where they
+*> were: it grows into the blanks before column 73, and a line that
+*> shrinks gets blanks there.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-FIX-WRITE.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-TEXT                 PIC X(1024).
+01  WS-OUT                  PIC X(1024).
+LOCAL-STORAGE SECTION.
+01  LS-L                    PIC 9(9) COMP-5.
+01  LS-LAST                 PIC 9(9) COMP-5.
+01  LS-LINE-NO              PIC 9(9) COMP-5.
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-NEXT                 PIC 9(9) COMP-5.
+01  LS-FROM                 PIC 9(9) COMP-5.
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-GROWTH               PIC S9(9) COMP-5.
+01  LS-EDITS                PIC 9(9) COMP-5.
+01  LS-KEEP                 PIC S9(9) COMP-5.
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+01  LK-FILE-ID              PIC 9(4) COMP-5.
+COPY "plbfixl.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET LK-FILE-ID PLB-FIX-LIST.
+    IF LK-FILE-ID < 1 OR LK-FILE-ID > SS-FILE-COUNT
+        GOBACK
+    END-IF
+    MOVE SF-FIRST-LINE(LK-FILE-ID) TO LS-L
+    COMPUTE LS-LAST = SF-FIRST-LINE(LK-FILE-ID)
+        + SF-LINE-COUNT(LK-FILE-ID) - 1
+    PERFORM VARYING LS-L FROM LS-L BY 1 UNTIL LS-L > LS-LAST
+        PERFORM EDIT-LINE
+        PERFORM WRITE-LINE
+    END-PERFORM
+    GOBACK.
+
+*> WS-OUT(1:LS-PTR - 1): line LS-L with its edits made, in column
+*> order.
+EDIT-LINE.
+    MOVE SPACES TO WS-TEXT WS-OUT
+    MOVE SL-TEXT-LEN(LS-L) TO LS-LEN
+    IF LS-LEN > 1024
+        MOVE 1024 TO LS-LEN
+    END-IF
+    IF LS-LEN > 0
+        MOVE SS-HEAP(SL-TEXT-OFF(LS-L):LS-LEN) TO WS-TEXT
+    END-IF
+    MOVE SL-LINE-NO(LS-L) TO LS-LINE-NO
+    MOVE 1 TO LS-FROM LS-PTR
+    MOVE 0 TO LS-GROWTH LS-EDITS
+    PERFORM FIND-NEXT-EDIT
+    PERFORM UNTIL LS-NEXT = 0
+        ADD 1 TO LS-EDITS
+        IF FXL-COLUMN(LS-NEXT) > LS-FROM
+            STRING WS-TEXT(LS-FROM:FXL-COLUMN(LS-NEXT) - LS-FROM)
+                DELIMITED BY SIZE INTO WS-OUT WITH POINTER LS-PTR
+        END-IF
+        IF FXL-TEXT-LEN(LS-NEXT) > 0
+            STRING FXL-TEXT(LS-NEXT)(1:FXL-TEXT-LEN(LS-NEXT))
+                DELIMITED BY SIZE INTO WS-OUT WITH POINTER LS-PTR
+        END-IF
+        COMPUTE LS-GROWTH = LS-GROWTH + FXL-TEXT-LEN(LS-NEXT)
+            - FXL-END-COLUMN(LS-NEXT) + FXL-COLUMN(LS-NEXT)
+        MOVE FXL-END-COLUMN(LS-NEXT) TO LS-FROM
+        PERFORM FIND-NEXT-EDIT
+    END-PERFORM
+    IF LS-EDITS = 0
+        MOVE WS-TEXT TO WS-OUT
+        COMPUTE LS-PTR = LS-LEN + 1
+        EXIT PARAGRAPH
+    END-IF
+    *> The rest of the line. In fixed format, columns 73 on stay put.
+    IF SL-FORMAT(LS-L) = "X" AND LS-LEN > 72 AND LS-FROM <= 72
+        *> A line that grew drops as many blanks before column 73; one
+        *> that shrank keeps all, and blanks fill the columns left.
+        COMPUTE LS-KEEP = 72 - LS-FROM + 1
+        IF LS-GROWTH > 0
+            SUBTRACT LS-GROWTH FROM LS-KEEP
+        END-IF
+        IF LS-KEEP > 0
+            STRING WS-TEXT(LS-FROM:LS-KEEP)
+                DELIMITED BY SIZE INTO WS-OUT WITH POINTER LS-PTR
+        END-IF
+        MOVE 73 TO LS-PTR
+        STRING WS-TEXT(73:LS-LEN - 72)
+            DELIMITED BY SIZE INTO WS-OUT WITH POINTER LS-PTR
+    ELSE
+        IF LS-FROM <= LS-LEN
+            STRING WS-TEXT(LS-FROM:LS-LEN - LS-FROM + 1)
+                DELIMITED BY SIZE INTO WS-OUT WITH POINTER LS-PTR
+        END-IF
+    END-IF.
+
+*> LS-NEXT: the edit of line LS-LINE-NO with the lowest column at or
+*> after LS-FROM, or 0.
+FIND-NEXT-EDIT.
+    MOVE 0 TO LS-NEXT
+    PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K > FXL-COUNT
+        IF FXL-LINE(LS-K) = LS-LINE-NO AND FXL-COLUMN(LS-K) >= LS-FROM
+            IF LS-NEXT = 0
+                MOVE LS-K TO LS-NEXT
+            ELSE
+                IF FXL-COLUMN(LS-K) < FXL-COLUMN(LS-NEXT)
+                    MOVE LS-K TO LS-NEXT
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
+
+WRITE-LINE.
+    CALL "PLB-STR-LENGTH" USING WS-OUT LS-LEN
+    IF LS-LEN = 0
+        CALL STATIC "putchar" USING BY VALUE 10
+    ELSE
+        DISPLAY WS-OUT(1:LS-LEN)
+    END-IF.
+END PROGRAM PLB-FIX-WRITE.

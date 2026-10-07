@@ -1023,6 +1023,24 @@ check "format splits long free lines"     0 '^      -    "ormat line has room fo
 check "format moves headers to area A"    0 '^       MAIN-LINE\.$' -- format --to fixed tests/fixtures/format/long-lines.cob
 check "format keeps EXIT out of area A"   0 '^               EXIT\.$' -- format --to fixed tests/fixtures/format/long-lines.cob
 
+# fix: the findings with a fix, made in the file written to standard
+# output, or listed with --check.
+fx=tests/fixtures/fix
+check "fix --check lists the fixes"         1 'fixable.cob:10:15: PLB-C071: Change AND to OR in this condition$' -- fix --check $fx/fixable.cob
+check "fix --check: NEXT SENTENCE"          1 'fixable.cob:11:16: PLB-C004: Change NEXT SENTENCE to CONTINUE$' -- fix --check $fx/fixable.cob
+check "fix --check: reversed range"         1 'fixable.cob:7:34: PLB-C074: Swap the ends of this range$' -- fix --check $fx/fixable.cob
+check "fix leaves a fix over two lines"     0 'fixable.cob:26:16: PLB-C004: .*: not made, as it spans lines' -- fix $fx/fixable.cob
+check "fix keeps code before column 73"     0 'fixable.cob:21:15: PLB-C071: .*: not made, as the line would run past column 72$' -- fix $fx/fixable.cob
+check "fix makes a fix"                     0 '^           IF WS-CODE = "A" or WS-CODE = "B"$' -- fix $fx/fixable.cob
+check "fix keeps the case"                  0 '^               continue$' -- fix $fx/fixable.cob
+check "fix swaps the ends of a range"       0 '^           88  MONTH-VALID VALUE 1 THRU 12\.$' -- fix $fx/fixable.cob
+check "fix keeps the sequence area"         0 '^           IF WS-CODE NOT = "Q" AND "X" \{33\}FIX00160$' -- fix $fx/fixable.cob
+check "fix writes a blank line empty"      0 '^$' -- fix $fx/fixable.cob
+check "fix leaves other lines as they are"  0 '^           IF WS-CODE   NOT = "Q" OR "X" OR "Y"' -- fix $fx/fixable.cob
+check "fix --check with nothing to fix"     0 '^$' -- fix --check $fx/clean.cob
+check_absent "fix --disable leaves the rule's fixes" 'PLB-C074' -- fix --check --disable PLB-C074 $fx/fixable.cob
+check "fix writes one file"                 2 'give one file, or use --check' -- fix $fx/fixable.cob $fx/clean.cob
+
 # check_report LABEL FORMAT EXPECTED-COUNT -- ARGS...
 # Run plumbline and validate its report with tests/tools/check_report.py.
 check_report() {

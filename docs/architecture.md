@@ -586,6 +586,22 @@ input instead of written. The test of the formatter is that it changes
 no token: `tests/tools/roundtrip_format.py` compares the tokens of a
 file with those of its free and fixed versions.
 
+### Fixes
+
+`src/lib/plbfix.cob`, with a fix in `copy/plbfix.cpy` and the edits
+for a file in `copy/plbfixl.cpy`.
+
+`PLB-FIX-FINDING` turns a finding of a rule with one obvious repair
+into a title and a list of edits, each a range of line and columns and
+the text that replaces it, taken from the tokens and the lines as they
+were read so that case and quotes are kept. The language server sends
+those edits as a quick fix. `plumbline fix` collects them for a file
+with `PLB-FIX-ACCEPT`, which takes a fix whole or not at all: an edit
+that spans lines, overlaps an edit already taken, or would push a
+fixed-format line past column 72 leaves the fix out. `PLB-FIX-WRITE`
+then writes the file with the edits made, keeping columns 73 on in
+place.
+
 ### Language server
 
 `src/lib/plblsp.cob` and the `lsp` part of `src/cli/plumbline.cob`.
