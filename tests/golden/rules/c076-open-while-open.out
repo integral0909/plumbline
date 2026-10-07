@@ -1,0 +1,3 @@
+tests/golden/rules/c076-open-while-open.cob:21:10: warning: nothing handles the end of IN-FILE or a record not found: no AT END or INVALID KEY, FILE STATUS, or USE declarative, so the run stops there [PLB-C058]
+tests/golden/rules/c076-open-while-open.cob:23:16: warning: IN-FILE is already open, from the OPEN on line 20, with no CLOSE between: this OPEN fails with file status 41 [PLB-C076]
+tests/golden/rules/c076-open-while-open.cob:31:21: warning: the FILE STATUS of LOG-FILE (WS-LOG-STATUS) is not tested after this OPEN [PLB-C020]

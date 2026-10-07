@@ -1,0 +1,34 @@
+*> PLB-C076 open-while-open: an OPEN of a file that an earlier OPEN
+*> left open.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. OPENTWO.
+ENVIRONMENT DIVISION.
+INPUT-OUTPUT SECTION.
+FILE-CONTROL.
+    SELECT IN-FILE ASSIGN TO "in.dat".
+    SELECT LOG-FILE ASSIGN TO "log.dat" FILE STATUS IS WS-LOG-STATUS.
+DATA DIVISION.
+FILE SECTION.
+FD  IN-FILE.
+01  IN-REC              PIC X(80).
+FD  LOG-FILE.
+01  LOG-REC             PIC X(80).
+WORKING-STORAGE SECTION.
+01  WS-LOG-STATUS       PIC XX.
+PROCEDURE DIVISION.
+MAIN-PARA.
+    OPEN INPUT IN-FILE
+    READ IN-FILE
+    *> Reported: the READ leaves the file open.
+    OPEN INPUT IN-FILE
+    CLOSE IN-FILE
+    *> Not reported: CLOSE between.
+    OPEN INPUT IN-FILE
+    CLOSE IN-FILE
+    *> Not reported: the status of the first OPEN is looked at.
+    OPEN EXTEND LOG-FILE
+    IF WS-LOG-STATUS = "35"
+        OPEN OUTPUT LOG-FILE
+    END-IF
+    CLOSE LOG-FILE
+    STOP RUN.

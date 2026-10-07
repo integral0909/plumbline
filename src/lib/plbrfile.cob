@@ -10,6 +10,7 @@
 *>   PLB-C058  read-not-handled
 *>   PLB-C059  key-error-not-handled
 *>   PLB-C075  io-after-close
+*>   PLB-C076  open-while-open
 *>
 *> Each program on its own: its files (SELECT), their records (FD),
 *> the declaratives that handle their errors (USE ... ERROR or
@@ -75,8 +76,9 @@ COPY "plbnlist.cpy".
 01  LS-RULE-NOT-HANDLED     PIC 9(4) COMP-5.
 01  LS-RULE-KEY-ERROR       PIC 9(4) COMP-5.
 01  LS-RULE-AFTER-CLOSE     PIC 9(4) COMP-5.
-*> PLB-C075: the list the CLOSE is in, the first operation on its file
-*> after it, and the statements between them.
+01  LS-RULE-OPEN-TWICE      PIC 9(4) COMP-5.
+*> PLB-C075 and PLB-C076: the list the CLOSE or OPEN is in, the first
+*> operation on its file after it, and the statements between them.
 01  LS-AC-SCOPE             PIC 9(9) COMP-5.
 01  LS-AC-NEXT              PIC 9(9) COMP-5.
 01  LS-AC-J                 PIC 9(9) COMP-5.
@@ -132,6 +134,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C058" LS-RULE-NOT-HANDLED
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C059" LS-RULE-KEY-ERROR
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C075" LS-RULE-AFTER-CLOSE
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C076" LS-RULE-OPEN-TWICE
     IF AS-COUNT = 0
         GOBACK
     END-IF
@@ -440,9 +443,13 @@ REPORT-FINDINGS.
         IF OP-VERB(LS-I) NOT = "CLOSE"
             PERFORM CHECK-STATUS-TESTED
         END-IF
-        IF OP-VERB(LS-I) = "CLOSE" AND FL-EXTERNAL(LS-F) = "N"
-           AND RL-ENABLED(LS-RULE-AFTER-CLOSE) = "Y"
-            PERFORM CHECK-AFTER-CLOSE
+        IF FL-EXTERNAL(LS-F) = "N"
+            IF OP-VERB(LS-I) = "CLOSE"
+               AND RL-ENABLED(LS-RULE-AFTER-CLOSE) = "Y"
+               OR OP-VERB(LS-I) = "OPEN"
+               AND RL-ENABLED(LS-RULE-OPEN-TWICE) = "Y"
+                PERFORM CHECK-NEXT-OPERATION
+            END-IF
         END-IF
         EVALUATE OP-VERB(LS-I)
             WHEN "READ"
@@ -506,7 +513,14 @@ CHECK-OPENED.
 *> fails. A PERFORM of a procedure, GO TO, CALL, EXEC, GOBACK, STOP,
 *> or EXIT between the two, which may open the file again or leave,
 *> ends the search, as does an OPEN of the file.
-CHECK-AFTER-CLOSE.
+*>
+*> PLB-C076 open-while-open: OPEN statement LS-I, then, found the same
+*> way, another OPEN of the file with no CLOSE between: the file is
+*> open, and the second OPEN fails. When the file's FILE STATUS item
+*> is named between the two, the program looks at whether the first
+*> OPEN worked (a missing file, opened again in another mode), and
+*> nothing is reported.
+CHECK-NEXT-OPERATION.
     MOVE ND-PARENT(OP-STMT(LS-I)) TO LS-AC-SCOPE
     IF LS-AC-SCOPE = 0
         EXIT PARAGRAPH
@@ -514,12 +528,15 @@ CHECK-AFTER-CLOSE.
     IF ND-KIND(LS-AC-SCOPE) = "SENT"
         MOVE ND-PARENT(LS-AC-SCOPE) TO LS-AC-SCOPE
     END-IF
-    *> The first operation on the file after the CLOSE.
+    *> The first operation on the file after the CLOSE; after an OPEN,
+    *> the first OPEN or CLOSE (the others leave the file open).
     MOVE 0 TO LS-AC-NEXT
     PERFORM VARYING LS-AC-J FROM 1 BY 1 UNTIL LS-AC-J > WS-OP-COUNT
         IF OP-FILE(LS-AC-J) = LS-F
            AND ND-TOK-FIRST(OP-STMT(LS-AC-J))
                > ND-TOK-LAST(OP-STMT(LS-I))
+           AND (OP-VERB(LS-I) = "CLOSE" OR OP-VERB(LS-AC-J) = "OPEN"
+                OR OP-VERB(LS-AC-J) = "CLOSE")
             IF LS-AC-NEXT = 0
                 MOVE LS-AC-J TO LS-AC-NEXT
             ELSE
@@ -533,10 +550,12 @@ CHECK-AFTER-CLOSE.
     IF LS-AC-NEXT = 0
         EXIT PARAGRAPH
     END-IF
-    IF OP-VERB(LS-AC-NEXT) = "OPEN"
+    *> After a CLOSE, anything but an OPEN; after an OPEN, an OPEN.
+    IF OP-VERB(LS-I) = "CLOSE" AND OP-VERB(LS-AC-NEXT) = "OPEN"
+       OR OP-VERB(LS-I) = "OPEN" AND OP-VERB(LS-AC-NEXT) NOT = "OPEN"
         EXIT PARAGRAPH
     END-IF
-    *> In the CLOSE's list.
+    *> In the list of statement LS-I.
     MOVE ND-PARENT(OP-STMT(LS-AC-NEXT)) TO LS-AC-UP
     PERFORM UNTIL LS-AC-UP = 0 OR LS-AC-UP = LS-AC-SCOPE
         MOVE ND-PARENT(LS-AC-UP) TO LS-AC-UP
@@ -565,6 +584,22 @@ CHECK-AFTER-CLOSE.
             END-EVALUATE
         END-IF
     END-PERFORM
+    IF OP-VERB(LS-I) = "OPEN"
+        IF FL-STATUS(LS-F) NOT = SPACES
+            PERFORM VARYING LS-AC-K FROM ND-TOK-LAST(OP-STMT(LS-I)) BY 1
+                    UNTIL LS-AC-K >= ND-TOK-FIRST(OP-STMT(LS-AC-NEXT))
+                IF TK-IS-WORD(LS-AC-K)
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-AC-K LS-TEXT
+                        LS-LEN
+                    IF FUNCTION UPPER-CASE(LS-TEXT) = FL-STATUS(LS-F)
+                        EXIT PARAGRAPH
+                    END-IF
+                END-IF
+            END-PERFORM
+        END-IF
+        PERFORM REPORT-OPEN-TWICE
+        EXIT PARAGRAPH
+    END-IF
     EVALUATE OP-VERB(LS-AC-NEXT)
         WHEN "WRITE"                MOVE "48" TO LS-AC-STATUS
         WHEN "REWRITE" WHEN "DELETE" MOVE "49" TO LS-AC-STATUS
@@ -586,6 +621,20 @@ CHECK-AFTER-CLOSE.
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE-AFTER-CLOSE OP-TOKEN(LS-AC-NEXT) LS-MESSAGE.
+
+REPORT-OPEN-TWICE.
+    MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-FIRST(OP-STMT(LS-I))))
+        TO LS-AC-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-AC-NUM LS-AC-NUM-TEXT LS-AC-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING FL-NAME(LS-F) DELIMITED BY SPACE
+           " is already open, from the OPEN on line " DELIMITED BY SIZE
+           LS-AC-NUM-TEXT(1:LS-AC-NUM-LEN) DELIMITED BY SIZE
+           ", with no CLOSE between: this OPEN fails with file status"
+           " 41" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-OPEN-TWICE OP-TOKEN(LS-AC-NEXT) LS-MESSAGE.
 
 *> LS-MODES = the modes file LS-F is opened in, as "INPUT and I-O".
 DESCRIBE-MODES.
