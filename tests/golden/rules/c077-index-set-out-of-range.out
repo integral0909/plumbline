@@ -1,0 +1,5 @@
+tests/golden/rules/c077-index-set-out-of-range.cob:15:9: warning: RATE-IX is an index of WS-RATE-ENTRY, which has 10 entries; set to 11, it points outside the table [PLB-C077]
+tests/golden/rules/c077-index-set-out-of-range.cob:17:18: warning: DAY-IX is an index of WS-RATE-DAY, which has 7 entries; set to 8, it points outside the table [PLB-C077]
+tests/golden/rules/c077-index-set-out-of-range.cob:19:9: warning: RATE-IX is an index of WS-RATE-ENTRY, which has 10 entries; set to -1, it points outside the table [PLB-C077]
+tests/golden/rules/c077-index-set-out-of-range.cob:24:13: warning: WS-RATE-CODE is read but never given a value [PLB-C011]
+tests/golden/rules/c077-index-set-out-of-range.cob:24:36: warning: WS-RATE-DAY is read but never given a value [PLB-C011]

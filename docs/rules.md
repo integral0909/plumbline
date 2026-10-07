@@ -88,6 +88,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C074](#plb-c074-condition-range-reversed) | condition-range-reversed | warning | Condition name has a THRU range whose start is above its end |
 | [PLB-C075](#plb-c075-io-after-close) | io-after-close | warning | I/O statement on a file after its CLOSE, with no OPEN between |
 | [PLB-C076](#plb-c076-open-while-open) | open-while-open | warning | OPEN of a file already opened, with no CLOSE between |
+| [PLB-C077](#plb-c077-index-set-out-of-range) | index-set-out-of-range | warning | SET of an index to a number outside its table |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2107,6 +2108,24 @@ When the file's `FILE STATUS` item is named between the two, the
 program looks at whether the first `OPEN` worked (a file that is
 missing, opened again in another mode), and nothing is reported.
 `OPEN` statements on every pass of a loop are PLB-C065.
+
+## PLB-C077 index-set-out-of-range
+
+`SET` of an index to a number outside its table:
+
+```cobol
+01  WS-RATES.
+    05  WS-RATE-ENTRY   OCCURS 10 TIMES INDEXED BY RATE-IX.
+    ...
+    SET RATE-IX TO 11                          *> reported
+```
+
+A reference through the index then reads or writes past the table, as
+a subscript of 11 would (PLB-C023). The index is a name after `INDEXED
+BY` in the table's `OCCURS` clause, in the same program; the number is
+the literal after `TO`, checked for each index the `SET` names. Zero is
+not reported: an index set to 0 and stepped with `SET ... UP BY 1`
+before it is used is common. Negative numbers are.
 
 ## PLB-I001 pcb-dbd-unknown
 

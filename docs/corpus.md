@@ -296,6 +296,11 @@ The findings were checked by rule:
   items their values with `ALLOCATE ... INITIALIZED` and `INITIALIZE
   ... ALL TO VALUE`; those statements now exempt the record.
 
+- **PLB-C077 index-set-out-of-range.** None in NIST, in about 600
+  `SET ... TO` statements with a number, or in GnuCOBOL's tests. In a
+  copy of `NC231A` with `SET IDX-3 TO 05` made `99`, for a table of 10
+  entries, it reports that `SET`.
+
 - **PLB-C076 open-while-open.** 1 in NIST, in `IX118A`, which opens
   `IX-FS3` twice on purpose to test file status 41. None in GnuCOBOL's
   tests. A first version reported 1 in `EXTFH: SEQUENTIAL files`, which
