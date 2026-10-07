@@ -14,7 +14,7 @@ shows what it reports as you work.
 | Signature help | Inside the `USING` phrase of a `CALL "NAME"`, the parameters of the program called (found as go to definition finds it), with the one the cursor is at marked; `OF` and `IN` qualifiers belong to the argument before them |
 | Find references | Every reference to a data item (also in copybooks), or every `PERFORM`, `GO TO`, `ALTER`, and `SORT` procedure naming a paragraph or section of the same program |
 | Highlight | The same references in the open file, with reads and writes of a data item told apart |
-| Quick fix | For a finding, a comment on the line before that suppresses its rule there (`*> plumbline: ignore unreachable-code`) |
+| Quick fix | For a finding, a comment on the line before that suppresses its rule there (`*> plumbline: ignore unreachable-code`); for a contradictory condition (PLB-C071), one that changes its `AND`s to `OR`, or its `OR`s to `AND` |
 | Semantic highlighting | Reserved words, data names, paragraph and section names, literals, operators, and pictures, from the analysis; names where they are declared are marked as declarations |
 | Call hierarchy | For a paragraph or section, the paragraphs that PERFORM it or jump to it, and those it performs or jumps to |
 | Expand selection | From a name to its reference, condition, statement, sentence, paragraph, section, division, and program, one step at a time |

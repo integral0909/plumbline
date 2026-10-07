@@ -386,6 +386,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Visual Studio Code: `Plumbline: Show what the name under the cursor
   reaches` runs `plumbline impact` over the workspace's COBOL and JCL
   files.
+- Language server: for a contradictory condition (PLB-C071), a quick
+  fix that changes its `AND`s to `OR` or its `OR`s to `AND`.
 
 ### Changed
 

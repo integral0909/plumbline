@@ -301,6 +301,12 @@ COPY "plbinput.cpy" REPLACING ==PLB-INPUTS== BY ==WS-CHANGED-FILES==
 *> textDocument/codeAction: the rules already offered for the line.
 01  WS-LSP-OFFERED          PIC X(400).
 01  WS-LSP-INDENT           PIC 9(4) COMP-5.
+*> The quick fix for a contradictory condition: the node, its join
+*> (AND or OR) and what replaces it.
+01  WS-LSP-JOIN-NODE        PIC 9(9) COMP-5.
+01  WS-LSP-JOIN             PIC X(3).
+01  WS-LSP-JOIN-TO          PIC X(3).
+01  WS-LSP-JOIN-FIRST       PIC X.
 01  WS-LSP-BLANKS           PIC X(64) VALUE SPACES.
 01  WS-LSP-WORD-KIND        PIC X.
 *> A token's text, for a hover that shows code as written.
@@ -2798,6 +2804,9 @@ LSP-CODE-ACTIONS.
             IF FN-SUPPRESSED(WS-I) = "N" AND FN-FILE-ID(WS-I) = 1
                AND FN-LINE(WS-I) = WS-LSP-LINE AND FN-SRC-LINE(WS-I) > 0
                 PERFORM LSP-APPEND-SUPPRESS-ACTION
+                IF RL-ID(FN-RULE(WS-I)) = "PLB-C071"
+                    PERFORM LSP-APPEND-SWAP-JOIN-ACTION
+                END-IF
             END-IF
         END-PERFORM
     END-IF
@@ -2856,6 +2865,110 @@ LSP-APPEND-SUPPRESS-ACTION.
            RL-NAME(FN-RULE(WS-I)) DELIMITED BY SPACE
            '\n"}]}}}' DELIMITED BY SIZE
         INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
+*> For a contradictory condition (PLB-C071) of finding WS-I, a quick
+*> fix that joins its relations with OR where they are joined with
+*> AND, or the other way round. The condition is the innermost one
+*> holding the token reported, from that token to its end; the rule
+*> reads only conditions joined all by AND or all by OR.
+LSP-APPEND-SWAP-JOIN-ACTION.
+    MOVE FN-COLUMN(WS-I) TO WS-LSP-CHAR
+    PERFORM LSP-TOKEN-AT-LINE-COLUMN
+    IF WS-LSP-TOKEN = 0 OR WS-LSP-PTR > LSP-SIZE - 8192
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO WS-LSP-JOIN-NODE
+    PERFORM VARYING WS-NODE FROM 1 BY 1 UNTIL WS-NODE > AS-COUNT
+        IF ND-KIND(WS-NODE) = "COND"
+           AND ND-TOK-FIRST(WS-NODE) <= WS-LSP-TOKEN
+           AND ND-TOK-LAST(WS-NODE) >= WS-LSP-TOKEN
+            IF WS-LSP-JOIN-NODE = 0
+                MOVE WS-NODE TO WS-LSP-JOIN-NODE
+            ELSE
+                IF ND-TOK-LAST(WS-NODE) - ND-TOK-FIRST(WS-NODE)
+                   < ND-TOK-LAST(WS-LSP-JOIN-NODE)
+                     - ND-TOK-FIRST(WS-LSP-JOIN-NODE)
+                    MOVE WS-NODE TO WS-LSP-JOIN-NODE
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM
+    IF WS-LSP-JOIN-NODE = 0
+        EXIT PARAGRAPH
+    END-IF
+    *> The join: the first AND or OR of the condition.
+    MOVE SPACES TO WS-LSP-JOIN
+    PERFORM VARYING WS-TOK FROM WS-LSP-TOKEN BY 1
+            UNTIL WS-TOK > ND-TOK-LAST(WS-LSP-JOIN-NODE)
+               OR WS-LSP-JOIN NOT = SPACES
+        IF TK-IS-WORD(WS-TOK)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-TOK WS-LSP-NAME
+                WS-TOKEN-LEN
+            IF FUNCTION UPPER-CASE(WS-LSP-NAME) = "AND"
+               OR FUNCTION UPPER-CASE(WS-LSP-NAME) = "OR"
+                MOVE FUNCTION UPPER-CASE(WS-LSP-NAME) TO WS-LSP-JOIN
+            END-IF
+        END-IF
+    END-PERFORM
+    IF WS-LSP-JOIN = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-JOIN = "AND"
+        MOVE "OR" TO WS-LSP-JOIN-TO
+    ELSE
+        MOVE "AND" TO WS-LSP-JOIN-TO
+    END-IF
+    STRING ',{"title":"Change ' DELIMITED BY SIZE
+           WS-LSP-JOIN DELIMITED BY SPACE
+           " to " DELIMITED BY SIZE
+           WS-LSP-JOIN-TO DELIMITED BY SPACE
+           ' in this condition","kind":"quickfix",' DELIMITED BY SIZE
+           '"edit":{"changes":{' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    CALL "PLB-JSON-STRING" USING DOC-URI(WS-LSP-DOC-INDEX) WS-LSP-OUT
+        WS-LSP-PTR
+    STRING ":[" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE "Y" TO WS-LSP-JOIN-FIRST
+    PERFORM VARYING WS-TOK FROM WS-LSP-TOKEN BY 1
+            UNTIL WS-TOK > ND-TOK-LAST(WS-LSP-JOIN-NODE)
+        IF TK-IS-WORD(WS-TOK) AND TK-FILE-ID(WS-TOK) = 1
+           AND TK-INCL(WS-TOK) = 0 AND TK-SRC-LINE(WS-TOK) > 0
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-TOK WS-LSP-NAME
+                WS-TOKEN-LEN
+            IF FUNCTION UPPER-CASE(WS-LSP-NAME) = WS-LSP-JOIN
+                PERFORM LSP-APPEND-SWAP-JOIN-EDIT
+            END-IF
+        END-IF
+    END-PERFORM
+    STRING "]}}}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    *> The line the findings are looked for on, which the edits moved.
+    MOVE FN-LINE(WS-I) TO WS-LSP-LINE.
+
+*> A TextEdit putting WS-LSP-JOIN-TO in place of token WS-TOK, in the
+*> case it was written in (words are kept upper-cased, so the source
+*> line says).
+LSP-APPEND-SWAP-JOIN-EDIT.
+    IF WS-LSP-JOIN-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-JOIN-FIRST
+    MOVE SL-LINE-NO(TK-SRC-LINE(WS-TOK)) TO WS-LSP-LINE
+    MOVE TK-COLUMN(WS-TOK) TO WS-LSP-CHAR
+    MOVE WS-TOK TO WS-LSP-TOKEN
+    STRING '{"range":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM LSP-APPEND-RANGE
+    STRING ',"newText":"' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    IF SS-HEAP(SL-TEXT-OFF(TK-SRC-LINE(WS-TOK)) + TK-COLUMN(WS-TOK) - 1:1)
+       IS ALPHABETIC-LOWER
+        STRING FUNCTION LOWER-CASE(WS-LSP-JOIN-TO) DELIMITED BY SPACE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    ELSE
+        STRING WS-LSP-JOIN-TO DELIMITED BY SPACE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    STRING '"}' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
 
 *> Semantic tokens --------------------------------------------------
 

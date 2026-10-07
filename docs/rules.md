@@ -1973,6 +1973,10 @@ parentheses that group, other operators, or both `AND` and `OR` is not
 read. The item is compared as written, with its subscripts; literals
 by value, so that trailing spaces and leading zeros do not count.
 
+In an editor, the language server offers a quick fix that changes the
+condition's `AND`s to `OR`, or its `OR`s to `AND` (see
+[Editors](editors.md)).
+
 ## PLB-I001 pcb-dbd-unknown
 
 The I rules check IMS definitions, given to `check` as `*.dbd` and
