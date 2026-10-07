@@ -296,6 +296,11 @@ The findings were checked by rule:
   items their values with `ALLOCATE ... INITIALIZED` and `INITIALIZE
   ... ALL TO VALUE`; those statements now exempt the record.
 
+- **PLB-C075 io-after-close.** None in NIST or in GnuCOBOL's tests.
+  The tests that close a file and use it again (`START INDEXED`,
+  `First READ on empty SEQUENTIAL INDEXED file`, and others) open it
+  again between.
+
 - **PLB-C074 condition-range-reversed.** None in NIST or in GnuCOBOL's
   tests, whose sources have 62 and 13 lines with a `VALUE ... THRU`
   range.

@@ -215,6 +215,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C072 unreachable-statement.
 - Rule PLB-C073 value-ignored.
 - Rule PLB-C074 condition-range-reversed.
+- Rule PLB-C075 io-after-close.
 - Rule PLB-Q011 cursor-opened-in-loop.
 - Rule PLB-Q012 fetch-after-commit.
 - ICOBOL's xCard and CRT reference formats (`--format xcard`, `--format
