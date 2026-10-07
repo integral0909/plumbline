@@ -283,6 +283,30 @@ their comments, page ejects, debugging lines, and continued literals
 are read as the compiler reads them, and a VARIABLE or xCard line that
 fits in column 72 stays as it is in fixed format.
 
+## Fixing findings
+
+Some findings have one obvious repair: `NEXT SENTENCE` inside a scope
+ended by `END-IF` (PLB-C004) becomes `CONTINUE`, a contradictory
+condition (PLB-C071) has its `AND`s made `OR` or its `OR`s made `AND`,
+and a reversed `THRU` range (PLB-C074) has its ends swapped.
+`plumbline fix` makes those repairs and writes the file to standard
+output; with `--check` it lists them and exits with 1 when there are
+any.
+
+```console
+$ plumbline fix --check src/*.cbl
+src/report.cbl:177:20: PLB-C004: Change NEXT SENTENCE to CONTINUE
+$ plumbline fix src/report.cbl > report-fixed.cbl
+```
+
+The file is written as it was read, with tabs expanded and trailing
+spaces dropped, and its other lines are left as they are. In fixed
+format a line keeps its columns 73 to 80 where they were: a fix that
+would push code past column 72 is not made, nor is one that spans two
+lines; each is reported on standard error. Suppression comments and
+disabled rules apply as they do for `check`. The language server offers
+the same repairs as quick fixes.
+
 ## Record layouts
 
 `plumbline layout` lists the records of programs and copybooks with
