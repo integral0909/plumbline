@@ -2174,7 +2174,9 @@ GnuCOBOL warns only with `-Wall` (`-Wtyping`). Write the number without
 quotes.
 
 A literal of digits only is a valid move and is not reported, nor are
-literals with a prefix (`X"F1F2"`) and edited receivers.
+literals with a prefix (`X"F1F2"`) and edited receivers. When the
+literal is a number in quotes, such as `"1.50"`, the language server's
+quick fix and `plumbline fix` take the quotes off.
 
 ## PLB-I001 pcb-dbd-unknown
 

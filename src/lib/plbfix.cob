@@ -12,6 +12,9 @@
 *>             each OR made AND, in the case each was written in
 *>   PLB-C074  the two ends of the reversed THRU range swapped, as
 *>             written
+*>   PLB-C079  the quotes taken off a literal that is a number written
+*>             in quotes ("1.50" becomes 1.50); a literal that is no
+*>             number ("ABC") has no fix
 *>
 *> The finding's lines must still be loaded, and every token the fix
 *> touches must be in the finding's file (not brought in by a COPY)
@@ -37,6 +40,7 @@ LOCAL-STORAGE SECTION.
 01  LS-NEW                  PIC X(256).
 01  LS-NEW-LEN              PIC 9(9) COMP-5.
 01  LS-FIRST-CHAR           PIC X.
+01  LS-POINT                PIC X.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -77,6 +81,8 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-RULES
             PERFORM FIX-CONTRADICTION
         WHEN "PLB-C074"
             PERFORM FIX-REVERSED-RANGE
+        WHEN "PLB-C079"
+            PERFORM FIX-QUOTED-NUMBER
     END-EVALUATE
     IF FX-EDIT-COUNT = 0
         MOVE SPACES TO FX-TITLE
@@ -241,6 +247,66 @@ FIX-REVERSED-RANGE.
     MOVE LS-OTHER TO LS-LOW LS-HIGH
     PERFORM ADD-EDIT.
 
+*> PLB-C079, reported at a receiver of a MOVE: the literal sent, when
+*> it is a number in quotes: [sign] digits [. digits], or with a
+*> comma for the point.
+FIX-QUOTED-NUMBER.
+    MOVE 0 TO LS-NODE
+    PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T > AS-COUNT
+        IF ND-KIND(LS-T) = "STMT" AND ND-DETAIL(LS-T) = "MOVE"
+           AND ND-TOK-FIRST(LS-T) < LS-TOKEN
+           AND ND-TOK-LAST(LS-T) >= LS-TOKEN
+            MOVE LS-T TO LS-NODE
+        END-IF
+    END-PERFORM
+    IF LS-NODE = 0
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-LOW = ND-TOK-FIRST(LS-NODE) + 1
+    IF NOT TK-IS-ALNUM(LS-LOW) OR TK-PREFIX(LS-LOW) NOT = SPACES
+       OR TK-TEXT-LEN(LS-LOW) = 0 OR TK-TEXT-LEN(LS-LOW) > 31
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-NEW
+    MOVE TK-TEXT(TK-TEXT-OFF(LS-LOW):TK-TEXT-LEN(LS-LOW)) TO LS-NEW
+    MOVE TK-TEXT-LEN(LS-LOW) TO LS-NEW-LEN
+    PERFORM TEST-NUMBER
+    IF LS-OK = "N"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-LOW TO LS-T
+    PERFORM TEST-TOKEN
+    IF LS-OK = "N"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "Take the quotes off this number" TO FX-TITLE
+    MOVE LS-LOW TO LS-HIGH
+    PERFORM ADD-EDIT.
+
+*> LS-OK = "Y" when LS-NEW(1:LS-NEW-LEN) is [+|-] digits [. or ,
+*> digits], with at least one digit.
+TEST-NUMBER.
+    MOVE "N" TO LS-OK
+    MOVE 0 TO LS-LEN
+    MOVE "N" TO LS-POINT
+    PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T > LS-NEW-LEN
+        EVALUATE TRUE
+            WHEN LS-NEW(LS-T:1) >= "0" AND LS-NEW(LS-T:1) <= "9"
+                ADD 1 TO LS-LEN
+            WHEN (LS-NEW(LS-T:1) = "+" OR LS-NEW(LS-T:1) = "-")
+                 AND LS-T = 1
+                CONTINUE
+            WHEN (LS-NEW(LS-T:1) = "." OR LS-NEW(LS-T:1) = ",")
+                 AND LS-POINT = "N" AND LS-T < LS-NEW-LEN
+                MOVE "Y" TO LS-POINT
+            WHEN OTHER
+                EXIT PARAGRAPH
+        END-EVALUATE
+    END-PERFORM
+    IF LS-LEN > 0
+        MOVE "Y" TO LS-OK
+    END-IF.
+
 *> LS-OK = "Y" when token LS-T is in the finding's file, written
 *> there (not brought in by a COPY), and on one line.
 TEST-TOKEN.
@@ -289,7 +355,9 @@ END PROGRAM PLB-FIX-FINDING.
 *> of FIX to LIST, all or none, and sets RESULT:
 *>   Y  added
 *>   S  an edit spans lines (an editor can make it; this cannot)
-*>   O  an edit overlaps one already in LIST
+*>   O  an edit overlaps one already in LIST (an edit the same as one
+*>      in LIST, from another finding of the same statement, is
+*>      taken as made)
 *>   M  in fixed format, a line would grow past column 72: the blanks
 *>      before column 73 are what a line may grow into, so that the
 *>      sequence area stays where it is
@@ -305,6 +373,8 @@ LOCAL-STORAGE SECTION.
 01  LS-L                    PIC 9(9) COMP-5.
 01  LS-GROWTH               PIC S9(9) COMP-5.
 01  LS-SPARE                PIC S9(9) COMP-5.
+*> "Y" for an edit of FIX that LIST already has.
+01  LS-SAME                 PIC X OCCURS 64 TIMES.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -323,7 +393,16 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET LK-FILE-ID PLB-FIX PLB-FIX-LIST
             MOVE "S" TO LK-RESULT
             GOBACK
         END-IF
+        MOVE "N" TO LS-SAME(LS-E)
         PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K > FXL-COUNT
+            IF FXL-LINE(LS-K) = FX-LINE(LS-E)
+               AND FXL-COLUMN(LS-K) = FX-COLUMN(LS-E)
+               AND FXL-END-COLUMN(LS-K) = FX-END-COLUMN(LS-E)
+               AND FXL-TEXT-LEN(LS-K) = FX-TEXT-LEN(LS-E)
+               AND FXL-TEXT(LS-K) = FX-TEXT(LS-E)
+                MOVE "Y" TO LS-SAME(LS-E)
+                EXIT PERFORM
+            END-IF
             IF FXL-LINE(LS-K) = FX-LINE(LS-E)
                AND FXL-COLUMN(LS-K) < FX-END-COLUMN(LS-E)
                AND FX-COLUMN(LS-E) < FXL-END-COLUMN(LS-K)
@@ -339,7 +418,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET LK-FILE-ID PLB-FIX PLB-FIX-LIST
         IF SL-FORMAT(LS-L) = "X"
             MOVE 0 TO LS-GROWTH
             PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K > FX-EDIT-COUNT
-                IF FX-LINE(LS-K) = FX-LINE(LS-E)
+                IF FX-LINE(LS-K) = FX-LINE(LS-E) AND LS-SAME(LS-K) = "N"
                     COMPUTE LS-GROWTH = LS-GROWTH + FX-TEXT-LEN(LS-K)
                         - FX-END-COLUMN(LS-K) + FX-COLUMN(LS-K)
                 END-IF
@@ -360,12 +439,14 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET LK-FILE-ID PLB-FIX PLB-FIX-LIST
         END-IF
     END-PERFORM
     PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > FX-EDIT-COUNT
-        ADD 1 TO FXL-COUNT
-        MOVE FX-LINE(LS-E) TO FXL-LINE(FXL-COUNT)
-        MOVE FX-COLUMN(LS-E) TO FXL-COLUMN(FXL-COUNT)
-        MOVE FX-END-COLUMN(LS-E) TO FXL-END-COLUMN(FXL-COUNT)
-        MOVE FX-TEXT(LS-E) TO FXL-TEXT(FXL-COUNT)
-        MOVE FX-TEXT-LEN(LS-E) TO FXL-TEXT-LEN(FXL-COUNT)
+        IF LS-SAME(LS-E) = "N"
+            ADD 1 TO FXL-COUNT
+            MOVE FX-LINE(LS-E) TO FXL-LINE(FXL-COUNT)
+            MOVE FX-COLUMN(LS-E) TO FXL-COLUMN(FXL-COUNT)
+            MOVE FX-END-COLUMN(LS-E) TO FXL-END-COLUMN(FXL-COUNT)
+            MOVE FX-TEXT(LS-E) TO FXL-TEXT(FXL-COUNT)
+            MOVE FX-TEXT-LEN(LS-E) TO FXL-TEXT-LEN(FXL-COUNT)
+        END-IF
     END-PERFORM
     MOVE "Y" TO LK-RESULT
     GOBACK.
