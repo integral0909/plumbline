@@ -395,6 +395,8 @@ uses [Semantic Versioning](https://semver.org/).
   fix that changes its `AND`s to `OR` or its `OR`s to `AND`.
 - Language server: for `NEXT SENTENCE` in a scope ended by a terminator
   (PLB-C004), a quick fix that puts `CONTINUE` in its place.
+- Language server: for a condition name's reversed range (PLB-C074), a
+  quick fix that swaps its two ends.
 
 ### Changed
 
