@@ -1,0 +1,7 @@
+tests/golden/rules/c079-nonnumeric-literal-move.cob:13:19: warning: the value given to WS-COUNT here is replaced on line 15 before it is used [PLB-C030]
+tests/golden/rules/c079-nonnumeric-literal-move.cob:13:19: warning: MOVE of a literal that is not a number to numeric WS-COUNT: it does not get the value written [PLB-C079]
+tests/golden/rules/c079-nonnumeric-literal-move.cob:14:20: warning: the value given to WS-AMOUNT here is replaced on line 21 before it is used [PLB-C030]
+tests/golden/rules/c079-nonnumeric-literal-move.cob:14:20: warning: MOVE of a literal that is not a number to numeric WS-AMOUNT: it does not get the value written [PLB-C079]
+tests/golden/rules/c079-nonnumeric-literal-move.cob:15:19: warning: the value given to WS-COUNT here is replaced on line 18 before it is used [PLB-C030]
+tests/golden/rules/c079-nonnumeric-literal-move.cob:15:19: warning: MOVE of a literal that is not a number to numeric WS-COUNT: it does not get the value written [PLB-C079]
+tests/golden/rules/c079-nonnumeric-literal-move.cob:18:19: warning: the value given to WS-COUNT here is replaced on line 22 before it is used [PLB-C030]

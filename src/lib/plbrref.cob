@@ -147,6 +147,10 @@ END PROGRAM PLB-RULE-NAMES.
 *> (off by default) are checked here too: a numeric item with decimal
 *> places, or a signed integer, moved to an alphanumeric item.
 *>
+*> PLB-C079 nonnumeric-literal-move is checked here too: an
+*> alphanumeric literal that is not a number (a character other than a
+*> digit) moved to a numeric item, which then holds no valid value.
+*>
 *> PLB-M004 alnum-narrowing (off by default) is checked here too: an
 *> alphanumeric, edited, or group item moved to a smaller alphanumeric
 *> or group item. That is often intended, so it is only a note.
@@ -167,6 +171,7 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE-SIGNED-TEXT     PIC 9(4) COMP-5.
 01  LS-RULE-OVERLAP         PIC 9(4) COMP-5.
 01  LS-RULE-SIGN-LOST       PIC 9(4) COMP-5.
+01  LS-RULE-NONNUMERIC      PIC 9(4) COMP-5.
 01  LS-OVERLAP              PIC X.
 01  LS-SEND-SUBSCRIPTED     PIC X.
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
@@ -226,12 +231,14 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M016" LS-RULE-SIGNED-TEXT
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C046" LS-RULE-OVERLAP
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M018" LS-RULE-SIGN-LOST
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C079" LS-RULE-NONNUMERIC
     IF RL-ENABLED(LS-RULE-TRUNCATION) NOT = "Y"
        AND RL-ENABLED(LS-RULE-NARROWING) NOT = "Y"
        AND RL-ENABLED(LS-RULE-DECIMAL-TEXT) NOT = "Y"
        AND RL-ENABLED(LS-RULE-SIGNED-TEXT) NOT = "Y"
        AND RL-ENABLED(LS-RULE-OVERLAP) NOT = "Y"
        AND RL-ENABLED(LS-RULE-SIGN-LOST) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-NONNUMERIC) NOT = "Y"
         GOBACK
     END-IF
     IF RL-ENABLED(LS-RULE-OVERLAP) = "Y"
@@ -411,6 +418,11 @@ CHECK-RECEIVER.
             IF LS-SEND-KIND = "N" AND LS-SEND-INT > LS-RECV-INT
                 PERFORM REPORT-DIGITS
             END-IF
+            IF LS-SEND-KIND = "L" AND SY-CATEGORY(LS-RECV) = "9"
+               AND TK-PREFIX(LS-SENDER) = SPACES
+               AND RL-ENABLED(LS-RULE-NONNUMERIC) = "Y"
+                PERFORM CHECK-NONNUMERIC
+            END-IF
             IF LS-SEND-KIND = "N" AND SY-CATEGORY(LS-RECV) = "9"
                AND SY-SCALE(LS-RECV) >= 0
                AND LS-SEND-DEC > SY-SCALE(LS-RECV)
@@ -557,6 +569,29 @@ REPORT-DIGITS.
            DELIMITED BY SIZE
            SY-NAME(LS-RECV) DELIMITED BY SPACE
            " has " LS-B-TEXT(1:LS-B-LEN) DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    PERFORM REPORT-FINDING.
+
+*> PLB-C079: the literal holds a character that is not a digit.
+CHECK-NONNUMERIC.
+    IF LS-SEND-SIZE = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > LS-SEND-SIZE
+        IF TK-TEXT(TK-TEXT-OFF(LS-SENDER) + LS-I - 1:1) < "0"
+           OR TK-TEXT(TK-TEXT-OFF(LS-SENDER) + LS-I - 1:1) > "9"
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-I > LS-SEND-SIZE
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-RULE-NONNUMERIC TO LS-RULE
+    MOVE SPACES TO LS-MESSAGE
+    STRING "MOVE of a literal that is not a number to numeric "
+           DELIMITED BY SIZE
+           SY-NAME(LS-RECV) DELIMITED BY SPACE
+           ": it does not get the value written" DELIMITED BY SIZE
         INTO LS-MESSAGE
     PERFORM REPORT-FINDING.
 
