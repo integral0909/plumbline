@@ -644,12 +644,16 @@ class LanguageServerTest(unittest.TestCase):
             "context": {"diagnostics": []}})["result"]
         [fix] = [a for a in actions if a["title"].startswith("Change")]
         self.assertEqual(fix["title"], "Change NEXT SENTENCE to CONTINUE")
-        [edit] = fix["edit"]["changes"][uri]
-        self.assertEqual(edit, {"range": {
-            "start": {"line": 7, "character": 8},
-            "end": {"line": 8, "character": 20}}, "newText": "continue"})
+        # One edit a line: NEXT becomes CONTINUE, SENTENCE goes.
+        self.assertEqual(fix["edit"]["changes"][uri], [
+            {"range": {"start": {"line": 7, "character": 8},
+                       "end": {"line": 7, "character": 12}},
+             "newText": "continue"},
+            {"range": {"start": {"line": 8, "character": 12},
+                       "end": {"line": 8, "character": 20}},
+             "newText": ""}])
         lines = text.splitlines(keepends=True)
-        lines[7:9] = ["        continue\n"]
+        lines[7:9] = ["        continue\n", "            \n"]
         self.server.notify("textDocument/didChange", {
             "textDocument": {"uri": uri, "version": 2},
             "contentChanges": [{"text": "".join(lines)}]})

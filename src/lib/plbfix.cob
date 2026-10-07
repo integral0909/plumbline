@@ -5,7 +5,9 @@
 *> sets FIX (plbfix.cpy) to the fix for finding INDEX, or to none:
 *>
 *>   PLB-C004  CONTINUE in place of NEXT SENTENCE, in the case NEXT
-*>             was written in
+*>             was written in (when SENTENCE is on a line of its own
+*>             after NEXT, CONTINUE in place of NEXT, and SENTENCE
+*>             taken out)
 *>   PLB-C071  each AND of the contradictory condition made OR, or
 *>             each OR made AND, in the case each was written in
 *>   PLB-C074  the two ends of the reversed THRU range swapped, as
@@ -111,6 +113,17 @@ FIX-NEXT-SENTENCE.
     END-IF
     MOVE 8 TO LS-NEW-LEN
     MOVE LS-TOKEN TO LS-LOW
+    IF TK-SRC-LINE(LS-HIGH) = TK-SRC-LINE(LS-TOKEN)
+        PERFORM ADD-EDIT
+        EXIT PARAGRAPH
+    END-IF
+    *> Two lines: one edit each, so that neither spans lines.
+    MOVE LS-HIGH TO LS-OTHER
+    MOVE LS-TOKEN TO LS-HIGH
+    PERFORM ADD-EDIT
+    MOVE LS-OTHER TO LS-LOW LS-HIGH
+    MOVE SPACES TO LS-NEW
+    MOVE 0 TO LS-NEW-LEN
     PERFORM ADD-EDIT.
 
 *> PLB-C071: the innermost condition holding LS-TOKEN, from there to
