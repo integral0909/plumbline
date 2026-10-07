@@ -189,7 +189,7 @@ WRITE-PROGRAM.
 *> the file.
 TEXT-PROGRAM.
     IF LK-ANY = "Y"
-        DISPLAY " "
+        CALL STATIC "putchar" USING BY VALUE 10
     END-IF
     MOVE SPACES TO LS-OUT
     MOVE 1 TO LS-PTR

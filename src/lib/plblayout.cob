@@ -116,7 +116,7 @@ MD-RECORD.
     END-IF
     STRING ")" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
     PERFORM PRINT-OUT
-    DISPLAY " "
+    CALL STATIC "putchar" USING BY VALUE 10
     DISPLAY "| Level | Name | Picture | Usage | Start | Length | Occurs |"
     DISPLAY "|---|---|---|---|---:|---:|---:|"
     PERFORM VARYING LS-S FROM LS-RECORD BY 1 UNTIL LS-S > SY-COUNT
@@ -129,7 +129,7 @@ MD-RECORD.
             PERFORM MD-ITEM
         END-IF
     END-PERFORM
-    DISPLAY " ".
+    CALL STATIC "putchar" USING BY VALUE 10.
 
 MD-ITEM.
     PERFORM ITEM-PICTURE
@@ -204,7 +204,7 @@ TEXT-RECORD.
             PERFORM TEXT-ITEM
         END-IF
     END-PERFORM
-    DISPLAY " ".
+    CALL STATIC "putchar" USING BY VALUE 10.
 
 TEXT-ITEM.
     PERFORM ITEM-PICTURE

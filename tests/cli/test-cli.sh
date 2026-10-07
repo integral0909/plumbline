@@ -1022,6 +1022,7 @@ check "format writes one file"            2 'give one file, or use --check' -- f
 check "format splits long free lines"     0 '^      -    "ormat line has room for".$' -- format --to fixed tests/fixtures/format/long-lines.cob
 check "format moves headers to area A"    0 '^       MAIN-LINE\.$' -- format --to fixed tests/fixtures/format/long-lines.cob
 check "format keeps EXIT out of area A"   0 '^               EXIT\.$' -- format --to fixed tests/fixtures/format/long-lines.cob
+check "format writes a blank line empty"  0 '^$' -- format --to free tests/fixtures/format/blank-line.cob
 
 # fix: the findings with a fix, made in the file written to standard
 # output, or listed with --check.

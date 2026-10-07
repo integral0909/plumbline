@@ -505,11 +505,11 @@ SHOW-USAGE.
     DISPLAY "       plumbline dump csd FILE..."
     DISPLAY "       plumbline dump ims FILE..."
     DISPLAY "Static analysis for COBOL programs."
-    DISPLAY " "
+    CALL STATIC "putchar" USING BY VALUE 10
     DISPLAY "Options:"
     DISPLAY "  -h, --help       show this help and exit"
     DISPLAY "  -V, --version    show version information and exit"
-    DISPLAY " "
+    CALL STATIC "putchar" USING BY VALUE 10
     DISPLAY "Commands:"
     DISPLAY "  check            analyze programs and report findings"
     DISPLAY "  metrics          report size and complexity of programs"
@@ -580,7 +580,7 @@ SHOW-USAGE.
     DISPLAY "  dump bms         show the maps and fields of CICS BMS sources"
     DISPLAY "  dump csd         show the CICS resources DFHCSDUP input defines"
     DISPLAY "  dump ims         show the databases and PSBs of IMS DBD and PSB sources"
-    DISPLAY " "
+    CALL STATIC "putchar" USING BY VALUE 10
     DISPLAY "Command options:"
     DISPLAY "  --format FORMAT  reference format: fixed, free, variable,"
     DISPLAY "                   xopen, terminal, cobolx, xcard, crt,"
@@ -601,7 +601,7 @@ SHOW-USAGE.
     DISPLAY "  --config FILE    read settings from FILE (default:"
     DISPLAY "                   plumbline.conf, when there is one)"
     DISPLAY "  --no-config      do not read a configuration file"
-    DISPLAY " "
+    CALL STATIC "putchar" USING BY VALUE 10
     DISPLAY "Check options:"
     DISPLAY "  --enable RULE    enable a rule (id or name; repeatable)"
     DISPLAY "  --disable RULE   disable a rule (id or name; repeatable)"
@@ -1288,12 +1288,12 @@ DOC-INDEX.
     END-PERFORM
     IF WS-J > 1
         DISPLAY "# Programs"
-        DISPLAY " "
+        CALL STATIC "putchar" USING BY VALUE 10
         MOVE "mdidx" TO WS-REPORT
         MOVE 0 TO WS-P
         CALL "PLB-INVENTORY" USING PLB-SOURCE-SET PLB-CALL-GRAPH PLB-JCL
             PLB-CSD PLB-BMS WS-REPORT WS-P
-        DISPLAY " "
+        CALL STATIC "putchar" USING BY VALUE 10
         MOVE "N" TO WS-FIRST
     END-IF.
 
@@ -1304,11 +1304,11 @@ DOC-INDEX.
 DOC-PROGRAM.
     IF WS-FIRST = "N"
         DISPLAY "---"
-        DISPLAY " "
+        CALL STATIC "putchar" USING BY VALUE 10
     END-IF
     MOVE "N" TO WS-FIRST
     DISPLAY "# " FUNCTION TRIM(MP-NAME(WS-M))
-    DISPLAY " "
+    CALL STATIC "putchar" USING BY VALUE 10
     MOVE 0 TO WS-P
     PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > CP-COUNT
         IF CP-KIND(WS-I) = "P" AND CP-FILE-ID(WS-I) = WS-FILE-ID
@@ -1326,7 +1326,7 @@ DOC-PROGRAM.
     CALL "PLB-CRUD-DOC" USING PLB-CRUD MP-NAME(WS-M)
     CALL "PLB-DOC-PARAGRAPHS" USING PLB-FLOW PLB-METRICS WS-M
     DISPLAY "## Records"
-    DISPLAY " "
+    CALL STATIC "putchar" USING BY VALUE 10
     MOVE 0 TO WS-J
     PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > SY-COUNT
         IF SY-PARENT(WS-I) = 0 AND SY-NAME-TOKEN(WS-I) > 0
@@ -1338,7 +1338,7 @@ DOC-PROGRAM.
     END-PERFORM
     IF WS-J = 0
         DISPLAY "The program has no records."
-        DISPLAY " "
+        CALL STATIC "putchar" USING BY VALUE 10
     ELSE
         MOVE "Y" TO WS-DOC-FIRST
         CALL "PLB-LAYOUT-RECORDS" USING PLB-SOURCE-SET PLB-TOKENS

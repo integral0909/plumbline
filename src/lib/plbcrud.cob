@@ -484,7 +484,7 @@ PROCEDURE DIVISION USING PLB-CRUD LK-PROGRAM.
         IF CX-PROGRAM(LS-E) = LS-PROGRAM
             IF LS-ROWS = 0
                 DISPLAY "## Tables and files"
-                DISPLAY " "
+                CALL STATIC "putchar" USING BY VALUE 10
                 DISPLAY "| Resource | Kind | Create | Read | Update |"
                     " Delete |"
                 DISPLAY "|---|---|:-:|:-:|:-:|:-:|"
@@ -494,7 +494,7 @@ PROCEDURE DIVISION USING PLB-CRUD LK-PROGRAM.
         END-IF
     END-PERFORM
     IF LS-ROWS > 0
-        DISPLAY " "
+        CALL STATIC "putchar" USING BY VALUE 10
     END-IF
     GOBACK.
 

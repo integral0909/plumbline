@@ -39,23 +39,8 @@
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-FORMAT.
-ENVIRONMENT DIVISION.
-INPUT-OUTPUT SECTION.
-FILE-CONTROL.
-    *> Standard output as a line sequential file, so that an empty
-    *> line is written as one (DISPLAY would write a space).
-    SELECT OUTPUT-FILE ASSIGN TO WS-OUTPUT-PATH
-        ORGANIZATION IS LINE SEQUENTIAL
-        FILE STATUS IS WS-OUTPUT-STATUS.
 DATA DIVISION.
-FILE SECTION.
-FD  OUTPUT-FILE.
-01  OUTPUT-RECORD           PIC X(1024).
 WORKING-STORAGE SECTION.
-*> plumbline: ignore hard-coded-path -- Plumbline runs on POSIX hosts
-01  WS-OUTPUT-PATH          PIC X(16) VALUE "/dev/stdout".
-01  WS-OUTPUT-STATUS        PIC XX.
-01  WS-OUTPUT-OPEN          PIC X.
 *> The output lines made from one input line (or a line and its
 *> continuations), compared with the input in CHECK mode.
 78  OUT-MAX                     VALUE 64.
@@ -117,15 +102,9 @@ COPY "plbsrc.cpy".
 01  LK-CHANGED              PIC X.
 PROCEDURE DIVISION USING PLB-SOURCE-SET LK-FILE-ID LK-TARGET LK-CHECK
         LK-CHANGED.
-    MOVE "N" TO LK-CHANGED WS-OUTPUT-OPEN
+    MOVE "N" TO LK-CHANGED
     IF LK-FILE-ID < 1 OR LK-FILE-ID > SS-FILE-COUNT
         GOBACK
-    END-IF
-    IF LK-CHECK NOT = "Y"
-        OPEN EXTEND OUTPUT-FILE
-        IF WS-OUTPUT-STATUS = "00"
-            MOVE "Y" TO WS-OUTPUT-OPEN
-        END-IF
     END-IF
     MOVE SF-FIRST-LINE(LK-FILE-ID) TO LS-L
     COMPUTE LS-LAST = SF-FIRST-LINE(LK-FILE-ID)
@@ -158,28 +137,15 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET LK-FILE-ID LK-TARGET LK-CHECK
         PERFORM FLUSH-GROUP
         COMPUTE LS-L = LS-GROUP-LAST + 1
     END-PERFORM
-    IF WS-OUTPUT-OPEN = "Y"
-        CLOSE OUTPUT-FILE
-    END-IF
     GOBACK.
 
-*> Output line LS-I, through the file when it is open.
+*> Output line LS-I on standard output. DISPLAY cannot write an empty
+*> line (it writes a space), so the C library's putchar writes the line
+*> feed of a blank one.
 WRITE-OUTPUT-LINE.
     CALL "PLB-STR-LENGTH" USING WS-OUT-LINE(LS-I) LS-LEN
-    IF WS-OUTPUT-OPEN = "Y"
-        MOVE WS-OUT-LINE(LS-I) TO OUTPUT-RECORD
-        IF LS-LEN = 0
-            WRITE OUTPUT-RECORD FROM SPACE
-        ELSE
-            WRITE OUTPUT-RECORD FROM WS-OUT-LINE(LS-I)(1:LS-LEN)
-        END-IF
-        IF WS-OUTPUT-STATUS = "00"
-            EXIT PARAGRAPH
-        END-IF
-    END-IF
-    *> A record the file refuses (a control character): as text.
     IF LS-LEN = 0
-        DISPLAY SPACE
+        CALL STATIC "putchar" USING BY VALUE 10
     ELSE
         DISPLAY WS-OUT-LINE(LS-I)(1:LS-LEN)
     END-IF.

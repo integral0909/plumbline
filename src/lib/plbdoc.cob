@@ -34,7 +34,7 @@ COPY "plbmetr.cpy".
 01  LS-M                    PIC 9(9) COMP-5.
 PROCEDURE DIVISION USING PLB-FLOW PLB-METRICS LS-M.
     DISPLAY "## Paragraphs"
-    DISPLAY " "
+    CALL STATIC "putchar" USING BY VALUE 10
     PERFORM PROGRAM-TABLE
     GOBACK.
 
@@ -70,10 +70,10 @@ PROGRAM-TABLE.
     END-IF
     STRING "." DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
     PERFORM PRINT-OUT
-    DISPLAY " "
+    CALL STATIC "putchar" USING BY VALUE 10
     IF MP-UNIT-COUNT(LS-M) = 0
         DISPLAY "The program has no paragraphs."
-        DISPLAY " "
+        CALL STATIC "putchar" USING BY VALUE 10
         EXIT PARAGRAPH
     END-IF
     DISPLAY "| Paragraph | Lines | Statements | Complexity | Performs |"
@@ -83,7 +83,7 @@ PROGRAM-TABLE.
             UNTIL LS-U >= MP-UNIT-FIRST(LS-M) + MP-UNIT-COUNT(LS-M)
         PERFORM UNIT-ROW
     END-PERFORM
-    DISPLAY " ".
+    CALL STATIC "putchar" USING BY VALUE 10.
 
 *> | NAME | lines | statements | complexity | performs | goes to | runs |
 UNIT-ROW.
@@ -207,7 +207,7 @@ PROCEDURE DIVISION USING PLB-CALL-GRAPH PLB-JCL PLB-DATASETS LK-P.
         IF JS-KIND(LS-A) = "P" AND LS-PROGRAM-NAME = CP-NAME(LK-P)
             IF LS-ROWS = 0
                 DISPLAY "## Data sets"
-                DISPLAY " "
+                CALL STATIC "putchar" USING BY VALUE 10
                 DISPLAY "| Step | DD | Data set | Access |"
                 DISPLAY "|---|---|---|---|"
             END-IF
@@ -216,7 +216,7 @@ PROCEDURE DIVISION USING PLB-CALL-GRAPH PLB-JCL PLB-DATASETS LK-P.
         END-IF
     END-PERFORM
     IF LS-ROWS > 0
-        DISPLAY " "
+        CALL STATIC "putchar" USING BY VALUE 10
     END-IF
     GOBACK.
 
