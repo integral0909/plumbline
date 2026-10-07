@@ -337,6 +337,9 @@ Some findings that were read and are true:
   `COSGN00C` with `VALUE SPACE` on `LK-COMMAREA` of its `DFHCOMMAREA`,
   and a copy of `CBACT01C` with `VALUE ZERO` on `OUT-ACCT-ID` of its
   output record, it reports each.
+- **PLB-C074 condition-range-reversed.** None, in 4 lines with a
+  `VALUE ... THRU` range. In a copy of `COCRDUPC` whose `VALID-MONTH`
+  is made `VALUES 12 THRU 1`, it reports that range.
 - **PLB-C069 search-index-used-unchecked.** None: CardDemo has no
   `SEARCH`.
 - **PLB-Q012 fetch-after-commit.** None: the `SYNCPOINT` statements of

@@ -85,6 +85,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C071](#plb-c071-contradictory-condition) | contradictory-condition | warning | Equalities joined by AND, or inequalities by OR, of one item |
 | [PLB-C072](#plb-c072-unreachable-statement) | unreachable-statement | warning | Statement after a GO TO, GOBACK, or STOP RUN never runs |
 | [PLB-C073](#plb-c073-value-ignored) | value-ignored | warning | VALUE clause in the FILE or LINKAGE SECTION gives no value |
+| [PLB-C074](#plb-c074-condition-range-reversed) | condition-range-reversed | warning | Condition name has a THRU range whose start is above its end |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2034,6 +2035,28 @@ is often a working-storage record of one program and a linkage record
 of another. Nor is a record that `ALLOCATE ... INITIALIZED` or
 `INITIALIZE ... TO VALUE` names, or an item of it: those statements
 give it its `VALUE` clauses at run time.
+
+## PLB-C074 condition-range-reversed
+
+A condition name with a range `a THRU b` whose start is above its end:
+
+```cobol
+01  WS-MONTH            PIC 99.
+    88  MONTH-VALID     VALUE 12 THRU 1.     *> reported
+```
+
+The range holds no value, so that part of the condition is never true;
+GnuCOBOL 3.2 accepts it without a warning, and `MONTH-VALID` is false
+for every month. The ends were written the wrong way round.
+
+Numbers are compared by value, with their signs and decimal places.
+Alphanumeric literals are compared only where ASCII and EBCDIC agree:
+at the first character that differs, the shorter literal padded with
+spaces, both characters are digits, both upper-case letters, or both
+lower-case letters, or one is a space. `"a" THRU "Z"` is a range in
+EBCDIC and none in ASCII, and is not reported. Literals with a prefix
+(`X"..."`, `N"..."`), figurative constants, and numbers written with a
+decimal comma or an exponent are not compared.
 
 ## PLB-I001 pcb-dbd-unknown
 
