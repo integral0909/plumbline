@@ -289,6 +289,13 @@ The findings were checked by rule:
   `ENTRY FOR GO TO`, where a caller or a `GO TO ENTRY` comes in after a
   `GOBACK`, `STOP RUN`, or `GO TO`; those are no longer reported.
 
+- **PLB-C073 value-ignored.** None in NIST. 1 in GnuCOBOL's tests, in
+  `dump feature with NULL address`: a linkage record `A-TABLE` with
+  `VALUE` clauses that the program never allocates or initializes. A
+  first version reported 3 more, in tests that give linkage and `BASED`
+  items their values with `ALLOCATE ... INITIALIZED` and `INITIALIZE
+  ... ALL TO VALUE`; those statements now exempt the record.
+
 - **PLB-C069 search-index-used-unchecked.** None in NIST or in
   GnuCOBOL's tests: their `SEARCH` statements have `AT END`, or do not
   use the index after it.

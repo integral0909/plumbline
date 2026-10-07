@@ -331,6 +331,12 @@ Some findings that were read and are true:
   `1000-ACCTFILE-GET-NEXT`, or with a `GOBACK` before one of its
   `PERFORM 9999-ABEND-PROGRAM` statements, it reports the statement
   after each.
+- **PLB-C073 value-ignored.** 1, in `COBTUPDT`: the record of its
+  `FD TR-RECORD` is `WS-INPUT-VARS`, whose three fields each have
+  `VALUE SPACES`, a working-storage layout under an `FD`. In a copy of
+  `COSGN00C` with `VALUE SPACE` on `LK-COMMAREA` of its `DFHCOMMAREA`,
+  and a copy of `CBACT01C` with `VALUE ZERO` on `OUT-ACCT-ID` of its
+  output record, it reports each.
 - **PLB-C069 search-index-used-unchecked.** None: CardDemo has no
   `SEARCH`.
 - **PLB-Q012 fetch-after-commit.** None: the `SYNCPOINT` statements of

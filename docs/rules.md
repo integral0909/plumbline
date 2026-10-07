@@ -84,6 +84,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C070](#plb-c070-mq-completion-not-checked) | mq-completion-not-checked | warning | Completion code of an MQ call is not tested |
 | [PLB-C071](#plb-c071-contradictory-condition) | contradictory-condition | warning | Equalities joined by AND, or inequalities by OR, of one item |
 | [PLB-C072](#plb-c072-unreachable-statement) | unreachable-statement | warning | Statement after a GO TO, GOBACK, or STOP RUN never runs |
+| [PLB-C073](#plb-c073-value-ignored) | value-ignored | warning | VALUE clause in the FILE or LINKAGE SECTION gives no value |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2006,6 +2007,33 @@ when the value is out of range. A statement that is itself `GO TO`,
 `GOBACK`, `STOP RUN`, `EXIT`, or `CONTINUE` is not reported (a second
 way out, written for safety, does no harm), nor is an `ENTRY`, where a
 caller comes in, or GnuCOBOL's `ENTRY FOR GO TO`.
+
+## PLB-C073 value-ignored
+
+A `VALUE` clause on an item of the `FILE SECTION` or the `LINKAGE
+SECTION`:
+
+```cobol
+FD  OUT-FILE.
+01  OUT-REC.
+    05  OUT-TYPE        PIC X VALUE "H".     *> reported
+```
+
+Storage there is not the program's own. A record holds what was last
+read or moved into it, and a linkage item is the caller's storage, so
+the clause gives the item nothing. GnuCOBOL 3.2 accepts such a clause
+without a warning: in the program above, `WRITE OUT-REC` with nothing
+moved to it writes binary zeros, not `H`. Move the value in before the
+record is used, or move the layout to working storage if that is where
+it belongs.
+
+Condition names (88) and constants (78) are not reported; their values
+mean something. Each record is reported once, at its first `VALUE`.
+Clauses that a copybook brings in are not reported, since one copybook
+is often a working-storage record of one program and a linkage record
+of another. Nor is a record that `ALLOCATE ... INITIALIZED` or
+`INITIALIZE ... TO VALUE` names, or an item of it: those statements
+give it its `VALUE` clauses at run time.
 
 ## PLB-I001 pcb-dbd-unknown
 
