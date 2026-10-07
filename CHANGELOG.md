@@ -470,3 +470,5 @@ uses [Semantic Versioning](https://semver.org/).
   as AT END does, instead of leaving them beside the RECEIVE.
 - Negative numbers in the messages of odo-count-out-of-range and
   varying-refmod-out-of-range had two minus signs.
+- `format` wrote a blank line as a single space where standard output
+  could not be opened as a file (macOS); it writes it empty everywhere.
