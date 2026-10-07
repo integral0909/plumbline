@@ -370,7 +370,9 @@ DISPLAY "SKIPPED WHEN A = 1"      *> skipped too, up to the period
 ```
 
 In code that uses scope terminators this is almost never intended. Use
-`CONTINUE`, which does nothing and lets control reach the terminator.
+`CONTINUE`, which does nothing and lets control reach the terminator;
+in an editor, the language server offers a quick fix that makes the
+change (see [Editors](editors.md)).
 
 ## PLB-C005 perform-thru-backwards
 
