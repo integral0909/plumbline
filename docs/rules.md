@@ -82,6 +82,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C068](#plb-c068-odo-count-out-of-range) | odo-count-out-of-range | error | OCCURS DEPENDING ON count given a value outside the table |
 | [PLB-C069](#plb-c069-search-index-used-unchecked) | search-index-used-unchecked | warning | Index used after a SEARCH that has no AT END |
 | [PLB-C070](#plb-c070-mq-completion-not-checked) | mq-completion-not-checked | warning | Completion code of an MQ call is not tested |
+| [PLB-C071](#plb-c071-contradictory-condition) | contradictory-condition | warning | Equalities joined by AND, or inequalities by OR, of one item |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1952,6 +1953,25 @@ as for [PLB-C018](#plb-c018-sql-not-checked): after the call in its
 paragraph, before the next MQ call that can run after it, or in a
 paragraph performed from there, up to the first MQ call in it. Passing
 the codes to a later MQ call does not count: that call sets them anew.
+
+## PLB-C071 contradictory-condition
+
+A condition that joins equalities of one item with `AND`, or
+inequalities with `OR`, so that it cannot be true, or cannot be false:
+
+```cobol
+    IF WS-STATUS = "00" AND "23"            *> reported: never true
+    IF WS-CODE NOT = 100 OR 200             *> reported: always true
+```
+
+`AND` was meant to be `OR`, or the other way round. The rule reads
+conditions of `IF` and `PERFORM ... UNTIL` that are a chain of
+relations `item [IS] [NOT] = literal` (or `EQUAL [TO]`), with the
+abbreviated forms that leave out the item, or the item and the
+operator, joined all by `AND` or all by `OR`. A condition with
+parentheses that group, other operators, or both `AND` and `OR` is not
+read. The item is compared as written, with its subscripts; literals
+by value, so that trailing spaces and leading zeros do not count.
 
 ## PLB-I001 pcb-dbd-unknown
 
