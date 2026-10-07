@@ -288,7 +288,9 @@ fits in column 72 stays as it is in fixed format.
 Some findings have one obvious repair: `NEXT SENTENCE` inside a scope
 ended by `END-IF` (PLB-C004) becomes `CONTINUE`, a contradictory
 condition (PLB-C071) has its `AND`s made `OR` or its `OR`s made `AND`,
-and a reversed `THRU` range (PLB-C074) has its ends swapped.
+a reversed `THRU` range (PLB-C074) has its ends swapped, and a number
+written in quotes and moved to a numeric item (PLB-C079) loses its
+quotes.
 `plumbline fix` makes those repairs and writes the file to standard
 output; with `--check` it lists them and exits with 1 when there are
 any.

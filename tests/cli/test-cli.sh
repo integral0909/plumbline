@@ -1041,6 +1041,10 @@ check "fix writes a blank line empty"      0 '^$' -- fix $fx/fixable.cob
 check "fix leaves other lines as they are"  0 '^           IF WS-CODE   NOT = "Q" OR "X" OR "Y"' -- fix $fx/fixable.cob
 check "fix --check with nothing to fix"     0 '^$' -- fix --check $fx/clean.cob
 check_absent "fix --disable leaves the rule's fixes" 'PLB-C074' -- fix --check --disable PLB-C074 $fx/fixable.cob
+check "fix takes the quotes off a number"  0 '^           MOVE 1.50 TO WS-RATE WS-LAST$' -- fix $fx/quoted.cob
+check "fix keeps a number's sign"           0 '^           MOVE -12 TO WS-COUNT$' -- fix $fx/quoted.cob
+check "fix leaves a literal that is no number" 0 '^           MOVE "ABC" TO WS-COUNT$' -- fix $fx/quoted.cob
+check_absent "fix --check: no fix for a literal that is no number" ':12:' -- fix --check $fx/quoted.cob
 check "fix writes one file"                 2 'give one file, or use --check' -- fix $fx/fixable.cob $fx/clean.cob
 
 # check_report LABEL FORMAT EXPECTED-COUNT -- ARGS...

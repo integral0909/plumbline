@@ -221,7 +221,9 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C078 string-literal-cut.
 - move-truncation also reports a numeric literal with more decimal
   places than its receiver.
-- Rule PLB-C079 nonnumeric-literal-move.
+- Rule PLB-C079 nonnumeric-literal-move, with a fix (quick fix and
+  `plumbline fix`) that takes the quotes off a number written in
+  quotes.
 - Rule PLB-Q011 cursor-opened-in-loop.
 - Rule PLB-Q012 fetch-after-commit.
 - ICOBOL's xCard and CRT reference formats (`--format xcard`, `--format
