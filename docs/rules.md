@@ -86,6 +86,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C072](#plb-c072-unreachable-statement) | unreachable-statement | warning | Statement after a GO TO, GOBACK, or STOP RUN never runs |
 | [PLB-C073](#plb-c073-value-ignored) | value-ignored | warning | VALUE clause in the FILE or LINKAGE SECTION gives no value |
 | [PLB-C074](#plb-c074-condition-range-reversed) | condition-range-reversed | warning | Condition name has a THRU range whose start is above its end |
+| [PLB-C075](#plb-c075-io-after-close) | io-after-close | warning | I/O statement on a file after its CLOSE, with no OPEN between |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2057,6 +2058,28 @@ lower-case letters, or one is a space. `"a" THRU "Z"` is a range in
 EBCDIC and none in ASCII, and is not reported. Literals with a prefix
 (`X"..."`, `N"..."`), figurative constants, and numbers written with a
 decimal comma or an exponent are not compared.
+
+## PLB-C075 io-after-close
+
+An operation on a file after a `CLOSE` of it, with no `OPEN` between:
+
+```cobol
+    CLOSE IN-FILE
+    READ IN-FILE                  *> reported: file status 47
+```
+
+The file is closed, so the operation fails. With GnuCOBOL 3.2, `READ`
+and `START` return file status 47, `WRITE` 48, `REWRITE` and `DELETE`
+49, and a second `CLOSE` 42; without a `FILE STATUS` check, the
+program goes on as if the operation had worked, or stops.
+
+The operation must come later in the same list of statements as the
+`CLOSE` (the same branch of an `IF`, for example), or, for a `CLOSE`
+directly in a sentence, anywhere later in its paragraph. The first
+operation on the file after the `CLOSE` decides: an `OPEN` there means
+no finding. A `PERFORM` of a procedure, `GO TO`, `CALL`, `EXEC`,
+`GOBACK`, `STOP`, or `EXIT` between the two also means none, since it
+may open the file again or leave. `EXTERNAL` files are not checked.
 
 ## PLB-I001 pcb-dbd-unknown
 
