@@ -17,6 +17,8 @@ PROCEDURE DIVISION.
     *> Reported: above the maximum, and below the minimum.
     MOVE 60 TO ORDER-COUNT
     COMPUTE LINE-COUNT = 1
+    *> Reported: a negative number, written with one sign.
+    MOVE -3 TO ORDER-COUNT
     *> Not reported: within the bounds, and values not written as
     *> numbers.
     MOVE 50 TO ORDER-COUNT

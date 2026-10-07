@@ -464,3 +464,5 @@ uses [Semantic Versioning](https://semver.org/).
   statement are entry points.
 - The NO DATA and WITH DATA phrases of RECEIVE hold their statements,
   as AT END does, instead of leaving them beside the RECEIVE.
+- Negative numbers in the messages of odo-count-out-of-range and
+  varying-refmod-out-of-range had two minus signs.
