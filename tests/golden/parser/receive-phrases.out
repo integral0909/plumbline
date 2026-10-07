@@ -1,0 +1,25 @@
+UNIT @4:1
+  PROG PROGRAM RECVPH @4:1
+    DIVN IDENTIFICATION @4:1
+      IDPA PROGRAM-ID RECVPH @5:1
+    DIVN DATA @6:1
+      SECT WORKING-STORAGE @7:1
+        DATA 1 MSG @8:1
+          CLAU PICTURE X(80) @8:25
+        DATA 1 POLLS @9:1
+          CLAU PICTURE 9(4) @9:25
+    DIVN PROCEDURE @10:1
+      PARA POLL @11:1
+        SENT @12:5
+          STMT RECEIVE @12:5
+            BLCK NO-DATA @13:9
+              STMT ADD @13:17
+              STMT GO @13:32
+                PROC GO POLL @13:38
+        SENT @14:5
+          STMT RECEIVE @14:5
+            BLCK NO-DATA @15:9
+              STMT DISPLAY @16:13
+            BLCK WITH-DATA @17:9
+              STMT DISPLAY @18:13
+          STMT STOP @20:5

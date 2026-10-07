@@ -453,3 +453,5 @@ uses [Semantic Versioning](https://semver.org/).
   branch of the same IF or EVALUATE.
 - PERFORM UNTIL EXIT is a loop, and paragraphs holding an ENTRY
   statement are entry points.
+- The NO DATA and WITH DATA phrases of RECEIVE hold their statements,
+  as AT END does, instead of leaving them beside the RECEIVE.
