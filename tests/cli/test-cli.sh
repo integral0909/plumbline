@@ -1030,7 +1030,8 @@ fx=tests/fixtures/fix
 check "fix --check lists the fixes"         1 'fixable.cob:10:15: PLB-C071: Change AND to OR in this condition$' -- fix --check $fx/fixable.cob
 check "fix --check: NEXT SENTENCE"          1 'fixable.cob:11:16: PLB-C004: Change NEXT SENTENCE to CONTINUE$' -- fix --check $fx/fixable.cob
 check "fix --check: reversed range"         1 'fixable.cob:7:34: PLB-C074: Swap the ends of this range$' -- fix --check $fx/fixable.cob
-check "fix leaves a fix over two lines"     0 'fixable.cob:26:16: PLB-C004: .*: not made, as it spans lines' -- fix $fx/fixable.cob
+check "fix --check: NEXT SENTENCE on two lines" 1 'fixable.cob:26:16: PLB-C004: Change NEXT SENTENCE to CONTINUE$' -- fix --check $fx/fixable.cob
+check "fix makes NEXT SENTENCE on two lines" 0 '^               CONTINUE$' -- fix $fx/fixable.cob
 check "fix keeps code before column 73"     0 'fixable.cob:21:15: PLB-C071: .*: not made, as the line would run past column 72$' -- fix $fx/fixable.cob
 check "fix makes a fix"                     0 '^           IF WS-CODE = "A" or WS-CODE = "B"$' -- fix $fx/fixable.cob
 check "fix keeps the case"                  0 '^               continue$' -- fix $fx/fixable.cob

@@ -302,8 +302,9 @@ $ plumbline fix src/report.cbl > report-fixed.cbl
 The file is written as it was read, with tabs expanded and trailing
 spaces dropped, and its other lines are left as they are. In fixed
 format a line keeps its columns 73 to 80 where they were: a fix that
-would push code past column 72 is not made, nor is one that spans two
-lines; each is reported on standard error. Suppression comments and
+would push code past column 72 is not made, and is reported on
+standard error. `NEXT` and `SENTENCE` on two lines become `CONTINUE`
+on the first, and the second is left blank. Suppression comments and
 disabled rules apply as they do for `check`. The language server offers
 the same repairs as quick fixes.
 
