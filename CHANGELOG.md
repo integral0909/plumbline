@@ -217,6 +217,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C074 condition-range-reversed.
 - Rule PLB-C075 io-after-close.
 - Rule PLB-C076 open-while-open.
+- Rule PLB-C077 index-set-out-of-range.
 - Rule PLB-Q011 cursor-opened-in-loop.
 - Rule PLB-Q012 fetch-after-commit.
 - ICOBOL's xCard and CRT reference formats (`--format xcard`, `--format
@@ -464,3 +465,5 @@ uses [Semantic Versioning](https://semver.org/).
   statement are entry points.
 - The NO DATA and WITH DATA phrases of RECEIVE hold their statements,
   as AT END does, instead of leaving them beside the RECEIVE.
+- Negative numbers in the messages of odo-count-out-of-range and
+  varying-refmod-out-of-range had two minus signs.

@@ -1,5 +1,6 @@
 tests/golden/rules/c068-odo-count-out-of-range.cob:8:39: error: LINE-COUNT is the count of PRINT-LINE, which has 2 to 60 entries, and its VALUE makes it 75 [PLB-C068]
 tests/golden/rules/c068-odo-count-out-of-range.cob:18:10: error: ORDER-COUNT is the count of ORDER-LINE, which has 1 to 50 entries, and this MOVE makes it 60 [PLB-C068]
 tests/golden/rules/c068-odo-count-out-of-range.cob:19:26: error: LINE-COUNT is the count of PRINT-LINE, which has 2 to 60 entries, and this COMPUTE makes it 1 [PLB-C068]
-tests/golden/rules/c068-odo-count-out-of-range.cob:26:13: warning: ORDER-LINE is read but never given a value [PLB-C011]
-tests/golden/rules/c068-odo-count-out-of-range.cob:26:27: warning: PRINT-LINE is read but never given a value [PLB-C011]
+tests/golden/rules/c068-odo-count-out-of-range.cob:21:10: error: ORDER-COUNT is the count of ORDER-LINE, which has 1 to 50 entries, and this MOVE makes it -3 [PLB-C068]
+tests/golden/rules/c068-odo-count-out-of-range.cob:28:13: warning: ORDER-LINE is read but never given a value [PLB-C011]
+tests/golden/rules/c068-odo-count-out-of-range.cob:28:27: warning: PRINT-LINE is read but never given a value [PLB-C011]
