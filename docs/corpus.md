@@ -296,6 +296,11 @@ The findings were checked by rule:
   items their values with `ALLOCATE ... INITIALIZED` and `INITIALIZE
   ... ALL TO VALUE`; those statements now exempt the record.
 
+- **PLB-C078 string-literal-cut.** 10 in NIST, all in `NC217A`, whose
+  tests of `STRING` send literals such as `"B0D"` delimited by `ZERO`
+  and `"B""KJHSF"` delimited by `QUOTE` on purpose, and expect only the
+  part before the delimiter. None in GnuCOBOL's tests.
+
 - **PLB-C077 index-set-out-of-range.** None in NIST, in about 600
   `SET ... TO` statements with a number, or in GnuCOBOL's tests. In a
   copy of `NC231A` with `SET IDX-3 TO 05` made `99`, for a table of 10

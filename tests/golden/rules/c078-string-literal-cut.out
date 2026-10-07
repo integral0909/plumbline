@@ -1,0 +1,4 @@
+tests/golden/rules/c078-string-literal-cut.cob:12:12: warning: DELIMITED BY SPACE cuts this literal at its first delimiter: STRING sends only "DEAR" [PLB-C078]
+tests/golden/rules/c078-string-literal-cut.cob:13:12: warning: DELIMITED BY SPACE cuts this literal at its first delimiter: STRING sends nothing of it [PLB-C078]
+tests/golden/rules/c078-string-literal-cut.cob:16:12: warning: DELIMITED BY "," cuts this literal at its first delimiter: STRING sends only "A" [PLB-C078]
+tests/golden/rules/c078-string-literal-cut.cob:17:12: warning: DELIMITED BY QUOTE cuts this literal at its first delimiter: STRING sends only "SAY " [PLB-C078]

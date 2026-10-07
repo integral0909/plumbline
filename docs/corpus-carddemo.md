@@ -337,6 +337,9 @@ Some findings that were read and are true:
   `COSGN00C` with `VALUE SPACE` on `LK-COMMAREA` of its `DFHCOMMAREA`,
   and a copy of `CBACT01C` with `VALUE ZERO` on `OUT-ACCT-ID` of its
   output record, it reports each.
+- **PLB-C078 string-literal-cut.** None. In a copy of `COUSR03C` whose
+  `' has been deleted ...'` is made `DELIMITED BY SPACE`, it reports
+  that the literal sends nothing.
 - **PLB-C077 index-set-out-of-range.** None: CardDemo has no `SET`
   of an index to a number. In a copy of `COPAUS1C` with `SET
   WS-DECL-RSN-IDX TO 11` before its `SEARCH ALL` of a 10-entry table,

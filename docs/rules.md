@@ -89,6 +89,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C075](#plb-c075-io-after-close) | io-after-close | warning | I/O statement on a file after its CLOSE, with no OPEN between |
 | [PLB-C076](#plb-c076-open-while-open) | open-while-open | warning | OPEN of a file already opened, with no CLOSE between |
 | [PLB-C077](#plb-c077-index-set-out-of-range) | index-set-out-of-range | warning | SET of an index to a number outside its table |
+| [PLB-C078](#plb-c078-string-literal-cut) | string-literal-cut | warning | STRING literal holds its own delimiter and is sent cut short |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2126,6 +2127,27 @@ BY` in the table's `OCCURS` clause, in the same program; the number is
 the literal after `TO`, checked for each index the `SET` names. Zero is
 not reported: an index set to 0 and stepped with `SET ... UP BY 1`
 before it is used is common. Negative numbers are.
+
+## PLB-C078 string-literal-cut
+
+A literal that `STRING` sends with a delimiter the literal holds:
+
+```cobol
+    STRING "DEAR MR " WS-NAME DELIMITED BY SPACE      *> reported
+        INTO WS-LINE
+```
+
+Each operand is sent up to the first occurrence of its delimiter, so
+`"DEAR MR "` sends only `DEAR`, and with GnuCOBOL 3.2 `WS-LINE` reads
+`DEARSMITH`. A literal that starts with its delimiter sends nothing. A
+literal says what is to be sent, so one cut short by its own delimiter
+is a mistake: `DELIMITED BY SIZE` was meant for it, usually with a
+second `DELIMITED BY` phrase for the data items.
+
+The delimiters read are `SPACE`, `ZERO`, and `QUOTE`, with or without
+`ALL`, and alphanumeric literals without a prefix. Delimiters that are
+data items, literals with a prefix (`X"..."`), and literals inside
+parentheses, such as a function's arguments, are not checked.
 
 ## PLB-I001 pcb-dbd-unknown
 
