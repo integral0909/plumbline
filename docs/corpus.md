@@ -296,6 +296,10 @@ The findings were checked by rule:
   items their values with `ALLOCATE ... INITIALIZED` and `INITIALIZE
   ... ALL TO VALUE`; those statements now exempt the record.
 
+- **PLB-C074 condition-range-reversed.** None in NIST or in GnuCOBOL's
+  tests, whose sources have 62 and 13 lines with a `VALUE ... THRU`
+  range.
+
 - **PLB-C069 search-index-used-unchecked.** None in NIST or in
   GnuCOBOL's tests: their `SEARCH` statements have `AT END`, or do not
   use the index after it.

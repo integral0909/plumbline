@@ -1,0 +1,6 @@
+tests/golden/rules/c074-condition-range-reversed.cob:8:31: warning: MONTH-VALID has a range that holds no value: 12 is above 1 [PLB-C074]
+tests/golden/rules/c074-condition-range-reversed.cob:11:42: warning: MONTH-ODD-END has a range that holds no value: 12 is above 10 [PLB-C074]
+tests/golden/rules/c074-condition-range-reversed.cob:14:31: warning: DELTA-NEGATIVE has a range that holds no value: -1 is above -5 [PLB-C074]
+tests/golden/rules/c074-condition-range-reversed.cob:15:31: warning: DELTA-SMALL has a range that holds no value: 1.5 is above 1.25 [PLB-C074]
+tests/golden/rules/c074-condition-range-reversed.cob:19:31: warning: GRADE-PASS has a range that holds no value: "D" is above "A" [PLB-C074]
+tests/golden/rules/c074-condition-range-reversed.cob:21:31: warning: GRADE-PLUS has a range that holds no value: "AB" is above "A" [PLB-C074]
