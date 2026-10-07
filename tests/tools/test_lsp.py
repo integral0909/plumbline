@@ -657,6 +657,49 @@ class LanguageServerTest(unittest.TestCase):
                  self.server.receive()["params"]["diagnostics"]}
         self.assertNotIn("PLB-C004", codes)
 
+    def test_quick_fix_swaps_the_ends_of_a_reversed_range(self):
+        text = ("IDENTIFICATION DIVISION.\nPROGRAM-ID. RANGES.\n"
+                "DATA DIVISION.\nWORKING-STORAGE SECTION.\n"
+                "01  WS-MONTH PIC 99.\n"
+                "    88  MONTH-VALID VALUE 12 THRU 1.\n"
+                "01  WS-GRADE PIC X.\n"
+                "    88  GRADE-PASS VALUE \"D\" THROUGH \"A\".\n"
+                "PROCEDURE DIVISION.\n"
+                "    IF MONTH-VALID OR GRADE-PASS\n"
+                "        DISPLAY WS-MONTH WS-GRADE\n"
+                "    END-IF\n"
+                "    GOBACK.\n")
+        uri = "file:///tmp/plumbline-ranges.cob"
+        self.server.notify("textDocument/didOpen", {"textDocument": {
+            "uri": uri, "languageId": "cobol", "version": 1,
+            "text": text}})
+        codes = [d["code"] for d in
+                 self.server.receive()["params"]["diagnostics"]]
+        self.assertEqual(codes.count("PLB-C074"), 2)
+        lines = text.splitlines(keepends=True)
+        for line in (5, 7):
+            actions = self.server.request("textDocument/codeAction", {
+                "textDocument": {"uri": uri},
+                "range": {"start": {"line": line, "character": 0},
+                          "end": {"line": line, "character": 0}},
+                "context": {"diagnostics": []}})["result"]
+            [swap] = [a for a in actions if a["title"].startswith("Swap")]
+            for edit in sorted(swap["edit"]["changes"][uri],
+                               key=lambda e: -e["range"]["start"]["character"]):
+                start = edit["range"]["start"]["character"]
+                end = edit["range"]["end"]["character"]
+                lines[line] = (lines[line][:start] + edit["newText"]
+                               + lines[line][end:])
+        self.assertEqual(lines[5], "    88  MONTH-VALID VALUE 1 THRU 12.\n")
+        self.assertEqual(lines[7],
+                         "    88  GRADE-PASS VALUE \"A\" THROUGH \"D\".\n")
+        self.server.notify("textDocument/didChange", {
+            "textDocument": {"uri": uri, "version": 2},
+            "contentChanges": [{"text": "".join(lines)}]})
+        codes = {d["code"] for d in
+                 self.server.receive()["params"]["diagnostics"]}
+        self.assertNotIn("PLB-C074", codes)
+
     def test_no_quick_fix_without_a_finding(self):
         self.assertEqual(self.code_actions(0), [])
 

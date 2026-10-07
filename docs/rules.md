@@ -2060,6 +2060,9 @@ EBCDIC and none in ASCII, and is not reported. Literals with a prefix
 (`X"..."`, `N"..."`), figurative constants, and numbers written with a
 decimal comma or an exponent are not compared.
 
+In an editor, the language server offers a quick fix that swaps the
+two ends of the range, as written (see [Editors](editors.md)).
+
 ## PLB-C075 io-after-close
 
 An operation on a file after a `CLOSE` of it, with no `OPEN` between:

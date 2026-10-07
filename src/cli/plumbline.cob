@@ -307,6 +307,11 @@ COPY "plbinput.cpy" REPLACING ==PLB-INPUTS== BY ==WS-CHANGED-FILES==
 01  WS-LSP-JOIN             PIC X(3).
 01  WS-LSP-JOIN-TO          PIC X(3).
 01  WS-LSP-JOIN-FIRST       PIC X.
+*> The quick fix for a reversed THRU range: its two ends, as written.
+01  WS-LSP-RANGE-LOW        PIC 9(9) COMP-5.
+01  WS-LSP-RANGE-HIGH       PIC 9(9) COMP-5.
+01  WS-LSP-RANGE-LOW-TEXT   PIC X(256).
+01  WS-LSP-RANGE-HIGH-TEXT  PIC X(256).
 01  WS-LSP-BLANKS           PIC X(64) VALUE SPACES.
 01  WS-LSP-WORD-KIND        PIC X.
 *> A token's text, for a hover that shows code as written.
@@ -2809,6 +2814,8 @@ LSP-CODE-ACTIONS.
                         PERFORM LSP-APPEND-CONTINUE-ACTION
                     WHEN "PLB-C071"
                         PERFORM LSP-APPEND-SWAP-JOIN-ACTION
+                    WHEN "PLB-C074"
+                        PERFORM LSP-APPEND-SWAP-RANGE-ACTION
                 END-EVALUATE
             END-IF
         END-PERFORM
@@ -2917,6 +2924,83 @@ LSP-APPEND-CONTINUE-ACTION.
             INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
     END-IF
     STRING '"}]}}}' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
+
+*> For a condition name's reversed range (PLB-C074) of finding WS-I,
+*> reported at its start, a quick fix that writes each end in the
+*> other's place, as written. Both ends must be on one line each.
+LSP-APPEND-SWAP-RANGE-ACTION.
+    MOVE FN-COLUMN(WS-I) TO WS-LSP-CHAR
+    PERFORM LSP-TOKEN-AT-LINE-COLUMN
+    IF WS-LSP-TOKEN = 0 OR WS-LSP-TOKEN + 2 > TK-COUNT
+       OR WS-LSP-PTR > LSP-SIZE - 4096
+        EXIT PARAGRAPH
+    END-IF
+    MOVE WS-LSP-TOKEN TO WS-LSP-RANGE-LOW
+    COMPUTE WS-LSP-RANGE-HIGH = WS-LSP-TOKEN + 2
+    COMPUTE WS-TOK = WS-LSP-TOKEN + 1
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS WS-TOK WS-LSP-NAME WS-TOKEN-LEN
+    IF WS-LSP-NAME NOT = "THRU" AND WS-LSP-NAME NOT = "THROUGH"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE WS-LSP-RANGE-LOW TO WS-TOK
+    PERFORM LSP-RANGE-END-TEXT
+    IF WS-LSP-WORD = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    MOVE WS-LSP-WORD TO WS-LSP-RANGE-LOW-TEXT
+    MOVE WS-LSP-RANGE-HIGH TO WS-TOK
+    PERFORM LSP-RANGE-END-TEXT
+    IF WS-LSP-WORD = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    MOVE WS-LSP-WORD TO WS-LSP-RANGE-HIGH-TEXT
+    STRING ',{"title":"Swap the ends of this range","kind":"quickfix",'
+           DELIMITED BY SIZE
+           '"edit":{"changes":{' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    CALL "PLB-JSON-STRING" USING DOC-URI(WS-LSP-DOC-INDEX) WS-LSP-OUT
+        WS-LSP-PTR
+    STRING ':[{"range":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE WS-LSP-RANGE-LOW TO WS-TOK
+    PERFORM LSP-APPEND-TOKEN-RANGE
+    STRING ',"newText":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    CALL "PLB-JSON-STRING" USING WS-LSP-RANGE-HIGH-TEXT WS-LSP-OUT
+        WS-LSP-PTR
+    STRING '},{"range":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    MOVE WS-LSP-RANGE-HIGH TO WS-TOK
+    PERFORM LSP-APPEND-TOKEN-RANGE
+    STRING ',"newText":' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    CALL "PLB-JSON-STRING" USING WS-LSP-RANGE-LOW-TEXT WS-LSP-OUT
+        WS-LSP-PTR
+    STRING '}]}}}' DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    *> The line the findings are looked for on, which the edits moved.
+    MOVE FN-LINE(WS-I) TO WS-LSP-LINE.
+
+*> WS-LSP-WORD: token WS-TOK as written in the document, or spaces when
+*> it is not there on one line.
+LSP-RANGE-END-TEXT.
+    MOVE SPACES TO WS-LSP-WORD
+    IF TK-FILE-ID(WS-TOK) NOT = 1 OR TK-INCL(WS-TOK) NOT = 0
+       OR TK-SRC-LINE(WS-TOK) = 0 OR TK-SPAN(WS-TOK) > 256
+        EXIT PARAGRAPH
+    END-IF
+    IF TK-COLUMN(WS-TOK) - 1 + TK-SPAN(WS-TOK)
+       > SL-TEXT-LEN(TK-SRC-LINE(WS-TOK))
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SS-HEAP(SL-TEXT-OFF(TK-SRC-LINE(WS-TOK)) + TK-COLUMN(WS-TOK) - 1
+                 :TK-SPAN(WS-TOK)) TO WS-LSP-WORD.
+
+*> The range of token WS-TOK, on one line.
+LSP-APPEND-TOKEN-RANGE.
+    MOVE SL-LINE-NO(TK-SRC-LINE(WS-TOK)) TO WS-LSP-LINE
+    MOVE TK-COLUMN(WS-TOK) TO WS-LSP-CHAR
+    MOVE WS-TOK TO WS-LSP-TOKEN
+    PERFORM LSP-APPEND-RANGE.
 
 *> For a contradictory condition (PLB-C071) of finding WS-I, a quick
 *> fix that joins its relations with OR where they are joined with
