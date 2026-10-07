@@ -92,6 +92,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C078](#plb-c078-string-literal-cut) | string-literal-cut | warning | STRING literal holds its own delimiter and is sent cut short |
 | [PLB-C079](#plb-c079-nonnumeric-literal-move) | nonnumeric-literal-move | warning | MOVE of an alphanumeric literal that is not a number to a numeric item |
 | [PLB-C080](#plb-c080-initialize-loses-value) | initialize-loses-value | warning | INITIALIZE replaces the VALUE clauses of items it clears |
+| [PLB-C081](#plb-c081-varying-wrong-direction) | varying-wrong-direction | warning | PERFORM VARYING steps away from its UNTIL condition |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2210,6 +2211,28 @@ uses its `VALUE` clause as a first value only. Items under a
 `REDEFINES` are left alone, as `INITIALIZE` leaves them, and so is a
 statement with a `VALUE` phrase (`INITIALIZE ... ALL TO VALUE`), which
 gives the items their `VALUE` clauses.
+
+## PLB-C081 varying-wrong-direction
+
+A `PERFORM VARYING` whose steps never make its `UNTIL` condition true:
+
+```cobol
+    PERFORM VARYING WS-I FROM 10 BY 1 UNTIL WS-I < 1      *> reported
+    PERFORM VARYING WS-I FROM 1 BY 2 UNTIL WS-I = 10      *> reported
+```
+
+The condition is false at the start, and each step moves the counter
+away from it, or, for `=`, past the limit without reaching it. The loop
+ends only if the counter wraps around at the end of its picture, or
+something else leaves it. With GnuCOBOL 3.2 and a `PIC S9(4)` counter,
+the first loop above runs 9,990 times, until the counter goes from 9999
+to 0; with `BY -1 UNTIL WS-I > 10` it does not end. The sign of `BY`
+or the comparison is usually what is wrong.
+
+Checked are loops whose `FROM`, `BY`, and `UNTIL` limit are literal
+numbers and whose condition is the counter compared with that limit
+alone, as for PLB-C026. A loop whose condition is true at the start
+does not run its body and is not reported.
 
 ## PLB-I001 pcb-dbd-unknown
 
