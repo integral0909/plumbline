@@ -91,6 +91,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C077](#plb-c077-index-set-out-of-range) | index-set-out-of-range | warning | SET of an index to a number outside its table |
 | [PLB-C078](#plb-c078-string-literal-cut) | string-literal-cut | warning | STRING literal holds its own delimiter and is sent cut short |
 | [PLB-C079](#plb-c079-nonnumeric-literal-move) | nonnumeric-literal-move | warning | MOVE of an alphanumeric literal that is not a number to a numeric item |
+| [PLB-C080](#plb-c080-initialize-loses-value) | initialize-loses-value | warning | INITIALIZE replaces the VALUE clauses of items it clears |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2177,6 +2178,38 @@ A literal of digits only is a valid move and is not reported, nor are
 literals with a prefix (`X"F1F2"`) and edited receivers. When the
 literal is a number in quotes, such as `"1.50"`, the language server's
 quick fix and `plumbline fix` take the quotes off.
+
+## PLB-C080 initialize-loses-value
+
+`INITIALIZE` of a group with items whose `VALUE` clause it replaces,
+and that nothing gives back:
+
+```cobol
+01  HEADING-LINE.
+    05  HL-TITLE        PIC X(12) VALUE "SALES REPORT".
+    05  FILLER          PIC X(3)  VALUE " - ".
+    05  HL-PAGE         PIC ZZ9.
+    ...
+    INITIALIZE HEADING-LINE                     *> reported
+```
+
+`INITIALIZE` gives alphanumeric items spaces and numeric items zero,
+whatever their `VALUE` clause says. With GnuCOBOL 3.2, `HL-TITLE` is
+blank afterwards while the `FILLER` keeps ` - `, as `INITIALIZE`
+leaves `FILLER` alone; cobc gives no warning, even with `-Wall`.
+Initialize only the items to clear, or give the values back.
+
+Reported are named elementary items under the item initialized whose
+`VALUE` is not what `INITIALIZE` gives back (not `SPACE` for an
+alphanumeric item, not zero for a numeric or numeric-edited one), that
+are read, directly or as part of a group, and that no statement other
+than an `INITIALIZE` gives a value: not by itself, not through a group
+it is in or an item that redefines one of those, and not by `SET` of
+one of its condition names. An item set again after the `INITIALIZE`
+uses its `VALUE` clause as a first value only. Items under a
+`REDEFINES` are left alone, as `INITIALIZE` leaves them, and so is a
+statement with a `VALUE` phrase (`INITIALIZE ... ALL TO VALUE`), which
+gives the items their `VALUE` clauses.
 
 ## PLB-I001 pcb-dbd-unknown
 

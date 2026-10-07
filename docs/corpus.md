@@ -301,6 +301,13 @@ The findings were checked by rule:
   items their values with `ALLOCATE ... INITIALIZED` and `INITIALIZE
   ... ALL TO VALUE`; those statements now exempt the record.
 
+- **PLB-C080 initialize-loses-value.** None in NIST. 7 in GnuCOBOL's
+  tests of `INITIALIZE` itself (`INITIALIZE level 01 OCCURS`, `Value
+  for group item with VALUE`, and others), which check that it gives
+  spaces and zeros in place of the `VALUE` clauses. A first version
+  reported 31 there; requiring that nothing else gives the item a
+  value took out those whose items are set again.
+
 - **PLB-C079 nonnumeric-literal-move.** None in NIST or in GnuCOBOL's
   tests.
 

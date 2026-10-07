@@ -337,6 +337,15 @@ Some findings that were read and are true:
   `COSGN00C` with `VALUE SPACE` on `LK-COMMAREA` of its `DFHCOMMAREA`,
   and a copy of `CBACT01C` with `VALUE ZERO` on `OUT-ACCT-ID` of its
   output record, it reports each.
+- **PLB-C080 initialize-loses-value.** None. A first version reported
+  23: its programs `INITIALIZE` their working storage at the start,
+  and the flags in it (`ACUP-CHANGE-ACTION VALUE LOW-VALUES`,
+  `WS-EDIT-YES-NO VALUE 'N'`) are set again afterwards, through their
+  condition names, a `MOVE`, or (`WS-EDIT-SELECT-FLAGS`) the table that
+  redefines them; one (`WS-DATE-FORMAT` in `COTRTUPC`) is never read.
+  The rule now leaves such items alone. In a copy of `CBTRN03C` with
+  `INITIALIZE REPORT-NAME-HEADER` before the header is written, it
+  reports the three titles of the report's first line.
 - **PLB-C079 nonnumeric-literal-move.** None. In a copy of `CBACT04C`
   with `MOVE 0 TO WS-TOTAL-INT` made `MOVE '0.00' TO WS-TOTAL-INT`, it
   reports that `MOVE`.
