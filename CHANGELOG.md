@@ -222,6 +222,7 @@ uses [Semantic Versioning](https://semver.org/).
 - move-truncation also reports a numeric literal with more decimal
   places than its receiver.
 - Rule PLB-C080 initialize-loses-value.
+- Rule PLB-C081 varying-wrong-direction.
 - Rule PLB-C079 nonnumeric-literal-move, with a fix (quick fix and
   `plumbline fix`) that takes the quotes off a number written in
   quotes.

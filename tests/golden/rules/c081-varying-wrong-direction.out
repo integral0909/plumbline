@@ -1,0 +1,3 @@
+tests/golden/rules/c081-varying-wrong-direction.cob:11:37: warning: WS-I starts at 10 and goes up by 1, away from the UNTIL condition: the condition never becomes true [PLB-C081]
+tests/golden/rules/c081-varying-wrong-direction.cob:14:36: warning: WS-J starts at 1 and goes down by 1, away from the UNTIL condition: the condition never becomes true [PLB-C081]
+tests/golden/rules/c081-varying-wrong-direction.cob:18:36: warning: WS-I starts at 1 and goes up by 2, past 10 without reaching it: the condition never becomes true [PLB-C081]

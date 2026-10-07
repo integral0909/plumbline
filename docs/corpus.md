@@ -301,6 +301,10 @@ The findings were checked by rule:
   items their values with `ALLOCATE ... INITIALIZED` and `INITIALIZE
   ... ALL TO VALUE`; those statements now exempt the record.
 
+- **PLB-C081 varying-wrong-direction.** None in NIST or in GnuCOBOL's
+  tests. In a copy of `EXEC85` with `BY 1` of a loop `UNTIL SUB7 > 50`
+  made `BY -1`, it reports that loop.
+
 - **PLB-C080 initialize-loses-value.** None in NIST. 7 in GnuCOBOL's
   tests of `INITIALIZE` itself (`INITIALIZE level 01 OCCURS`, `Value
   for group item with VALUE`, and others), which check that it gives

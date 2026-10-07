@@ -5,6 +5,7 @@
 *>   PLB-C028  comparison-never-true
 *>   PLB-C044  varying-control-changed
 *>   PLB-C049  loop-condition-unchanged
+*>   PLB-C081  varying-wrong-direction
 *>
 *> PERFORM VARYING I ... UNTIL I > 99, with I PIC 99: I goes from 99
 *> to 00 when it is increased, so it is never greater than 99, and the
@@ -23,6 +24,13 @@
 *> PLB-C028 applies the same test to every condition of the form
 *> item op literal in an IF, an UNTIL, or a WHEN, except on the
 *> counters that C026 checks.
+*>
+*> PLB-C081 reads the same loops, with FROM and BY literals too: when
+*> the UNTIL condition is false at the start and each step moves the
+*> counter away from it (BY -1 UNTIL I > 10), or, for =, past the
+*> limit without reaching it (FROM 1 BY 2 UNTIL I = 10), the condition
+*> never comes true; the loop ends only when the counter wraps around
+*> at the end of its picture, or never.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-LOOPS.
@@ -46,6 +54,14 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-RULE-COMPARE         PIC 9(4) COMP-5.
 01  LS-RULE-ALNUM           PIC 9(4) COMP-5.
+01  LS-RULE-STEP            PIC 9(4) COMP-5.
+*> PLB-C081: the UNTIL limit, the FROM and BY values, and their tokens.
+01  LS-UNTIL-VALUE          PIC S9(18) COMP-5.
+01  LS-FROM-VALUE           PIC S9(18) COMP-5.
+01  LS-STEP-VALUE           PIC S9(18) COMP-5.
+01  LS-STEP-TOKEN           PIC 9(9) COMP-5.
+01  LS-UNTIL-TOKEN          PIC 9(9) COMP-5.
+01  LS-AWAY                 PIC X.
 01  LS-COND                 PIC 9(9) COMP-5.
 01  LS-BLOCK                PIC 9(9) COMP-5.
 01  LS-SUBJECT              PIC 9(9) COMP-5.
@@ -92,10 +108,11 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C026" LS-RULE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C028" LS-RULE-COMPARE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C045" LS-RULE-ALNUM
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C081" LS-RULE-STEP
     IF AS-COUNT = 0
         GOBACK
     END-IF
-    IF RL-ENABLED(LS-RULE) = "Y"
+    IF RL-ENABLED(LS-RULE) = "Y" OR RL-ENABLED(LS-RULE-STEP) = "Y"
         MOVE 1 TO LS-NODE
         MOVE 0 TO LS-DEPTH
         PERFORM UNTIL LS-NODE = 0
@@ -459,9 +476,6 @@ CHECK-PERFORM.
         EXIT PARAGRAPH
     END-IF
     PERFORM COUNTER-RANGE
-    IF LS-LARGEST < 0
-        EXIT PARAGRAPH
-    END-IF
     CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-COUNTER-TOKEN LS-COUNTER
         LS-LEN
     *> UNTIL counter op literal
@@ -477,6 +491,7 @@ CHECK-PERFORM.
     IF LS-T >= LS-LIMIT
         EXIT PARAGRAPH
     END-IF
+    MOVE LS-T TO LS-UNTIL-TOKEN
     ADD 1 TO LS-T
     IF NOT TK-IS-WORD(LS-T)
         EXIT PARAGRAPH
@@ -508,10 +523,131 @@ CHECK-PERFORM.
             END-IF
         END-IF
     END-IF
-    PERFORM DECIDE
-    IF LS-NEVER = "Y"
-        PERFORM REPORT-LOOP
+    *> PLB-C026 needs the counter's range.
+    IF RL-ENABLED(LS-RULE) = "Y" AND LS-LARGEST >= 0
+        PERFORM DECIDE
+        IF LS-NEVER = "Y"
+            PERFORM REPORT-LOOP
+        END-IF
+    END-IF
+    IF RL-ENABLED(LS-RULE-STEP) = "Y"
+        MOVE LS-VALUE TO LS-UNTIL-VALUE
+        PERFORM CHECK-STEP
     END-IF.
+
+*> PLB-C081: FROM literal BY literal between the counter and UNTIL.
+CHECK-STEP.
+    MOVE 0 TO LS-STEP-TOKEN
+    MOVE "N" TO LS-NEVER
+    PERFORM VARYING LS-NEXT FROM LS-COUNTER-TOKEN BY 1
+            UNTIL LS-NEXT >= LS-UNTIL-TOKEN
+        IF TK-IS-WORD(LS-NEXT)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-NEXT LS-WORD LS-LEN
+            EVALUATE LS-WORD
+                WHEN "FROM"
+                    COMPUTE LS-T = LS-NEXT + 1
+                    PERFORM READ-LITERAL
+                    IF LS-VALUE-TOKEN = 0
+                        EXIT PARAGRAPH
+                    END-IF
+                    MOVE LS-VALUE TO LS-FROM-VALUE
+                    MOVE "Y" TO LS-NEVER
+                WHEN "BY"
+                    COMPUTE LS-T = LS-NEXT + 1
+                    PERFORM READ-LITERAL
+                    IF LS-VALUE-TOKEN = 0 OR LS-NEVER = "N"
+                        EXIT PARAGRAPH
+                    END-IF
+                    MOVE LS-VALUE TO LS-STEP-VALUE
+                    MOVE LS-VALUE-TOKEN TO LS-STEP-TOKEN
+                    EXIT PERFORM
+            END-EVALUATE
+        END-IF
+    END-PERFORM
+    IF LS-STEP-TOKEN = 0 OR LS-STEP-VALUE = 0
+        EXIT PARAGRAPH
+    END-IF
+    *> True at the start: the body does not run, which is no concern
+    *> of this rule.
+    EVALUATE LS-OP
+        WHEN "G"
+            IF LS-FROM-VALUE > LS-UNTIL-VALUE
+                EXIT PARAGRAPH
+            END-IF
+        WHEN "H"
+            IF LS-FROM-VALUE >= LS-UNTIL-VALUE
+                EXIT PARAGRAPH
+            END-IF
+        WHEN "E"
+            IF LS-FROM-VALUE = LS-UNTIL-VALUE
+                EXIT PARAGRAPH
+            END-IF
+        WHEN "L"
+            IF LS-FROM-VALUE < LS-UNTIL-VALUE
+                EXIT PARAGRAPH
+            END-IF
+        WHEN "M"
+            IF LS-FROM-VALUE <= LS-UNTIL-VALUE
+                EXIT PARAGRAPH
+            END-IF
+    END-EVALUATE
+    MOVE SPACE TO LS-AWAY
+    EVALUATE TRUE
+        WHEN (LS-OP = "G" OR LS-OP = "H") AND LS-STEP-VALUE < 0
+            MOVE "A" TO LS-AWAY
+        WHEN (LS-OP = "L" OR LS-OP = "M") AND LS-STEP-VALUE > 0
+            MOVE "A" TO LS-AWAY
+        WHEN LS-OP = "E"
+            IF (LS-UNTIL-VALUE - LS-FROM-VALUE) * LS-STEP-VALUE < 0
+                MOVE "A" TO LS-AWAY
+            ELSE
+                IF FUNCTION MOD(LS-UNTIL-VALUE - LS-FROM-VALUE,
+                                LS-STEP-VALUE) NOT = 0
+                    MOVE "P" TO LS-AWAY
+                END-IF
+            END-IF
+    END-EVALUATE
+    IF LS-AWAY NOT = SPACE
+        PERFORM REPORT-STEP
+    END-IF.
+
+REPORT-STEP.
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    STRING LS-COUNTER DELIMITED BY SPACE
+           " starts at " DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    MOVE LS-FROM-VALUE TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    IF LS-STEP-VALUE > 0
+        STRING " and goes up by " DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+        MOVE LS-STEP-VALUE TO LS-NUM
+    ELSE
+        STRING " and goes down by " DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+        COMPUTE LS-NUM = 0 - LS-STEP-VALUE
+    END-IF
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    IF LS-AWAY = "A"
+        STRING ", away from the UNTIL condition" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    ELSE
+        STRING ", past " DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+        MOVE LS-UNTIL-VALUE TO LS-NUM
+        CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+        STRING LS-NUM-TEXT(1:LS-NUM-LEN) " without reaching it"
+            DELIMITED BY SIZE INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    STRING ": the condition never becomes true" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-STEP LS-STEP-TOKEN LS-MESSAGE.
 
 *> LS-S = the counter's symbol, when it is a data item named without
 *> subscripts; else 0.
