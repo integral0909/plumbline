@@ -90,6 +90,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C076](#plb-c076-open-while-open) | open-while-open | warning | OPEN of a file already opened, with no CLOSE between |
 | [PLB-C077](#plb-c077-index-set-out-of-range) | index-set-out-of-range | warning | SET of an index to a number outside its table |
 | [PLB-C078](#plb-c078-string-literal-cut) | string-literal-cut | warning | STRING literal holds its own delimiter and is sent cut short |
+| [PLB-C079](#plb-c079-nonnumeric-literal-move) | nonnumeric-literal-move | warning | MOVE of an alphanumeric literal that is not a number to a numeric item |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2152,6 +2153,28 @@ The delimiters read are `SPACE`, `ZERO`, and `QUOTE`, with or without
 `ALL`, and alphanumeric literals without a prefix. Delimiters that are
 data items, literals with a prefix (`X"..."`), and literals inside
 parentheses, such as a function's arguments, are not checked.
+
+## PLB-C079 nonnumeric-literal-move
+
+`MOVE` of an alphanumeric literal that is not a number, with a
+character other than a digit, to a numeric item:
+
+```cobol
+01  WS-COUNT            PIC 9(3).
+01  WS-AMOUNT           PIC S9(5)V99 COMP-3.
+    MOVE "1.5" TO WS-COUNT                      *> reported
+    MOVE "1.50" TO WS-AMOUNT                    *> reported
+```
+
+An alphanumeric literal is moved as if it were an unsigned integer of
+its characters, so the item does not get the value written. With
+GnuCOBOL 3.2, `WS-COUNT` holds the characters `1.5`, fails a `NUMERIC`
+test, and `ADD 1` to it gives 246; `WS-AMOUNT` becomes 850.00.
+GnuCOBOL warns only with `-Wall` (`-Wtyping`). Write the number without
+quotes.
+
+A literal of digits only is a valid move and is not reported, nor are
+literals with a prefix (`X"F1F2"`) and edited receivers.
 
 ## PLB-I001 pcb-dbd-unknown
 

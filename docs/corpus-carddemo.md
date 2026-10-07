@@ -337,6 +337,9 @@ Some findings that were read and are true:
   `COSGN00C` with `VALUE SPACE` on `LK-COMMAREA` of its `DFHCOMMAREA`,
   and a copy of `CBACT01C` with `VALUE ZERO` on `OUT-ACCT-ID` of its
   output record, it reports each.
+- **PLB-C079 nonnumeric-literal-move.** None. In a copy of `CBACT04C`
+  with `MOVE 0 TO WS-TOTAL-INT` made `MOVE '0.00' TO WS-TOTAL-INT`, it
+  reports that `MOVE`.
 - **PLB-C078 string-literal-cut.** None. In a copy of `COUSR03C` whose
   `' has been deleted ...'` is made `DELIMITED BY SPACE`, it reports
   that the literal sends nothing.

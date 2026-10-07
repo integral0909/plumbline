@@ -301,6 +301,9 @@ The findings were checked by rule:
   items their values with `ALLOCATE ... INITIALIZED` and `INITIALIZE
   ... ALL TO VALUE`; those statements now exempt the record.
 
+- **PLB-C079 nonnumeric-literal-move.** None in NIST or in GnuCOBOL's
+  tests.
+
 - **PLB-C078 string-literal-cut.** 10 in NIST, all in `NC217A`, whose
   tests of `STRING` send literals such as `"B0D"` delimited by `ZERO`
   and `"B""KJHSF"` delimited by `QUOTE` on purpose, and expect only the
