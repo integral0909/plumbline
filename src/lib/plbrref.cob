@@ -132,7 +132,11 @@ END PROGRAM PLB-RULE-NAMES.
 *>     receiver: the rightmost characters are lost;
 *>   - a numeric literal or item with more integer digits than a
 *>     numeric receiver: the high-order digits are lost, which silently
-*>     changes the value.
+*>     changes the value;
+*>   - a numeric literal with more decimal places than a numeric
+*>     receiver (trailing zeros do not count): the low-order digits
+*>     are lost. Items are not checked for that, as dropping decimal
+*>     places of a computed value is often what is meant.
 *>
 *> Items with reference modification, MOVE CORRESPONDING, and moves of
 *> ALL literals, figurative constants, and function results are not
@@ -187,6 +191,10 @@ LOCAL-STORAGE SECTION.
 01  LS-JUSTIFIED            PIC X.
 01  LS-CHILD                PIC 9(9) COMP-5.
 01  LS-SEND-INT             PIC S9(9) COMP-5.
+*> Decimal places of a numeric literal, without trailing zeros.
+01  LS-SEND-DEC             PIC S9(9) COMP-5.
+01  LS-IN-DECIMALS          PIC X.
+01  LS-DECIMAL              PIC S9(9) COMP-5.
 01  LS-SEND-SYM             PIC 9(9) COMP-5.
 01  LS-SEND-NAME            PIC X(40).
 01  LS-RECV                 PIC 9(9) COMP-5.
@@ -322,22 +330,30 @@ CLASSIFY-SENDER.
     END-EVALUATE.
 
 *> Integer digits of the numeric literal at LS-SENDER, without sign
-*> or leading zeros. Floating-point literals are not checked.
+*> or leading zeros, and its decimal places, without trailing zeros.
+*> Floating-point literals are not checked.
 LITERAL-INTEGER-DIGITS.
-    MOVE 0 TO LS-SEND-INT
-    MOVE "N" TO LS-DIGITS-SEEN
+    MOVE 0 TO LS-SEND-INT LS-SEND-DEC LS-DECIMAL
+    MOVE "N" TO LS-DIGITS-SEEN LS-IN-DECIMALS
     MOVE "N" TO LS-SEND-KIND
     PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > LS-LEN
         EVALUATE TRUE
             WHEN LS-TEXT(LS-I:1) = "." OR LS-TEXT(LS-I:1) = ","
-                EXIT PERFORM
+                MOVE "Y" TO LS-IN-DECIMALS
             WHEN LS-TEXT(LS-I:1) = "E" OR LS-TEXT(LS-I:1) = "e"
                 MOVE "-" TO LS-SEND-KIND
                 EXIT PERFORM
-            WHEN LS-TEXT(LS-I:1) >= "1" AND LS-TEXT(LS-I:1) <= "9"
+            WHEN LS-TEXT(LS-I:1) < "0" OR LS-TEXT(LS-I:1) > "9"
+                CONTINUE
+            WHEN LS-IN-DECIMALS = "Y"
+                ADD 1 TO LS-DECIMAL
+                IF LS-TEXT(LS-I:1) NOT = "0"
+                    MOVE LS-DECIMAL TO LS-SEND-DEC
+                END-IF
+            WHEN LS-TEXT(LS-I:1) NOT = "0"
                 MOVE "Y" TO LS-DIGITS-SEEN
                 ADD 1 TO LS-SEND-INT
-            WHEN LS-TEXT(LS-I:1) = "0" AND LS-DIGITS-SEEN = "Y"
+            WHEN LS-DIGITS-SEEN = "Y"
                 ADD 1 TO LS-SEND-INT
         END-EVALUATE
     END-PERFORM.
@@ -394,6 +410,11 @@ CHECK-RECEIVER.
             COMPUTE LS-RECV-INT = SY-DIGITS(LS-RECV) - SY-SCALE(LS-RECV)
             IF LS-SEND-KIND = "N" AND LS-SEND-INT > LS-RECV-INT
                 PERFORM REPORT-DIGITS
+            END-IF
+            IF LS-SEND-KIND = "N" AND SY-CATEGORY(LS-RECV) = "9"
+               AND SY-SCALE(LS-RECV) >= 0
+               AND LS-SEND-DEC > SY-SCALE(LS-RECV)
+                PERFORM REPORT-DECIMALS
             END-IF
             IF LS-SEND-KIND = "D"
                 IF SY-CATEGORY(LS-SEND-SYM) = "9"
@@ -533,6 +554,22 @@ REPORT-DIGITS.
     STRING "MOVE loses high-order digits: " DELIMITED BY SIZE
            LS-SEND-NAME DELIMITED BY SPACE
            " has " LS-A-TEXT(1:LS-A-LEN) " integer digits, "
+           DELIMITED BY SIZE
+           SY-NAME(LS-RECV) DELIMITED BY SPACE
+           " has " LS-B-TEXT(1:LS-B-LEN) DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    PERFORM REPORT-FINDING.
+
+REPORT-DECIMALS.
+    MOVE LS-SEND-DEC TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-A-TEXT LS-A-LEN
+    MOVE SY-SCALE(LS-RECV) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-B-TEXT LS-B-LEN
+    MOVE LS-RULE-TRUNCATION TO LS-RULE
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-SENDER LS-SEND-NAME LS-LEN
+    STRING "MOVE loses low-order digits: " DELIMITED BY SIZE
+           LS-SEND-NAME DELIMITED BY SPACE
+           " has " LS-A-TEXT(1:LS-A-LEN) " decimal places, "
            DELIMITED BY SIZE
            SY-NAME(LS-RECV) DELIMITED BY SPACE
            " has " LS-B-TEXT(1:LS-B-LEN) DELIMITED BY SIZE

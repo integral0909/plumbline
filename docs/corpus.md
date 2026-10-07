@@ -55,7 +55,7 @@ Plumbline learned to join such a line.
 | PLB-M001 go-to | 20,574 |
 | PLB-C001 unreachable-code | 5,666 |
 | PLB-M003 unused-data-item | 3,238 |
-| PLB-C008 move-truncation | 476 |
+| PLB-C008 move-truncation | 477 |
 | PLB-M005 set-never-read | 313 |
 | PLB-C002 perform-and-fall-through | 257 |
 | PLB-C020 file-status-not-checked | 105 |
@@ -172,7 +172,12 @@ The findings were checked by rule:
   are true once trailing spaces are not counted (`"WRITE NOT INVALID
   END-"` into a 20-character FEATURE loses `D-`). Numeric findings
   report a MOVE whose receiver has fewer integer digits than the
-  sender. The suite does this on purpose to display results.
+  sender. The suite does this on purpose to display results. One
+  finding is a literal with more decimal places than its receiver:
+  `MOVE 123.45 TO MOVE40`, a `9999V9` item, in `NC105A`, which expects
+  `123.4`. In GnuCOBOL's tests there is one too, in `Numeric
+  operations (3) PACKED-DECIMAL`, whose comment says the last digits
+  are truncated.
 - **PLB-C036 arithmetic-overflow.** 31 findings, a sample read. The
   operands are declared wider than the values they hold: `DNAME-10`
   is `PIC 9(18) VALUE 1` and is added into a `PIC 9(17)` total, and

@@ -429,7 +429,11 @@ A `MOVE` whose receiver cannot hold what is moved:
 A literal that is too long loses its rightmost characters. A number
 with more integer digits than its receiver loses its high-order digits,
 which silently changes the value: `MOVE 12345 TO SMALL-NUM` stores 345.
-Leading zeros of a literal do not count.
+Leading zeros of a literal do not count. A numeric literal with more
+decimal places than its receiver loses its low-order digits:
+`MOVE 1.255 TO BIG-NUM` stores 1.25. Trailing zeros do not count, and
+data items are not checked for decimal places, since dropping those of
+a computed value is often what is meant.
 
 Sizes come from the symbol table. Reference-modified operands, `MOVE
 CORRESPONDING`, `ALL` literals, figurative constants, function results,
