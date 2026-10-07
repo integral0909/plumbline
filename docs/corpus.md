@@ -296,6 +296,13 @@ The findings were checked by rule:
   items their values with `ALLOCATE ... INITIALIZED` and `INITIALIZE
   ... ALL TO VALUE`; those statements now exempt the record.
 
+- **PLB-C076 open-while-open.** 1 in NIST, in `IX118A`, which opens
+  `IX-FS3` twice on purpose to test file status 41. None in GnuCOBOL's
+  tests. A first version reported 1 in `EXTFH: SEQUENTIAL files`, which
+  opens a file that does not exist, displays the file status, and opens
+  it again in another mode; a reference to the status item between the
+  two now means no finding.
+
 - **PLB-C075 io-after-close.** None in NIST or in GnuCOBOL's tests.
   The tests that close a file and use it again (`START INDEXED`,
   `First READ on empty SEQUENTIAL INDEXED file`, and others) open it

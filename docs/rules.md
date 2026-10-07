@@ -87,6 +87,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C073](#plb-c073-value-ignored) | value-ignored | warning | VALUE clause in the FILE or LINKAGE SECTION gives no value |
 | [PLB-C074](#plb-c074-condition-range-reversed) | condition-range-reversed | warning | Condition name has a THRU range whose start is above its end |
 | [PLB-C075](#plb-c075-io-after-close) | io-after-close | warning | I/O statement on a file after its CLOSE, with no OPEN between |
+| [PLB-C076](#plb-c076-open-while-open) | open-while-open | warning | OPEN of a file already opened, with no CLOSE between |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2080,6 +2081,29 @@ operation on the file after the `CLOSE` decides: an `OPEN` there means
 no finding. A `PERFORM` of a procedure, `GO TO`, `CALL`, `EXEC`,
 `GOBACK`, `STOP`, or `EXIT` between the two also means none, since it
 may open the file again or leave. `EXTERNAL` files are not checked.
+
+## PLB-C076 open-while-open
+
+An `OPEN` of a file that an earlier `OPEN` left open, with no `CLOSE`
+between:
+
+```cobol
+    OPEN INPUT IN-FILE
+    READ IN-FILE
+    OPEN INPUT IN-FILE            *> reported: file status 41
+```
+
+The second `OPEN` fails with file status 41 (GnuCOBOL 3.2), and the
+file stays as the first `OPEN` left it, in that `OPEN`'s mode. The two
+are found as for PLB-C075: the second in the first's list of
+statements, or later in its paragraph, with no `PERFORM` of a
+procedure, `GO TO`, `CALL`, `EXEC`, `GOBACK`, `STOP`, or `EXIT`
+between. Other operations on the file between them do not matter.
+
+When the file's `FILE STATUS` item is named between the two, the
+program looks at whether the first `OPEN` worked (a file that is
+missing, opened again in another mode), and nothing is reported.
+`OPEN` statements on every pass of a loop are PLB-C065.
 
 ## PLB-I001 pcb-dbd-unknown
 

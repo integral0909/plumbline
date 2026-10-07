@@ -337,6 +337,8 @@ Some findings that were read and are true:
   `COSGN00C` with `VALUE SPACE` on `LK-COMMAREA` of its `DFHCOMMAREA`,
   and a copy of `CBACT01C` with `VALUE ZERO` on `OUT-ACCT-ID` of its
   output record, it reports each.
+- **PLB-C076 open-while-open.** None. In a copy of `CBACT01C` with its
+  `OPEN INPUT ACCTFILE-FILE` written twice, it reports the second.
 - **PLB-C075 io-after-close.** None. In a copy of `CBACT01C` with a
   `READ ACCTFILE-FILE` after the `CLOSE` in `9000-ACCTFILE-CLOSE`, and
   one with a `CLOSE OUT-FILE` before the `WRITE OUT-ACCT-REC`, it
