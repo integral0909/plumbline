@@ -218,6 +218,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C075 io-after-close.
 - Rule PLB-C076 open-while-open.
 - Rule PLB-C077 index-set-out-of-range.
+- Rule PLB-C078 string-literal-cut.
 - Rule PLB-Q011 cursor-opened-in-loop.
 - Rule PLB-Q012 fetch-after-commit.
 - ICOBOL's xCard and CRT reference formats (`--format xcard`, `--format
