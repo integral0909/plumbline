@@ -618,6 +618,45 @@ class LanguageServerTest(unittest.TestCase):
                  self.server.receive()["params"]["diagnostics"]}
         self.assertNotIn("PLB-C071", codes)
 
+    def test_quick_fix_puts_continue_for_next_sentence(self):
+        text = ("IDENTIFICATION DIVISION.\nPROGRAM-ID. NEXTS.\n"
+                "DATA DIVISION.\nWORKING-STORAGE SECTION.\n"
+                "01  WS-A PIC 9.\n"
+                "PROCEDURE DIVISION.\n"
+                "    IF WS-A = 1\n"
+                "        next\n"
+                "            sentence\n"
+                "    ELSE\n"
+                "        MOVE 2 TO WS-A\n"
+                "    END-IF\n"
+                "    GOBACK.\n")
+        uri = "file:///tmp/plumbline-nexts.cob"
+        self.server.notify("textDocument/didOpen", {"textDocument": {
+            "uri": uri, "languageId": "cobol", "version": 1,
+            "text": text}})
+        codes = {d["code"] for d in
+                 self.server.receive()["params"]["diagnostics"]}
+        self.assertIn("PLB-C004", codes)
+        actions = self.server.request("textDocument/codeAction", {
+            "textDocument": {"uri": uri},
+            "range": {"start": {"line": 7, "character": 0},
+                      "end": {"line": 7, "character": 0}},
+            "context": {"diagnostics": []}})["result"]
+        [fix] = [a for a in actions if a["title"].startswith("Change")]
+        self.assertEqual(fix["title"], "Change NEXT SENTENCE to CONTINUE")
+        [edit] = fix["edit"]["changes"][uri]
+        self.assertEqual(edit, {"range": {
+            "start": {"line": 7, "character": 8},
+            "end": {"line": 8, "character": 20}}, "newText": "continue"})
+        lines = text.splitlines(keepends=True)
+        lines[7:9] = ["        continue\n"]
+        self.server.notify("textDocument/didChange", {
+            "textDocument": {"uri": uri, "version": 2},
+            "contentChanges": [{"text": "".join(lines)}]})
+        codes = {d["code"] for d in
+                 self.server.receive()["params"]["diagnostics"]}
+        self.assertNotIn("PLB-C004", codes)
+
     def test_no_quick_fix_without_a_finding(self):
         self.assertEqual(self.code_actions(0), [])
 
