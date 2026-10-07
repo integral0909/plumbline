@@ -1,0 +1,2 @@
+tests/golden/rules/c073-value-ignored.cob:14:31: warning: VALUE gives OUT-TYPE nothing: in the FILE SECTION, the record holds what was last read or moved into it [PLB-C073]
+tests/golden/rules/c073-value-ignored.cob:22:31: warning: VALUE gives LK-FLAG nothing: in the LINKAGE SECTION, the item is the caller's storage [PLB-C073]
