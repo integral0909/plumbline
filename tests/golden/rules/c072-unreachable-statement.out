@@ -1,0 +1,5 @@
+tests/golden/rules/c072-unreachable-statement.cob:13:9: note: GO TO makes the flow of control hard to follow [PLB-M001]
+tests/golden/rules/c072-unreachable-statement.cob:15:9: warning: DISPLAY never runs: it comes after the GO TO on line 13 [PLB-C072]
+tests/golden/rules/c072-unreachable-statement.cob:19:5: note: GO TO makes the flow of control hard to follow [PLB-M001]
+tests/golden/rules/c072-unreachable-statement.cob:21:5: note: GO TO makes the flow of control hard to follow [PLB-M001]
+tests/golden/rules/c072-unreachable-statement.cob:26:5: warning: DISPLAY never runs: it comes after the GOBACK on line 24 [PLB-C072]

@@ -279,6 +279,16 @@ The findings were checked by rule:
 - **PLB-C071 contradictory-condition.** None in NIST or in GnuCOBOL's
   tests.
 
+- **PLB-C072 unreachable-statement.** 2 in NIST, both in `NC102A`,
+  which tests `GO TO` on purpose: `GO TO GO--PASS-F1-1` followed by
+  `PERFORM FAIL`, which runs only if the `GO TO` does not jump. None in
+  GnuCOBOL's tests. A first version reported 7 in NIST programs that
+  `RECEIVE ... NO DATA ... GO TO`: the parser did not know the `NO DATA`
+  phrase, so its `GO TO` stood beside the `RECEIVE`; it now parses the
+  phrase. It also reported 16 in GnuCOBOL's tests of `ENTRY` and of
+  `ENTRY FOR GO TO`, where a caller or a `GO TO ENTRY` comes in after a
+  `GOBACK`, `STOP RUN`, or `GO TO`; those are no longer reported.
+
 - **PLB-C069 search-index-used-unchecked.** None in NIST or in
   GnuCOBOL's tests: their `SEARCH` statements have `AT END`, or do not
   use the index after it.
