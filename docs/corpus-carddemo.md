@@ -325,6 +325,12 @@ Some findings that were read and are true:
 - **PLB-C071 contradictory-condition.** None. In a copy of `CBACT04C`
   whose `IF DISCGRP-STATUS = '00' OR '23'` is made `AND`, it reports
   that condition.
+- **PLB-C072 unreachable-statement.** None. In copies of `CBACT01C`
+  with its `GOBACK` moved before the `DISPLAY` above it, with a `GO TO
+  9999-ABEND-PROGRAM` put first in the success branch of
+  `1000-ACCTFILE-GET-NEXT`, or with a `GOBACK` before one of its
+  `PERFORM 9999-ABEND-PROGRAM` statements, it reports the statement
+  after each.
 - **PLB-C069 search-index-used-unchecked.** None: CardDemo has no
   `SEARCH`.
 - **PLB-Q012 fetch-after-commit.** None: the `SYNCPOINT` statements of

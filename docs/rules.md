@@ -83,6 +83,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C069](#plb-c069-search-index-used-unchecked) | search-index-used-unchecked | warning | Index used after a SEARCH that has no AT END |
 | [PLB-C070](#plb-c070-mq-completion-not-checked) | mq-completion-not-checked | warning | Completion code of an MQ call is not tested |
 | [PLB-C071](#plb-c071-contradictory-condition) | contradictory-condition | warning | Equalities joined by AND, or inequalities by OR, of one item |
+| [PLB-C072](#plb-c072-unreachable-statement) | unreachable-statement | warning | Statement after a GO TO, GOBACK, or STOP RUN never runs |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1976,6 +1977,33 @@ by value, so that trailing spaces and leading zeros do not count.
 In an editor, the language server offers a quick fix that changes the
 condition's `AND`s to `OR`, or its `OR`s to `AND` (see
 [Editors](editors.md)).
+
+## PLB-C072 unreachable-statement
+
+A statement after one that never lets control go on: `GO TO`,
+`GOBACK`, or `STOP RUN`, in the same list of statements (a branch of an
+`IF`, a phrase such as `AT END`, a sentence), or in a later sentence of
+the same paragraph:
+
+```cobol
+    IF WS-EOF = "Y"
+        GO TO 900-FINISH
+        CLOSE IN-FILE                 *> reported: never runs
+    END-IF
+```
+
+Control cannot enter a paragraph between its sentences, so nothing
+reaches the statement. Usually the statements are in the wrong order,
+or the `GO TO` was added to code that was meant to run first. Where
+PLB-C001 reports whole paragraphs that nothing reaches, this rule
+reports the statements inside a paragraph.
+
+The first statement of each dead stretch is reported. `GO TO ...
+DEPENDING ON` does not count, since it goes on to the next statement
+when the value is out of range. A statement that is itself `GO TO`,
+`GOBACK`, `STOP RUN`, `EXIT`, or `CONTINUE` is not reported (a second
+way out, written for safety, does no harm), nor is an `ENTRY`, where a
+caller comes in, or GnuCOBOL's `ENTRY FOR GO TO`.
 
 ## PLB-I001 pcb-dbd-unknown
 
