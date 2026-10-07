@@ -575,6 +575,49 @@ class LanguageServerTest(unittest.TestCase):
                  self.server.receive()["params"]["diagnostics"]}
         self.assertNotIn(("PLB-C001", line + 1), codes)
 
+    def test_quick_fix_swaps_the_join_of_a_contradiction(self):
+        text = ("IDENTIFICATION DIVISION.\nPROGRAM-ID. CONTRA.\n"
+                "DATA DIVISION.\nWORKING-STORAGE SECTION.\n"
+                "01  WS-STATUS PIC X.\n"
+                "PROCEDURE DIVISION.\n"
+                "    IF WS-STATUS = \"A\" and WS-STATUS = \"B\"\n"
+                "       AND WS-STATUS = \"C\"\n"
+                "        DISPLAY \"BOTH\"\n"
+                "    END-IF\n"
+                "    GOBACK.\n")
+        uri = "file:///tmp/plumbline-contra.cob"
+        self.server.notify("textDocument/didOpen", {"textDocument": {
+            "uri": uri, "languageId": "cobol", "version": 1,
+            "text": text}})
+        codes = {d["code"] for d in
+                 self.server.receive()["params"]["diagnostics"]}
+        self.assertIn("PLB-C071", codes)
+        actions = self.server.request("textDocument/codeAction", {
+            "textDocument": {"uri": uri},
+            "range": {"start": {"line": 6, "character": 0},
+                      "end": {"line": 6, "character": 0}},
+            "context": {"diagnostics": []}})["result"]
+        [swap] = [a for a in actions if a["title"].startswith("Change")]
+        self.assertEqual(swap["title"], "Change AND to OR in this condition")
+        edits = swap["edit"]["changes"][uri]
+        self.assertEqual(
+            [(e["range"]["start"]["line"], e["range"]["start"]["character"],
+              e["range"]["end"]["character"], e["newText"]) for e in edits],
+            [(6, 23, 26, "or"), (7, 7, 10, "OR")])
+        # With the edits made, the condition is no longer reported.
+        lines = text.splitlines(keepends=True)
+        for edit in reversed(edits):
+            start = edit["range"]["start"]
+            line = lines[start["line"]]
+            lines[start["line"]] = (line[:start["character"]] + edit["newText"]
+                                    + line[edit["range"]["end"]["character"]:])
+        self.server.notify("textDocument/didChange", {
+            "textDocument": {"uri": uri, "version": 2},
+            "contentChanges": [{"text": "".join(lines)}]})
+        codes = {d["code"] for d in
+                 self.server.receive()["params"]["diagnostics"]}
+        self.assertNotIn("PLB-C071", codes)
+
     def test_no_quick_fix_without_a_finding(self):
         self.assertEqual(self.code_actions(0), [])
 
