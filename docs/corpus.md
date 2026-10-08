@@ -301,6 +301,9 @@ The findings were checked by rule:
   items their values with `ALLOCATE ... INITIALIZED` and `INITIALIZE
   ... ALL TO VALUE`; those statements now exempt the record.
 
+- **PLB-Q013 select-into-no-where.** None in NIST or in GnuCOBOL's
+  tests.
+
 - **PLB-C081 varying-wrong-direction.** None in NIST or in GnuCOBOL's
   tests. In a copy of `EXEC85` with `BY 1` of a loop `UNTIL SUB7 > 50`
   made `BY -1`, it reports that loop.

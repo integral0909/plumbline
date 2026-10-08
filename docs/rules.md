@@ -151,6 +151,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q010](#plb-q010-cursor-undeclared) | cursor-undeclared | error | SQL cursor is opened, fetched, or closed but never declared |
 | [PLB-Q011](#plb-q011-cursor-opened-in-loop) | cursor-opened-in-loop | error | SQL cursor opened on every pass of a loop that never closes it |
 | [PLB-Q012](#plb-q012-fetch-after-commit) | fetch-after-commit | error | Loop fetches from a cursor and commits, which closes the cursor |
+| [PLB-Q013](#plb-q013-select-into-no-where) | select-into-no-where | warning | SELECT INTO without WHERE takes every row of the table |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -3320,6 +3321,26 @@ loop and its statements are found as for
 [PLB-C065](#plb-c065-open-in-loop), from the `FETCH`. A loop that opens
 the cursor again among its statements is not reported.
 
+
+## PLB-Q013 select-into-no-where
+
+An embedded `SELECT ... INTO` with no `WHERE`:
+
+```cobol
+    EXEC SQL SELECT NAME INTO :WS-NAME FROM CUSTOMER END-EXEC   *> reported
+```
+
+`SELECT INTO` takes one row. Without `WHERE` it reads the whole table,
+and once the table has more than one row the statement fails rather
+than return one of them. A `GROUP BY` returns a row for each group and
+is reported too. Usually the `WHERE` was lost in an edit, or a cursor
+was meant.
+
+Left alone: a select list of aggregate functions only (`COUNT`, `SUM`,
+`MIN`, `MAX`, `AVG`) without `GROUP BY`, which returns one row; `FETCH
+FIRST ... ROW ONLY`; and the one-row tables `SYSIBM.SYSDUMMY1` (and the
+other `SYSDUMMY` tables) and `DUAL`. A `WHERE` only inside parentheses,
+in a subquery, does not count.
 ## PLB-S001 dynamic-sql
 
 SQL text that the program builds at run time and hands to the database:
