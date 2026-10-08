@@ -223,6 +223,7 @@ uses [Semantic Versioning](https://semver.org/).
   places than its receiver.
 - Rule PLB-C080 initialize-loses-value.
 - Rule PLB-C081 varying-wrong-direction.
+- Rule PLB-Q013 select-into-no-where.
 - Rule PLB-C079 nonnumeric-literal-move, with a fix (quick fix and
   `plumbline fix`) that takes the quotes off a number written in
   quotes.

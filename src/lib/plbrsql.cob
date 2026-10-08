@@ -5,6 +5,8 @@
 *>   PLB-C019  cics-response-not-checked
 *>   PLB-S001  dynamic-sql
 *>   PLB-M014  sql-select-star
+*>   PLB-Q004  sql-no-where
+*>   PLB-Q013  select-into-no-where
 *>   PLB-Q005  into-count-mismatch (PLB-RULE-Q005, below)
 *>   PLB-K003  commarea-without-length (PLB-RULE-K003, below)
 *>   PLB-K004  commarea-length-too-long (PLB-RULE-K004, below)
@@ -27,6 +29,16 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE-DYNAMIC         PIC 9(4) COMP-5.
 01  LS-RULE-STAR            PIC 9(4) COMP-5.
 01  LS-RULE-NO-WHERE        PIC 9(4) COMP-5.
+01  LS-RULE-SELECT-ALL      PIC 9(4) COMP-5.
+*> PLB-Q013: what the SELECT has at its outer level, and whether each
+*> item of its select list so far starts with an aggregate function.
+01  LS-SEEN-INTO            PIC X.
+01  LS-SEEN-WHERE           PIC X.
+01  LS-ONE-ROW              PIC X.
+01  LS-ALL-AGGREGATE        PIC X.
+01  LS-IN-LIST              PIC X.
+01  LS-ITEM-START           PIC X.
+01  LS-AFTER-FROM           PIC X.
 01  LS-LEVEL                PIC S9(4) COMP-5.
 01  LS-IN-SQL               PIC X.
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
@@ -67,6 +79,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-S001" LS-RULE-DYNAMIC
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M014" LS-RULE-STAR
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q004" LS-RULE-NO-WHERE
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q013" LS-RULE-SELECT-ALL
     IF RL-ENABLED(LS-RULE-STAR) = "Y"
         PERFORM CHECK-SELECT-STAR
     END-IF
@@ -160,7 +173,93 @@ SQL-STATEMENT.
     END-EVALUATE
     IF LS-COMMAND = "UPDATE" OR LS-COMMAND = "DELETE"
         PERFORM CHECK-WHERE
+    END-IF
+    IF LS-COMMAND = "SELECT" AND RL-ENABLED(LS-RULE-SELECT-ALL) = "Y"
+        PERFORM CHECK-SELECT-INTO
     END-IF.
+
+*> PLB-Q013: SELECT ... INTO (a singleton select) with no WHERE at its
+*> outer level takes every row of the table, and a SELECT INTO can
+*> take one. Left alone: a select list of aggregate functions only
+*> (COUNT, SUM, MIN, MAX, AVG) without GROUP BY, FETCH FIRST ... ROW
+*> ONLY, and the one-row tables SYSIBM.SYSDUMMY1 (and its kin) and
+*> DUAL.
+CHECK-SELECT-INTO.
+    MOVE "N" TO LS-SEEN-INTO LS-SEEN-WHERE LS-ONE-ROW LS-AFTER-FROM
+    MOVE "Y" TO LS-ALL-AGGREGATE LS-IN-LIST LS-ITEM-START
+    MOVE 0 TO LS-LEVEL
+    COMPUTE LS-K = ND-TOK-FIRST(LS-STMT) + 3
+    PERFORM VARYING LS-T FROM LS-K BY 1 UNTIL LS-T > ND-TOK-LAST(LS-STMT)
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-T)
+                ADD 1 TO LS-LEVEL
+            WHEN TK-IS-RPAREN(LS-T)
+                SUBTRACT 1 FROM LS-LEVEL
+            WHEN LS-LEVEL > 0
+                CONTINUE
+            WHEN TK-IS-WORD(LS-T)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+                MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+                PERFORM SELECT-WORD
+            WHEN OTHER
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+                IF LS-IN-LIST = "Y"
+                    IF LS-TEXT = ","
+                        MOVE "Y" TO LS-ITEM-START
+                    ELSE
+                        IF LS-ITEM-START = "Y"
+                            MOVE "N" TO LS-ALL-AGGREGATE
+                        END-IF
+                        MOVE "N" TO LS-ITEM-START
+                    END-IF
+                END-IF
+        END-EVALUATE
+    END-PERFORM
+    IF LS-SEEN-INTO = "N" OR LS-SEEN-WHERE = "Y" OR LS-ONE-ROW = "Y"
+       OR LS-ALL-AGGREGATE = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "EXEC SQL SELECT INTO has no WHERE: it can return more than"
+        & " one row, and SELECT INTO takes only one" TO LS-MESSAGE
+    COMPUTE LS-T = ND-TOK-FIRST(LS-STMT) + 2
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-SELECT-ALL LS-T LS-MESSAGE.
+
+*> Word LS-TEXT at the outer level of the SELECT at LS-T.
+SELECT-WORD.
+    EVALUATE LS-TEXT
+        WHEN "INTO"
+            MOVE "Y" TO LS-SEEN-INTO
+            MOVE "N" TO LS-IN-LIST
+        WHEN "FROM"
+            MOVE "N" TO LS-IN-LIST
+            MOVE "Y" TO LS-AFTER-FROM
+        WHEN "WHERE"
+            MOVE "Y" TO LS-SEEN-WHERE
+        WHEN "GROUP"
+            MOVE "N" TO LS-ALL-AGGREGATE
+        WHEN "FETCH"
+            MOVE "Y" TO LS-ONE-ROW
+        WHEN OTHER
+            IF LS-AFTER-FROM = "Y"
+               AND (LS-TEXT = "DUAL" OR LS-TEXT(1:8) = "SYSDUMMY")
+                MOVE "Y" TO LS-ONE-ROW
+            END-IF
+            IF LS-AFTER-FROM = "Y" AND LS-TEXT(1:7) = "SYSIBM."
+               AND LS-TEXT(8:8) = "SYSDUMMY"
+                MOVE "Y" TO LS-ONE-ROW
+            END-IF
+            IF LS-IN-LIST = "Y" AND LS-ITEM-START = "Y"
+                IF LS-TEXT NOT = "COUNT" AND LS-TEXT NOT = "SUM"
+                   AND LS-TEXT NOT = "MIN" AND LS-TEXT NOT = "MAX"
+                   AND LS-TEXT NOT = "AVG" AND LS-TEXT NOT = "DISTINCT"
+                    MOVE "N" TO LS-ALL-AGGREGATE
+                END-IF
+                IF LS-TEXT NOT = "DISTINCT"
+                    MOVE "N" TO LS-ITEM-START
+                END-IF
+            END-IF
+    END-EVALUATE.
 
 *> PLB-Q004: UPDATE or DELETE without WHERE (outside parentheses, so a
 *> subquery's WHERE does not count) changes every row of the table.

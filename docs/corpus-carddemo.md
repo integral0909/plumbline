@@ -337,6 +337,9 @@ Some findings that were read and are true:
   `COSGN00C` with `VALUE SPACE` on `LK-COMMAREA` of its `DFHCOMMAREA`,
   and a copy of `CBACT01C` with `VALUE ZERO` on `OUT-ACCT-ID` of its
   output record, it reports each.
+- **PLB-Q013 select-into-no-where.** None. In a copy of `COTRTUPC`
+  whose `SELECT TR_TYPE, TR_DESCRIPTION INTO ...` loses its `WHERE`, it
+  reports that `SELECT`.
 - **PLB-C081 varying-wrong-direction.** None.
 - **PLB-C080 initialize-loses-value.** None. A first version reported
   23: its programs `INITIALIZE` their working storage at the start,
