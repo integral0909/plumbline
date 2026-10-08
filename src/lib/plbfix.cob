@@ -679,3 +679,69 @@ PROCEDURE DIVISION USING PLB-FINDINGS LK-FINDING PLB-FIX-STORE LK-FIX.
     END-PERFORM
     GOBACK.
 END PROGRAM PLB-FIX-FOR.
+
+*> ---------------------------------------------------------------
+*> PLB-FIX-ALIGN USING SOURCE FILE-ID LIST adds to LIST the edits that
+*> keep columns 73 on of each fixed-format line where they were, as
+*> PLB-FIX-WRITE does: a line that the edits make longer loses as many
+*> blanks just before column 73 (PLB-FIX-ACCEPT made sure they are
+*> blanks), a line they make shorter gets blanks there. Lines that end
+*> before column 73 need nothing. For an editor, which makes edits as
+*> given.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-FIX-ALIGN.
+DATA DIVISION.
+LOCAL-STORAGE SECTION.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-L                    PIC 9(9) COMP-5.
+01  LS-COUNT                PIC 9(9) COMP-5.
+01  LS-DONE                 PIC X.
+01  LS-GROWTH               PIC S9(9) COMP-5.
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+01  LK-FILE-ID              PIC 9(4) COMP-5.
+COPY "plbfixl.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET LK-FILE-ID PLB-FIX-LIST.
+    MOVE FXL-COUNT TO LS-COUNT
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > LS-COUNT
+        *> Once per line: at its first edit.
+        MOVE "N" TO LS-DONE
+        PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K >= LS-E
+            IF FXL-LINE(LS-K) = FXL-LINE(LS-E)
+                MOVE "Y" TO LS-DONE
+            END-IF
+        END-PERFORM
+        COMPUTE LS-L = SF-FIRST-LINE(LK-FILE-ID) + FXL-LINE(LS-E) - 1
+        IF LS-DONE = "N" AND SL-FORMAT(LS-L) = "X"
+           AND SL-TEXT-LEN(LS-L) > 72 AND FXL-COUNT < FXL-MAX
+            MOVE 0 TO LS-GROWTH
+            PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K > LS-COUNT
+                IF FXL-LINE(LS-K) = FXL-LINE(LS-E)
+                    COMPUTE LS-GROWTH = LS-GROWTH + FXL-TEXT-LEN(LS-K)
+                        - FXL-END-COLUMN(LS-K) + FXL-COLUMN(LS-K)
+                END-IF
+            END-PERFORM
+            PERFORM ADD-ALIGNMENT
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+ADD-ALIGNMENT.
+    IF LS-GROWTH = 0
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO FXL-COUNT
+    MOVE FXL-LINE(LS-E) TO FXL-LINE(FXL-COUNT)
+    MOVE SPACES TO FXL-TEXT(FXL-COUNT)
+    IF LS-GROWTH > 0
+        COMPUTE FXL-COLUMN(FXL-COUNT) = 73 - LS-GROWTH
+        MOVE 73 TO FXL-END-COLUMN(FXL-COUNT)
+        MOVE 0 TO FXL-TEXT-LEN(FXL-COUNT)
+    ELSE
+        MOVE 73 TO FXL-COLUMN(FXL-COUNT) FXL-END-COLUMN(FXL-COUNT)
+        COMPUTE FXL-TEXT-LEN(FXL-COUNT) = 0 - LS-GROWTH
+    END-IF.
+END PROGRAM PLB-FIX-ALIGN.

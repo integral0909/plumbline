@@ -308,7 +308,8 @@ would push code past column 72 is not made, and is reported on
 standard error. `NEXT` and `SENTENCE` on two lines become `CONTINUE`
 on the first, and the second is left blank. Suppression comments and
 disabled rules apply as they do for `check`. The language server offers
-the same repairs as quick fixes, and the JSON and SARIF reports of
+the same repairs as quick fixes, and all of them at once as a "fix
+all" source action, and the JSON and SARIF reports of
 `check` carry them: a `fix` object with the edits for each finding that
 has one, and SARIF `fixes` with their replacements, which SARIF viewers
 can apply.
