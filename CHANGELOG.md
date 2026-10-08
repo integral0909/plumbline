@@ -227,6 +227,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C082 pointer-below-one.
 - Rule PLB-C083 close-in-loop.
 - Rule PLB-C084 file-status-unknown.
+- Rule PLB-C085 zeros-into-packed; it and spaces-into-numeric leave a
+  `FILE STATUS` group alone.
 - `plumbline fix --patch`: the fixes as a unified diff, for any number
   of files.
 - Fixes (quick fix, `plumbline fix`, and the reports) for PLB-C078,

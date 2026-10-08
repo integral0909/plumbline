@@ -96,6 +96,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C082](#plb-c082-pointer-below-one) | pointer-below-one | warning | STRING or UNSTRING POINTER set below 1 just before it |
 | [PLB-C083](#plb-c083-close-in-loop) | close-in-loop | warning | CLOSE on every pass of a loop that never opens the file again |
 | [PLB-C084](#plb-c084-file-status-unknown) | file-status-unknown | warning | FILE STATUS item compared with a code no I/O statement returns |
+| [PLB-C085](#plb-c085-zeros-into-packed) | zeros-into-packed | warning | MOVE ZEROS to a group puts the character 0 in its packed items |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1730,7 +1731,9 @@ or `CALL`, or a value given to a `RENAMES` item or one under a
 `REDEFINES`, ends it for all. A read of a group around a packed or
 binary item (`WRITE` of the record) counts too, since it copies the bad
 bytes on; a `DISPLAY` item read only with its group, as in a print
-line, shows blanks and is left alone. Branches are not told apart.
+line, shows blanks and is left alone. Branches are not told apart. A
+group named after `FILE STATUS` in a `SELECT` is left alone: the I/O
+statements give it its values.
 
 ## PLB-C061 unchecked-numeric-move
 
@@ -2317,6 +2320,30 @@ after them; the `WHEN` phrases of an `EVALUATE` of the item that are
 one literal; and the values of its condition names. A literal the
 program moves into the item itself, such as a marker for "not set
 yet", is a value the item can hold and is not reported.
+
+## PLB-C085 zeros-into-packed
+
+`MOVE ZEROS` to a group, and then a read of one of its packed-decimal
+or binary items before anything gives it a value:
+
+```cobol
+01  WS-TOTALS.
+    05  WS-COUNT        PIC S9(7) COMP-3.
+    05  WS-PAGE         PIC 9(3).
+    ...
+    MOVE ZEROS TO WS-TOTALS                        *> reported
+    ADD 1 TO WS-COUNT
+```
+
+A group move puts the character `0` in every byte. That is a valid
+`DISPLAY` number, and `WS-PAGE` is fine; but it is no packed or binary
+zero. With GnuCOBOL 3.2, `WS-COUNT` then fails a `NUMERIC` test and
+`ADD 1` makes it 30304, and a `COMP` item reads as 2336. `INITIALIZE`
+gives each item a zero of its own kind.
+
+`ZERO`, `ZEROS`, `ZEROES`, and a literal of zeros (`"000"`) count. The
+statements after the `MOVE` are followed as for PLB-C060, which is the
+same check for `MOVE SPACES`, and a `FILE STATUS` group is left alone.
 
 ## PLB-I001 pcb-dbd-unknown
 

@@ -337,6 +337,9 @@ Some findings that were read and are true:
   `COSGN00C` with `VALUE SPACE` on `LK-COMMAREA` of its `DFHCOMMAREA`,
   and a copy of `CBACT01C` with `VALUE ZERO` on `OUT-ACCT-ID` of its
   output record, it reports each.
+- **PLB-C085 zeros-into-packed.** None. In a copy of `CBTRN03C` with a
+  `MOVE ZEROS TO WS-REPORT-VARS` before its `ADD 1 TO WS-LINE-COUNTER`,
+  it reports that the `COMP-3` counter is read with zeros in it.
 - **PLB-C084 file-status-unknown.** None. In a copy of `CBACT01C` whose
   `IF ACCTFILE-STATUS = '10'` is made `'01'`, it reports the `'01'`.
 - **PLB-C083 close-in-loop.** None. In copies of `CBACT01C` with a
