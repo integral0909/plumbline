@@ -94,6 +94,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C080](#plb-c080-initialize-loses-value) | initialize-loses-value | warning | INITIALIZE replaces the VALUE clauses of items it clears |
 | [PLB-C081](#plb-c081-varying-wrong-direction) | varying-wrong-direction | warning | PERFORM VARYING steps away from its UNTIL condition |
 | [PLB-C082](#plb-c082-pointer-below-one) | pointer-below-one | warning | STRING or UNSTRING POINTER set below 1 just before it |
+| [PLB-C083](#plb-c083-close-in-loop) | close-in-loop | warning | CLOSE on every pass of a loop that never opens the file again |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -1857,7 +1858,8 @@ with the file as the first pass left it, or stops.
 
 A loop is a `PERFORM` with `UNTIL`, `VARYING`, `FOREVER`, or `TIMES`
 (but not `1 TIMES`). The `OPEN` is in its inline body, or in a
-procedure of the range it performs. An `OPEN` under an `IF`,
+procedure of the range it performs, or in a procedure that a `PERFORM`
+in its inline body performs on every pass. An `OPEN` under an `IF`,
 `EVALUATE`, `SEARCH`, or a conditional phrase (`AT END`, `INVALID
 KEY`, ...) inside the loop is not reported, since it may run only once.
 Nor is one whose file the loop closes: a `CLOSE` of it among the loop's
@@ -2259,6 +2261,30 @@ statements that holds the `STRING`, or directly in a sentence of the
 paragraph, and nothing between may change the pointer: no `ADD` to it,
 `PERFORM` of a procedure, `GO TO`, `CALL`, or `EXEC`. A value set in
 another paragraph, one that falls into the `STRING`'s, is not followed.
+
+## PLB-C083 close-in-loop
+
+A `CLOSE` that runs on every pass of a loop that never opens the file
+again:
+
+```cobol
+    PERFORM UNTIL WS-EOF = "Y"
+        READ IN-FILE AT END MOVE "Y" TO WS-EOF END-READ
+        CLOSE IN-FILE                           *> reported
+    END-PERFORM
+```
+
+The first pass closes the file, and the second works on a closed file:
+with GnuCOBOL 3.2 its `READ` fails with file status 47, a `WRITE` with
+48, and the `CLOSE` itself with 42 (see PLB-C075). The `CLOSE` was
+meant after the loop.
+
+The loops and the places of the `CLOSE` are those of PLB-C065: the
+loop's inline body, a procedure of the range it performs, or a
+procedure performed on every pass from its inline body; not under an
+`IF`, `EVALUATE`, or conditional phrase. A loop that opens the file
+somewhere among its statements, or in a procedure they perform, is
+not reported.
 
 ## PLB-I001 pcb-dbd-unknown
 

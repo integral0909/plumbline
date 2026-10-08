@@ -337,6 +337,9 @@ Some findings that were read and are true:
   `COSGN00C` with `VALUE SPACE` on `LK-COMMAREA` of its `DFHCOMMAREA`,
   and a copy of `CBACT01C` with `VALUE ZERO` on `OUT-ACCT-ID` of its
   output record, it reports each.
+- **PLB-C083 close-in-loop.** None. In copies of `CBACT01C` with a
+  `CLOSE ACCTFILE-FILE`, or a `PERFORM 9000-ACCTFILE-CLOSE`, put at the
+  end of its read loop, it reports the `CLOSE`.
 - **PLB-C082 pointer-below-one.** None. CardDemo's one `WITH POINTER`,
   in `COPAUA0C`, starts from the item's `VALUE 1`.
 - **PLB-Q013 select-into-no-where.** None. In a copy of `COTRTUPC`

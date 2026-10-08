@@ -225,6 +225,9 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C081 varying-wrong-direction.
 - Rule PLB-Q013 select-into-no-where.
 - Rule PLB-C082 pointer-below-one.
+- Rule PLB-C083 close-in-loop.
+- open-in-loop, cursor-opened-in-loop, and fetch-after-commit also
+  follow a procedure performed on every pass of an inline loop.
 - Rule PLB-C079 nonnumeric-literal-move, with a fix (quick fix and
   `plumbline fix`) that takes the quotes off a number written in
   quotes.
