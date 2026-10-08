@@ -17,7 +17,7 @@
 
 COBC      ?= cobc
 BUILD     ?= build
-COBFLAGS  ?= -free -Wall -fstatic-call -I copy
+COBFLAGS  ?= -free -Wall -fstatic-call -O2 -I copy
 EXTRA_COBFLAGS ?=
 
 ALL_FLAGS := $(COBFLAGS) $(EXTRA_COBFLAGS)

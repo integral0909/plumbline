@@ -422,6 +422,9 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- The build passes `-O2` to cobc: a run over the NIST suite takes 8.8
+  seconds instead of 12.3, with the same output.
+
 - In a file with a copybook that was not found, PLB-C009 reports each
   undeclared name once, naming the missing copybook; on CardDemo's MQ
   programs that is 100 findings instead of 167.

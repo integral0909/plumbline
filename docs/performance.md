@@ -7,24 +7,25 @@ grows with the size of the input, not faster.
 
 ## Measured
 
-On an Apple M1, with GnuCOBOL 3.2 and the default `make` build
-(no optimization flags):
+On an Apple M1, with GnuCOBOL 3.2 and the default `make` build, which
+passes `-O2` to cobc for the C compiler:
 
 | Input | Lines | `plumbline check` |
 |---|---:|---:|
-| NIST COBOL-85 suite, 459 programs in one run | 345,140 | 12.3 s, 280 MB |
-| CardDemo's 29 base programs (without copybooks) with their JCL, maps, and CICS definitions | 19,496 | 1.2 s |
-| Generated program, 2,500 paragraphs (`make bench`) | 25,259 | 0.8 s |
-| Generated program, 5,000 paragraphs | 50,509 | 1.6 s |
-| Generated program, 10,000 paragraphs | 101,009 | 3.2 s |
-| 1,000 generated programs, each calling three others | 13,000 | 1.5 s |
-| 2,000 generated programs, each calling three others | 26,000 | 3.0 s |
+| NIST COBOL-85 suite, 459 programs in one run | 345,140 | 8.8 s, 281 MB |
+| CardDemo's 29 base programs (without copybooks) with their JCL, maps, and CICS definitions | 19,496 | 0.9 s |
+| Generated program, 2,500 paragraphs (`make bench`) | 25,259 | 0.6 s |
+| Generated program, 5,000 paragraphs | 50,509 | 1.1 s |
+| Generated program, 10,000 paragraphs | 101,009 | 2.1 s |
+| 1,000 generated programs, each calling the next three (`make bench`) | 13,000 | 1.6 s |
+| 2,000 generated programs, each calling the next three | 26,000 | 3.5 s |
 
 ## `make bench`
 
 `tools/bench.py` writes programs of 2,500, 5,000, and 10,000
 paragraphs, each with a data item of its own, and times `check` on
-them. It prints the time per thousand lines and how much the time grew
+them. Then it writes 1,000 and 2,000 programs of 13 lines, each calling
+the three after it, and times `check` on each set in one run. It prints the time per thousand lines and how much the time grew
 from the size before. Doubling the program should about double the
 time; a growth near 4 means some pass or rule compares everything with
 everything.
@@ -67,6 +68,16 @@ at most. A profile with macOS `sample` put none of the new rules among
 the costly ones: the rules that cost most are still use-before-set,
 value-never-used, and unused-data-item, and preprocessing and reading
 the sources take about as long as all the rules together.
+
+## Build
+
+Until October 2026 the build passed no optimization flag to cobc, and
+the C that cobc writes was compiled without optimization. With `-O2`
+the build takes about twice as long (20 s against 9 s for the program
+on an M1), and every run is faster, with the same output: on the NIST
+suite 8.7 to 8.8 seconds against 12.1 to 12.4, the same findings on all
+three corpora, and in `make bench` 2.1 against 2.9 seconds for the
+largest program and 1.6 against 1.9 for 1,000 programs.
 
 ## Limits
 
