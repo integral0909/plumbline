@@ -95,6 +95,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C081](#plb-c081-varying-wrong-direction) | varying-wrong-direction | warning | PERFORM VARYING steps away from its UNTIL condition |
 | [PLB-C082](#plb-c082-pointer-below-one) | pointer-below-one | warning | STRING or UNSTRING POINTER set below 1 just before it |
 | [PLB-C083](#plb-c083-close-in-loop) | close-in-loop | warning | CLOSE on every pass of a loop that never opens the file again |
+| [PLB-C084](#plb-c084-file-status-unknown) | file-status-unknown | warning | FILE STATUS item compared with a code no I/O statement returns |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2285,6 +2286,31 @@ procedure performed on every pass from its inline body; not under an
 `IF`, `EVALUATE`, or conditional phrase. A loop that opens the file
 somewhere among its statements, or in a procedure they perform, is
 not reported.
+
+## PLB-C084 file-status-unknown
+
+A `FILE STATUS` item compared with a code no I/O statement returns:
+
+```cobol
+    SELECT IN-FILE ASSIGN TO "in.dat" FILE STATUS IS WS-FS.
+    ...
+    IF WS-FS = "01"                             *> reported
+```
+
+No I/O statement sets the status to that code, so the test does not
+catch what it was written for. Usually two digits were swapped (`"01"`
+for `"10"`), or a one-character code was written for a two-character
+status. The codes known are those of GnuCOBOL 3.2 (`libcob/common.h`),
+which include the standard's: 00, 02, 04 to 07, 09, 10, 14, 21 to 24,
+30, 31, 34, 35, 37 to 39, 41 to 49, 51 to 54, 57, 61, and 71; and any
+code starting with 9, which each implementation defines for itself.
+
+Checked are the alphanumeric literals the item is compared with by `=`
+(or `EQUAL TO`, `NOT =`), with the abbreviated `OR` and `AND` forms
+after them; the `WHEN` phrases of an `EVALUATE` of the item that are
+one literal; and the values of its condition names. A literal the
+program moves into the item itself, such as a marker for "not set
+yet", is a value the item can hold and is not reported.
 
 ## PLB-I001 pcb-dbd-unknown
 

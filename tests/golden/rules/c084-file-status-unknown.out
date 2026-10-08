@@ -1,0 +1,4 @@
+tests/golden/rules/c084-file-status-unknown.cob:16:36: warning: "11" is no file status code: no I/O statement sets the status item to it [PLB-C084]
+tests/golden/rules/c084-file-status-unknown.cob:22:16: warning: "01" is no file status code: no I/O statement sets the status item to it [PLB-C084]
+tests/golden/rules/c084-file-status-unknown.cob:22:24: warning: "1" is no file status code: no I/O statement sets the status item to it [PLB-C084]
+tests/golden/rules/c084-file-status-unknown.cob:29:14: warning: "13" is no file status code: no I/O statement sets the status item to it [PLB-C084]
