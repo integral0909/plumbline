@@ -407,6 +407,8 @@ uses [Semantic Versioning](https://semver.org/).
   (PLB-C004), a quick fix that puts `CONTINUE` in its place.
 - Language server: for a condition name's reversed range (PLB-C074), a
   quick fix that swaps its two ends.
+- Language server: a `source.fixAll` action that makes every fix of the
+  file, as `plumbline fix` does.
 - The JSON and SARIF reports of `check` include the fix of each finding
   that has one: a `fix` object with its edits, and SARIF `fixes` with
   their replacements.

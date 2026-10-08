@@ -105,7 +105,7 @@ class LanguageServerTest(unittest.TestCase):
         self.assertIn("variable", legend["tokenTypes"])
         self.assertEqual(
             self.capabilities["codeActionProvider"]["codeActionKinds"],
-            ["quickfix"])
+            ["quickfix", "source.fixAll"])
         self.assertTrue(self.capabilities["documentSymbolProvider"])
         self.assertTrue(self.capabilities["workspaceSymbolProvider"])
 
@@ -703,6 +703,40 @@ class LanguageServerTest(unittest.TestCase):
         codes = {d["code"] for d in
                  self.server.receive()["params"]["diagnostics"]}
         self.assertNotIn("PLB-C074", codes)
+
+    def test_fix_all_makes_every_fix_of_the_document(self):
+        with open(os.path.join(ROOT, "tests", "fixtures", "fix",
+                               "fixable.cob")) as source:
+            text = source.read()
+        uri = "file:///tmp/plumbline-fixall.cob"
+        self.server.notify("textDocument/didOpen", {"textDocument": {
+            "uri": uri, "languageId": "cobol", "version": 1,
+            "text": text}})
+        self.server.receive()
+        actions = self.server.request("textDocument/codeAction", {
+            "textDocument": {"uri": uri},
+            "range": {"start": {"line": 0, "character": 0},
+                      "end": {"line": 0, "character": 0}},
+            "context": {"diagnostics": [], "only": ["source.fixAll"]}
+        })["result"]
+        [fix_all] = [a for a in actions if a["kind"] == "source.fixAll"]
+        edits = fix_all["edit"]["changes"][uri]
+        lines = text.split("\n")
+        for edit in sorted(edits, key=lambda e: (
+                e["range"]["start"]["line"],
+                e["range"]["start"]["character"]), reverse=True):
+            start, end = edit["range"]["start"], edit["range"]["end"]
+            self.assertEqual(start["line"], end["line"])
+            line = lines[start["line"]]
+            lines[start["line"]] = (line[:start["character"]]
+                                    + edit["newText"]
+                                    + line[end["character"]:])
+        # The same text as plumbline fix writes, less its trailing spaces.
+        made = subprocess.run([PLUMBLINE, "fix", os.path.join(
+            ROOT, "tests", "fixtures", "fix", "fixable.cob")],
+            capture_output=True, text=True).stdout
+        self.assertEqual([line.rstrip() for line in lines],
+                         made.split("\n"))
 
     def test_no_quick_fix_without_a_finding(self):
         self.assertEqual(self.code_actions(0), [])

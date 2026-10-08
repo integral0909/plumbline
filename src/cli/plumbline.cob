@@ -1836,7 +1836,8 @@ LSP-INITIALIZE.
            '"operator","type"],"tokenModifiers":["declaration"]},'
            DELIMITED BY SIZE
            '"full":true},' DELIMITED BY SIZE
-           '"codeActionProvider":{"codeActionKinds":["quickfix"]},'
+           '"codeActionProvider":{"codeActionKinds":["quickfix",'
+           '"source.fixAll"]},'
            DELIMITED BY SIZE
            '"signatureHelpProvider":{},'
            '"renameProvider":{"prepareProvider":true}},'
@@ -2952,9 +2953,88 @@ LSP-CODE-ACTIONS.
                 END-IF
             END-IF
         END-PERFORM
+        PERFORM LSP-APPEND-FIX-ALL-ACTION
     END-IF
     STRING "]}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
     PERFORM LSP-SEND-OUT.
+
+*> A source.fixAll action: the fixes of every finding of the document
+*> that has one, taken together as plumbline fix takes them
+*> (PLB-FIX-ACCEPT: whole or not at all, none overlapping another).
+LSP-APPEND-FIX-ALL-ACTION.
+    MOVE 0 TO FXL-COUNT WS-FIX-COUNT
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > FN-COUNT
+        IF FN-SUPPRESSED(WS-I) = "N" AND FN-FILE-ID(WS-I) = 1
+           AND FN-SRC-LINE(WS-I) > 0
+            CALL "PLB-FIX-FINDING" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-AST PLB-RULES PLB-FINDINGS WS-I PLB-FIX
+            IF FX-EDIT-COUNT > 0
+                MOVE 1 TO WS-FILE-ID
+                CALL "PLB-FIX-ACCEPT" USING PLB-SOURCE-SET WS-FILE-ID
+                    PLB-FIX PLB-FIX-LIST WS-FIX-RESULT
+                IF WS-FIX-RESULT = "Y"
+                    ADD 1 TO WS-FIX-COUNT
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM
+    IF FXL-COUNT = 0
+        EXIT PARAGRAPH
+    END-IF
+    *> Columns 73 on stay where they are, as with plumbline fix.
+    CALL "PLB-FIX-ALIGN" USING PLB-SOURCE-SET WS-FILE-ID PLB-FIX-LIST
+    *> All the edits or none: an action that would not fit is left out.
+    COMPUTE WS-NUM = WS-LSP-PTR + 1024
+    PERFORM VARYING WS-K FROM 1 BY 1 UNTIL WS-K > FXL-COUNT
+        COMPUTE WS-NUM = WS-NUM + 120 + 2 * FXL-TEXT-LEN(WS-K)
+    END-PERFORM
+    IF WS-NUM > LSP-SIZE
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-LSP-FIRST = "N"
+        STRING "," DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-IF
+    MOVE "N" TO WS-LSP-FIRST
+    STRING '{"title":"Make the fixes of Plumbline findings in this file",'
+           DELIMITED BY SIZE
+           '"kind":"source.fixAll","edit":{"changes":{' DELIMITED BY SIZE
+        INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    CALL "PLB-JSON-STRING" USING DOC-URI(WS-LSP-DOC-INDEX) WS-LSP-OUT
+        WS-LSP-PTR
+    STRING ":[" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    PERFORM VARYING WS-K FROM 1 BY 1 UNTIL WS-K > FXL-COUNT
+        IF WS-K > 1
+            STRING "," DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        END-IF
+        STRING '{"range":{"start":{"line":' DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        COMPUTE WS-NUM = FXL-LINE(WS-K) - 1
+        PERFORM LSP-APPEND-NUM
+        STRING ',"character":' DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        COMPUTE WS-NUM = FXL-COLUMN(WS-K) - 1
+        PERFORM LSP-APPEND-NUM
+        STRING '},"end":{"line":' DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        COMPUTE WS-NUM = FXL-LINE(WS-K) - 1
+        PERFORM LSP-APPEND-NUM
+        STRING ',"character":' DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        COMPUTE WS-NUM = FXL-END-COLUMN(WS-K) - 1
+        PERFORM LSP-APPEND-NUM
+        STRING '}},"newText":' DELIMITED BY SIZE
+            INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        IF FXL-TEXT-LEN(WS-K) = 0
+            STRING '""' DELIMITED BY SIZE
+                INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+        ELSE
+            CALL "PLB-JSON-STRING" USING
+                FXL-TEXT(WS-K)(1:FXL-TEXT-LEN(WS-K)) WS-LSP-OUT WS-LSP-PTR
+        END-IF
+        STRING "}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR
+    END-PERFORM
+    STRING "]}}}" DELIMITED BY SIZE INTO WS-LSP-OUT WITH POINTER WS-LSP-PTR.
 
 *> A quick fix suppressing finding WS-I's rule, once per rule.
 LSP-APPEND-SUPPRESS-ACTION.
