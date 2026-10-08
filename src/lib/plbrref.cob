@@ -795,6 +795,17 @@ WORKING-STORAGE SECTION.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-RULE-POINTER         PIC 9(4) COMP-5.
+01  LS-RULE-POINTER-START   PIC 9(4) COMP-5.
+*> PLB-C082: the last statement before that stores into the pointer,
+*> the value it stores, and the statements between.
+01  LS-W                    PIC 9(9) COMP-5.
+01  LS-WSTMT                PIC 9(9) COMP-5.
+01  LS-K2                   PIC 9(9) COMP-5.
+01  LS-START-VALUE          PIC S9(18) COMP-5.
+01  LS-VALUE-OK             PIC X.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-DEPTH                PIC S9(9) COMP-5.
@@ -832,8 +843,12 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         PLB-FLOW PLB-REFS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C042" LS-RULE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C043" LS-RULE-POINTER
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C082"
+        LS-RULE-POINTER-START
     IF (RL-ENABLED(LS-RULE) NOT = "Y"
-        AND RL-ENABLED(LS-RULE-POINTER) NOT = "Y") OR AS-COUNT = 0
+        AND RL-ENABLED(LS-RULE-POINTER) NOT = "Y"
+        AND RL-ENABLED(LS-RULE-POINTER-START) NOT = "Y")
+       OR AS-COUNT = 0
         GOBACK
     END-IF
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
@@ -861,6 +876,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
 *> parentheses.
 CHECK-POINTER.
     IF RL-ENABLED(LS-RULE-POINTER) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-POINTER-START) NOT = "Y"
         EXIT PARAGRAPH
     END-IF
     MOVE 0 TO LS-LEVEL
@@ -881,9 +897,14 @@ CHECK-POINTER.
                         MOVE WS-TOKEN-REF(LS-T) TO LS-R
                         IF RF-KIND(LS-R) = "D"
                             MOVE RF-SYMBOL(LS-R) TO LS-COUNT
-                            PERFORM FIND-SET-ANYWHERE
-                            IF LS-FOUND = "N"
-                                PERFORM REPORT-POINTER
+                            IF RL-ENABLED(LS-RULE-POINTER) = "Y"
+                                PERFORM FIND-SET-ANYWHERE
+                                IF LS-FOUND = "N"
+                                    PERFORM REPORT-POINTER
+                                END-IF
+                            END-IF
+                            IF RL-ENABLED(LS-RULE-POINTER-START) = "Y"
+                                PERFORM CHECK-POINTER-START
                             END-IF
                         END-IF
                     END-IF
@@ -891,6 +912,136 @@ CHECK-POINTER.
                 END-IF
         END-EVALUATE
     END-PERFORM.
+
+*> PLB-C082 pointer-below-one: the last statement of the paragraph
+*> before STRING or UNSTRING LS-NODE that changes the pointer LS-COUNT
+*> gives it a number below 1 (MOVE 0, COMPUTE P = 0, INITIALIZE), with
+*> nothing between that may change it: no PERFORM of a procedure, GO
+*> TO, CALL, or EXEC. A pointer below 1 makes the statement overflow at
+*> once: it moves nothing. The MOVE must be in a list of statements
+*> that holds the STRING, or directly in a sentence of the paragraph.
+CHECK-POINTER-START.
+    PERFORM PARAGRAPH-START
+    MOVE 0 TO LS-W
+    PERFORM VARYING LS-Q FROM 1 BY 1 UNTIL LS-Q > RF-COUNT
+        IF RF-SYMBOL(LS-Q) = LS-COUNT AND RF-KIND(LS-Q) = "D"
+           AND RF-TOKEN(LS-Q) >= LS-START
+           AND RF-TOKEN(LS-Q) < ND-TOK-FIRST(LS-NODE)
+           AND RF-STMT(LS-Q) > 0
+           AND (RF-ROLE(LS-Q) = "D" OR RF-ROLE(LS-Q) = "B"
+                OR RF-ROLE(LS-Q) = "X")
+            MOVE LS-Q TO LS-W
+        END-IF
+    END-PERFORM
+    IF LS-W = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF RF-ROLE(LS-W) NOT = "D"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE RF-STMT(LS-W) TO LS-WSTMT
+    MOVE "N" TO LS-VALUE-OK
+    EVALUATE ND-DETAIL(LS-WSTMT)
+        WHEN "MOVE"
+            COMPUTE LS-K2 = ND-TOK-FIRST(LS-WSTMT) + 1
+            PERFORM START-VALUE-AT
+        WHEN "COMPUTE"
+            *> COMPUTE pointer = number, and nothing more.
+            COMPUTE LS-K2 = RF-LAST(LS-W) + 2
+            IF LS-K2 = ND-TOK-LAST(LS-WSTMT)
+                PERFORM START-VALUE-AT
+            END-IF
+        WHEN "INITIALIZE"
+            MOVE "Y" TO LS-VALUE-OK
+            MOVE 0 TO LS-START-VALUE
+            PERFORM VARYING LS-K2 FROM ND-TOK-FIRST(LS-WSTMT) BY 1
+                    UNTIL LS-K2 > ND-TOK-LAST(LS-WSTMT)
+                IF TK-IS-WORD(LS-K2)
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K2 LS-WORD
+                        LS-LEN
+                    IF LS-WORD = "REPLACING" OR LS-WORD = "VALUE"
+                        MOVE "N" TO LS-VALUE-OK
+                    END-IF
+                END-IF
+            END-PERFORM
+    END-EVALUATE
+    IF LS-VALUE-OK = "N" OR LS-START-VALUE >= 1
+        EXIT PARAGRAPH
+    END-IF
+    *> Nothing between that may change the pointer.
+    PERFORM VARYING LS-K2 FROM 1 BY 1 UNTIL LS-K2 > AS-COUNT
+        IF ND-KIND(LS-K2) = "STMT"
+           AND ND-TOK-FIRST(LS-K2) > ND-TOK-LAST(LS-WSTMT)
+           AND ND-TOK-FIRST(LS-K2) < ND-TOK-FIRST(LS-NODE)
+            EVALUATE ND-DETAIL(LS-K2)
+                WHEN "GO" WHEN "CALL" WHEN "EXEC"
+                    EXIT PARAGRAPH
+                WHEN "PERFORM"
+                    MOVE ND-FIRST(LS-K2) TO LS-UP
+                    PERFORM UNTIL LS-UP = 0
+                        IF ND-KIND(LS-UP) = "PROC"
+                            EXIT PARAGRAPH
+                        END-IF
+                        MOVE ND-NEXT(LS-UP) TO LS-UP
+                    END-PERFORM
+            END-EVALUATE
+        END-IF
+    END-PERFORM
+    *> The store is in a list that holds the STRING, or directly in a
+    *> sentence of the paragraph.
+    MOVE ND-PARENT(LS-WSTMT) TO LS-K2
+    IF LS-K2 = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF ND-KIND(LS-K2) NOT = "SENT"
+        MOVE ND-PARENT(LS-NODE) TO LS-UP
+        PERFORM UNTIL LS-UP = 0 OR LS-UP = LS-K2
+            MOVE ND-PARENT(LS-UP) TO LS-UP
+        END-PERFORM
+        IF LS-UP = 0
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    MOVE LS-START-VALUE TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE 1 TO LS-K2
+    STRING SY-NAME(LS-COUNT) DELIMITED BY SPACE
+           " is " DELIMITED BY SIZE
+           LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           " here, from the " DELIMITED BY SIZE
+           ND-DETAIL(LS-WSTMT) DELIMITED BY SPACE
+           " on line " DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-K2
+    MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-FIRST(LS-WSTMT))) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           ": a pointer below 1 makes " DELIMITED BY SIZE
+           ND-DETAIL(LS-NODE) DELIMITED BY SPACE
+           " overflow at once, moving nothing" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-K2
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-POINTER-START LS-T LS-MESSAGE.
+
+*> LS-START-VALUE from the integer literal, or ZERO, at LS-K2.
+START-VALUE-AT.
+    IF TK-IS-WORD(LS-K2)
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K2 LS-WORD LS-LEN
+        IF LS-WORD = "ZERO" OR LS-WORD = "ZEROS" OR LS-WORD = "ZEROES"
+            MOVE 0 TO LS-START-VALUE
+            MOVE "Y" TO LS-VALUE-OK
+        END-IF
+        EXIT PARAGRAPH
+    END-IF
+    IF NOT TK-IS-NUMBER(LS-K2)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K2 LS-WORD LS-LEN
+    IF LS-LEN > 18 OR FUNCTION TEST-NUMVAL(LS-WORD(1:LS-LEN)) NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-START-VALUE = FUNCTION NUMVAL(LS-WORD(1:LS-LEN))
+    MOVE "Y" TO LS-VALUE-OK.
 
 *> LS-FOUND = "Y" when a statement of the file stores into the pointer
 *> or a group around it (role D), or may (role X). The STRING and
