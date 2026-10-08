@@ -1045,6 +1045,11 @@ check "fix takes the quotes off a number"  0 '^           MOVE 1.50 TO WS-RATE W
 check "fix keeps a number's sign"           0 '^           MOVE -12 TO WS-COUNT$' -- fix $fx/quoted.cob
 check "fix leaves a literal that is no number" 0 '^           MOVE "ABC" TO WS-COUNT$' -- fix $fx/quoted.cob
 check_absent "fix --check: no fix for a literal that is no number" ':12:' -- fix --check $fx/quoted.cob
+rgx=tests/golden/rules
+check "fix sends literals whole"            0 '^           " WELCOME" DELIMITED BY SIZE$' -- fix $rgx/c078-string-literal-cut.cob
+check "fix leaves a group with a data item" 0 '^    STRING "DEAR MR " WS-NAME DELIMITED BY SPACE$' -- fix $rgx/c078-string-literal-cut.cob
+check "fix starts a pointer at 1"           0 '^    MOVE 1 TO WS-PTR$' -- fix $rgx/c082-pointer-below-one.cob
+check_absent "fix: no fix for a COMPUTE of the pointer" ':18:' -- fix --check $rgx/c082-pointer-below-one.cob
 check "fix writes one file"                 2 'give one file, or use --check' -- fix $fx/fixable.cob $fx/clean.cob
 
 # check_report LABEL FORMAT EXPECTED-COUNT -- ARGS...
