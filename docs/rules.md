@@ -97,6 +97,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C083](#plb-c083-close-in-loop) | close-in-loop | warning | CLOSE on every pass of a loop that never opens the file again |
 | [PLB-C084](#plb-c084-file-status-unknown) | file-status-unknown | warning | FILE STATUS item compared with a code no I/O statement returns |
 | [PLB-C085](#plb-c085-zeros-into-packed) | zeros-into-packed | warning | MOVE ZEROS to a group puts the character 0 in its packed items |
+| [PLB-C086](#plb-c086-read-loop-end-only) | read-loop-end-only | warning | READ loop ends only at end of file, and loops for ever on errors |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -156,6 +157,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q011](#plb-q011-cursor-opened-in-loop) | cursor-opened-in-loop | error | SQL cursor opened on every pass of a loop that never closes it |
 | [PLB-Q012](#plb-q012-fetch-after-commit) | fetch-after-commit | error | Loop fetches from a cursor and commits, which closes the cursor |
 | [PLB-Q013](#plb-q013-select-into-no-where) | select-into-no-where | warning | SELECT INTO without WHERE takes every row of the table |
+| [PLB-Q014](#plb-q014-fetch-loop-end-only) | fetch-loop-end-only | warning | FETCH loop ends only on SQLCODE 100, and loops for ever on errors |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -2345,6 +2347,30 @@ gives each item a zero of its own kind.
 statements after the `MOVE` are followed as for PLB-C060, which is the
 same check for `MOVE SPACES`, and a `FILE STATUS` group is left alone.
 
+## PLB-C086 read-loop-end-only
+
+A loop that reads a file and ends only when its file status is `"10"`,
+the end of the file:
+
+```cobol
+    PERFORM UNTIL WS-FS = "10"                 *> reported
+        READ IN-FILE
+        ADD 1 TO WS-COUNT
+    END-PERFORM
+```
+
+When a `READ` fails with any other status, the loop goes round again,
+and the next `READ` fails the same way. With GnuCOBOL 3.2, a file that
+did not open returns status 47 on every pass, and the loop never ends.
+Test for errors in the loop, or end it on any status but `"00"`.
+
+Checked are `PERFORM ... UNTIL` loops whose whole condition is the file
+status item `= "10"`, or a condition name of it whose only value is
+`"10"`, and whose statements, inline or in procedures they perform,
+`READ` (or `RETURN`). The loop is left alone when those statements name
+the status item otherwise, or can leave the loop: `GOBACK`, `STOP`, `GO
+TO`, `EXIT PERFORM`, `EXIT PROGRAM`, or a `CALL` (an abend routine).
+
 ## PLB-I001 pcb-dbd-unknown
 
 The I rules check IMS definitions, given to `check` as `*.dbd` and
@@ -3451,6 +3477,23 @@ Left alone: a select list of aggregate functions only (`COUNT`, `SUM`,
 FIRST ... ROW ONLY`; and the one-row tables `SYSIBM.SYSDUMMY1` (and the
 other `SYSDUMMY` tables) and `DUAL`. A `WHERE` only inside parentheses,
 in a subquery, does not count.
+
+## PLB-Q014 fetch-loop-end-only
+
+The same for embedded SQL: a loop that fetches from a cursor and ends
+only when `SQLCODE` is 100:
+
+```cobol
+    PERFORM UNTIL SQLCODE = 100                *> reported
+        EXEC SQL FETCH C1 INTO :WS-NAME END-EXEC
+        DISPLAY WS-NAME
+    END-PERFORM
+```
+
+A `FETCH` that fails gives a negative `SQLCODE`, and the loop goes on
+fetching. Left alone are loops whose statements name `SQLCODE`,
+`SQLSTATE`, or `SQLCA` otherwise, or can leave the loop, as for
+PLB-C086.
 ## PLB-S001 dynamic-sql
 
 SQL text that the program builds at run time and hands to the database:

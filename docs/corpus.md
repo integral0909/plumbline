@@ -301,6 +301,10 @@ The findings were checked by rule:
   items their values with `ALLOCATE ... INITIALIZED` and `INITIALIZE
   ... ALL TO VALUE`; those statements now exempt the record.
 
+- **PLB-C086 read-loop-end-only** and **PLB-Q014 fetch-loop-end-only.**
+  None in NIST or in GnuCOBOL's tests, which have no loop that ends on
+  a status of `"10"` or an `SQLCODE` of 100 alone.
+
 - **PLB-C085 zeros-into-packed.** None in NIST or in GnuCOBOL's tests.
   A first version reported 4 in `INDEXED File READ/DELETE/READ`, which
   moves zeros into its `FILE STATUS` group (a `COMP` item over the two
