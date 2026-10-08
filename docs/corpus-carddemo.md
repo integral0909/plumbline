@@ -337,6 +337,8 @@ Some findings that were read and are true:
   `COSGN00C` with `VALUE SPACE` on `LK-COMMAREA` of its `DFHCOMMAREA`,
   and a copy of `CBACT01C` with `VALUE ZERO` on `OUT-ACCT-ID` of its
   output record, it reports each.
+- **PLB-C084 file-status-unknown.** None. In a copy of `CBACT01C` whose
+  `IF ACCTFILE-STATUS = '10'` is made `'01'`, it reports the `'01'`.
 - **PLB-C083 close-in-loop.** None. In copies of `CBACT01C` with a
   `CLOSE ACCTFILE-FILE`, or a `PERFORM 9000-ACCTFILE-CLOSE`, put at the
   end of its read loop, it reports the `CLOSE`.
