@@ -12,7 +12,7 @@ On an Apple M1, with GnuCOBOL 3.2 and the default `make` build
 
 | Input | Lines | `plumbline check` |
 |---|---:|---:|
-| NIST COBOL-85 suite, 459 programs in one run | 345,140 | 11.9 s, 279 MB |
+| NIST COBOL-85 suite, 459 programs in one run | 345,140 | 12.3 s, 280 MB |
 | CardDemo's 29 base programs (without copybooks) with their JCL, maps, and CICS definitions | 19,496 | 1.2 s |
 | Generated program, 2,500 paragraphs (`make bench`) | 25,259 | 0.8 s |
 | Generated program, 5,000 paragraphs | 50,509 | 1.6 s |
@@ -60,6 +60,13 @@ code. The end column is now worked out once. With the rules added
 since, the NIST run had grown to 12.4 to 12.9 seconds (12.1 s of user
 time); the change brought it to 11.9 seconds (11.5 s), with the same
 findings on all three corpora.
+
+Thirteen rules later (PLB-C072 to PLB-C083 and PLB-Q013), three runs
+took 12.1 to 12.4 seconds (11.8 s of user time), with the same 280 MB
+at most. A profile with macOS `sample` put none of the new rules among
+the costly ones: the rules that cost most are still use-before-set,
+value-never-used, and unused-data-item, and preprocessing and reading
+the sources take about as long as all the rules together.
 
 ## Limits
 
