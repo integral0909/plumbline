@@ -1,0 +1,2 @@
+tests/golden/rules/c085-zeros-into-packed.cob:22:19: warning: MOVE ZEROS to WS-TOTALS puts the character 0, not a zero, in its COMP-3 item WS-COUNT, which line 23 reads before anything gives it a value [PLB-C085]
+tests/golden/rules/c085-zeros-into-packed.cob:33:16: warning: the FILE STATUS of IN-FILE (WS-STATUS) is not tested after this OPEN [PLB-C020]

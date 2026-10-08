@@ -301,6 +301,11 @@ The findings were checked by rule:
   items their values with `ALLOCATE ... INITIALIZED` and `INITIALIZE
   ... ALL TO VALUE`; those statements now exempt the record.
 
+- **PLB-C085 zeros-into-packed.** None in NIST or in GnuCOBOL's tests.
+  A first version reported 4 in `INDEXED File READ/DELETE/READ`, which
+  moves zeros into its `FILE STATUS` group (a `COMP` item over the two
+  status bytes) before each `OPEN`; the status item is now left alone.
+
 - **PLB-C084 file-status-unknown.** None in NIST or in GnuCOBOL's
   tests. A first version reported 5 in `IC227A`, which moves `"<>"` into
   its status item before the I/O and then tests that it is still
