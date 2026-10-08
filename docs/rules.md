@@ -2161,6 +2161,10 @@ The delimiters read are `SPACE`, `ZERO`, and `QUOTE`, with or without
 data items, literals with a prefix (`X"..."`), and literals inside
 parentheses, such as a function's arguments, are not checked.
 
+When every operand the `DELIMITED` phrase covers is a literal, the
+language server's quick fix and `plumbline fix` make it `DELIMITED BY
+SIZE`.
+
 ## PLB-C079 nonnumeric-literal-move
 
 `MOVE` of an alphanumeric literal that is not a number, with a
@@ -2262,6 +2266,8 @@ statements that holds the `STRING`, or directly in a sentence of the
 paragraph, and nothing between may change the pointer: no `ADD` to it,
 `PERFORM` of a procedure, `GO TO`, `CALL`, or `EXEC`. A value set in
 another paragraph, one that falls into the `STRING`'s, is not followed.
+When it was set by `MOVE`, the quick fix and `plumbline fix` make the
+number 1.
 
 ## PLB-C083 close-in-loop
 

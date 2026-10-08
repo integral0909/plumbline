@@ -15,6 +15,10 @@
 *>   PLB-C079  the quotes taken off a literal that is a number written
 *>             in quotes ("1.50" becomes 1.50); a literal that is no
 *>             number ("ABC") has no fix
+*>   PLB-C078  DELIMITED BY SIZE for the literal, when every operand
+*>             its DELIMITED phrase covers is a literal
+*>   PLB-C082  1 in place of the number of the MOVE that set the
+*>             pointer below 1 (MOVE 0 TO P becomes MOVE 1 TO P)
 *>
 *> The finding's lines must still be loaded, and every token the fix
 *> touches must be in the finding's file (not brought in by a COPY)
@@ -41,6 +45,7 @@ LOCAL-STORAGE SECTION.
 01  LS-NEW-LEN              PIC 9(9) COMP-5.
 01  LS-FIRST-CHAR           PIC X.
 01  LS-POINT                PIC X.
+01  LS-JOIN-NAME            PIC X(31).
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -67,6 +72,8 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-RULES
        AND RL-ID(FN-RULE(LK-FINDING)) NOT = "PLB-C071"
        AND RL-ID(FN-RULE(LK-FINDING)) NOT = "PLB-C074"
        AND RL-ID(FN-RULE(LK-FINDING)) NOT = "PLB-C079"
+       AND RL-ID(FN-RULE(LK-FINDING)) NOT = "PLB-C078"
+       AND RL-ID(FN-RULE(LK-FINDING)) NOT = "PLB-C082"
         GOBACK
     END-IF
     *> The token the finding is reported at.
@@ -90,6 +97,10 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-RULES
             PERFORM FIX-REVERSED-RANGE
         WHEN "PLB-C079"
             PERFORM FIX-QUOTED-NUMBER
+        WHEN "PLB-C078"
+            PERFORM FIX-STRING-DELIMITER
+        WHEN "PLB-C082"
+            PERFORM FIX-POINTER-START
     END-EVALUATE
     IF FX-EDIT-COUNT = 0
         MOVE SPACES TO FX-TITLE
@@ -313,6 +324,181 @@ TEST-NUMBER.
     IF LS-LEN > 0
         MOVE "Y" TO LS-OK
     END-IF.
+
+*> LS-NODE: the innermost STRING or UNSTRING statement holding token
+*> LS-TOKEN, or 0.
+FIND-STRING-STATEMENT.
+    MOVE 0 TO LS-NODE
+    PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T > AS-COUNT
+        IF ND-KIND(LS-T) = "STMT"
+           AND (ND-DETAIL(LS-T) = "STRING" OR ND-DETAIL(LS-T) = "UNSTRING")
+           AND ND-TOK-FIRST(LS-T) < LS-TOKEN
+           AND ND-TOK-LAST(LS-T) >= LS-TOKEN
+            MOVE LS-T TO LS-NODE
+        END-IF
+    END-PERFORM.
+
+*> PLB-C078, reported at a literal of a STRING: the operands from the
+*> STRING (or the last DELIMITED phrase) to the DELIMITED phrase after
+*> the literal must all be literals; that phrase's delimiter, from the
+*> word after BY to the delimiter, becomes SIZE.
+FIX-STRING-DELIMITER.
+    PERFORM FIND-STRING-STATEMENT
+    IF LS-NODE = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "Y" TO LS-OK
+    MOVE 0 TO LS-COND LS-LEN
+    COMPUTE LS-T = ND-TOK-FIRST(LS-NODE) + 1
+    PERFORM UNTIL LS-T > ND-TOK-LAST(LS-NODE)
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-T)
+                ADD 1 TO LS-LEN
+                MOVE "N" TO LS-OK
+            WHEN TK-IS-RPAREN(LS-T)
+                SUBTRACT 1 FROM LS-LEN
+            WHEN LS-LEN > 0 OR TK-IS-ALNUM(LS-T)
+                CONTINUE
+            WHEN TK-IS-WORD(LS-T)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-OTHER
+                EVALUATE LS-TEXT
+                    WHEN "INTO"
+                        EXIT PARAGRAPH
+                    WHEN "DELIMITED"
+                        IF LS-TOKEN < LS-T
+                            *> The group of the literal: fix it.
+                            IF LS-OK = "Y"
+                                PERFORM REPLACE-DELIMITER
+                            END-IF
+                            EXIT PARAGRAPH
+                        END-IF
+                        PERFORM SKIP-DELIMITER
+                        MOVE "Y" TO LS-OK
+                    WHEN OTHER
+                        *> A data item or figurative constant to send.
+                        MOVE "N" TO LS-OK
+                END-EVALUATE
+            WHEN OTHER
+                MOVE "N" TO LS-OK
+        END-EVALUATE
+        ADD 1 TO LS-T
+    END-PERFORM.
+
+*> LS-T at DELIMITED: past [BY] [ALL] delimiter, on its last token.
+SKIP-DELIMITER.
+    ADD 1 TO LS-T
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-OTHER
+    IF LS-TEXT = "BY"
+        ADD 1 TO LS-T
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-OTHER
+    END-IF
+    IF LS-TEXT = "ALL"
+        ADD 1 TO LS-T
+    END-IF.
+
+*> The delimiter after DELIMITED at LS-T, without BY, becomes SIZE.
+REPLACE-DELIMITER.
+    MOVE LS-T TO LS-LOW
+    ADD 1 TO LS-LOW
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-LOW LS-TEXT LS-OTHER
+    IF LS-TEXT = "BY"
+        ADD 1 TO LS-LOW
+    END-IF
+    PERFORM SKIP-DELIMITER
+    MOVE LS-T TO LS-HIGH
+    IF LS-HIGH < LS-LOW
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-LOW TO LS-T
+    PERFORM TEST-TOKEN
+    IF LS-OK = "N"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-HIGH TO LS-T
+    PERFORM TEST-TOKEN
+    IF LS-OK = "N" OR TK-SRC-LINE(LS-LOW) NOT = TK-SRC-LINE(LS-HIGH)
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "Send these literals whole: DELIMITED BY SIZE" TO FX-TITLE
+    MOVE LS-LOW TO LS-T
+    PERFORM FIRST-CHARACTER
+    IF LS-FIRST-CHAR IS ALPHABETIC-LOWER
+        MOVE "size" TO LS-NEW
+    ELSE
+        MOVE "SIZE" TO LS-NEW
+    END-IF
+    MOVE 4 TO LS-NEW-LEN
+    PERFORM ADD-EDIT.
+
+*> PLB-C082, reported at the pointer of a STRING or UNSTRING: the
+*> nearest MOVE number TO pointer before the statement, in its
+*> paragraph; its number becomes 1.
+FIX-POINTER-START.
+    PERFORM FIND-STRING-STATEMENT
+    IF LS-NODE = 0
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-TOKEN LS-TEXT LS-LEN
+    MOVE LS-TEXT TO LS-JOIN-NAME
+    *> The paragraph or section it is in: the lower bound.
+    MOVE ND-PARENT(LS-NODE) TO LS-COND
+    PERFORM UNTIL LS-COND = 0
+        IF ND-KIND(LS-COND) = "PARA" OR ND-KIND(LS-COND) = "SECT"
+           OR ND-KIND(LS-COND) = "DIVN"
+            EXIT PERFORM
+        END-IF
+        MOVE ND-PARENT(LS-COND) TO LS-COND
+    END-PERFORM
+    IF LS-COND = 0
+        EXIT PARAGRAPH
+    END-IF
+    *> The nearest mention of the pointer before the statement must be
+    *> the receiver of MOVE number TO pointer; any other statement that
+    *> names it (COMPUTE, INITIALIZE, ADD) leaves no fix.
+    COMPUTE LS-T = ND-TOK-FIRST(LS-NODE) - 1
+    PERFORM UNTIL LS-T <= ND-TOK-FIRST(LS-COND) + 3
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            IF LS-TEXT = LS-JOIN-NAME
+                COMPUTE LS-HIGH = LS-T - 1
+                COMPUTE LS-LOW = LS-T - 2
+                COMPUTE LS-OTHER = LS-T - 3
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-HIGH LS-TEXT
+                    LS-LEN
+                IF LS-TEXT = "TO"
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-OTHER LS-TEXT
+                        LS-LEN
+                    IF LS-TEXT = "MOVE"
+                        PERFORM FIX-MOVED-NUMBER
+                    END-IF
+                END-IF
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+        SUBTRACT 1 FROM LS-T
+    END-PERFORM.
+
+*> MOVE at LS-OTHER, its number at LS-LOW: 1 in its place.
+FIX-MOVED-NUMBER.
+    IF TK-IS-NUMBER(LS-LOW)
+        CONTINUE
+    ELSE
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-LOW LS-TEXT LS-LEN
+        IF LS-TEXT NOT = "ZERO" AND LS-TEXT NOT = "ZEROS"
+           AND LS-TEXT NOT = "ZEROES"
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    MOVE LS-LOW TO LS-T
+    PERFORM TEST-TOKEN
+    IF LS-OK = "N"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "Start the pointer at 1" TO FX-TITLE
+    MOVE "1" TO LS-NEW
+    MOVE 1 TO LS-NEW-LEN
+    MOVE LS-LOW TO LS-HIGH
+    PERFORM ADD-EDIT.
 
 *> LS-OK = "Y" when token LS-T is in the finding's file, written
 *> there (not brought in by a COPY), and on one line.

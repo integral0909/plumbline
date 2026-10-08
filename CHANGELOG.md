@@ -227,6 +227,9 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C082 pointer-below-one.
 - Rule PLB-C083 close-in-loop.
 - Rule PLB-C084 file-status-unknown.
+- Fixes (quick fix, `plumbline fix`, and the reports) for PLB-C078,
+  `DELIMITED BY SIZE` for a group of literals, and PLB-C082, `MOVE 1`
+  to the pointer.
 - open-in-loop, cursor-opened-in-loop, and fetch-after-commit also
   follow a procedure performed on every pass of an inline loop.
 - Rule PLB-C079 nonnumeric-literal-move, with a fix (quick fix and
