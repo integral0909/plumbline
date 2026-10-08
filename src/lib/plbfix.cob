@@ -677,6 +677,9 @@ DATA DIVISION.
 WORKING-STORAGE SECTION.
 01  WS-TEXT                 PIC X(1024).
 01  WS-OUT                  PIC X(1024).
+*> --diff: the lines the edits change, in order, and the hunk.
+01  WS-CHANGED-COUNT        PIC 9(9) COMP-5.
+01  WS-CHANGED              PIC 9(9) COMP-5 OCCURS 4096 TIMES.
 LOCAL-STORAGE SECTION.
 01  LS-L                    PIC 9(9) COMP-5.
 01  LS-LAST                 PIC 9(9) COMP-5.
@@ -689,13 +692,34 @@ LOCAL-STORAGE SECTION.
 01  LS-GROWTH               PIC S9(9) COMP-5.
 01  LS-EDITS                PIC 9(9) COMP-5.
 01  LS-KEEP                 PIC S9(9) COMP-5.
+01  LS-C                    PIC 9(9) COMP-5.
+01  LS-H                    PIC 9(9) COMP-5.
+01  LS-FIRST                PIC 9(9) COMP-5.
+01  LS-END                  PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-HEAD                 PIC X(80).
+01  LS-HEAD-PTR             PIC 9(9) COMP-5.
+01  LS-OLD-LEN              PIC 9(9) COMP-5.
+01  LS-LINE-K               PIC 9(9) COMP-5.
+01  LS-SEEN                 PIC X.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 01  LK-FILE-ID              PIC 9(4) COMP-5.
 COPY "plbfixl.cpy".
-PROCEDURE DIVISION USING PLB-SOURCE-SET LK-FILE-ID PLB-FIX-LIST.
+*> F: the whole file; D: a unified diff of the lines the edits change,
+*> with three lines of context, under the name LK-PATH.
+01  LK-MODE                 PIC X.
+01  LK-PATH                 PIC X ANY LENGTH.
+PROCEDURE DIVISION USING PLB-SOURCE-SET LK-FILE-ID PLB-FIX-LIST LK-MODE
+        LK-PATH.
     IF LK-FILE-ID < 1 OR LK-FILE-ID > SS-FILE-COUNT
+        GOBACK
+    END-IF
+    IF LK-MODE = "D"
+        PERFORM WRITE-DIFF
         GOBACK
     END-IF
     MOVE SF-FIRST-LINE(LK-FILE-ID) TO LS-L
@@ -706,6 +730,116 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET LK-FILE-ID PLB-FIX-LIST.
         PERFORM WRITE-LINE
     END-PERFORM
     GOBACK.
+
+*> --- a/PATH, +++ b/PATH, then the hunks: changed lines with up to
+*> three lines around them, overlapping hunks joined. The lines are as
+*> Plumbline reads them: tabs expanded, trailing spaces dropped.
+WRITE-DIFF.
+    PERFORM COLLECT-CHANGED
+    IF WS-CHANGED-COUNT = 0
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-LAST = SF-LINE-COUNT(LK-FILE-ID)
+    CALL "PLB-STR-LENGTH" USING LK-PATH LS-LEN
+    DISPLAY "--- a/" LK-PATH(1:LS-LEN)
+    DISPLAY "+++ b/" LK-PATH(1:LS-LEN)
+    MOVE 1 TO LS-C
+    PERFORM UNTIL LS-C > WS-CHANGED-COUNT
+        *> A hunk: from three before this change to three after the
+        *> last change that comes within six lines of the one before.
+        IF WS-CHANGED(LS-C) > 3
+            COMPUTE LS-FIRST = WS-CHANGED(LS-C) - 3
+        ELSE
+            MOVE 1 TO LS-FIRST
+        END-IF
+        MOVE LS-C TO LS-H
+        PERFORM UNTIL LS-H >= WS-CHANGED-COUNT
+            IF WS-CHANGED(LS-H + 1) > WS-CHANGED(LS-H) + 7
+                EXIT PERFORM
+            END-IF
+            ADD 1 TO LS-H
+        END-PERFORM
+        COMPUTE LS-END = WS-CHANGED(LS-H) + 3
+        IF LS-END > LS-LAST
+            MOVE LS-LAST TO LS-END
+        END-IF
+        PERFORM WRITE-HUNK
+        COMPUTE LS-C = LS-H + 1
+    END-PERFORM.
+
+*> WS-CHANGED: the line numbers that have edits, in order, once each.
+COLLECT-CHANGED.
+    MOVE 0 TO WS-CHANGED-COUNT
+    PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K > FXL-COUNT
+        MOVE "N" TO LS-SEEN
+        PERFORM VARYING LS-H FROM 1 BY 1 UNTIL LS-H > WS-CHANGED-COUNT
+            IF WS-CHANGED(LS-H) = FXL-LINE(LS-K)
+                MOVE "Y" TO LS-SEEN
+                EXIT PERFORM
+            END-IF
+        END-PERFORM
+        IF LS-SEEN = "N" AND WS-CHANGED-COUNT < 4096
+            *> Into its place in the order.
+            MOVE WS-CHANGED-COUNT TO LS-H
+            PERFORM UNTIL LS-H = 0
+                IF WS-CHANGED(LS-H) < FXL-LINE(LS-K)
+                    EXIT PERFORM
+                END-IF
+                MOVE WS-CHANGED(LS-H) TO WS-CHANGED(LS-H + 1)
+                SUBTRACT 1 FROM LS-H
+            END-PERFORM
+            MOVE FXL-LINE(LS-K) TO WS-CHANGED(LS-H + 1)
+            ADD 1 TO WS-CHANGED-COUNT
+        END-IF
+    END-PERFORM.
+
+*> @@ -FIRST,N +FIRST,N @@ and lines LS-FIRST to LS-END: the changed
+*> ones as - old and + new, the others with a space before them. The
+*> fixes change no line count, so both sides have N lines.
+WRITE-HUNK.
+    MOVE SPACES TO LS-HEAD
+    MOVE 1 TO LS-HEAD-PTR
+    MOVE LS-FIRST TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING "@@ -" LS-NUM-TEXT(1:LS-NUM-LEN) "," DELIMITED BY SIZE
+        INTO LS-HEAD WITH POINTER LS-HEAD-PTR
+    COMPUTE LS-NUM = LS-END - LS-FIRST + 1
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+        INTO LS-HEAD WITH POINTER LS-HEAD-PTR
+    MOVE LS-FIRST TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING " +" LS-NUM-TEXT(1:LS-NUM-LEN) "," DELIMITED BY SIZE
+        INTO LS-HEAD WITH POINTER LS-HEAD-PTR
+    COMPUTE LS-NUM = LS-END - LS-FIRST + 1
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING LS-NUM-TEXT(1:LS-NUM-LEN) " @@" DELIMITED BY SIZE
+        INTO LS-HEAD WITH POINTER LS-HEAD-PTR
+    DISPLAY LS-HEAD(1:LS-HEAD-PTR - 1)
+    PERFORM VARYING LS-LINE-K FROM LS-FIRST BY 1 UNTIL LS-LINE-K > LS-END
+        COMPUTE LS-L = SF-FIRST-LINE(LK-FILE-ID) + LS-LINE-K - 1
+        PERFORM EDIT-LINE
+        CALL "PLB-STR-LENGTH" USING WS-TEXT LS-OLD-LEN
+        CALL "PLB-STR-LENGTH" USING WS-OUT LS-LEN
+        IF LS-EDITS = 0
+            IF LS-OLD-LEN = 0
+                DISPLAY " "
+            ELSE
+                DISPLAY " " WS-TEXT(1:LS-OLD-LEN)
+            END-IF
+        ELSE
+            IF LS-OLD-LEN = 0
+                DISPLAY "-"
+            ELSE
+                DISPLAY "-" WS-TEXT(1:LS-OLD-LEN)
+            END-IF
+            IF LS-LEN = 0
+                DISPLAY "+"
+            ELSE
+                DISPLAY "+" WS-OUT(1:LS-LEN)
+            END-IF
+        END-IF
+    END-PERFORM.
 
 *> WS-OUT(1:LS-PTR - 1): line LS-L with its edits made, in column
 *> order.

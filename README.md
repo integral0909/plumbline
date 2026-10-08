@@ -301,7 +301,14 @@ any.
 $ plumbline fix --check src/*.cbl
 src/report.cbl:177:20: PLB-C004: Change NEXT SENTENCE to CONTINUE
 $ plumbline fix src/report.cbl > report-fixed.cbl
+$ plumbline fix --patch src/*.cbl > fixes.patch      # to review, then
+$ patch -p1 -l < fixes.patch                          # or git apply --ignore-whitespace
 ```
+
+`--patch` writes the fixes as a unified diff, for any number of files.
+Its lines are as Plumbline reads them, with tabs expanded and trailing
+spaces dropped, so apply it ignoring whitespace (`patch -l`, `git apply
+--ignore-whitespace`).
 
 The file is written as it was read, with tabs expanded and trailing
 spaces dropped, and its other lines are left as they are. In fixed

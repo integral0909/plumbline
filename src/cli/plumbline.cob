@@ -31,6 +31,7 @@
 *>   plumbline format --to fixed|free --check [--format ...] FILE...
 *>   plumbline fix [-I DIR]... [--format ...] FILE
 *>   plumbline fix --check [-I DIR]... [--format ...] FILE...
+*>   plumbline fix --patch [-I DIR]... [--format ...] FILE...
 *>   plumbline lsp [-I DIR]... [--format ...] [--enable RULE]...
 *>       a language server on standard input and output
 *>   plumbline dump lines  [--format fixed|free|variable|auto] FILE...
@@ -215,6 +216,8 @@ COPY "plbfixl.cpy".
 *> check: the fixes of the findings, for the JSON and SARIF reports.
 COPY "plbfixs.cpy".
 01  WS-FIX-RESULT           PIC X.
+*> F: write the fixed file; D: a unified diff of the fixes (--patch).
+01  WS-FIX-MODE             PIC X VALUE "F".
 01  WS-FIX-COUNT            PIC 9(9) COMP-5.
 *> Language server: one message in, one out, the text of a document.
 78  LSP-SIZE                    VALUE 4000000.
@@ -490,7 +493,7 @@ SHOW-USAGE.
     DISPLAY "       plumbline summary [--report text|md|csv|json] [OPTION]... FILE..."
     DISPLAY "       plumbline lineage NAME [--depth N] [--forward] [--report text|json|dot] [OPTION]... FILE..."
     DISPLAY "       plumbline format --to fixed|free [--check] FILE..."
-    DISPLAY "       plumbline fix [--check] [OPTION]... FILE..."
+    DISPLAY "       plumbline fix [--check|--patch] [OPTION]... FILE..."
     DISPLAY "       plumbline lsp [OPTION]..."
     DISPLAY "       plumbline rules [--report text|json] [OPTION]..."
     DISPLAY "       plumbline dump lines [--format FORMAT] FILE..."
@@ -563,7 +566,7 @@ SHOW-USAGE.
     DISPLAY "                   that would change it"
     DISPLAY "  fix              rewrite a file with the fixes of its"
     DISPLAY "                   findings that have one; --check lists"
-    DISPLAY "                   them"
+    DISPLAY "                   them, --patch writes them as a diff"
     DISPLAY "  rules            list the rules, with their severity and"
     DISPLAY "                   whether they are on, as configured"
     DISPLAY "  lsp              run as a language server for editors, on"
@@ -1576,9 +1579,9 @@ FIX-COMMAND.
     IF WS-EXIT-CODE NOT = 0
         EXIT PARAGRAPH
     END-IF
-    IF WS-FORMAT-CHECK = "N" AND IP-COUNT > 1
+    IF WS-FORMAT-CHECK = "N" AND WS-FIX-MODE = "F" AND IP-COUNT > 1
         DISPLAY PLB-NAME ": fix writes one file to standard output;"
-            " give one file, or use --check" UPON SYSERR
+            " give one file, or use --check or --patch" UPON SYSERR
         MOVE 2 TO WS-EXIT-CODE
         EXIT PARAGRAPH
     END-IF
@@ -1633,7 +1636,7 @@ FIX-FILE.
     END-PERFORM
     IF WS-FORMAT-CHECK = "N" AND DG-ERRORS = 0
         CALL "PLB-FIX-WRITE" USING PLB-SOURCE-SET WS-FILE-ID
-            PLB-FIX-LIST
+            PLB-FIX-LIST WS-FIX-MODE WS-PATH(1:WS-PATH-LEN)
     END-IF.
 
 *> path:line:column: RULE: title, on standard output for a fix that
@@ -6174,6 +6177,8 @@ PARSE-INPUT-ARGS.
                         UPON SYSERR
                     MOVE 2 TO WS-EXIT-CODE
                 END-IF
+            WHEN WS-ARG = "--patch" AND WS-COMMAND = "fix"
+                MOVE "D" TO WS-FIX-MODE
             WHEN WS-ARG = "--check"
                  AND (WS-COMMAND = "format" OR WS-COMMAND = "fix")
                 MOVE "Y" TO WS-FORMAT-CHECK
