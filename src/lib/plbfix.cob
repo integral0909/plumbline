@@ -62,6 +62,13 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-RULES
     IF FN-SRC-LINE(LK-FINDING) = 0
         GOBACK
     END-IF
+    *> Most findings have no fix: no search for their token.
+    IF RL-ID(FN-RULE(LK-FINDING)) NOT = "PLB-C004"
+       AND RL-ID(FN-RULE(LK-FINDING)) NOT = "PLB-C071"
+       AND RL-ID(FN-RULE(LK-FINDING)) NOT = "PLB-C074"
+       AND RL-ID(FN-RULE(LK-FINDING)) NOT = "PLB-C079"
+        GOBACK
+    END-IF
     *> The token the finding is reported at.
     MOVE 0 TO LS-TOKEN
     PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T > TK-COUNT
