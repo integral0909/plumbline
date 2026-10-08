@@ -29,11 +29,7 @@ IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-C084.
 DATA DIVISION.
 WORKING-STORAGE SECTION.
-78  STATUS-MAX              VALUE 512.
-01  WS-STATUS-ITEMS.
-    05  WS-STATUS-COUNT     PIC 9(9) COMP-5.
-    05  WS-STATUS-NAME      PIC X(31) OCCURS STATUS-MAX TIMES.
-    05  WS-STATUS-PROGRAM   PIC 9(9) COMP-5 OCCURS STATUS-MAX TIMES.
+COPY "plbstat.cpy".
 *> The codes, two characters each.
 01  WS-KNOWN                PIC X(72) VALUE
     "000204050607091014212223243031343537383941424344"
@@ -79,13 +75,8 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
         GOBACK
     END-IF
-    MOVE 0 TO WS-STATUS-COUNT
-    PERFORM VARYING LS-NODE FROM 1 BY 1 UNTIL LS-NODE > AS-COUNT
-        IF ND-KIND(LS-NODE) = "SELE"
-            PERFORM COLLECT-STATUS
-        END-IF
-    END-PERFORM
-    IF WS-STATUS-COUNT = 0
+    CALL "PLB-STATUS-ITEMS" USING PLB-TOKENS PLB-AST PLB-STATUS-ITEMS
+    IF SI-COUNT = 0
         GOBACK
     END-IF
     *> MOVE literal TO status item.
@@ -136,50 +127,10 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     END-PERFORM
     GOBACK.
 
-*> SELECT ... [FILE] STATUS [IS] name: the name, with its program.
-COLLECT-STATUS.
-    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
-            UNTIL LS-T >= ND-TOK-LAST(LS-NODE)
-        IF TK-IS-WORD(LS-T)
-            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
-            IF LS-TEXT = "STATUS"
-                COMPUTE LS-K = LS-T + 1
-                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
-                IF LS-TEXT = "IS"
-                    ADD 1 TO LS-K
-                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT
-                        LS-LEN
-                END-IF
-                IF TK-IS-WORD(LS-K) AND WS-STATUS-COUNT < STATUS-MAX
-                    ADD 1 TO WS-STATUS-COUNT
-                    MOVE LS-TEXT TO WS-STATUS-NAME(WS-STATUS-COUNT)
-                    MOVE LS-NODE TO LS-UP
-                    PERFORM UNTIL LS-UP = 0
-                        IF ND-KIND(LS-UP) = "PROG"
-                            EXIT PERFORM
-                        END-IF
-                        MOVE ND-PARENT(LS-UP) TO LS-UP
-                    END-PERFORM
-                    MOVE LS-UP TO WS-STATUS-PROGRAM(WS-STATUS-COUNT)
-                END-IF
-                EXIT PERFORM
-            END-IF
-        END-IF
-    END-PERFORM.
-
 *> LS-IS-STATUS = "Y" when symbol LS-X is a status item.
 TEST-STATUS-SYMBOL.
-    MOVE "N" TO LS-IS-STATUS
-    IF SY-LEVEL(LS-X) = 88
-        EXIT PARAGRAPH
-    END-IF
-    PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K > WS-STATUS-COUNT
-        IF WS-STATUS-NAME(LS-K) = SY-NAME(LS-X)
-           AND WS-STATUS-PROGRAM(LS-K) = SY-PROGRAM(LS-X)
-            MOVE "Y" TO LS-IS-STATUS
-            EXIT PERFORM
-        END-IF
-    END-PERFORM.
+    CALL "PLB-STATUS-ITEM-OF" USING PLB-SYMBOLS PLB-STATUS-ITEMS LS-X
+        LS-IS-STATUS.
 
 *> The VALUE literals of condition name LS-S, but not the ends of a
 *> THRU range.

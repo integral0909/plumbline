@@ -46,13 +46,9 @@ IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-C060.
 DATA DIVISION.
 WORKING-STORAGE SECTION.
-*> The FILE STATUS items of the SELECT statements, with their programs.
-78  STATUS-MAX              VALUE 512.
-01  WS-STATUS-COUNT         PIC 9(9) COMP-5.
-01  WS-STATUS-NAME          PIC X(31) OCCURS STATUS-MAX TIMES.
-01  WS-STATUS-PROGRAM       PIC 9(9) COMP-5 OCCURS STATUS-MAX TIMES.
+*> The FILE STATUS items of the SELECT statements.
+COPY "plbstat.cpy".
 LOCAL-STORAGE SECTION.
-01  LS-K                    PIC 9(9) COMP-5.
 01  LS-IS-STATUS            PIC X.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-RULE-ZEROS           PIC 9(4) COMP-5.
@@ -110,12 +106,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
        OR AS-COUNT = 0 OR RF-COUNT = 0
         GOBACK
     END-IF
-    MOVE 0 TO WS-STATUS-COUNT
-    PERFORM VARYING LS-NODE FROM 1 BY 1 UNTIL LS-NODE > AS-COUNT
-        IF ND-KIND(LS-NODE) = "SELE"
-            PERFORM COLLECT-STATUS
-        END-IF
-    END-PERFORM
+    CALL "PLB-STATUS-ITEMS" USING PLB-TOKENS PLB-AST PLB-STATUS-ITEMS
     MOVE 1 TO LS-NODE
     MOVE 0 TO LS-DEPTH
     PERFORM UNTIL LS-NODE = 0
@@ -181,48 +172,11 @@ CHECK-MOVE.
         END-IF
     END-PERFORM.
 
-*> SELECT ... [FILE] STATUS [IS] name, of SELECT node LS-NODE.
-COLLECT-STATUS.
-    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
-            UNTIL LS-T >= ND-TOK-LAST(LS-NODE)
-        IF TK-IS-WORD(LS-T)
-            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
-            IF LS-TEXT = "STATUS"
-                COMPUTE LS-K = LS-T + 1
-                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
-                IF LS-TEXT = "IS"
-                    ADD 1 TO LS-K
-                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT
-                        LS-LEN
-                END-IF
-                IF TK-IS-WORD(LS-K) AND WS-STATUS-COUNT < STATUS-MAX
-                    ADD 1 TO WS-STATUS-COUNT
-                    MOVE LS-TEXT TO WS-STATUS-NAME(WS-STATUS-COUNT)
-                    MOVE LS-NODE TO LS-UP
-                    PERFORM UNTIL LS-UP = 0
-                        IF ND-KIND(LS-UP) = "PROG"
-                            EXIT PERFORM
-                        END-IF
-                        MOVE ND-PARENT(LS-UP) TO LS-UP
-                    END-PERFORM
-                    MOVE LS-UP TO WS-STATUS-PROGRAM(WS-STATUS-COUNT)
-                END-IF
-                EXIT PERFORM
-            END-IF
-        END-IF
-    END-PERFORM.
-
 *> LS-IS-STATUS = "Y" when the receiver of reference LS-R is a FILE
 *> STATUS item.
 TEST-STATUS.
-    MOVE "N" TO LS-IS-STATUS
-    PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K > WS-STATUS-COUNT
-        IF WS-STATUS-NAME(LS-K) = SY-NAME(RF-SYMBOL(LS-R))
-           AND WS-STATUS-PROGRAM(LS-K) = SY-PROGRAM(RF-SYMBOL(LS-R))
-            MOVE "Y" TO LS-IS-STATUS
-            EXIT PERFORM
-        END-IF
-    END-PERFORM.
+    CALL "PLB-STATUS-ITEM-OF" USING PLB-SYMBOLS PLB-STATUS-ITEMS
+        RF-SYMBOL(LS-R) LS-IS-STATUS.
 
 *> LS-INSIDE = "Y" when reference LS-R is in the subscripts of another.
 TEST-INSIDE.
