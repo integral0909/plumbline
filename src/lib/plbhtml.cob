@@ -4,7 +4,9 @@
 *> PLB-REPORT-HTML USING SOURCE DIAGNOSTICS RULES FINDINGS writes a
 *> self-contained page (no scripts, no outside resources) to standard
 *> output: a summary by severity and by rule, the findings of each
-*> file with the source lines around them, and the diagnostics.
+*> file with the source lines around them, and the diagnostics. A
+*> finding with a fix kept for it (plbfixs.cpy) shows the fix: its
+*> title, and each line it changes as it is and as it would be.
 *> Suppressed and baselined findings are left out, as in the other
 *> reports. Every text taken from the input is HTML-escaped.
 *> ---------------------------------------------------------------
@@ -39,14 +41,25 @@ LOCAL-STORAGE SECTION.
 01  LS-NUM-TEXT             PIC X(20).
 01  LS-NUM-LEN              PIC 9(9) COMP-5.
 01  LS-CLASS                PIC X(8).
+*> The fix of the finding: its edits, and the lines they change.
+01  LS-FIX                  PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-E2                   PIC 9(9) COMP-5.
+01  LS-LINE-NO              PIC 9(9) COMP-5.
+01  LS-DONE                 PIC X.
+01  LS-NEW                  PIC X(1024).
+01  LS-NEW-PTR              PIC 9(9) COMP-5.
+01  LS-COL                  PIC 9(9) COMP-5.
+01  LS-NEXT                 PIC 9(9) COMP-5.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbrules.cpy".
 COPY "plbfind.cpy".
+COPY "plbfixs.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-RULES
-        PLB-FINDINGS.
+        PLB-FINDINGS PLB-FIX-STORE.
     PERFORM COUNT-FINDINGS
     PERFORM WRITE-HEAD
     PERFORM WRITE-SUMMARY
@@ -114,6 +127,11 @@ WRITE-HEAD.
     DISPLAY "  overflow-x: auto; font-size: .85rem; }"
     DISPLAY "pre mark { background: var(--mark); color: inherit;"
     DISPLAY "  display: block; }"
+    DISPLAY ".fix { border-top: 1px solid var(--line); }"
+    DISPLAY ".fix p { margin: 0; padding: .4rem .75rem; font-size: .85rem; }"
+    DISPLAY ".fix del, .fix ins { display: block; text-decoration: none; }"
+    DISPLAY ".fix del { color: var(--error); }"
+    DISPLAY ".fix ins { color: var(--note); }"
     DISPLAY "</style>"
     DISPLAY "</head>"
     DISPLAY "<body>"
@@ -238,7 +256,108 @@ WRITE-FINDING.
         INTO LS-OUT WITH POINTER LS-PTR
     PERFORM PRINT-OUT
     PERFORM WRITE-EXCERPT
+    CALL "PLB-FIX-FOR" USING PLB-FINDINGS LS-I PLB-FIX-STORE LS-FIX
+    IF LS-FIX > 0
+        PERFORM WRITE-FIX
+    END-IF
     DISPLAY "</article>".
+
+*> The fix LS-FIX: its title, then each line its edits are on, once, as
+*> it is (del) and as the fix makes it (ins).
+WRITE-FIX.
+    DISPLAY '<div class="fix">'
+    PERFORM START-OUT
+    STRING "<p>Fix: " DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    CALL "PLB-STR-LENGTH" USING FK-TITLE(LS-FIX) LS-TEXT-LEN
+    MOVE FK-TITLE(LS-FIX) TO LS-TEXT
+    PERFORM APPEND-ESCAPED
+    STRING "</p>" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    PERFORM PRINT-OUT
+    DISPLAY "<pre>" WITH NO ADVANCING
+    PERFORM VARYING LS-E FROM FK-FIRST-EDIT(LS-FIX) BY 1
+            UNTIL LS-E >= FK-FIRST-EDIT(LS-FIX) + FK-EDITS(LS-FIX)
+        *> Each line once: at its first edit.
+        MOVE "N" TO LS-DONE
+        PERFORM VARYING LS-E2 FROM FK-FIRST-EDIT(LS-FIX) BY 1
+                UNTIL LS-E2 >= LS-E
+            IF FK-EDIT-LINE(LS-E2) = FK-EDIT-LINE(LS-E)
+                MOVE "Y" TO LS-DONE
+            END-IF
+        END-PERFORM
+        IF LS-DONE = "N" AND FK-EDIT-END-LINE(LS-E) = FK-EDIT-LINE(LS-E)
+            MOVE FK-EDIT-LINE(LS-E) TO LS-LINE-NO
+            PERFORM WRITE-FIX-LINE
+        END-IF
+    END-PERFORM
+    DISPLAY "</pre></div>".
+
+*> Line LS-LINE-NO of the finding's file: as it is, and with the fix's
+*> edits on it made, in column order.
+WRITE-FIX-LINE.
+    CALL "PLB-SRC-LINE-INDEX" USING PLB-SOURCE-SET LS-FILE LS-LINE-NO
+        LS-SRC
+    IF LS-SRC = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-TEXT
+    MOVE SL-TEXT-LEN(LS-SRC) TO LS-TEXT-LEN
+    IF LS-TEXT-LEN > LENGTH OF LS-TEXT
+        MOVE LENGTH OF LS-TEXT TO LS-TEXT-LEN
+    END-IF
+    IF LS-TEXT-LEN > 0
+        MOVE SS-HEAP(SL-TEXT-OFF(LS-SRC):LS-TEXT-LEN) TO LS-TEXT
+    END-IF
+    *> The new text.
+    MOVE SPACES TO LS-NEW
+    MOVE 1 TO LS-NEW-PTR LS-COL
+    PERFORM FIND-NEXT-FIX-EDIT
+    PERFORM UNTIL LS-NEXT = 0
+        IF FK-EDIT-COLUMN(LS-NEXT) > LS-COL
+            STRING LS-TEXT(LS-COL:FK-EDIT-COLUMN(LS-NEXT) - LS-COL)
+                DELIMITED BY SIZE INTO LS-NEW WITH POINTER LS-NEW-PTR
+        END-IF
+        IF FK-EDIT-TEXT-LEN(LS-NEXT) > 0
+            STRING FK-EDIT-TEXT(LS-NEXT)(1:FK-EDIT-TEXT-LEN(LS-NEXT))
+                DELIMITED BY SIZE INTO LS-NEW WITH POINTER LS-NEW-PTR
+        END-IF
+        MOVE FK-EDIT-END-COLUMN(LS-NEXT) TO LS-COL
+        PERFORM FIND-NEXT-FIX-EDIT
+    END-PERFORM
+    IF LS-COL <= LS-TEXT-LEN
+        STRING LS-TEXT(LS-COL:LS-TEXT-LEN - LS-COL + 1)
+            DELIMITED BY SIZE INTO LS-NEW WITH POINTER LS-NEW-PTR
+    END-IF
+    PERFORM START-OUT
+    STRING "<del>- " DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    PERFORM APPEND-ESCAPED
+    STRING "</del>" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    PERFORM PRINT-OUT
+    PERFORM START-OUT
+    STRING "<ins>+ " DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    MOVE LS-NEW TO LS-TEXT
+    COMPUTE LS-TEXT-LEN = LS-NEW-PTR - 1
+    PERFORM APPEND-ESCAPED
+    STRING "</ins>" DELIMITED BY SIZE INTO LS-OUT WITH POINTER LS-PTR
+    PERFORM PRINT-OUT.
+
+*> LS-NEXT: the edit of the fix on line LS-LINE-NO with the lowest
+*> column at or after LS-COL, or 0.
+FIND-NEXT-FIX-EDIT.
+    MOVE 0 TO LS-NEXT
+    PERFORM VARYING LS-E2 FROM FK-FIRST-EDIT(LS-FIX) BY 1
+            UNTIL LS-E2 >= FK-FIRST-EDIT(LS-FIX) + FK-EDITS(LS-FIX)
+        IF FK-EDIT-LINE(LS-E2) = LS-LINE-NO
+           AND FK-EDIT-END-LINE(LS-E2) = LS-LINE-NO
+           AND FK-EDIT-COLUMN(LS-E2) >= LS-COL
+            IF LS-NEXT = 0
+                MOVE LS-E2 TO LS-NEXT
+            ELSE
+                IF FK-EDIT-COLUMN(LS-E2) < FK-EDIT-COLUMN(LS-NEXT)
+                    MOVE LS-E2 TO LS-NEXT
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
 
 *> The reported line and two lines on either side, numbered; the
 *> reported line marked. The file is read again if its lines were
