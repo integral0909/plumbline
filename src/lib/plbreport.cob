@@ -3,7 +3,8 @@
 *>
 *> PLB-REPORT-JSON writes a simple JSON document; PLB-REPORT-SARIF
 *> writes SARIF 2.1.0, the format read by code-scanning services and
-*> many editors; PLB-REPORT-CODECLIMATE writes the Code Climate issues
+*> many editors, with the fixes kept for the findings (plbfixs.cpy) as
+*> SARIF fixes; PLB-REPORT-CODECLIMATE writes the Code Climate issues
 *> GitLab shows in merge requests. All write to standard output, list
 *> findings in the order of the findings table (callers sort it
 *> first), and leave out suppressed findings.
@@ -15,7 +16,9 @@
 *>     "version": "...",
 *>     "findings": [
 *>       {"rule": ..., "name": ..., "severity": ..., "file": ...,
-*>        "line": ..., "column": ..., "message": ...},
+*>        "line": ..., "column": ..., "message": ...,
+*>        "fix": {"title": ..., "edits": [{"line": ..., "column": ...,
+*>                "endLine": ..., "endColumn": ..., "text": ...}]}},
 *>       ...
 *>     ],
 *>     "diagnostics": [
@@ -24,7 +27,10 @@
 *>       ...
 *>     ]
 *>   }
-*> Each finding and diagnostic is written on one line.
+*> Each finding and diagnostic is written on one line. "fix" is there
+*> for a finding with a fix (PLB-FIX-FINDING): each edit puts "text" in
+*> place of the characters from line and column up to, not including,
+*> endLine and endColumn.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-REPORT-JSON.
 DATA DIVISION.
@@ -40,6 +46,8 @@ LOCAL-STORAGE SECTION.
 01  LS-NUM                  PIC S9(18) COMP-5.
 01  LS-NUM-TEXT             PIC X(20).
 01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-FIX                  PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
 01  LS-SEVERITY             PIC X(8).
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
@@ -47,8 +55,9 @@ COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbrules.cpy".
 COPY "plbfind.cpy".
+COPY "plbfixs.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-RULES
-        PLB-FINDINGS.
+        PLB-FINDINGS PLB-FIX-STORE.
     DISPLAY "{"
     DISPLAY '  "tool": "' PLB-NAME '",'
     DISPLAY '  "version": "' PLB-VERSION '",'
@@ -101,12 +110,61 @@ WRITE-FINDING.
     STRING ', "message": ' DELIMITED BY SIZE
         INTO WS-LINE WITH POINTER LS-PTR
     CALL "PLB-JSON-STRING" USING FN-MESSAGE(LS-I) WS-LINE LS-PTR
+    CALL "PLB-FIX-FOR" USING PLB-FINDINGS LS-I PLB-FIX-STORE LS-FIX
+    IF LS-FIX > 0
+        PERFORM WRITE-FIX
+    END-IF
     STRING "}" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
     IF LS-I NOT = LS-LAST
         STRING "," DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
     END-IF
     COMPUTE LS-LEN = LS-PTR - 1
     DISPLAY WS-LINE(1:LS-LEN).
+
+*> ', "fix": {...}' for fix LS-FIX.
+WRITE-FIX.
+    STRING ', "fix": {"title": ' DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    CALL "PLB-JSON-STRING" USING FK-TITLE(LS-FIX) WS-LINE LS-PTR
+    STRING ', "edits": [' DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    PERFORM VARYING LS-E FROM FK-FIRST-EDIT(LS-FIX) BY 1
+            UNTIL LS-E >= FK-FIRST-EDIT(LS-FIX) + FK-EDITS(LS-FIX)
+        IF LS-E > FK-FIRST-EDIT(LS-FIX)
+            STRING ", " DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        END-IF
+        STRING '{"line": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        MOVE FK-EDIT-LINE(LS-E) TO LS-NUM
+        PERFORM APPEND-NUM
+        STRING ', "column": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        MOVE FK-EDIT-COLUMN(LS-E) TO LS-NUM
+        PERFORM APPEND-NUM
+        STRING ', "endLine": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        MOVE FK-EDIT-END-LINE(LS-E) TO LS-NUM
+        PERFORM APPEND-NUM
+        STRING ', "endColumn": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        MOVE FK-EDIT-END-COLUMN(LS-E) TO LS-NUM
+        PERFORM APPEND-NUM
+        STRING ', "text": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        PERFORM APPEND-EDIT-TEXT
+        STRING "}" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+    END-PERFORM
+    STRING "]}" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR.
+
+*> The text of edit LS-E as a JSON string.
+APPEND-EDIT-TEXT.
+    IF FK-EDIT-TEXT-LEN(LS-E) = 0
+        STRING '""' DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+    ELSE
+        CALL "PLB-JSON-STRING" USING
+            FK-EDIT-TEXT(LS-E)(1:FK-EDIT-TEXT-LEN(LS-E)) WS-LINE LS-PTR
+    END-IF.
 
 WRITE-DIAGNOSTIC.
     MOVE SPACES TO WS-LINE
@@ -173,6 +231,8 @@ LOCAL-STORAGE SECTION.
 01  LS-NUM                  PIC S9(18) COMP-5.
 01  LS-NUM-TEXT             PIC X(20).
 01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-FIX                  PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
 01  LS-LEVEL                PIC X(8).
 01  LS-LINE-NO              PIC 9(9) COMP-5.
 01  LS-COLUMN               PIC 9(9) COMP-5.
@@ -182,8 +242,9 @@ COPY "plbsrc.cpy".
 COPY "plbdiag.cpy".
 COPY "plbrules.cpy".
 COPY "plbfind.cpy".
+COPY "plbfixs.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-DIAGNOSTICS PLB-RULES
-        PLB-FINDINGS.
+        PLB-FINDINGS PLB-FIX-STORE.
     DISPLAY "{"
     DISPLAY '  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",'
     DISPLAY '  "version": "2.1.0",'
@@ -318,12 +379,63 @@ WRITE-RESULT.
     MOVE FN-LINE(LS-I) TO LS-LINE-NO
     MOVE FN-COLUMN(LS-I) TO LS-COLUMN
     PERFORM WRITE-LOCATION
+    CALL "PLB-FIX-FOR" USING PLB-FINDINGS LS-I PLB-FIX-STORE LS-FIX
+    IF LS-FIX > 0
+        PERFORM WRITE-FIXES
+    END-IF
     STRING "}" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
     IF LS-I NOT = LS-LAST
         STRING "," DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
     END-IF
     COMPUTE LS-LEN = LS-PTR - 1
     DISPLAY WS-LINE(1:LS-LEN).
+
+*> ', "fixes": [...]' for fix LS-FIX, of the file at LS-PATH: one
+*> replacement for each edit.
+WRITE-FIXES.
+    STRING ', "fixes": [{"description": {"text": ' DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    CALL "PLB-JSON-STRING" USING FK-TITLE(LS-FIX) WS-LINE LS-PTR
+    STRING '}, "artifactChanges": [{"artifactLocation": {"uri": "'
+           DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+    CALL "PLB-URI-PATH" USING LS-PATH WS-LINE LS-PTR
+    STRING '"}, "replacements": [' DELIMITED BY SIZE
+        INTO WS-LINE WITH POINTER LS-PTR
+    PERFORM VARYING LS-E FROM FK-FIRST-EDIT(LS-FIX) BY 1
+            UNTIL LS-E >= FK-FIRST-EDIT(LS-FIX) + FK-EDITS(LS-FIX)
+        IF LS-E > FK-FIRST-EDIT(LS-FIX)
+            STRING ", " DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        END-IF
+        STRING '{"deletedRegion": {"startLine": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        MOVE FK-EDIT-LINE(LS-E) TO LS-NUM
+        PERFORM APPEND-NUM
+        STRING ', "startColumn": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        MOVE FK-EDIT-COLUMN(LS-E) TO LS-NUM
+        PERFORM APPEND-NUM
+        STRING ', "endLine": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        MOVE FK-EDIT-END-LINE(LS-E) TO LS-NUM
+        PERFORM APPEND-NUM
+        STRING ', "endColumn": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        MOVE FK-EDIT-END-COLUMN(LS-E) TO LS-NUM
+        PERFORM APPEND-NUM
+        STRING '}, "insertedContent": {"text": ' DELIMITED BY SIZE
+            INTO WS-LINE WITH POINTER LS-PTR
+        IF FK-EDIT-TEXT-LEN(LS-E) = 0
+            STRING '""' DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        ELSE
+            CALL "PLB-JSON-STRING" USING
+                FK-EDIT-TEXT(LS-E)(1:FK-EDIT-TEXT-LEN(LS-E)) WS-LINE
+                LS-PTR
+        END-IF
+        STRING "}}" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR
+    END-PERFORM
+    STRING "]}]}]" DELIMITED BY SIZE INTO WS-LINE WITH POINTER LS-PTR.
 
 *> ', "locations": [...]' for LS-PATH at line LS-LINE-NO and column
 *> LS-COLUMN (either may be 0 for "unknown").

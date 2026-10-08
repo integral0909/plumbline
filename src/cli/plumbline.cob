@@ -212,6 +212,8 @@ COPY "plbinput.cpy" REPLACING ==PLB-INPUTS== BY ==WS-CHANGED-FILES==
 *> fix: the edits accepted for the file, what became of a fix, and the
 *> fixes found.
 COPY "plbfixl.cpy".
+*> check: the fixes of the findings, for the JSON and SARIF reports.
+COPY "plbfixs.cpy".
 01  WS-FIX-RESULT           PIC X.
 01  WS-FIX-COUNT            PIC 9(9) COMP-5.
 *> Language server: one message in, one out, the text of a document.
@@ -644,7 +646,7 @@ CHECK-COMMAND.
     PERFORM ADD-INPUTS
     CALL "PLB-FIND-INIT" USING PLB-FINDINGS
     CALL "PLB-CALL-INIT" USING PLB-CALL-GRAPH
-    MOVE 0 TO SM-COUNT SM-DROPPED
+    MOVE 0 TO SM-COUNT SM-DROPPED FK-FIX-COUNT FK-EDIT-COUNT
     MOVE SS-FILE-COUNT TO WS-MAIN-FILES
     MOVE WS-MODE TO PO-FORMAT
     MOVE WS-DEBUG TO PO-DEBUG
@@ -672,6 +674,9 @@ CHECK-COMMAND.
                 PLB-AST PLB-SYMBOLS PLB-REFS PLB-CALL-GRAPH
             CALL "PLB-FIND-SUPPRESS-RANGE" USING PLB-SOURCE-SET
                 PLB-RULES PLB-FINDINGS WS-FIRST-FINDING FN-COUNT
+            IF WS-REPORT = "json" OR WS-REPORT = "sarif"
+                PERFORM KEEP-FIXES
+            END-IF
             IF WS-COMMAND = "summary"
                 CALL "PLB-METRICS-COMPUTE" USING PLB-SOURCE-SET
                     PLB-TOKENS PLB-AST PLB-SYMBOLS PLB-FLOW PLB-METRICS
@@ -733,10 +738,10 @@ CHECK-COMMAND.
     EVALUATE WS-REPORT
         WHEN "json"
             CALL "PLB-REPORT-JSON" USING PLB-SOURCE-SET PLB-DIAGNOSTICS
-                PLB-RULES PLB-FINDINGS
+                PLB-RULES PLB-FINDINGS PLB-FIX-STORE
         WHEN "sarif"
             CALL "PLB-REPORT-SARIF" USING PLB-SOURCE-SET
-                PLB-DIAGNOSTICS PLB-RULES PLB-FINDINGS
+                PLB-DIAGNOSTICS PLB-RULES PLB-FINDINGS PLB-FIX-STORE
         WHEN "html"
             CALL "PLB-REPORT-HTML" USING PLB-SOURCE-SET
                 PLB-DIAGNOSTICS PLB-RULES PLB-FINDINGS
@@ -830,6 +835,21 @@ READ-JCL-INPUT.
         CALL "PLB-DIAG-ADD" USING PLB-DIAGNOSTICS "E" "JL001" WS-FILE-ID
             WS-POS-LINE WS-POS-COLUMN WS-OUT
     END-IF.
+
+*> The fixes of the findings made since WS-FIRST-FINDING, kept while
+*> the input's lines are loaded, for the JSON and SARIF reports.
+KEEP-FIXES.
+    PERFORM VARYING WS-I FROM WS-FIRST-FINDING BY 1
+            UNTIL WS-I > FN-COUNT
+        IF FN-SUPPRESSED(WS-I) = "N"
+            CALL "PLB-FIX-FINDING" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-AST PLB-RULES PLB-FINDINGS WS-I PLB-FIX
+            IF FX-EDIT-COUNT > 0
+                CALL "PLB-FIX-KEEP" USING PLB-FINDINGS WS-I PLB-FIX
+                    PLB-FIX-STORE
+            END-IF
+        END-IF
+    END-PERFORM.
 
 *> Release the input's lines. The SS-LINE indexes of findings made
 *> since WS-FIRST-FINDING point at released lines now.
