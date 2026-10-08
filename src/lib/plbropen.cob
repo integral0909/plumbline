@@ -5,6 +5,8 @@
 *>   PLB-Q011  cursor-opened-in-loop   an SQL cursor (EXEC SQL OPEN)
 *>   PLB-Q012  fetch-after-commit      a loop that FETCHes from a cursor
 *>                                     and commits
+*>   PLB-C083  close-in-loop           a CLOSE on every pass of a loop
+*>                                     that never opens the file again
 *>
 *> An OPEN that runs on every pass of a loop, of a file the loop never
 *> closes:
@@ -29,6 +31,11 @@
 *> PLB-Q011 checks EXEC SQL OPEN of a cursor the same way, against EXEC
 *> SQL CLOSE of the same cursor: the second OPEN of a cursor that is
 *> still open fails with SQLCODE -502.
+*>
+*> PLB-C083 starts from CLOSE instead, and looks in the loop for an
+*> OPEN of the file: without one, the second pass works on a closed
+*> file, and its I/O statements and the CLOSE itself fail (file status
+*> 47, 48, 49, or 42).
 *>
 *> PLB-Q012 starts from EXEC SQL FETCH instead, and looks among the
 *> loop's statements for EXEC SQL COMMIT or ROLLBACK, or EXEC CICS
@@ -59,6 +66,12 @@ LOCAL-STORAGE SECTION.
 *> F a file (C065), C a cursor (Q011), H a fetched cursor (Q012); the
 *> token to report at.
 01  LS-MODE                 PIC X.
+01  LS-RULE-CLOSE           PIC 9(4) COMP-5.
+*> The verb FIND-CLOSE looks for: CLOSE, or OPEN for PLB-C083.
+01  LS-SEEK-VERB            PIC X(10) VALUE "CLOSE".
+*> Kept while the PERFORM statements of a unit are walked up from.
+01  LS-SAVED-STMT           PIC 9(9) COMP-5.
+01  LS-SAVED-UNIT           PIC 9(9) COMP-5.
 01  LS-AT                   PIC 9(9) COMP-5.
 01  LS-NODE                 PIC 9(9) COMP-5.
 *> The EXEC statement SQL-COMMAND reads, and the node and token kept
@@ -119,6 +132,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C065" LS-RULE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q011" LS-RULE-CURSOR
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q012" LS-RULE-COMMIT
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C083" LS-RULE-CLOSE
     IF AS-COUNT = 0
         GOBACK
     END-IF
@@ -136,6 +150,23 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
                 END-IF
             END-IF
         END-PERFORM
+    END-IF
+    IF RL-ENABLED(LS-RULE-CLOSE) = "Y"
+        MOVE "K" TO LS-MODE
+        MOVE "OPEN" TO LS-SEEK-VERB
+        PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+            IF RF-KIND(LS-R) = "O" AND RF-STMT(LS-R) > 0
+                IF ND-DETAIL(RF-STMT(LS-R)) = "CLOSE"
+                    MOVE RF-STMT(LS-R) TO LS-STMT
+                    MOVE RF-TOKEN(LS-R) TO LS-AT
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-AT LS-FILE
+                        LS-LEN
+                    MOVE FUNCTION UPPER-CASE(LS-FILE) TO LS-FILE
+                    PERFORM CHECK-OPEN
+                END-IF
+            END-IF
+        END-PERFORM
+        MOVE "CLOSE" TO LS-SEEK-VERB
     END-IF
     IF RL-ENABLED(LS-RULE-CURSOR) = "Y"
         MOVE "C" TO LS-MODE
@@ -272,6 +303,11 @@ CHECK-OPEN.
                     IF LS-UNIT >= FE-TO(LS-F) AND LS-UNIT <= LS-LAST
                         MOVE FE-STMT(LS-F) TO LS-LOOP-STMT
                         PERFORM STATEMENT-LOOPS
+                        IF LS-LOOPS = "N"
+                            *> A PERFORM run on every pass of an inline
+                            *> loop around it.
+                            PERFORM PERFORM-IN-LOOP
+                        END-IF
                         IF LS-LOOPS = "Y"
                             PERFORM CHECK-LOOP
                             *> One report for the OPEN is enough.
@@ -283,6 +319,25 @@ CHECK-OPEN.
                 END-IF
             END-PERFORM
     END-EVALUATE.
+
+*> PERFORM statement LS-LOOP-STMT, which does not loop: LS-LOOPS = "Y",
+*> with LS-LOOP-STMT and LS-BODY the loop, when it is in the inline
+*> body of a looping PERFORM with nothing between that may skip it.
+*> One level only: what performs the unit around that loop is not
+*> followed.
+PERFORM-IN-LOOP.
+    MOVE LS-STMT TO LS-SAVED-STMT
+    MOVE LS-UNIT TO LS-SAVED-UNIT
+    MOVE LS-LOOP-STMT TO LS-STMT
+    PERFORM WALK-UP
+    IF LS-STATE = "L"
+        MOVE "Y" TO LS-LOOPS
+    ELSE
+        MOVE "N" TO LS-LOOPS
+    END-IF
+    MOVE LS-SAVED-STMT TO LS-STMT
+    MOVE LS-SAVED-UNIT TO LS-UNIT
+    MOVE "U" TO LS-STATE.
 
 *> From statement LS-STMT up the tree. LS-STATE: G when a statement or
 *> phrase that may skip the OPEN comes first, L when a looping PERFORM
@@ -454,7 +509,7 @@ FIND-CLOSE.
     END-IF
     PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > RF-COUNT
         IF RF-KIND(LS-C) = "O" AND RF-STMT(LS-C) > 0
-            IF ND-DETAIL(RF-STMT(LS-C)) = "CLOSE"
+            IF ND-DETAIL(RF-STMT(LS-C)) = LS-SEEK-VERB
                 CALL "PLB-TOK-TEXT" USING PLB-TOKENS RF-TOKEN(LS-C)
                     LS-WORD LS-LEN
                 IF FUNCTION UPPER-CASE(LS-WORD) = LS-FILE
@@ -566,6 +621,18 @@ REPORT-OPEN.
             INTO LS-MESSAGE
         CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
             PLB-RULES PLB-FINDINGS LS-RULE-CURSOR LS-AT LS-MESSAGE
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-MODE = "K"
+        STRING LS-FILE DELIMITED BY SPACE
+               " is closed on every pass of the loop on line "
+               LS-NUM-TEXT(1:LS-NUM-LEN)
+               ", which never opens it again: on the second pass it is"
+               " closed, and its I/O and this CLOSE fail"
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE-CLOSE LS-AT LS-MESSAGE
         EXIT PARAGRAPH
     END-IF
     STRING LS-FILE DELIMITED BY SPACE

@@ -1,0 +1,5 @@
+tests/golden/rules/c083-close-in-loop.cob:17:16: warning: the FILE STATUS of IN-FILE (WS-FS) is not tested after this OPEN [PLB-C020]
+tests/golden/rules/c083-close-in-loop.cob:22:15: warning: IN-FILE is closed on every pass of the loop on line 20, which never opens it again: on the second pass it is closed, and its I/O and this CLOSE fail [PLB-C083]
+tests/golden/rules/c083-close-in-loop.cob:31:20: warning: the FILE STATUS of IN-FILE (WS-FS) is not tested after this OPEN [PLB-C020]
+tests/golden/rules/c083-close-in-loop.cob:44:11: warning: IN-FILE is closed on every pass of the loop on line 24, which never opens it again: on the second pass it is closed, and its I/O and this CLOSE fail [PLB-C083]
+tests/golden/rules/c083-close-in-loop.cob:46:16: warning: the FILE STATUS of IN-FILE (WS-FS) is not tested after this OPEN [PLB-C020]

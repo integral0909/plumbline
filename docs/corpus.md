@@ -301,6 +301,10 @@ The findings were checked by rule:
   items their values with `ALLOCATE ... INITIALIZED` and `INITIALIZE
   ... ALL TO VALUE`; those statements now exempt the record.
 
+- **PLB-C083 close-in-loop.** None in NIST or in GnuCOBOL's tests.
+  PLB-C065, PLB-Q011, and PLB-Q012, which now also follow a procedure
+  performed on every pass of an inline loop, still report none.
+
 - **PLB-C082 pointer-below-one.** None in NIST. 1 in GnuCOBOL's tests,
   in `STRING WITH POINTER ON OVERFLOW with DELIMITER`, whose case B sets
   the pointer to 0 to see the statement overflow. In a copy of `NC217A`

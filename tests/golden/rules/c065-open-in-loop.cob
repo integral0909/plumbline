@@ -47,6 +47,11 @@ MAIN-LINE.
         END-IF
         ADD 1 TO WS-PASS
     END-PERFORM
+    *> Reported: a paragraph performed on every pass of an inline loop.
+    PERFORM UNTIL WS-PASS > 3
+        PERFORM OPEN-AGAIN
+        ADD 1 TO WS-PASS
+    END-PERFORM
     *> Not reported: 1 TIMES, and a PERFORM that does not loop.
     PERFORM 1 TIMES
         OPEN INPUT IN-FILE
@@ -61,3 +66,5 @@ WRITE-REPORT.
 FINISH-OUTPUT.
     WRITE OUT-REC
     CLOSE OUT-FILE.
+OPEN-AGAIN.
+    OPEN INPUT IN-FILE.
