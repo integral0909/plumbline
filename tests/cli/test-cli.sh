@@ -1053,6 +1053,8 @@ check_absent "fix: no fix for a COMPUTE of the pointer" ':18:' -- fix --check $r
 check "fix --patch: the file's name"        0 '^--- a/tests/fixtures/fix/fixable.cob$' -- fix --patch $fx/fixable.cob
 check "fix --patch: a changed line"         0 '^+           88  MONTH-VALID VALUE 1 THRU 12\.$' -- fix --patch $fx/fixable.cob
 check "fix --patch: its hunk"               0 '^@@ -4,17 +4,17 @@$' -- fix --patch $fx/fixable.cob
+check "html report shows a fix"            1 '^<p>Fix: Swap the ends of this range</p>$' -- check --report html $fx/fixable.cob
+check "html report shows the fixed line"    1 '^<ins>+            88  MONTH-VALID VALUE 1 THRU 12\.</ins>$' -- check --report html $fx/fixable.cob
 check "fix writes one file"                 2 'give one file, or use --check' -- fix $fx/fixable.cob $fx/clean.cob
 
 # check_report LABEL FORMAT EXPECTED-COUNT -- ARGS...

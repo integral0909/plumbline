@@ -229,6 +229,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C084 file-status-unknown.
 - Rule PLB-C085 zeros-into-packed; it and spaces-into-numeric leave a
   `FILE STATUS` group alone.
+- The HTML report shows the fix of each finding that has one: its title,
+  and the lines it changes, before and after.
 - `plumbline fix --patch`: the fixes as a unified diff, for any number
   of files.
 - Fixes (quick fix, `plumbline fix`, and the reports) for PLB-C078,

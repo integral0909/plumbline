@@ -321,7 +321,8 @@ the same repairs as quick fixes, and all of them at once as a "fix
 all" source action, and the JSON and SARIF reports of
 `check` carry them: a `fix` object with the edits for each finding that
 has one, and SARIF `fixes` with their replacements, which SARIF viewers
-can apply.
+can apply. The HTML report shows each fix under its finding, with the
+lines it changes as they are and as they would be.
 
 ## Record layouts
 
