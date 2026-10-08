@@ -6,6 +6,7 @@ had a fix are gone. The JSON report gives the same edits.
 """
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -90,6 +91,26 @@ class ReportFixesTest(unittest.TestCase):
             if finding["rule"] not in ("PLB-C004", "PLB-C071", "PLB-C074",
                                        "PLB-C079"):
                 self.assertNotIn("fix", finding)
+
+
+class PatchTest(unittest.TestCase):
+
+    @unittest.skipIf(shutil.which("patch") is None, "no patch program")
+    def test_patch_gives_what_fix_writes(self):
+        def run(*args):
+            return subprocess.run(
+                [os.path.abspath(PLUMBLINE), "fix"] + list(args) + [FIXABLE],
+                cwd=ROOT, capture_output=True, text=True).stdout
+        diff = run("--patch")
+        with tempfile.TemporaryDirectory() as directory:
+            target = os.path.join(directory, FIXABLE)
+            os.makedirs(os.path.dirname(target))
+            shutil.copy(os.path.join(ROOT, FIXABLE), target)
+            subprocess.run(["patch", "-p1", "-l", "-s"], input=diff,
+                           cwd=directory, text=True, check=True)
+            with open(target) as patched:
+                lines = [line.rstrip() for line in patched.read().split("\n")]
+        self.assertEqual(lines, run().split("\n"))
 
 
 if __name__ == "__main__":
