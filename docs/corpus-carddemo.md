@@ -337,6 +337,8 @@ Some findings that were read and are true:
   `COSGN00C` with `VALUE SPACE` on `LK-COMMAREA` of its `DFHCOMMAREA`,
   and a copy of `CBACT01C` with `VALUE ZERO` on `OUT-ACCT-ID` of its
   output record, it reports each.
+- **PLB-C082 pointer-below-one.** None. CardDemo's one `WITH POINTER`,
+  in `COPAUA0C`, starts from the item's `VALUE 1`.
 - **PLB-Q013 select-into-no-where.** None. In a copy of `COTRTUPC`
   whose `SELECT TR_TYPE, TR_DESCRIPTION INTO ...` loses its `WHERE`, it
   reports that `SELECT`.

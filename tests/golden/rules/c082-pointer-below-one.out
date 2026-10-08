@@ -1,0 +1,4 @@
+tests/golden/rules/c082-pointer-below-one.cob:13:60: warning: WS-PTR is 0 here, from the MOVE on line 12: a pointer below 1 makes STRING overflow at once, moving nothing [PLB-C082]
+tests/golden/rules/c082-pointer-below-one.cob:15:46: note: WS-PART is given a value but never read [PLB-M005]
+tests/golden/rules/c082-pointer-below-one.cob:16:22: warning: WS-PTR is 0 here, from the INITIALIZE on line 14: a pointer below 1 makes UNSTRING overflow at once, moving nothing [PLB-C082]
+tests/golden/rules/c082-pointer-below-one.cob:18:55: warning: WS-PTR is -1 here, from the COMPUTE on line 17: a pointer below 1 makes STRING overflow at once, moving nothing [PLB-C082]

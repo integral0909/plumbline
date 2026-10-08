@@ -93,6 +93,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C079](#plb-c079-nonnumeric-literal-move) | nonnumeric-literal-move | warning | MOVE of an alphanumeric literal that is not a number to a numeric item |
 | [PLB-C080](#plb-c080-initialize-loses-value) | initialize-loses-value | warning | INITIALIZE replaces the VALUE clauses of items it clears |
 | [PLB-C081](#plb-c081-varying-wrong-direction) | varying-wrong-direction | warning | PERFORM VARYING steps away from its UNTIL condition |
+| [PLB-C082](#plb-c082-pointer-below-one) | pointer-below-one | warning | STRING or UNSTRING POINTER set below 1 just before it |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2234,6 +2235,30 @@ Checked are loops whose `FROM`, `BY`, and `UNTIL` limit are literal
 numbers and whose condition is the counter compared with that limit
 alone, as for PLB-C026. A loop whose condition is true at the start
 does not run its body and is not reported.
+
+## PLB-C082 pointer-below-one
+
+`STRING` or `UNSTRING` `WITH POINTER` an item that was just given a
+value below 1:
+
+```cobol
+    MOVE 0 TO WS-PTR
+    STRING WS-FIRST DELIMITED BY SPACE INTO WS-LINE
+        WITH POINTER WS-PTR                     *> reported
+```
+
+The pointer counts characters from 1. Below 1, the statement overflows
+at once: with GnuCOBOL 3.2, `STRING` and `UNSTRING` move nothing, run
+their `ON OVERFLOW` phrase, and leave the pointer at 0. `MOVE 1` was
+meant.
+
+The value is the one the last statement before, in the same paragraph,
+gives the pointer: `MOVE` of a number or `ZERO`, `COMPUTE pointer =
+number`, or `INITIALIZE` (zero). That statement must be in a list of
+statements that holds the `STRING`, or directly in a sentence of the
+paragraph, and nothing between may change the pointer: no `ADD` to it,
+`PERFORM` of a procedure, `GO TO`, `CALL`, or `EXEC`. A value set in
+another paragraph, one that falls into the `STRING`'s, is not followed.
 
 ## PLB-I001 pcb-dbd-unknown
 

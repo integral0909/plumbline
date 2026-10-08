@@ -301,6 +301,13 @@ The findings were checked by rule:
   items their values with `ALLOCATE ... INITIALIZED` and `INITIALIZE
   ... ALL TO VALUE`; those statements now exempt the record.
 
+- **PLB-C082 pointer-below-one.** None in NIST. 1 in GnuCOBOL's tests,
+  in `STRING WITH POINTER ON OVERFLOW with DELIMITER`, whose case B sets
+  the pointer to 0 to see the statement overflow. In a copy of `NC217A`
+  with `MOVE 0` to the pointer just before its first `STRING`, it
+  reports that `STRING`; the suite's own `MOVE 1` is in the paragraph
+  before, which the rule does not follow.
+
 - **PLB-Q013 select-into-no-where.** None in NIST or in GnuCOBOL's
   tests.
 
