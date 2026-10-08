@@ -1,0 +1,2 @@
+tests/golden/rules/q014-fetch-loop-end-only.cob:10:53: note: table CUSTOMER is not declared in FTLOOP (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]
+tests/golden/rules/q014-fetch-loop-end-only.cob:13:19: warning: this loop ends only when SQLCODE is 100: if a FETCH in it fails, it runs again and again, as nothing in it looks at SQLCODE otherwise or leaves it [PLB-Q014]

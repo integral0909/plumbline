@@ -1,0 +1,4 @@
+tests/golden/rules/c086-read-loop-end-only.cob:21:19: warning: this loop ends only when WS-FS is "10": if a READ in it fails with another status, it runs again and again, as nothing in it looks at the status otherwise or leaves it [PLB-C086]
+tests/golden/rules/c086-read-loop-end-only.cob:25:28: warning: this loop ends only when WS-FS is "10": if a READ in it fails with another status, it runs again and again, as nothing in it looks at the status otherwise or leaves it [PLB-C086]
+tests/golden/rules/c086-read-loop-end-only.cob:34:14: warning: the FILE STATUS of IN-FILE (WS-FS) is not tested after this READ [PLB-C020]
+tests/golden/rules/c086-read-loop-end-only.cob:43:10: warning: the FILE STATUS of IN-FILE (WS-FS) is not tested after this READ [PLB-C020]

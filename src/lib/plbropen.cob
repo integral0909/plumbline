@@ -7,6 +7,10 @@
 *>                                     and commits
 *>   PLB-C083  close-in-loop           a CLOSE on every pass of a loop
 *>                                     that never opens the file again
+*>   PLB-C086  read-loop-end-only      a READ loop that ends only when
+*>                                     the file status is "10"
+*>   PLB-Q014  fetch-loop-end-only     a FETCH loop that ends only when
+*>                                     SQLCODE is 100
 *>
 *> An OPEN that runs on every pass of a loop, of a file the loop never
 *> closes:
@@ -36,6 +40,15 @@
 *> OPEN of the file: without one, the second pass works on a closed
 *> file, and its I/O statements and the CLOSE itself fail (file status
 *> 47, 48, 49, or 42).
+*>
+*> PLB-C086 and PLB-Q014 start from the loop: a PERFORM UNTIL whose
+*> whole condition is the file status item = "10" (or a condition name
+*> of it whose only value is "10"), or SQLCODE = 100. When the loop
+*> READs (or FETCHes), and nothing among what it runs looks at the
+*> status otherwise or can leave it (GOBACK, STOP, GO TO, EXIT PERFORM,
+*> EXIT PROGRAM, CALL), a READ that fails with any other status runs
+*> the loop for ever: with GnuCOBOL 3.2, a READ of a file that did not
+*> open returns 47 on every pass.
 *>
 *> PLB-Q012 starts from EXEC SQL FETCH instead, and looks among the
 *> loop's statements for EXEC SQL COMMIT or ROLLBACK, or EXEC CICS
@@ -67,6 +80,19 @@ LOCAL-STORAGE SECTION.
 *> token to report at.
 01  LS-MODE                 PIC X.
 01  LS-RULE-CLOSE           PIC 9(4) COMP-5.
+01  LS-RULE-READ-END        PIC 9(4) COMP-5.
+01  LS-RULE-FETCH-END       PIC 9(4) COMP-5.
+*> PLB-C086, PLB-Q014: F a file status loop, Q an SQLCODE loop; the
+*> status item, the token of the condition, what the loop does.
+01  LS-END-KIND             PIC X.
+01  LS-END-ITEM             PIC 9(9) COMP-5.
+01  LS-END-AT               PIC 9(9) COMP-5.
+01  LS-READS                PIC X.
+01  LS-ESCAPES              PIC X.
+01  LS-IS-STATUS            PIC X.
+01  LS-V                    PIC 9(9) COMP-5.
+01  LS-SYM                  PIC 9(9) COMP-5.
+COPY "plbstat.cpy".
 *> The verb FIND-CLOSE looks for: CLOSE, or OPEN for PLB-C083.
 01  LS-SEEK-VERB            PIC X(10) VALUE "CLOSE".
 *> Kept while the PERFORM statements of a unit are walked up from.
@@ -124,15 +150,18 @@ COPY "plbtok.cpy".
 COPY "plbastc.cpy".
 COPY "plbast.cpy".
 COPY "plbflow.cpy".
+COPY "plbsym.cpy".
 COPY "plbref.cpy".
 COPY "plbrules.cpy".
 COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
-        PLB-REFS PLB-RULES PLB-FINDINGS.
+        PLB-REFS PLB-SYMBOLS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C065" LS-RULE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q011" LS-RULE-CURSOR
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q012" LS-RULE-COMMIT
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C083" LS-RULE-CLOSE
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C086" LS-RULE-READ-END
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q014" LS-RULE-FETCH-END
     IF AS-COUNT = 0
         GOBACK
     END-IF
@@ -147,6 +176,20 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
                         LS-LEN
                     MOVE FUNCTION UPPER-CASE(LS-FILE) TO LS-FILE
                     PERFORM CHECK-OPEN
+                END-IF
+            END-IF
+        END-PERFORM
+    END-IF
+    IF RL-ENABLED(LS-RULE-READ-END) = "Y"
+       OR RL-ENABLED(LS-RULE-FETCH-END) = "Y"
+        CALL "PLB-STATUS-ITEMS" USING PLB-TOKENS PLB-AST
+            PLB-STATUS-ITEMS
+        PERFORM VARYING LS-NODE FROM 1 BY 1 UNTIL LS-NODE > AS-COUNT
+            IF ND-KIND(LS-NODE) = "STMT" AND ND-DETAIL(LS-NODE) = "PERFORM"
+                MOVE LS-NODE TO LS-LOOP-STMT
+                PERFORM STATEMENT-LOOPS
+                IF LS-LOOPS = "Y"
+                    PERFORM CHECK-END-LOOP
                 END-IF
             END-IF
         END-PERFORM
@@ -415,6 +458,270 @@ STATEMENT-LOOPS.
         END-IF
         MOVE LS-WORD TO LS-PREVIOUS
     END-PERFORM.
+
+*> PLB-C086, PLB-Q014: loop LS-LOOP-STMT (LS-BODY its inline body),
+*> whose phrase is LS-PHRASE-FROM to LS-PHRASE-TO.
+CHECK-END-LOOP.
+    MOVE SPACE TO LS-END-KIND
+    MOVE 0 TO LS-END-AT
+    PERFORM VARYING LS-T FROM LS-PHRASE-FROM BY 1
+            UNTIL LS-T > LS-PHRASE-TO
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            EVALUATE LS-WORD
+                WHEN "VARYING"
+                    EXIT PARAGRAPH
+                WHEN "UNTIL"
+                    COMPUTE LS-END-AT = LS-T + 1
+            END-EVALUATE
+        END-IF
+    END-PERFORM
+    IF LS-END-AT = 0 OR LS-END-AT > LS-PHRASE-TO
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM READ-END-CONDITION
+    IF LS-END-KIND = SPACE
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-END-KIND = "F" AND RL-ENABLED(LS-RULE-READ-END) NOT = "Y"
+       OR LS-END-KIND = "Q" AND RL-ENABLED(LS-RULE-FETCH-END) NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM COLLECT-RANGES
+    PERFORM SCAN-END-LOOP
+    PERFORM CLEAR-MARKS
+    IF LS-RANGE-COUNT > 0 AND LS-READS = "Y" AND LS-ESCAPES = "N"
+        PERFORM REPORT-END-LOOP
+    END-IF.
+
+*> LS-END-KIND: F when the condition from LS-END-AT to the end of the
+*> phrase is status-item = "10" or a condition name of the item with
+*> only the value "10" (LS-END-ITEM the item); Q when it is SQLCODE =
+*> 100; else space.
+READ-END-CONDITION.
+    MOVE LS-END-AT TO LS-T
+    MOVE 0 TO LS-END-ITEM LS-SYM
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        IF RF-TOKEN(LS-R) = LS-T AND RF-KIND(LS-R) = "D"
+            MOVE RF-SYMBOL(LS-R) TO LS-SYM
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    *> A condition name alone.
+    IF LS-T = LS-PHRASE-TO AND LS-SYM > 0
+        IF SY-LEVEL(LS-SYM) = 88 AND SY-PARENT(LS-SYM) > 0
+            CALL "PLB-STATUS-ITEM-OF" USING PLB-SYMBOLS PLB-STATUS-ITEMS
+                SY-PARENT(LS-SYM) LS-IS-STATUS
+            IF LS-IS-STATUS = "Y"
+                PERFORM CONDITION-ONLY-10
+                IF LS-IS-STATUS = "Y"
+                    MOVE "F" TO LS-END-KIND
+                    MOVE SY-PARENT(LS-SYM) TO LS-END-ITEM
+                END-IF
+            END-IF
+        END-IF
+        EXIT PARAGRAPH
+    END-IF
+    *> subject [IS] = | EQUAL [TO] literal, ending the phrase.
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+    MOVE LS-WORD TO LS-FILE
+    ADD 1 TO LS-T
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+    IF LS-WORD = "IS"
+        ADD 1 TO LS-T
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+    END-IF
+    EVALUATE TRUE
+        WHEN LS-WORD = "="
+            ADD 1 TO LS-T
+        WHEN LS-WORD = "EQUAL"
+            ADD 1 TO LS-T
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            IF LS-WORD = "TO"
+                ADD 1 TO LS-T
+            END-IF
+        WHEN OTHER
+            EXIT PARAGRAPH
+    END-EVALUATE
+    IF LS-T NOT = LS-PHRASE-TO
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+    IF LS-FILE = "SQLCODE" AND TK-IS-NUMBER(LS-T)
+        IF LS-WORD = "100" OR LS-WORD = "+100"
+            MOVE "Q" TO LS-END-KIND
+        END-IF
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-SYM > 0 AND TK-IS-ALNUM(LS-T)
+        IF TK-TEXT-LEN(LS-T) = 2
+            IF TK-TEXT(TK-TEXT-OFF(LS-T):2) = "10"
+                CALL "PLB-STATUS-ITEM-OF" USING PLB-SYMBOLS
+                    PLB-STATUS-ITEMS LS-SYM LS-IS-STATUS
+                IF LS-IS-STATUS = "Y"
+                    MOVE "F" TO LS-END-KIND
+                    MOVE LS-SYM TO LS-END-ITEM
+                END-IF
+            END-IF
+        END-IF
+    END-IF.
+
+*> LS-IS-STATUS stays "Y" when condition name LS-SYM has "10" as its
+*> only value.
+CONDITION-ONLY-10.
+    MOVE "N" TO LS-IS-STATUS
+    MOVE ND-FIRST(SY-NODE(LS-SYM)) TO LS-C
+    PERFORM UNTIL LS-C = 0
+        IF ND-KIND(LS-C) = "CLAU" AND ND-DETAIL(LS-C) = "VALUE"
+            EXIT PERFORM
+        END-IF
+        MOVE ND-NEXT(LS-C) TO LS-C
+    END-PERFORM
+    IF LS-C = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-V FROM ND-TOK-FIRST(LS-C) BY 1
+            UNTIL LS-V > ND-TOK-LAST(LS-C)
+        IF TK-IS-ALNUM(LS-V)
+            IF TK-TEXT-LEN(LS-V) = 2
+                IF TK-TEXT(TK-TEXT-OFF(LS-V):2) = "10"
+                   AND LS-IS-STATUS = "N"
+                    MOVE "Y" TO LS-IS-STATUS
+                ELSE
+                    MOVE "N" TO LS-IS-STATUS
+                    EXIT PARAGRAPH
+                END-IF
+            ELSE
+                MOVE "N" TO LS-IS-STATUS
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+        IF TK-IS-WORD(LS-V)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-V LS-WORD LS-LEN
+            IF LS-WORD = "THRU" OR LS-WORD = "THROUGH"
+                MOVE "N" TO LS-IS-STATUS
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> LS-READS: a READ (or RETURN) of a file, or an EXEC SQL FETCH, among
+*> the loop's statements; LS-ESCAPES: something there that looks at the
+*> status or may leave the loop.
+SCAN-END-LOOP.
+    MOVE "N" TO LS-READS LS-ESCAPES
+    IF LS-RANGE-COUNT = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K > AS-COUNT
+            OR LS-ESCAPES = "Y"
+        IF ND-KIND(LS-K) = "STMT"
+            PERFORM TEST-IN-RANGES
+            IF LS-STATE = "Y"
+                PERFORM SCAN-END-STATEMENT
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-ESCAPES = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    *> The status named among the loop's statements.
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        IF RF-KIND(LS-R) = "D" AND LS-END-KIND = "F"
+            MOVE RF-SYMBOL(LS-R) TO LS-SYM
+            PERFORM UNTIL LS-SYM = 0
+                IF LS-SYM = LS-END-ITEM
+                    EXIT PERFORM
+                END-IF
+                MOVE SY-PARENT(LS-SYM) TO LS-SYM
+            END-PERFORM
+            IF LS-SYM > 0
+                MOVE RF-TOKEN(LS-R) TO LS-V
+                PERFORM TEST-TOKEN-IN-RANGES
+                IF LS-STATE = "Y"
+                    MOVE "Y" TO LS-ESCAPES
+                    EXIT PERFORM
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-END-KIND = "Q"
+        PERFORM VARYING LS-RG FROM 1 BY 1 UNTIL LS-RG > LS-RANGE-COUNT
+            PERFORM VARYING LS-V FROM LS-RANGE-FROM(LS-RG) BY 1
+                    UNTIL LS-V > LS-RANGE-TO(LS-RG)
+                IF TK-IS-WORD(LS-V)
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-V LS-WORD
+                        LS-LEN
+                    IF LS-WORD = "SQLCODE" OR LS-WORD = "SQLSTATE"
+                       OR LS-WORD = "SQLCA"
+                        MOVE "Y" TO LS-ESCAPES
+                    END-IF
+                END-IF
+            END-PERFORM
+        END-PERFORM
+    END-IF.
+
+*> Statement LS-K among the loop's: a read, or a way out.
+SCAN-END-STATEMENT.
+    EVALUATE ND-DETAIL(LS-K)
+        WHEN "READ" WHEN "RETURN"
+            IF LS-END-KIND = "F"
+                MOVE "Y" TO LS-READS
+            END-IF
+        WHEN "EXEC"
+            COMPUTE LS-V = ND-TOK-FIRST(LS-K) + 2
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-V LS-WORD LS-LEN
+            IF LS-END-KIND = "Q" AND LS-WORD = "FETCH"
+                MOVE "Y" TO LS-READS
+            END-IF
+        WHEN "GOBACK" WHEN "STOP" WHEN "GO" WHEN "CALL"
+            MOVE "Y" TO LS-ESCAPES
+        WHEN "EXIT"
+            COMPUTE LS-V = ND-TOK-FIRST(LS-K) + 1
+            IF LS-V <= ND-TOK-LAST(LS-K)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-V LS-WORD LS-LEN
+                IF LS-WORD = "PERFORM" OR LS-WORD = "PROGRAM"
+                    MOVE "Y" TO LS-ESCAPES
+                END-IF
+            END-IF
+    END-EVALUATE.
+
+*> LS-STATE = "Y" when statement LS-K starts in one of the ranges.
+TEST-IN-RANGES.
+    MOVE ND-TOK-FIRST(LS-K) TO LS-V
+    PERFORM TEST-TOKEN-IN-RANGES.
+
+*> LS-STATE = "Y" when token LS-V is in one of the ranges.
+TEST-TOKEN-IN-RANGES.
+    MOVE "N" TO LS-STATE
+    PERFORM VARYING LS-RG FROM 1 BY 1 UNTIL LS-RG > LS-RANGE-COUNT
+        IF LS-V >= LS-RANGE-FROM(LS-RG) AND LS-V <= LS-RANGE-TO(LS-RG)
+            MOVE "Y" TO LS-STATE
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+REPORT-END-LOOP.
+    MOVE SPACES TO LS-MESSAGE
+    IF LS-END-KIND = "Q"
+        STRING "this loop ends only when SQLCODE is 100: if a FETCH in"
+               " it fails, it runs again and again, as nothing in it"
+               " looks at SQLCODE otherwise or leaves it"
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE-FETCH-END LS-END-AT
+            LS-MESSAGE
+        EXIT PARAGRAPH
+    END-IF
+    STRING "this loop ends only when " DELIMITED BY SIZE
+           SY-NAME(LS-END-ITEM) DELIMITED BY SPACE
+           ' is "10": if a READ in it fails with another status, it'
+           " runs again and again, as nothing in it looks at the"
+           " status otherwise or leaves it" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-READ-END LS-END-AT LS-MESSAGE.
 
 *> Loop LS-LOOP-STMT runs the OPEN of LS-FILE on every pass: report it
 *> unless a CLOSE of the file is among what the loop runs.

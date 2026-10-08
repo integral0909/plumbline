@@ -337,6 +337,13 @@ Some findings that were read and are true:
   `COSGN00C` with `VALUE SPACE` on `LK-COMMAREA` of its `DFHCOMMAREA`,
   and a copy of `CBACT01C` with `VALUE ZERO` on `OUT-ACCT-ID` of its
   output record, it reports each.
+- **PLB-C086 read-loop-end-only** and **PLB-Q014 fetch-loop-end-only.**
+  None: its read loops end on a flag that a paragraph sets from the
+  status, with an abend for errors, and its `FETCH` statements are
+  followed by tests of `SQLCODE`. In a copy of `CBACT01C` whose read
+  loop is made `PERFORM UNTIL ACCTFILE-STATUS = '10'` around a bare
+  `READ`, and a copy of `COTRTLIC` with a `PERFORM UNTIL SQLCODE = 100`
+  around one of its `FETCH` statements, each is reported.
 - **PLB-C085 zeros-into-packed.** None. In a copy of `CBTRN03C` with a
   `MOVE ZEROS TO WS-REPORT-VARS` before its `ADD 1 TO WS-LINE-COUNTER`,
   it reports that the `COMP-3` counter is read with zeros in it.
