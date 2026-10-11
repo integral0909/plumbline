@@ -229,6 +229,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C084 file-status-unknown.
 - Rules PLB-C086 read-loop-end-only and PLB-Q014 fetch-loop-end-only.
 - Rule PLB-J013 shr-for-output.
+- Rule PLB-J014 output-deleted.
 - Rule PLB-C085 zeros-into-packed; it and spaces-into-numeric leave a
   `FILE STATUS` group alone.
 - The HTML report shows the fix of each finding that has one: its title,

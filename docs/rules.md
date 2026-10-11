@@ -116,6 +116,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J011](#plb-j011-dd-name-repeated) | dd-name-repeated | warning | Step has the same DD name twice; the second is never used |
 | [PLB-J012](#plb-j012-read-after-delete) | read-after-delete | error | Step reads a data set that an earlier step deleted |
 | [PLB-J013](#plb-j013-shr-for-output) | shr-for-output | warning | Step writes a sequential data set its DD shares with DISP=SHR |
+| [PLB-J014](#plb-j014-output-deleted) | output-deleted | warning | Step writes a data set that its DD deletes when the step ends |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -2713,6 +2714,21 @@ writes it, so a reader may see it half written. `DISP=OLD` (or `MOD`
 to add to it) keeps it to the step. Indexed and relative files, which
 VSAM shares by its own options and CICS may hold open, are left alone,
 and so are files opened `I-O`.
+
+## PLB-J014 output-deleted
+
+A data set that a step's program writes (`OUTPUT`, `EXTEND`, or
+`I-O`), whose DD deletes it when the step ends:
+
+```
+//REPORT   EXEC PGM=PAYUPD
+//PAYRPT   DD DSN=PAY.REPORT,DISP=(NEW,DELETE,DELETE)   <- reported
+```
+
+The second `DISP` subparameter is what happens when the step ends
+well: `DELETE` throws away what the program wrote. `CATLG` or `KEEP`
+was meant, or `PASS` for a later step. Temporary data sets (`&&NAME`),
+which go at the end of the job anyway, are left alone.
 ## PLB-K001 cics-resource-undefined
 
 An `EXEC CICS` command that names a file, transaction, program, mapset,
