@@ -1063,8 +1063,8 @@ A `WHEN` of an `EVALUATE` that tests what an earlier `WHEN` of the same
 `EVALUATE` runs the first `WHEN` that matches, so the later one never
 runs. Usually one of them was meant to test something else. `WHEN`s are
 compared by their words and literals, `ALSO` parts included, whatever
-the line breaks; a value inside an earlier `THRU` range is not looked
-for.
+the line breaks; a value inside an earlier `THRU` range is
+[PLB-C087](#plb-c087-when-covered)'s.
 
 ## PLB-C033 self-move
 
