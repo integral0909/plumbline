@@ -98,6 +98,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C084](#plb-c084-file-status-unknown) | file-status-unknown | warning | FILE STATUS item compared with a code no I/O statement returns |
 | [PLB-C085](#plb-c085-zeros-into-packed) | zeros-into-packed | warning | MOVE ZEROS to a group puts the character 0 in its packed items |
 | [PLB-C086](#plb-c086-read-loop-end-only) | read-loop-end-only | warning | READ loop ends only at end of file, and loops for ever on errors |
+| [PLB-C087](#plb-c087-when-covered) | when-covered | warning | WHEN of an EVALUATE whose values an earlier WHEN range takes |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2372,6 +2373,30 @@ status item `= "10"`, or a condition name of it whose only value is
 `READ` (or `RETURN`). The loop is left alone when those statements name
 the status item otherwise, or can leave the loop: `GOBACK`, `STOP`, `GO
 TO`, `EXIT PERFORM`, `EXIT PROGRAM`, or a `CALL` (an abend routine).
+
+## PLB-C087 when-covered
+
+A `WHEN` of an `EVALUATE` whose values an earlier `WHEN`'s range
+already takes:
+
+```cobol
+    EVALUATE WS-CODE
+        WHEN 1 THRU 10
+            ...
+        WHEN 5                                  *> reported
+```
+
+`EVALUATE` runs the first `WHEN` that matches, so the later one never
+runs: with GnuCOBOL 3.2, `WS-CODE` 5 takes the `1 THRU 10` branch.
+Usually the ranges overlap by mistake, or the specific case was meant
+to come first.
+
+Read are `EVALUATE` statements of one subject (not `TRUE` or `FALSE`,
+no `ALSO`), and `WHEN` phrases that are a number or a range of numbers;
+a `WHEN` inside one earlier range is reported. A `WHEN` the same as an
+earlier one is [PLB-C032](#plb-c032-duplicate-when)'s, and ranges of
+alphanumeric values, which depend on the collating sequence, are not
+read.
 
 ## PLB-I001 pcb-dbd-unknown
 

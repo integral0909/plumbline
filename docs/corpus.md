@@ -301,6 +301,9 @@ The findings were checked by rule:
   items their values with `ALLOCATE ... INITIALIZED` and `INITIALIZE
   ... ALL TO VALUE`; those statements now exempt the record.
 
+- **PLB-C087 when-covered.** None in NIST or in GnuCOBOL's tests, which
+  have one `WHEN` with a numeric range between them.
+
 - **PLB-C086 read-loop-end-only** and **PLB-Q014 fetch-loop-end-only.**
   None in NIST or in GnuCOBOL's tests, which have no loop that ends on
   a status of `"10"` or an `SQLCODE` of 100 alone.
