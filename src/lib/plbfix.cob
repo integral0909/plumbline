@@ -9,7 +9,9 @@
 *>             after NEXT, CONTINUE in place of NEXT, and SENTENCE
 *>             taken out)
 *>   PLB-C071  each AND of the contradictory condition made OR, or
-*>             each OR made AND, in the case each was written in
+*>             each OR made AND, in the case each was written in; a
+*>             condition with > or < (a range) has no fix, as OR for
+*>             AND can make it one that is always true
 *>   PLB-C074  the two ends of the reversed THRU range swapped, as
 *>             written
 *>   PLB-C079  the quotes taken off a literal that is a number written
@@ -189,7 +191,8 @@ FIX-CONTRADICTION.
     ELSE
         MOVE "AND" TO LS-JOIN-TO
     END-IF
-    *> Every join must be one the fix can change.
+    *> Every join must be one the fix can change, and no relation a
+    *> range.
     PERFORM VARYING LS-T FROM LS-TOKEN BY 1
             UNTIL LS-T > ND-TOK-LAST(LS-COND)
         IF TK-IS-WORD(LS-T)
@@ -201,6 +204,18 @@ FIX-CONTRADICTION.
                     EXIT PARAGRAPH
                 END-IF
             END-IF
+        END-IF
+        IF TK-IS-OPERATOR(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            IF LS-TEXT(1:1) = ">" OR LS-TEXT(1:1) = "<"
+                MOVE 0 TO FX-EDIT-COUNT
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+        IF FUNCTION UPPER-CASE(LS-TEXT) = "GREATER"
+           OR FUNCTION UPPER-CASE(LS-TEXT) = "LESS"
+            MOVE 0 TO FX-EDIT-COUNT
+            EXIT PARAGRAPH
         END-IF
     END-PERFORM
     MOVE SPACES TO FX-TITLE

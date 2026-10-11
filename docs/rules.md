@@ -82,7 +82,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C068](#plb-c068-odo-count-out-of-range) | odo-count-out-of-range | error | OCCURS DEPENDING ON count given a value outside the table |
 | [PLB-C069](#plb-c069-search-index-used-unchecked) | search-index-used-unchecked | warning | Index used after a SEARCH that has no AT END |
 | [PLB-C070](#plb-c070-mq-completion-not-checked) | mq-completion-not-checked | warning | Completion code of an MQ call is not tested |
-| [PLB-C071](#plb-c071-contradictory-condition) | contradictory-condition | warning | Equalities joined by AND, or inequalities by OR, of one item |
+| [PLB-C071](#plb-c071-contradictory-condition) | contradictory-condition | warning | Relations of one item joined so the condition is never or always true |
 | [PLB-C072](#plb-c072-unreachable-statement) | unreachable-statement | warning | Statement after a GO TO, GOBACK, or STOP RUN never runs |
 | [PLB-C073](#plb-c073-value-ignored) | value-ignored | warning | VALUE clause in the FILE or LINKAGE SECTION gives no value |
 | [PLB-C074](#plb-c074-condition-range-reversed) | condition-range-reversed | warning | Condition name has a THRU range whose start is above its end |
@@ -1995,16 +1995,41 @@ inequalities with `OR`, so that it cannot be true, or cannot be false:
 
 `AND` was meant to be `OR`, or the other way round. The rule reads
 conditions of `IF` and `PERFORM ... UNTIL` that are a chain of
-relations `item [IS] [NOT] = literal` (or `EQUAL [TO]`), with the
-abbreviated forms that leave out the item, or the item and the
-operator, joined all by `AND` or all by `OR`. A condition with
-parentheses that group, other operators, or both `AND` and `OR` is not
-read. The item is compared as written, with its subscripts; literals
-by value, so that trailing spaces and leading zeros do not count.
+relations `item [IS] [NOT] operator literal`, with the abbreviated
+forms that leave out the item, or the item and the operator, joined
+all by `AND` or all by `OR`. A condition with parentheses that group,
+or both `AND` and `OR`, is not read. The item is compared as written,
+with its subscripts; literals by value, so that trailing spaces and
+leading zeros do not count.
+
+The operators are `=` (`EQUAL [TO]`), and `>`, `<`, `>=`, `<=` and
+their words (`GREATER [THAN]`, `LESS [THAN]`, `GREATER [THAN] OR EQUAL
+[TO]`, `LESS [THAN] OR EQUAL [TO]`); `NOT` before one of the four turns
+it round, so `NOT > 4` is `<= 4`. Two relations of a numeric item with
+numbers are also read as ranges:
+
+```cobol
+    IF WS-AMOUNT > 5 AND WS-AMOUNT < 3      *> reported: never true
+    IF WS-AMOUNT < 5 OR >= 5                *> reported: always true
+    IF WS-AMOUNT >= 5 AND <= 5              *> not reported: true for 5
+    IF WS-AMOUNT < 5 OR > 5                 *> not reported: false for 5
+```
+
+Under `AND`, ranges that have no number in common are reported; under
+`OR`, ranges that hold every number between them. Only items of a
+numeric picture are read this way: an alphanumeric item is compared
+with a number character by character, where `"10"` comes before `"9"`,
+so `WS-TEXT > 10 AND WS-TEXT < 9` is true when `WS-TEXT` is `"5"`. The
+ranges are of all numbers, not only those the item's picture holds:
+`WS-CODE > 3 AND WS-CODE < 4` is never true of a `PIC 9(3)` item, but
+is not reported.
 
 In an editor, the language server offers a quick fix that changes the
 condition's `AND`s to `OR`, or its `OR`s to `AND` (see
-[Editors](editors.md)).
+[Editors](editors.md)), and `plumbline fix` makes it. A condition with
+`>` or `<` has no fix: changing `AND` to `OR` in
+`WS-AMOUNT >= 5 AND WS-AMOUNT < 5` gives one that is always true, and
+which was meant is not plain from the code.
 
 ## PLB-C072 unreachable-statement
 

@@ -10,11 +10,18 @@
 *>
 *> AND was meant to be OR, or the other way round. The rule reads
 *> conditions of IF and PERFORM ... UNTIL that are a chain of relations
-*> item [IS] [NOT] = literal (or EQUAL [TO]), with the abbreviated
-*> forms that leave out the item or the item and the operator, joined
-*> all by AND or all by OR. A condition with parentheses that group, or
-*> other operators, or both AND and OR, is not read. Literals are
-*> compared by value: trailing spaces and leading zeros do not count.
+*> item [IS] [NOT] operator literal, with the abbreviated forms that
+*> leave out the item or the item and the operator, joined all by AND
+*> or all by OR. A condition with parentheses that group, or both AND
+*> and OR, is not read. Literals are compared by value: trailing spaces
+*> and leading zeros do not count.
+*>
+*> Relations with > or < and a number, of a numeric item, are read as
+*> ranges: two that have no number in common under AND, or that hold
+*> every number under OR, are reported too:
+*>
+*>     IF WS-AMOUNT > 5 AND WS-AMOUNT < 3           never true
+*>     IF WS-AMOUNT < 5 OR >= 5                     always true
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-C071.
@@ -39,6 +46,32 @@ LOCAL-STORAGE SECTION.
 01  LS-PIECE-NOT            PIC X OCCURS PIECE-MAX TIMES.
 01  LS-PIECE-VALUE          PIC X(64) OCCURS PIECE-MAX TIMES.
 01  LS-PIECE-SHOWN          PIC X(40) OCCURS PIECE-MAX TIMES.
+*> The operator of each relation: E =, G >, H >=, L <, M <= (NOT
+*> folded into the others); and its value, when a number.
+01  LS-PIECE-OP             PIC X OCCURS PIECE-MAX TIMES.
+01  LS-PIECE-NUM            PIC S9(18)V9(9) COMP-3 OCCURS PIECE-MAX TIMES.
+*> The operator carried to abbreviated relations.
+01  LS-OP                   PIC X.
+*> Two relations as intervals: low and high ends, Y for none (infinite),
+*> Y for an end not included.
+01  LS-A-LOW                PIC S9(18)V9(9) COMP-3.
+01  LS-A-HIGH               PIC S9(18)V9(9) COMP-3.
+01  LS-A-NO-LOW             PIC X.
+01  LS-A-NO-HIGH            PIC X.
+01  LS-A-OPEN-LOW           PIC X.
+01  LS-A-OPEN-HIGH          PIC X.
+01  LS-B-LOW                PIC S9(18)V9(9) COMP-3.
+01  LS-B-HIGH               PIC S9(18)V9(9) COMP-3.
+01  LS-B-NO-LOW             PIC X.
+01  LS-B-NO-HIGH            PIC X.
+01  LS-B-OPEN-LOW           PIC X.
+01  LS-B-OPEN-HIGH          PIC X.
+01  LS-P                    PIC 9(4) COMP-5.
+01  LS-RANGE-FOUND          PIC X.
+01  LS-OP-TEXT              PIC X(2).
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-NAME                 PIC X(31).
+01  LS-NUMERIC              PIC X.
 01  LS-JOIN                 PIC X.
 *> The subject and operator carried to abbreviated relations.
 01  LS-SUBJECT              PIC X(64).
@@ -58,9 +91,11 @@ COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
 COPY "plbastc.cpy".
 COPY "plbast.cpy".
+COPY "plbsym.cpy".
 COPY "plbrules.cpy".
 COPY "plbfind.cpy".
-PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-RULES
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
+        PLB-RULES
         PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C071" LS-RULE
     IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
@@ -114,6 +149,8 @@ CHECK-CONDITION.
     PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I >= LS-PIECE-COUNT
         PERFORM VARYING LS-J FROM LS-I BY 1 UNTIL LS-J >= LS-PIECE-COUNT
             IF LS-PIECE-SUBJECT(LS-I) = LS-PIECE-SUBJECT(LS-J + 1)
+               AND LS-PIECE-OP(LS-I) = "E"
+               AND LS-PIECE-OP(LS-J + 1) = "E"
                AND LS-PIECE-NOT(LS-I) = LS-PIECE-NOT(LS-J + 1)
                AND LS-PIECE-VALUE(LS-I) NOT = LS-PIECE-VALUE(LS-J + 1)
                 IF (LS-JOIN = "A" AND LS-PIECE-NOT(LS-I) = "N")
@@ -124,7 +161,158 @@ CHECK-CONDITION.
                 END-IF
             END-IF
         END-PERFORM
+    END-PERFORM
+    PERFORM CHECK-RANGES.
+
+*> Two relations of one item with numbers, as intervals: under AND,
+*> none in both; under OR, every number in one or the other.
+CHECK-RANGES.
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I >= LS-PIECE-COUNT
+        PERFORM VARYING LS-J FROM LS-I BY 1 UNTIL LS-J >= LS-PIECE-COUNT
+            COMPUTE LS-K = LS-J + 1
+            IF LS-PIECE-SUBJECT(LS-I) = LS-PIECE-SUBJECT(LS-K)
+               AND LS-PIECE-VALUE(LS-I)(1:2) = "N:"
+               AND LS-PIECE-VALUE(LS-K)(1:2) = "N:"
+               AND NOT (LS-PIECE-OP(LS-I) = "E"
+                        AND LS-PIECE-OP(LS-K) = "E")
+               AND NOT (LS-PIECE-OP(LS-I) = "E"
+                        AND LS-PIECE-NOT(LS-I) = "Y")
+               AND NOT (LS-PIECE-OP(LS-K) = "E"
+                        AND LS-PIECE-NOT(LS-K) = "Y")
+                PERFORM SUBJECT-NUMERIC
+                IF LS-NUMERIC = "Y"
+                    PERFORM TEST-RANGES
+                ELSE
+                    MOVE "N" TO LS-RANGE-FOUND
+                END-IF
+                IF LS-RANGE-FOUND = "Y"
+                    PERFORM REPORT-RANGES
+                    EXIT PARAGRAPH
+                END-IF
+            END-IF
+        END-PERFORM
     END-PERFORM.
+
+*> LS-RANGE-FOUND = "Y" when relations LS-I and LS-K, joined by
+*> LS-JOIN, can never both hold (AND) or always hold one (OR).
+TEST-RANGES.
+    MOVE "N" TO LS-RANGE-FOUND
+    MOVE LS-I TO LS-P
+    PERFORM INTERVAL-OF
+    MOVE LS-B-LOW TO LS-A-LOW
+    MOVE LS-B-HIGH TO LS-A-HIGH
+    MOVE LS-B-NO-LOW TO LS-A-NO-LOW
+    MOVE LS-B-NO-HIGH TO LS-A-NO-HIGH
+    MOVE LS-B-OPEN-LOW TO LS-A-OPEN-LOW
+    MOVE LS-B-OPEN-HIGH TO LS-A-OPEN-HIGH
+    MOVE LS-K TO LS-P
+    PERFORM INTERVAL-OF
+    IF LS-JOIN = "A"
+        *> The higher low end against the lower high end.
+        IF LS-A-NO-LOW = "N" AND LS-B-NO-HIGH = "N"
+            IF LS-A-LOW > LS-B-HIGH
+               OR (LS-A-LOW = LS-B-HIGH
+                   AND (LS-A-OPEN-LOW = "Y" OR LS-B-OPEN-HIGH = "Y"))
+                MOVE "Y" TO LS-RANGE-FOUND
+            END-IF
+        END-IF
+        IF LS-B-NO-LOW = "N" AND LS-A-NO-HIGH = "N"
+            IF LS-B-LOW > LS-A-HIGH
+               OR (LS-B-LOW = LS-A-HIGH
+                   AND (LS-B-OPEN-LOW = "Y" OR LS-A-OPEN-HIGH = "Y"))
+                MOVE "Y" TO LS-RANGE-FOUND
+            END-IF
+        END-IF
+    ELSE
+        *> One reaches down without end, the other up, and they meet.
+        IF LS-A-NO-LOW = "Y" AND LS-B-NO-HIGH = "Y"
+           AND LS-A-NO-HIGH = "N" AND LS-B-NO-LOW = "N"
+            IF LS-B-LOW < LS-A-HIGH
+               OR (LS-B-LOW = LS-A-HIGH
+                   AND (LS-B-OPEN-LOW = "N" OR LS-A-OPEN-HIGH = "N"))
+                MOVE "Y" TO LS-RANGE-FOUND
+            END-IF
+        END-IF
+        IF LS-B-NO-LOW = "Y" AND LS-A-NO-HIGH = "Y"
+           AND LS-B-NO-HIGH = "N" AND LS-A-NO-LOW = "N"
+            IF LS-A-LOW < LS-B-HIGH
+               OR (LS-A-LOW = LS-B-HIGH
+                   AND (LS-A-OPEN-LOW = "N" OR LS-B-OPEN-HIGH = "N"))
+                MOVE "Y" TO LS-RANGE-FOUND
+            END-IF
+        END-IF
+    END-IF.
+
+*> LS-NUMERIC = "Y" when the subject of relation LS-I names numeric
+*> items only. An alphanumeric item is compared with a number character
+*> by character, where "10" comes before "9".
+SUBJECT-NUMERIC.
+    MOVE "N" TO LS-NUMERIC
+    UNSTRING LS-PIECE-SUBJECT(LS-I) DELIMITED BY "(" INTO LS-NAME
+    MOVE FUNCTION UPPER-CASE(LS-NAME) TO LS-NAME
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
+        IF FUNCTION UPPER-CASE(SY-NAME(LS-S)) = LS-NAME
+            IF SY-CATEGORY(LS-S) NOT = "9"
+                MOVE "N" TO LS-NUMERIC
+                EXIT PARAGRAPH
+            END-IF
+            MOVE "Y" TO LS-NUMERIC
+        END-IF
+    END-PERFORM.
+
+*> Relation LS-P as the interval LS-B-*.
+INTERVAL-OF.
+    MOVE "N" TO LS-B-NO-LOW LS-B-NO-HIGH LS-B-OPEN-LOW LS-B-OPEN-HIGH
+    MOVE LS-PIECE-NUM(LS-P) TO LS-B-LOW LS-B-HIGH
+    EVALUATE LS-PIECE-OP(LS-P)
+        WHEN "G"
+            MOVE "Y" TO LS-B-NO-HIGH LS-B-OPEN-LOW
+        WHEN "H"
+            MOVE "Y" TO LS-B-NO-HIGH
+        WHEN "L"
+            MOVE "Y" TO LS-B-NO-LOW LS-B-OPEN-HIGH
+        WHEN "M"
+            MOVE "Y" TO LS-B-NO-LOW
+    END-EVALUATE.
+
+REPORT-RANGES.
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    IF LS-JOIN = "A"
+        STRING "this condition is never true: " DELIMITED BY SIZE
+               LS-PIECE-SUBJECT(LS-I) DELIMITED BY SPACE
+               " cannot be both " DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    ELSE
+        STRING "this condition is always true: " DELIMITED BY SIZE
+               LS-PIECE-SUBJECT(LS-I) DELIMITED BY SPACE
+               " is always " DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    MOVE LS-I TO LS-P
+    PERFORM APPEND-RELATION
+    IF LS-JOIN = "A"
+        STRING " and " DELIMITED BY SIZE INTO LS-MESSAGE WITH POINTER LS-PTR
+    ELSE
+        STRING " or " DELIMITED BY SIZE INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    MOVE LS-K TO LS-P
+    PERFORM APPEND-RELATION
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-FIRST LS-MESSAGE.
+
+*> Operator and value of relation LS-P, as "> 5".
+APPEND-RELATION.
+    EVALUATE LS-PIECE-OP(LS-P)
+        WHEN "G" MOVE ">" TO LS-OP-TEXT
+        WHEN "H" MOVE ">=" TO LS-OP-TEXT
+        WHEN "L" MOVE "<" TO LS-OP-TEXT
+        WHEN "M" MOVE "<=" TO LS-OP-TEXT
+        WHEN OTHER MOVE "=" TO LS-OP-TEXT
+    END-EVALUATE
+    STRING LS-OP-TEXT DELIMITED BY SPACE
+           " " FUNCTION TRIM(LS-PIECE-SHOWN(LS-P)) DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR.
 
 *> LS-USABLE = "Y" when the tokens are a chain of relations of the form
 *> the rule reads; the relations are then in LS-PIECE-*.
@@ -133,6 +321,7 @@ READ-CHAIN.
     MOVE 0 TO LS-PIECE-COUNT
     MOVE SPACE TO LS-JOIN
     MOVE "N" TO LS-HAVE-SUBJECT LS-NOT
+    MOVE SPACE TO LS-OP
     MOVE LS-FIRST TO LS-T
     PERFORM UNTIL LS-T > LS-LAST
         PERFORM READ-RELATION
@@ -176,7 +365,8 @@ READ-RELATION.
         CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
         MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD
         IF LS-WORD NOT = "IS" AND LS-WORD NOT = "NOT"
-           AND LS-WORD NOT = "EQUAL" AND LS-WORD NOT = "SPACE"
+           AND LS-WORD NOT = "EQUAL" AND LS-WORD NOT = "GREATER"
+           AND LS-WORD NOT = "LESS" AND LS-WORD NOT = "SPACE"
            AND LS-WORD NOT = "SPACES" AND LS-WORD NOT = "ZERO"
            AND LS-WORD NOT = "ZEROS" AND LS-WORD NOT = "ZEROES"
             PERFORM READ-SUBJECT
@@ -192,6 +382,7 @@ READ-RELATION.
             END-IF
         ELSE
             IF LS-WORD = "IS" OR LS-WORD = "NOT" OR LS-WORD = "EQUAL"
+               OR LS-WORD = "GREATER" OR LS-WORD = "LESS"
                 PERFORM READ-OPERATOR
                 IF LS-USABLE = "E"
                     EXIT PARAGRAPH
@@ -214,9 +405,18 @@ READ-RELATION.
         MOVE "X" TO LS-USABLE
         EXIT PARAGRAPH
     END-IF
+    IF LS-OP = SPACE
+        MOVE "X" TO LS-USABLE
+        EXIT PARAGRAPH
+    END-IF
     ADD 1 TO LS-PIECE-COUNT
     MOVE LS-SUBJECT TO LS-PIECE-SUBJECT(LS-PIECE-COUNT)
     MOVE LS-NOT TO LS-PIECE-NOT(LS-PIECE-COUNT)
+    MOVE LS-OP TO LS-PIECE-OP(LS-PIECE-COUNT)
+    MOVE 0 TO LS-PIECE-NUM(LS-PIECE-COUNT)
+    IF LS-TEXT(1:2) = "N:"
+        MOVE LS-NUMBER TO LS-PIECE-NUM(LS-PIECE-COUNT)
+    END-IF
     MOVE LS-TEXT TO LS-PIECE-VALUE(LS-PIECE-COUNT)
     ADD 1 TO LS-T
     MOVE "Y" TO LS-USABLE.
@@ -249,8 +449,11 @@ READ-SUBJECT.
         END-PERFORM
     END-IF.
 
-*> [IS] [NOT] = | EQUAL [TO] at LS-T: LS-NOT; LS-USABLE = "E" when it
-*> is another operator.
+*> [IS] [NOT] operator at LS-T: LS-OP and LS-NOT. The operators are
+*> =, EQUAL [TO], >, GREATER [THAN], <, LESS [THAN], >=, <=, and
+*> GREATER or LESS [THAN] OR EQUAL [TO]; NOT before one other than =
+*> turns it round (NOT > is <=), and LS-NOT stays "N". LS-USABLE = "E"
+*> for anything else.
 READ-OPERATOR.
     MOVE "N" TO LS-NOT
     CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
@@ -263,18 +466,75 @@ READ-OPERATOR.
         ADD 1 TO LS-T
         CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
     END-IF
+    MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD
     EVALUATE TRUE
         WHEN TK-IS-OPERATOR(LS-T) AND LS-WORD = "="
+            MOVE "E" TO LS-OP
             ADD 1 TO LS-T
-        WHEN FUNCTION UPPER-CASE(LS-WORD) = "EQUAL"
+        WHEN TK-IS-OPERATOR(LS-T) AND LS-WORD = ">"
+            MOVE "G" TO LS-OP
             ADD 1 TO LS-T
+        WHEN TK-IS-OPERATOR(LS-T) AND LS-WORD = "<"
+            MOVE "L" TO LS-OP
+            ADD 1 TO LS-T
+        WHEN TK-IS-OPERATOR(LS-T) AND LS-WORD = ">="
+            MOVE "H" TO LS-OP
+            ADD 1 TO LS-T
+        WHEN TK-IS-OPERATOR(LS-T) AND LS-WORD = "<="
+            MOVE "M" TO LS-OP
+            ADD 1 TO LS-T
+        WHEN LS-WORD = "EQUAL"
+            MOVE "E" TO LS-OP
+            ADD 1 TO LS-T
+            PERFORM SKIP-THAN-TO
+        WHEN LS-WORD = "GREATER" OR LS-WORD = "LESS"
+            IF LS-WORD = "GREATER"
+                MOVE "G" TO LS-OP
+            ELSE
+                MOVE "L" TO LS-OP
+            END-IF
+            ADD 1 TO LS-T
+            PERFORM SKIP-THAN-TO
+            *> OR EQUAL [TO]
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
-            IF FUNCTION UPPER-CASE(LS-WORD) = "TO"
+            IF FUNCTION UPPER-CASE(LS-WORD) = "OR" AND LS-T < LS-LAST
                 ADD 1 TO LS-T
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+                IF FUNCTION UPPER-CASE(LS-WORD) = "EQUAL"
+                    IF LS-OP = "G"
+                        MOVE "H" TO LS-OP
+                    ELSE
+                        MOVE "M" TO LS-OP
+                    END-IF
+                    ADD 1 TO LS-T
+                    PERFORM SKIP-THAN-TO
+                ELSE
+                    *> OR starts the next relation.
+                    SUBTRACT 1 FROM LS-T
+                END-IF
             END-IF
         WHEN OTHER
             MOVE "E" TO LS-USABLE
-    END-EVALUATE.
+            EXIT PARAGRAPH
+    END-EVALUATE
+    *> NOT folded into the other operators.
+    IF LS-NOT = "Y" AND LS-OP NOT = "E"
+        EVALUATE LS-OP
+            WHEN "G" MOVE "M" TO LS-OP
+            WHEN "H" MOVE "L" TO LS-OP
+            WHEN "L" MOVE "H" TO LS-OP
+            WHEN "M" MOVE "G" TO LS-OP
+        END-EVALUATE
+        MOVE "N" TO LS-NOT
+    END-IF.
+
+*> Past THAN or TO at LS-T.
+SKIP-THAN-TO.
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+    IF FUNCTION UPPER-CASE(LS-WORD) = "THAN"
+       OR FUNCTION UPPER-CASE(LS-WORD) = "TO"
+        ADD 1 TO LS-T
+    END-IF.
 
 *> LS-TEXT: the value of the literal or figurative constant at LS-T
 *> (spaces when it is something else), and how it is shown.
