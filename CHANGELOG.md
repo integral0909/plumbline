@@ -454,6 +454,11 @@ uses [Semantic Versioning](https://semver.org/).
 - PLB-C028 comparison-never-true also reports an alphanumeric item
   compared for equality with a literal longer than the item, also as
   the subject of an `EVALUATE` with that literal in a `WHEN`.
+- PLB-C071 contradictory-condition also reads `>`, `<`, `>=` and `<=`
+  (and `GREATER`, `LESS`, with `NOT`), and reports two ranges of a
+  numeric item that never meet under `AND` (`WS-AMOUNT > 5 AND
+  WS-AMOUNT < 3`), or that cover every number under `OR`
+  (`WS-AMOUNT < 5 OR >= 5`). Its fix is not offered for these.
 
 ### Fixed
 
