@@ -337,6 +337,10 @@ Some findings that were read and are true:
   `COSGN00C` with `VALUE SPACE` on `LK-COMMAREA` of its `DFHCOMMAREA`,
   and a copy of `CBACT01C` with `VALUE ZERO` on `OUT-ACCT-ID` of its
   output record, it reports each.
+- **PLB-J013 shr-for-output.** None: its jobs write their sequential
+  outputs as new data sets. In a copy of `READACCT` whose `OUTFILE` DD
+  is made `DISP=SHR`, it reports that DD; the `ACCTFILE` DD, `DISP=SHR`
+  for a VSAM file the program reads, is left alone.
 - **PLB-C086 read-loop-end-only** and **PLB-Q014 fetch-loop-end-only.**
   None: its read loops end on a flag that a paragraph sets from the
   status, with an abend for errors, and its `FETCH` statements are

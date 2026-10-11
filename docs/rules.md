@@ -115,6 +115,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J010](#plb-j010-dsn-invalid) | dsn-invalid | error | DSN= names a data set name that z/OS does not accept |
 | [PLB-J011](#plb-j011-dd-name-repeated) | dd-name-repeated | warning | Step has the same DD name twice; the second is never used |
 | [PLB-J012](#plb-j012-read-after-delete) | read-after-delete | error | Step reads a data set that an earlier step deleted |
+| [PLB-J013](#plb-j013-shr-for-output) | shr-for-output | warning | Step writes a sequential data set its DD shares with DISP=SHR |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -2696,6 +2697,22 @@ names with symbols are not compared, as for
 [PLB-J007](#plb-j007-dataset-created-twice). Steps that may not run
 (`COND`, `IF`) are counted as running.
 
+
+## PLB-J013 shr-for-output
+
+A sequential file that a step's program opens `OUTPUT` or `EXTEND`,
+through a DD with `DISP=SHR`:
+
+```
+//UPDATE   EXEC PGM=PAYUPD
+//PAYRPT   DD DSN=PAY.REPORT,DISP=SHR           <- reported
+```
+
+`SHR` lets other jobs read, or write, the data set while the step
+writes it, so a reader may see it half written. `DISP=OLD` (or `MOD`
+to add to it) keeps it to the step. Indexed and relative files, which
+VSAM shares by its own options and CICS may hold open, are left alone,
+and so are files opened `I-O`.
 ## PLB-K001 cics-resource-undefined
 
 An `EXEC CICS` command that names a file, transaction, program, mapset,
