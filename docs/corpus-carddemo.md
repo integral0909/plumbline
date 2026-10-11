@@ -324,7 +324,10 @@ Some findings that were read and are true:
 - **PLB-C068 odo-count-out-of-range.** None.
 - **PLB-C071 contradictory-condition.** None. In a copy of `CBACT04C`
   whose `IF DISCGRP-STATUS = '00' OR '23'` is made `AND`, it reports
-  that condition.
+  that condition. With ranges read, still none; it reports
+  `IF WS-CURDATE-MONTH > 12 AND < 1` put in a copy of `CORPT00C`, and
+  `IF WS-REJECT-COUNT > 0 OR WS-REJECT-COUNT <= 0` in a copy of
+  `CBTRN02C`.
 - **PLB-C072 unreachable-statement.** None. In copies of `CBACT01C`
   with its `GOBACK` moved before the `DISPLAY` above it, with a `GO TO
   9999-ABEND-PROGRAM` put first in the success branch of

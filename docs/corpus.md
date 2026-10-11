@@ -282,7 +282,7 @@ The findings were checked by rule:
   entries, and `VALUE 7` in its second program.
 
 - **PLB-C071 contradictory-condition.** None in NIST or in GnuCOBOL's
-  tests.
+  tests, also with ranges read.
 
 - **PLB-C072 unreachable-statement.** 2 in NIST, both in `NC102A`,
   which tests `GO TO` on purpose: `GO TO GO--PASS-F1-1` followed by

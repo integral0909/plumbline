@@ -347,7 +347,7 @@ PROCEDURE DIVISION USING PLB-RULES.
         "Index used after a SEARCH that has no AT END"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C071"
         "contradictory-condition" "W"
-        "Equalities joined by AND, or inequalities by OR, of one item"
+        "Relations of one item joined so the condition is never or always true"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C072"
         "unreachable-statement" "W"
         "Statement after a GO TO, GOBACK, or STOP RUN never runs"
