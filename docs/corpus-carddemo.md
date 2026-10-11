@@ -337,6 +337,8 @@ Some findings that were read and are true:
   `COSGN00C` with `VALUE SPACE` on `LK-COMMAREA` of its `DFHCOMMAREA`,
   and a copy of `CBACT01C` with `VALUE ZERO` on `OUT-ACCT-ID` of its
   output record, it reports each.
+- **PLB-J014 output-deleted.** None. In a copy of `READACCT` whose
+  `OUTFILE` DD is made `DISP=(NEW,DELETE,DELETE)`, it reports that DD.
 - **PLB-J013 shr-for-output.** None: its jobs write their sequential
   outputs as new data sets. In a copy of `READACCT` whose `OUTFILE` DD
   is made `DISP=SHR`, it reports that DD; the `ACCTFILE` DD, `DISP=SHR`

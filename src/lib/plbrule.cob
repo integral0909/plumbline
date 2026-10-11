@@ -519,6 +519,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J013"
         "shr-for-output" "W"
         "Step writes a sequential data set its DD shares with DISP=SHR"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J014"
+        "output-deleted" "W"
+        "Step writes a data set that its DD deletes when the step ends"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
