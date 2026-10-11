@@ -1,3 +1,4 @@
+tests/golden/rules/c032-c033-repeats.cob:23:14: warning: this WHEN never matches: the WHEN 3 THRU 5 on line 21 takes all its values first [PLB-C087]
 tests/golden/rules/c032-c033-repeats.cob:25:14: warning: this WHEN repeats the one on line 19, which EVALUATE chooses first; it never runs [PLB-C032]
 tests/golden/rules/c032-c033-repeats.cob:35:14: warning: this WHEN repeats the one on line 31, which EVALUATE chooses first; it never runs [PLB-C032]
 tests/golden/rules/c032-c033-repeats.cob:39:10: warning: RESP-CD is used before it is given a value [PLB-C012]
