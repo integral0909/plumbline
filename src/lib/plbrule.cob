@@ -516,6 +516,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J012"
         "read-after-delete" "E"
         "Step reads a data set that an earlier step deleted"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J013"
+        "shr-for-output" "W"
+        "Step writes a sequential data set its DD shares with DISP=SHR"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

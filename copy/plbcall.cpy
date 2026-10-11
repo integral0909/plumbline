@@ -110,6 +110,8 @@
         10  PF-SORT             PIC X.
         *> ALTERNATE RECORD KEY clauses: each has a path DD of its own.
         10  PF-ALTERNATES       PIC 9(4) COMP-5.
+        *> ORGANIZATION: I indexed, R relative, S anything else.
+        10  PF-ORGANIZATION     PIC X.
         *> Open modes of the OPEN statements that name the file.
         10  PF-INPUT            PIC X.
         10  PF-OUTPUT           PIC X.

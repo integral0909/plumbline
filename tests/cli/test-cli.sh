@@ -266,6 +266,10 @@ check "a read-only file on a new data set" 1 'payroll.jcl:23:3: error: DD RATES 
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
 check "a read-only file on SYSOUT"        1 'payroll.jcl:28:3: error: DD RATES is SYSOUT, but PAYUPD reads it as RATES \[PLB-J004\]' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
+check "a written file shared with DISP=SHR" 1 'shared.jcl:7:3: warning: DD PAYRPT is DISP=SHR, but PAYUPD writes it as REPORT-OUT.*\[PLB-J013\]' \
+    -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
+check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
+    -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "a file opened I-O on a new data set" 'payroll.jcl:27:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/payroll.jcl $jx/payproc.prc
 check "a procedure step alone needs its DDs" 1 'payproc.prc:2:3: error: step UPD has no DD PAYLOG' \
