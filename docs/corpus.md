@@ -304,6 +304,10 @@ The findings were checked by rule:
 - **PLB-C087 when-covered.** None in NIST or in GnuCOBOL's tests, which
   have one `WHEN` with a numeric range between them.
 
+- **PLB-C091 varying-counter-repeated.** None in NIST or in GnuCOBOL's
+  tests. In a copy of NIST's `NC233A` whose `AFTER N2` is made `AFTER
+  N1`, it reports that phrase.
+
 - **PLB-C090 condition-never-true.** 2 in NIST, both conditions its
   tests mean to be false: `NOT NEGATIVEZERO` in `NC205A` (`VALUE +10`
   of an item given 0 and -10) and `E` in `NC211A` (values .01 to .81

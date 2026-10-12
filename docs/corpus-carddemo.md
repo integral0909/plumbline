@@ -349,6 +349,8 @@ Some findings that were read and are true:
   items take `DATE` and `DAY`. In a copy of `CBPAUP0C` whose `ACCEPT
   CURRENT-DATE FROM DATE` is made `FROM DATE YYYYMMDD`, it reports that
   `YY` is lost; in a copy of `PAUDBLOD` made `FROM TIME`, that `HH` is.
+- **PLB-C091 varying-counter-repeated.** None: no `PERFORM` of
+  CardDemo has an `AFTER` phrase.
 - **PLB-C090 condition-never-true.** 4, in `COPAUA0C`: its
   `WS-DECLINE-REASON-FLG` is only set by `SET INSUFFICIENT-FUND TO
   TRUE`, so the `WHEN CARD-NOT-ACTIVE`, `ACCOUNT-CLOSED`, `CARD-FRAUD`,

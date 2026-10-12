@@ -1,0 +1,3 @@
+tests/golden/rules/c091-varying-counter-repeated.cob:17:15: warning: WS-I is already the counter of an outer phrase of this PERFORM: this AFTER sets it back to its FROM value each time that phrase steps it [PLB-C091]
+tests/golden/rules/c091-varying-counter-repeated.cob:20:19: warning: WS-J is already the counter of an outer phrase of this PERFORM: this AFTER sets it back to its FROM value each time that phrase steps it [PLB-C091]
+tests/golden/rules/c091-varying-counter-repeated.cob:32:15: note: WS-CELL is given a value but never read [PLB-M005]

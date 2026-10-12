@@ -1,0 +1,32 @@
+*> PLB-C091 varying-counter-repeated: an AFTER phrase with the counter
+*> of the VARYING phrase, or of another AFTER phrase.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. REPEATED.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-I                PIC 9(3).
+01  WS-J                PIC 9(3).
+01  WS-K                PIC 9(3).
+01  WS-TABLE.
+    05  WS-ROW          OCCURS 3.
+        10  WS-CELL     PIC 9 OCCURS 3.
+PROCEDURE DIVISION.
+MAIN-LINE.
+    *> Reported.
+    PERFORM FILL-CELL VARYING WS-I FROM 1 BY 1 UNTIL WS-I > 3
+        AFTER WS-I FROM 1 BY 1 UNTIL WS-I > 3
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > 3
+            AFTER WS-J FROM 1 BY 1 UNTIL WS-J > 3
+            AFTER WS-J FROM 1 BY 1 UNTIL WS-J > 3
+        CONTINUE
+    END-PERFORM
+    *> Not reported: other counters, and WITH TEST AFTER.
+    PERFORM FILL-CELL VARYING WS-I FROM 1 BY 1 UNTIL WS-I > 3
+        AFTER WS-J FROM 1 BY 1 UNTIL WS-J > 3
+        AFTER WS-K FROM 1 BY 1 UNTIL WS-K > 3
+    PERFORM WITH TEST AFTER VARYING WS-I FROM 1 BY 1 UNTIL WS-I > 3
+        CONTINUE
+    END-PERFORM
+    STOP RUN.
+FILL-CELL.
+    MOVE 1 TO WS-CELL(WS-I, WS-J).
