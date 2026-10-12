@@ -114,6 +114,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C100](#plb-c100-table-keys-unsorted) | table-keys-unsorted | warning | SEARCH ALL table whose VALUE keys are out of their KEY order |
 | [PLB-C101](#plb-c101-string-numeric-sender) | string-numeric-sender | warning | STRING sends a number with decimal places or a sign as stored |
 | [PLB-C102](#plb-c102-nested-if-decided) | nested-if-decided | warning | IF first in a THEN branch or PERFORM body whose test is already decided |
+| [PLB-C103](#plb-c103-chain-exhausted) | chain-exhausted | warning | IF or ELSE of an ELSE IF chain that no value reaches |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2972,6 +2973,43 @@ The `UNTIL` test must have one end (`>`, `<`, `>=`, `<=`, not `=`),
 so that the values it leaves are one range. A `PERFORM WITH TEST
 AFTER` runs its body once before it tests, and `VARYING ... AFTER`
 tests several items, and neither is read.
+
+## PLB-C103 chain-exhausted
+
+An `IF` of an `ELSE IF` chain, or the chain's last `ELSE`, that no value
+reaches, because the tests before it take every value of their item
+between them:
+
+```cobol
+    IF WS-AMOUNT > 5
+        ...
+    ELSE IF WS-AMOUNT < 8
+        ...
+    ELSE IF WS-AMOUNT >= 3                  *> reported
+        ...
+
+    IF WS-COUNT >= 100
+        ...
+    ELSE IF WS-COUNT < 100
+        ...
+    ELSE                                    *> reported
+        ...
+```
+
+Neither earlier test of the first chain holds all the values of
+`WS-AMOUNT >= 3`, so PLB-C051 does not report it, but every value
+passes one of them. GnuCOBOL 3.2 runs neither the third branch nor an
+`ELSE` after it, for any value from -999.9 to 999.9. Such an `ELSE` is
+often a check for a case that cannot happen; when it is meant that way,
+it can go.
+
+The tests are read as PLB-C051 reads them: one relation of a numeric
+item with a number. The item is that of the chain's first such test; a
+test of anything else leaves the values it has left as they are. What
+is left is followed while it is one range: `IF A = 50` leaves the
+values on both sides of 50, and the chain is not followed further. An
+`IF` that one earlier test alone covers is PLB-C051's, and only the
+first `IF` or `ELSE` that nothing reaches is reported.
 
 ## PLB-I001 pcb-dbd-unknown
 
