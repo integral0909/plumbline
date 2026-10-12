@@ -79,6 +79,7 @@ LOCAL-STORAGE SECTION.
 01  LS-T                    PIC 9(9) COMP-5.
 01  LS-NEXT                 PIC 9(9) COMP-5.
 01  LS-DIGITS-ONLY          PIC X.
+01  LS-CLAUSE               PIC 9(9) COMP-5.
 01  LS-PICTURE              PIC X(64).
 01  LS-PICTURE-LEN          PIC 9(9) COMP-5.
 01  LS-LIMIT                PIC 9(9) COMP-5.
@@ -145,7 +146,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
             END-IF
         END-PERFORM
     END-IF
-    IF RL-ENABLED(LS-RULE-COMPARE) = "Y"
+    IF RL-ENABLED(LS-RULE-COMPARE) = "Y" OR RL-ENABLED(LS-RULE-ALNUM) = "Y"
         PERFORM CHECK-EVALUATES
     END-IF
     GOBACK.
@@ -240,22 +241,48 @@ READ-SUBJECTS.
     END-PERFORM.
 
 *> Each part of a WHEN phrase that is one literal, for a subject that
-*> is a data item.
+*> is a data item: an alphanumeric literal for PLB-C028; a number, or
+*> a range of numbers (THRU), for PLB-C045.
 CHECK-WHEN-PARTS.
     IF LS-PART-COUNT NOT = LS-SUBJECT-COUNT
         EXIT PARAGRAPH
     END-IF
     PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > LS-PART-COUNT
         IF LS-SUBJECT-SYMBOL(LS-I) > 0
-           AND LS-PART-FIRST(LS-I) = LS-PART-LAST(LS-I)
             MOVE LS-PART-FIRST(LS-I) TO LS-T
-            IF TK-IS-ALNUM(LS-T)
-                MOVE LS-T TO LS-LIMIT
-                MOVE LS-SUBJECT-SYMBOL(LS-I) TO LS-S
-                PERFORM CHECK-LONG-LITERAL
-            END-IF
+            MOVE LS-PART-LAST(LS-I) TO LS-LIMIT
+            MOVE LS-SUBJECT-SYMBOL(LS-I) TO LS-S
+            EVALUATE TRUE
+                WHEN LS-T = LS-LIMIT AND TK-IS-ALNUM(LS-T)
+                    IF RL-ENABLED(LS-RULE-COMPARE) = "Y"
+                        PERFORM CHECK-LONG-LITERAL
+                    END-IF
+                WHEN TK-IS-NUMBER(LS-T)
+                    PERFORM WHEN-NUMBER
+            END-EVALUATE
         END-IF
     END-PERFORM.
+
+*> PLB-C045 for WHEN number, or WHEN number THRU number, at LS-T to
+*> LS-LIMIT, of subject LS-S.
+WHEN-NUMBER.
+    IF LS-T NOT = LS-LIMIT
+        IF LS-T + 2 NOT = LS-LIMIT OR NOT TK-IS-NUMBER(LS-LIMIT)
+            EXIT PARAGRAPH
+        END-IF
+        COMPUTE LS-NEXT = LS-T + 1
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-NEXT LS-WORD LS-LEN
+        IF FUNCTION UPPER-CASE(LS-WORD) NOT = "THRU"
+           AND FUNCTION UPPER-CASE(LS-WORD) NOT = "THROUGH"
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    IF SY-CATEGORY(LS-S) = "E"
+        PERFORM CHECK-EDITED-NUMBER
+    ELSE
+        MOVE LS-T TO LS-VALUE-TOKEN
+        PERFORM CHECK-ALNUM-NUMBER
+    END-IF.
 
 *> PLB-C028: reference LS-R, when it is the subject of a relation
 *> with an integer literal in a condition.
@@ -460,17 +487,17 @@ PICTURE-DIGITS-ONLY.
     IF SY-NODE(LS-S) = 0
         EXIT PARAGRAPH
     END-IF
-    MOVE ND-FIRST(SY-NODE(LS-S)) TO LS-CHILD
-    PERFORM UNTIL LS-CHILD = 0
-        IF ND-KIND(LS-CHILD) = "CLAU" AND ND-DETAIL(LS-CHILD) = "PICTURE"
+    MOVE ND-FIRST(SY-NODE(LS-S)) TO LS-CLAUSE
+    PERFORM UNTIL LS-CLAUSE = 0
+        IF ND-KIND(LS-CLAUSE) = "CLAU" AND ND-DETAIL(LS-CLAUSE) = "PICTURE"
             EXIT PERFORM
         END-IF
-        MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+        MOVE ND-NEXT(LS-CLAUSE) TO LS-CLAUSE
     END-PERFORM
-    IF LS-CHILD = 0
+    IF LS-CLAUSE = 0
         EXIT PARAGRAPH
     END-IF
-    CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-TOK-LAST(LS-CHILD)
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-TOK-LAST(LS-CLAUSE)
         LS-PICTURE LS-PICTURE-LEN
     IF LS-PICTURE-LEN = 0
         EXIT PARAGRAPH

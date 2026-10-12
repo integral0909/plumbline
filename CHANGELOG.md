@@ -475,7 +475,8 @@ uses [Semantic Versioning](https://semver.org/).
   the whole numbers it holds (`WS-CODE > 3 AND WS-CODE < 4`). Its fix
   is not offered for these.
 - PLB-C045 alnum-compared-to-number also reports a numeric-edited
-  item compared with a number or `ZERO`, which compares as text.
+  item compared with a number or `ZERO`, which compares as text, and
+  the subject of an `EVALUATE` with numbers in its `WHEN` phrases.
 - PLB-C089 loop-never-runs reads back over statements whose data
   references show all they change (`DISPLAY`, arithmetic, `MOVE` of an
   item, ...) to the `MOVE` or `SET` that makes the condition true, and
