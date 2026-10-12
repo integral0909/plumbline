@@ -177,6 +177,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q013](#plb-q013-select-into-no-where) | select-into-no-where | warning | SELECT INTO without WHERE takes every row of the table |
 | [PLB-Q015](#plb-q015-insert-count-mismatch) | insert-count-mismatch | error | INSERT names more or fewer columns than it gives values |
 | [PLB-Q016](#plb-q016-cursor-open-twice) | cursor-open-twice | error | SQL cursor opened again with no CLOSE between |
+| [PLB-Q017](#plb-q017-fetch-after-close) | fetch-after-close | error | FETCH or CLOSE of an SQL cursor after its CLOSE, with no OPEN |
 | [PLB-Q014](#plb-q014-fetch-loop-end-only) | fetch-loop-end-only | warning | FETCH loop ends only on SQLCODE 100, and loops for ever on errors |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
@@ -4043,6 +4044,22 @@ A `CLOSE` of the cursor ends the search, as do a `PERFORM` of a
 procedure, `GO TO`, `CALL`, `GOBACK`, `STOP`, `EXIT`, and a statement
 holding other SQL. A test of `SQLCODE` or `SQLSTATE` between them,
 which may find that the first `OPEN` failed and try again, ends it too.
+
+## PLB-Q017 fetch-after-close
+
+A `FETCH` or `CLOSE` of an SQL cursor after a `CLOSE` of it, with no
+`OPEN` between:
+
+```cobol
+    EXEC SQL CLOSE ACCT-CUR END-EXEC
+    EXEC SQL FETCH ACCT-CUR INTO :WS-ID END-EXEC   *> reported
+```
+
+The cursor is closed, and DB2 rejects the statement with SQLCODE -501
+(the cursor is not open). Read as for
+[PLB-Q016](#plb-q016-cursor-open-twice), from the `CLOSE`: an `OPEN`
+of the cursor ends the search, and so do the statements that end
+Q016's.
 
 ## PLB-S001 dynamic-sql
 

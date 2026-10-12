@@ -1,5 +1,5 @@
 *> ---------------------------------------------------------------
-*> plbrqopen: PLB-Q016 cursor-open-twice.
+*> plbrqopen: PLB-Q016 cursor-open-twice, PLB-Q017 fetch-after-close.
 *>
 *> An OPEN of an SQL cursor, then, later in the same list of
 *> statements, another OPEN of it with no CLOSE between:
@@ -16,12 +16,19 @@
 *> of a procedure, GO TO, CALL, GOBACK, STOP, EXIT, and a statement
 *> holding other SQL statements; a test of SQLCODE or SQLSTATE between
 *> them, which may find that the first OPEN failed, ends it too.
+*>
+*> PLB-Q017 reads the statements after a CLOSE of a cursor the same
+*> way: a FETCH or CLOSE of it before an OPEN finds it closed, and DB2
+*> rejects it (SQLCODE -501, the cursor is not open).
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-Q016.
 DATA DIVISION.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-RULE-CLOSED          PIC 9(4) COMP-5.
+*> The statement the search starts from: OPEN or CLOSE.
+01  LS-FROM-VERB            PIC X(31).
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-STMT                 PIC 9(9) COMP-5.
 01  LS-NEXT                 PIC 9(9) COMP-5.
@@ -49,15 +56,24 @@ COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-RULES
         PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q016" LS-RULE
-    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q017" LS-RULE-CLOSED
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-CLOSED) NOT = "Y"
+        GOBACK
+    END-IF
+    IF AS-COUNT = 0
         GOBACK
     END-IF
     PERFORM VARYING LS-NODE FROM 1 BY 1 UNTIL LS-NODE > AS-COUNT
         IF ND-KIND(LS-NODE) = "STMT" AND ND-DETAIL(LS-NODE) = "EXEC"
             MOVE LS-NODE TO LS-STMT
             PERFORM SQL-COMMAND
-            IF LS-VERB = "OPEN"
+            IF LS-NAME NOT = SPACES
+               AND ((LS-VERB = "OPEN" AND RL-ENABLED(LS-RULE) = "Y")
+                    OR (LS-VERB = "CLOSE"
+                        AND RL-ENABLED(LS-RULE-CLOSED) = "Y"))
                 MOVE LS-NAME TO LS-CURSOR
+                MOVE LS-VERB TO LS-FROM-VERB
                 PERFORM CHECK-OPEN
             END-IF
         END-IF
@@ -85,7 +101,7 @@ SQL-COMMAND.
         MOVE FUNCTION UPPER-CASE(LS-NAME) TO LS-NAME
     END-IF.
 
-*> The statements after OPEN LS-NODE of LS-CURSOR.
+*> The statements after OPEN or CLOSE LS-NODE of LS-CURSOR.
 CHECK-OPEN.
     MOVE LS-NODE TO LS-STMT
     MOVE "N" TO LS-STOP
@@ -99,12 +115,14 @@ CHECK-OPEN.
             WHEN "EXEC"
                 PERFORM SQL-COMMAND
                 IF LS-NAME = LS-CURSOR
-                    IF LS-VERB = "OPEN"
-                        PERFORM REPORT-TWICE
-                    END-IF
-                    IF LS-VERB = "OPEN" OR LS-VERB = "CLOSE"
-                        MOVE "Y" TO LS-STOP
-                    END-IF
+                    EVALUATE TRUE
+                        WHEN LS-FROM-VERB = "OPEN" AND LS-VERB = "OPEN"
+                            PERFORM REPORT-TWICE
+                        WHEN LS-FROM-VERB = "CLOSE"
+                             AND (LS-VERB = "FETCH" OR LS-VERB = "CLOSE")
+                            PERFORM REPORT-CLOSED
+                    END-EVALUATE
+                    MOVE "Y" TO LS-STOP
                 END-IF
             WHEN "GO" WHEN "CALL" WHEN "GOBACK" WHEN "STOP" WHEN "EXIT"
                 MOVE "Y" TO LS-STOP
@@ -182,4 +200,19 @@ REPORT-TWICE.
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE ND-TOK-FIRST(LS-STMT) LS-MESSAGE.
+
+REPORT-CLOSED.
+    MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-FIRST(LS-NODE))) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING "cursor " DELIMITED BY SIZE
+           LS-CURSOR DELIMITED BY SPACE
+           " was closed on line " DELIMITED BY SIZE
+           LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           ", with no OPEN between: DB2 rejects this " DELIMITED BY SIZE
+           LS-VERB DELIMITED BY SPACE
+           " (SQLCODE -501)" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-CLOSED ND-TOK-FIRST(LS-STMT) LS-MESSAGE.
 END PROGRAM PLB-RULE-Q016.
