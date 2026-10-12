@@ -309,6 +309,10 @@ The findings were checked by rule:
   EQUAL TO ZERO` in NIST's `NC126A`, whose `PIC 0009999` shows 0 as
   zeros; pictures of `9` and `0` alone are now left out for `ZERO`.
 
+- **PLB-C097 sort-file-open.** None in NIST or in GnuCOBOL's tests. In
+  a copy of NIST's `ST110A` with `OPEN INPUT SORTIN-1J` put before its
+  `SORT`, it reports the `USING` file.
+
 - **PLB-C096 converting-repeated.** None in NIST or in GnuCOBOL's
   tests. In a copy of NIST's `NC216A` whose `CONVERTING "AU" TO "23"`
   is made `CONVERTING "AUA" TO "234"`, it reports that `A` becomes `2`

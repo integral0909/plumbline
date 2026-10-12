@@ -108,6 +108,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C094](#plb-c094-open-after-lock) | open-after-lock | error | OPEN of a file closed WITH LOCK, which fails with status 38 |
 | [PLB-C095](#plb-c095-rewrite-without-read) | rewrite-without-read | error | Sequential REWRITE or DELETE that does not follow a READ |
 | [PLB-C096](#plb-c096-converting-repeated) | converting-repeated | warning | INSPECT CONVERTING string with a character twice, mapped apart |
+| [PLB-C097](#plb-c097-sort-file-open) | sort-file-open | error | SORT or MERGE USING or GIVING a file the program has open |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2722,6 +2723,29 @@ table was typed twice and another left out (`"aeiouAEIOe"` for
 `"aeiouAEIOU"`). Read are both strings written as literals without a
 prefix; a character repeated with the same character for it changes
 nothing and is not reported.
+
+## PLB-C097 sort-file-open
+
+A `SORT` or `MERGE` whose `USING` or `GIVING` file an `OPEN` before it
+left open:
+
+```cobol
+    OPEN INPUT IN-FILE
+    SORT SORT-FILE ON ASCENDING KEY SORT-REC
+        USING IN-FILE GIVING OUT-FILE        *> reported
+```
+
+`SORT` and `MERGE` open and close their `USING` and `GIVING` files
+themselves, and the files must be closed when they start: with GnuCOBOL
+3.2 the `SORT` above, or one whose `GIVING` file is open, ends with
+`SORT-RETURN` 16 and writes nothing.
+
+Read as for [PLB-C076](#plb-c076-open-while-open): the file's last
+operation before the statement is an `OPEN` in the same list of
+statements (or, for statements directly in sentences, the same
+paragraph), with no `PERFORM` of a procedure, `GO TO`, `CALL`, `EXEC`,
+`GOBACK`, `STOP`, or `EXIT` between, nor another `SORT` or `MERGE` of
+the file, which closes it.
 
 ## PLB-I001 pcb-dbd-unknown
 
