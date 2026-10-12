@@ -13,6 +13,7 @@
 *>   PLB-C076  open-while-open
 *>   PLB-C094  open-after-lock
 *>   PLB-C095  rewrite-without-read
+*>   PLB-C097  sort-file-open
 *>
 *> Each program on its own: its files (SELECT), their records (FD),
 *> the declaratives that handle their errors (USE ... ERROR or
@@ -55,6 +56,15 @@ WORKING-STORAGE SECTION.
     05  WS-RECORD           OCCURS RC-MAX TIMES.
         10  RC-NAME         PIC X(31).
         10  RC-FILE         PIC 9(4) COMP-5.
+*> The files of SORT and MERGE statements (USING, GIVING): the file,
+*> the statement, and the token that names the file.
+78  SU-MAX                  VALUE 2000.
+01  WS-SORT-USES.
+    05  WS-SU-COUNT         PIC 9(4) COMP-5.
+    05  WS-SU               OCCURS SU-MAX TIMES.
+        10  SU-FILE         PIC 9(4) COMP-5.
+        10  SU-STMT         PIC 9(9) COMP-5.
+        10  SU-TOKEN        PIC 9(9) COMP-5.
 *> I/O statements, one per file they name, in source order.
 01  WS-OPS.
     05  WS-OP-COUNT         PIC 9(9) COMP-5.
@@ -81,6 +91,9 @@ COPY "plbnlist.cpy".
 01  LS-RULE-OPEN-TWICE      PIC 9(4) COMP-5.
 01  LS-RULE-LOCKED          PIC 9(4) COMP-5.
 01  LS-RULE-NO-READ         PIC 9(4) COMP-5.
+01  LS-RULE-SORT-OPEN       PIC 9(4) COMP-5.
+01  LS-SU                   PIC 9(4) COMP-5.
+01  LS-AFTER-USING          PIC X.
 *> PLB-C075 and PLB-C076: the list the CLOSE or OPEN is in, the first
 *> operation on its file after it, and the statements between them.
 01  LS-AC-SCOPE             PIC 9(9) COMP-5.
@@ -141,6 +154,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C076" LS-RULE-OPEN-TWICE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C094" LS-RULE-LOCKED
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C095" LS-RULE-NO-READ
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C097" LS-RULE-SORT-OPEN
     IF AS-COUNT = 0
         GOBACK
     END-IF
@@ -156,7 +170,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     GOBACK.
 
 CHECK-PROGRAM.
-    MOVE 0 TO WS-FILE-COUNT WS-RECORD-COUNT WS-OP-COUNT
+    MOVE 0 TO WS-FILE-COUNT WS-RECORD-COUNT WS-OP-COUNT WS-SU-COUNT
     MOVE "N" TO WS-USE-INPUT WS-USE-OUTPUT WS-USE-I-O WS-USE-EXTEND
     *> Pass 1: files, records, declaratives. Pass 2: I/O statements.
     PERFORM VARYING LS-PASS FROM 1 BY 1 UNTIL LS-PASS > 2
@@ -210,6 +224,8 @@ CHECK-NODE.
                 WHEN "READ" WHEN "DELETE" WHEN "START"
                 WHEN "WRITE" WHEN "REWRITE"
                     PERFORM RECORD-STATEMENT
+                WHEN "SORT" WHEN "MERGE"
+                    PERFORM NOTE-SORT-FILES
             END-EVALUATE
     END-EVALUATE.
 
@@ -417,6 +433,33 @@ RECORD-STATEMENT.
         PERFORM ADD-OPERATION
     END-IF.
 
+*> SORT or MERGE LS-CHILD: each file named after USING or GIVING.
+NOTE-SORT-FILES.
+    MOVE "N" TO LS-AFTER-USING
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-CHILD) BY 1
+            UNTIL LS-T > ND-TOK-LAST(LS-CHILD)
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            EVALUATE LS-TEXT
+                WHEN "USING" WHEN "GIVING"
+                    MOVE "Y" TO LS-AFTER-USING
+                WHEN "INPUT" WHEN "OUTPUT" WHEN "ON" WHEN "WITH"
+                WHEN "COLLATING"
+                    MOVE "N" TO LS-AFTER-USING
+                WHEN OTHER
+                    IF LS-AFTER-USING = "Y"
+                        PERFORM FIND-FILE
+                        IF LS-F > 0 AND WS-SU-COUNT < SU-MAX
+                            ADD 1 TO WS-SU-COUNT
+                            MOVE LS-F TO SU-FILE(WS-SU-COUNT)
+                            MOVE LS-CHILD TO SU-STMT(WS-SU-COUNT)
+                            MOVE LS-T TO SU-TOKEN(WS-SU-COUNT)
+                        END-IF
+                    END-IF
+            END-EVALUATE
+        END-IF
+    END-PERFORM.
+
 ADD-OPERATION.
     IF WS-OP-COUNT >= OP-MAX
         EXIT PARAGRAPH
@@ -475,7 +518,15 @@ REPORT-FINDINGS.
     END-PERFORM
     PERFORM VARYING LS-F FROM 1 BY 1 UNTIL LS-F > WS-FILE-COUNT
         PERFORM CHECK-CLOSED
-    END-PERFORM.
+    END-PERFORM
+    IF RL-ENABLED(LS-RULE-SORT-OPEN) = "Y"
+        PERFORM VARYING LS-SU FROM 1 BY 1 UNTIL LS-SU > WS-SU-COUNT
+            MOVE SU-FILE(LS-SU) TO LS-F
+            IF FL-EXTERNAL(LS-F) = "N"
+                PERFORM CHECK-SORT-FILE
+            END-IF
+        END-PERFORM
+    END-IF.
 
 *> PLB-C021, or PLB-C022 when the file is opened, but not in a mode
 *> that allows operation LS-I.
@@ -808,6 +859,94 @@ CHECK-READ-BEFORE.
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE-NO-READ OP-TOKEN(LS-I) LS-MESSAGE.
+
+*> PLB-C097 sort-file-open: file LS-F, named after USING or GIVING of
+*> SORT or MERGE LS-SU, whose last operation before it is an OPEN in
+*> the same list of statements (or, for statements directly in
+*> sentences, the same paragraph), with nothing between that may close
+*> it or leave, nor another SORT or MERGE of the file. SORT and MERGE
+*> open and close their USING and GIVING files themselves; with
+*> GnuCOBOL 3.2, one already open makes the SORT fail with SORT-RETURN
+*> 16.
+CHECK-SORT-FILE.
+    MOVE 0 TO LS-AC-NEXT
+    PERFORM VARYING LS-AC-J FROM 1 BY 1 UNTIL LS-AC-J > WS-OP-COUNT
+        IF OP-FILE(LS-AC-J) = LS-F
+           AND ND-TOK-LAST(OP-STMT(LS-AC-J)) < ND-TOK-FIRST(SU-STMT(LS-SU))
+            IF LS-AC-NEXT = 0
+                MOVE LS-AC-J TO LS-AC-NEXT
+            ELSE
+                IF ND-TOK-FIRST(OP-STMT(LS-AC-J))
+                   > ND-TOK-FIRST(OP-STMT(LS-AC-NEXT))
+                    MOVE LS-AC-J TO LS-AC-NEXT
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-AC-NEXT = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF OP-VERB(LS-AC-NEXT) NOT = "OPEN"
+        EXIT PARAGRAPH
+    END-IF
+    *> A SORT or MERGE of the file between them leaves it closed.
+    PERFORM VARYING LS-AC-J FROM 1 BY 1 UNTIL LS-AC-J > WS-SU-COUNT
+        IF SU-FILE(LS-AC-J) = LS-F
+           AND ND-TOK-FIRST(SU-STMT(LS-AC-J))
+               > ND-TOK-LAST(OP-STMT(LS-AC-NEXT))
+           AND ND-TOK-FIRST(SU-STMT(LS-AC-J))
+               < ND-TOK-FIRST(SU-STMT(LS-SU))
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    MOVE ND-PARENT(SU-STMT(LS-SU)) TO LS-AC-SCOPE
+    IF LS-AC-SCOPE > 0
+        IF ND-KIND(LS-AC-SCOPE) = "SENT"
+            MOVE ND-PARENT(LS-AC-SCOPE) TO LS-AC-SCOPE
+        END-IF
+    END-IF
+    MOVE ND-PARENT(OP-STMT(LS-AC-NEXT)) TO LS-AC-UP
+    IF LS-AC-UP > 0
+        IF ND-KIND(LS-AC-UP) = "SENT"
+            MOVE ND-PARENT(LS-AC-UP) TO LS-AC-UP
+        END-IF
+    END-IF
+    IF LS-AC-UP NOT = LS-AC-SCOPE OR LS-AC-SCOPE = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-AC-K FROM 1 BY 1 UNTIL LS-AC-K > AS-COUNT
+        IF ND-KIND(LS-AC-K) = "STMT"
+           AND ND-TOK-FIRST(LS-AC-K) > ND-TOK-LAST(OP-STMT(LS-AC-NEXT))
+           AND ND-TOK-FIRST(LS-AC-K) < ND-TOK-FIRST(SU-STMT(LS-SU))
+            EVALUATE ND-DETAIL(LS-AC-K)
+                WHEN "GO" WHEN "CALL" WHEN "EXEC" WHEN "GOBACK"
+                WHEN "STOP" WHEN "EXIT"
+                    EXIT PARAGRAPH
+                WHEN "PERFORM"
+                    MOVE ND-FIRST(LS-AC-K) TO LS-AC-UP
+                    PERFORM UNTIL LS-AC-UP = 0
+                        IF ND-KIND(LS-AC-UP) = "PROC"
+                            EXIT PARAGRAPH
+                        END-IF
+                        MOVE ND-NEXT(LS-AC-UP) TO LS-AC-UP
+                    END-PERFORM
+            END-EVALUATE
+        END-IF
+    END-PERFORM
+    MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-FIRST(OP-STMT(LS-AC-NEXT))))
+        TO LS-AC-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-AC-NUM LS-AC-NUM-TEXT LS-AC-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING FL-NAME(LS-F) DELIMITED BY SPACE
+           " is open, from the OPEN on line " DELIMITED BY SIZE
+           LS-AC-NUM-TEXT(1:LS-AC-NUM-LEN) DELIMITED BY SIZE
+           ": " DELIMITED BY SIZE
+           ND-DETAIL(SU-STMT(LS-SU)) DELIMITED BY SPACE
+           " opens its USING and GIVING files itself, and fails"
+           DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-SORT-OPEN SU-TOKEN(LS-SU) LS-MESSAGE.
 
 REPORT-OPEN-TWICE.
     MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-FIRST(OP-STMT(LS-I))))

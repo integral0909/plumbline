@@ -1,0 +1,8 @@
+tests/golden/rules/c097-sort-file-open.cob:10:12: note: OUT-FILE is opened but never closed [PLB-M008]
+tests/golden/rules/c097-sort-file-open.cob:27:16: warning: the FILE STATUS of IN-FILE (WS-FS) is not tested after this OPEN [PLB-C020]
+tests/golden/rules/c097-sort-file-open.cob:28:52: error: IN-FILE is open, from the OPEN on line 27: SORT opens its USING and GIVING files itself, and fails [PLB-C097]
+tests/golden/rules/c097-sort-file-open.cob:30:17: warning: the FILE STATUS of OUT-FILE (WS-FS) is not tested after this OPEN [PLB-C020]
+tests/golden/rules/c097-sort-file-open.cob:32:16: error: OUT-FILE is open, from the OPEN on line 30: SORT opens its USING and GIVING files itself, and fails [PLB-C097]
+tests/golden/rules/c097-sort-file-open.cob:34:16: warning: the FILE STATUS of IN-FILE (WS-FS) is not tested after this OPEN [PLB-C020]
+tests/golden/rules/c097-sort-file-open.cob:34:16: warning: IN-FILE is already open, from the OPEN on line 27, with no CLOSE between: this OPEN fails with file status 41 [PLB-C076]
+tests/golden/rules/c097-sort-file-open.cob:38:16: warning: the FILE STATUS of IN-FILE (WS-FS) is not tested after this OPEN [PLB-C020]
