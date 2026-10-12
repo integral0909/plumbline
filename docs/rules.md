@@ -2503,6 +2503,22 @@ earlier one is [PLB-C032](#plb-c032-duplicate-when)'s, and ranges of
 alphanumeric values, which depend on the collating sequence, are not
 read.
 
+`EVALUATE TRUE` is read too, for `WHEN` phrases that are one relation
+of a numeric item with a number:
+
+```cobol
+    EVALUATE TRUE
+        WHEN WS-AMOUNT > 10
+            ...
+        WHEN WS-AMOUNT > 20                 *> reported: never chosen
+```
+
+Each relation stands for the values it holds (`> 10`, `= 15`, `NOT >
+9`), and a `WHEN` whose values an earlier `WHEN` on the same item, as
+written with its subscripts, takes all of is reported. With GnuCOBOL
+3.2, over the values -5 to 30 the second `WHEN` above is never chosen,
+while `WHEN WS-AMOUNT >= 10` after the first is, for 10.
+
 ## PLB-C088 accept-truncation
 
 `ACCEPT` of the date or the time into a numeric item with fewer digits

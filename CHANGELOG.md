@@ -489,6 +489,8 @@ uses [Semantic Versioning](https://semver.org/).
   is not offered for these.
 - PLB-C008 move-truncation reports a numeric literal below zero moved
   to an item without a sign, which stores its absolute value.
+- PLB-C087 when-covered also reads `EVALUATE TRUE` with `WHEN` phrases
+  that are one relation of a numeric item with a number.
 - PLB-C036 arithmetic-overflow also reads `COMPUTE` with `+`, `-`, and
   `*` alone, no longer takes `LENGTH OF` an item for its value, and
   leaves out `COMP-5` receivers, whose bytes, not their picture,
