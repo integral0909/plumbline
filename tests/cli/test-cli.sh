@@ -298,6 +298,14 @@ check_absent "a generation made, then read, is fine" 'gdg.jcl:9:' \
     -- check --no-config $jx/gdg.jcl
 check_absent "(0) and names with symbols are fine" 'gdg.jcl:1[23]:' \
     -- check --no-config $jx/gdg.jcl
+check "a PARM of 101 characters"         1 'parm.jcl:3:3: error: PARM passes 101 characters; z/OS takes at most 100.*\[PLB-J019\]' \
+    -- check --no-config $jx/parm.jcl
+check_absent "a PARM of 100 characters is fine" 'parm.jcl:8:' \
+    -- check --no-config $jx/parm.jcl
+check_absent "a doubled apostrophe passes one"  'parm.jcl:11:' \
+    -- check --no-config $jx/parm.jcl
+check_absent "a PARM with a symbol is not counted" 'parm.jcl:15:' \
+    -- check --no-config $jx/parm.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \

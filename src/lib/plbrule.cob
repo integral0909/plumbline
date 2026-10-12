@@ -603,6 +603,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J018"
         "gdg-generation-not-created" "E"
         "Step reads generation (+1) that no earlier step of the job creates"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J019"
+        "parm-too-long" "E"
+        "EXEC PARM passes more than the 100 characters z/OS takes"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

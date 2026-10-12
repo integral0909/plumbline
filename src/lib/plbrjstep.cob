@@ -382,3 +382,60 @@ CHECK-CREATED.
             JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE
     END-IF.
 END PROGRAM PLB-RULE-J018.
+
+*> ---------------------------------------------------------------
+*> PLB-J019 parm-too-long: a step whose PARM passes the program more
+*> than 100 characters:
+*>
+*>     //REPORT   EXEC PGM=PAYRPT,PARM='...101 characters...'
+*>
+*> z/OS takes at most 100 characters in the PARM of an EXEC statement,
+*> and fails the job with a JCL error; PARMDD names a data set that
+*> can hold more. The count leaves out the apostrophes or parentheses
+*> that enclose the PARM, and counts a doubled apostrophe once (see
+*> JS-PARM-LEN), so it is never more than what the program would be
+*> passed. A PARM with a symbol is not counted, nor one on a step that
+*> runs a procedure.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J019.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J019" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
+        IF JS-KIND(LS-S) = "P" AND JS-PARM-LEN(LS-S) > 100
+            PERFORM REPORT-LONG
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+REPORT-LONG.
+    MOVE JS-PARM-LEN(LS-S) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING "PARM passes " DELIMITED BY SIZE
+           LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           " characters; z/OS takes at most 100 (PARMDD can pass more)"
+           DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        JS-FILE-ID(LS-S) JS-LINE(LS-S) LS-COLUMN LS-ZERO LS-MESSAGE.
+END PROGRAM PLB-RULE-J019.
