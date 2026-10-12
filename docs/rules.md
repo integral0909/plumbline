@@ -112,6 +112,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C098](#plb-c098-group-value-into-packed) | group-value-into-packed | warning | Group VALUE puts characters in its packed-decimal or binary items |
 | [PLB-C099](#plb-c099-value-overridden) | value-overridden | warning | VALUE of an item in a group that has a VALUE, which is ignored |
 | [PLB-C100](#plb-c100-table-keys-unsorted) | table-keys-unsorted | warning | SEARCH ALL table whose VALUE keys are out of their KEY order |
+| [PLB-C101](#plb-c101-string-numeric-sender) | string-numeric-sender | warning | STRING sends a number with decimal places or a sign as stored |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2835,6 +2836,31 @@ z/OS, not on a PC); a key with a character outside the letters, digits,
 space, and common signs is not compared. Tables with `OCCURS DEPENDING
 ON`, tables filled by statements, and keys that no `VALUE` covers are
 not read.
+
+## PLB-C101 string-numeric-sender
+
+A `STRING` that sends a numeric item with decimal places, or with a
+sign kept in its last digit:
+
+```cobol
+01  WS-AMOUNT  PIC S9(5)V99.
+    STRING "TOTAL " WS-AMOUNT DELIMITED BY SIZE   *> reported
+        INTO WS-LINE
+```
+
+`STRING` sends the item's characters as they are stored, not the number
+they stand for. The decimal point is not stored, so 1.5 in a `9(3)V99`
+is sent as `00150`; the sign of a `DISPLAY` item is kept in its last
+digit, so with GnuCOBOL 3.2, -123 in an `S9(3)` is sent as `12s`. A
+`MOVE` of the same items to an alphanumeric item is rejected
+([PLB-C039](#plb-c039-decimal-to-alphanumeric)) or drops the sign, but
+GnuCOBOL takes them in `STRING` without a message. Move the item to a
+numeric-edited item first (`PIC -(5)9.99`), and send that.
+
+An item with a separate sign (`SIGN LEADING SEPARATE`) sends a real `-`
+or `+`, and is reported only for its decimal places. A delimiter
+(`DELIMITED BY item`) is not a sent item; packed and binary items in
+`STRING` are compile errors.
 
 ## PLB-I001 pcb-dbd-unknown
 

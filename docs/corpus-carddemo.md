@@ -353,6 +353,10 @@ Some findings that were read and are true:
   items take `DATE` and `DAY`. In a copy of `CBPAUP0C` whose `ACCEPT
   CURRENT-DATE FROM DATE` is made `FROM DATE YYYYMMDD`, it reports that
   `YY` is lost; in a copy of `PAUDBLOD` made `FROM TIME`, that `HH` is.
+- **PLB-C101 string-numeric-sender.** None: its `STRING` statements
+  send unsigned whole numbers (`ACCT-ID`, `WS-TRANID-SUFFIX`). In a copy
+  of `CBACT04C` with `WS-TRANID-SUFFIX` made `PIC S9(06)`, it reports
+  that item.
 - **PLB-C100 table-keys-unsorted.** None: `COPAUS1C`'s
   `WS-DECLINE-REASON-TAB`, the one table `SEARCH ALL` looks in, has its
   ten codes in order (0000 to 9000). In a copy with the rows for 4100
