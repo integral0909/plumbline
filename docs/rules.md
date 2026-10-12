@@ -135,6 +135,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J015](#plb-j015-step-name-repeated) | step-name-repeated | warning | Two steps of a job or procedure have the same name |
 | [PLB-J016](#plb-j016-utility-dd-missing) | utility-dd-missing | error | Step runs IEBGENER, IDCAMS, or IKJEFT01 without a DD it needs |
 | [PLB-J017](#plb-j017-blksize-invalid) | blksize-invalid | error | DD BLKSIZE does not fit its RECFM and LRECL |
+| [PLB-J018](#plb-j018-gdg-generation-not-created) | gdg-generation-not-created | error | Step reads generation (+1) that no earlier step of the job creates |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -3273,6 +3274,26 @@ another, the data set cannot be opened; for fixed records the `OPEN`
 abends with 013-34. Read are DDs that give `RECFM`, `LRECL`, and a
 `BLKSIZE` other than 0, which lets the system choose one (the best
 choice, unless a block size is needed for a reason).
+
+## PLB-J018 gdg-generation-not-created
+
+A DD that reads a new generation of a generation data group
+(`NAME(+1)`, with `DISP=OLD` or `SHR`) that no earlier step of its job,
+or procedure, creates:
+
+```
+//REPORT   EXEC PGM=PAYRPT
+//IN       DD DSN=PAY.HISTORY(+1),DISP=SHR         reported
+```
+
+Relative generation numbers are fixed when the job starts: `(+1)` is
+the generation a step of this job creates, and `(0)` the newest one
+cataloged before the job. Read before any step creates it, `(+1)` does
+not exist, and the step fails (data set not found); usually `(0)` was
+meant. Read as [PLB-J005](#plb-j005-temp-not-created) reads temporary
+data sets: a step that runs a procedure before the DD may create the
+generation, and the DD is not read; nor are names with symbols
+(`&HLQ..HISTORY(+1)`), or a DD a job adds to a procedure's step.
 
 ## PLB-K001 cics-resource-undefined
 
