@@ -304,6 +304,12 @@ The findings were checked by rule:
 - **PLB-C087 when-covered.** None in NIST or in GnuCOBOL's tests, which
   have one `WHEN` with a numeric range between them.
 
+- **PLB-M021 empty-branch-statement.** None in NIST or in GnuCOBOL's
+  tests. A first version reported 36 in NIST's `IF401M`, `IF402M`, and
+  `IF403M`, which test the flagging of intrinsic functions with `IF
+  FUNCTION ACOS (1.0) = FUNCTION ACOS (1.0) CONTINUE`; a condition with
+  a `FUNCTION` is no longer read.
+
 - **PLB-C092 swap-lost.** None in NIST or in GnuCOBOL's tests.
 
 - **PLB-C091 varying-counter-repeated.** None in NIST or in GnuCOBOL's

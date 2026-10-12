@@ -1,0 +1,4 @@
+tests/golden/rules/m021-empty-branch-statement.cob:12:5: note: this IF does nothing: every branch is CONTINUE or empty [PLB-M021]
+tests/golden/rules/m021-empty-branch-statement.cob:15:5: note: this EVALUATE does nothing: every branch is CONTINUE or empty [PLB-M021]
+tests/golden/rules/m021-empty-branch-statement.cob:32:5: warning: the ELSE of the IF on line 30 does what its THEN does: the condition decides nothing [PLB-C066]
+tests/golden/rules/m021-empty-branch-statement.cob:41:9: warning: NEXT SENTENCE skips past END-IF to the next period; use CONTINUE [PLB-C004]
