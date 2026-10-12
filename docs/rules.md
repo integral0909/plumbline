@@ -104,6 +104,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C090](#plb-c090-condition-never-true) | condition-never-true | warning | Condition name tested whose item is never given one of its values |
 | [PLB-C091](#plb-c091-varying-counter-repeated) | varying-counter-repeated | warning | AFTER phrase of PERFORM VARYING names a counter already stepped |
 | [PLB-C092](#plb-c092-swap-lost) | swap-lost | warning | MOVE of an item to another and straight back, as a swap |
+| [PLB-C093](#plb-c093-pointer-too-small) | pointer-too-small | warning | STRING or UNSTRING POINTER too small for the positions it counts |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2610,6 +2611,32 @@ text), which is a way to round down or truncate, and is not reported.
 The statements are read across the end of a sentence; as for
 [PLB-C033](#plb-c033-self-move), the names must stand alone, without
 qualification, subscripts, or reference modification.
+
+## PLB-C093 pointer-too-small
+
+A `STRING` or `UNSTRING` `POINTER` item that cannot hold one past the
+last position it counts:
+
+```cobol
+01  WS-OUT  PIC X(20).
+01  WS-P    PIC 9.
+    STRING WS-PART DELIMITED BY SIZE INTO WS-OUT
+        WITH POINTER WS-P                   *> reported
+```
+
+The pointer counts the positions of the receiver (`STRING`) or of the
+sending item (`UNSTRING`), and after the last one it is one past it:
+`WS-P` above must reach 21. A pointer whose picture cannot hold that
+loses its high-order digits as it grows: with GnuCOBOL 3.2, after 12
+characters `WS-P` holds 3, so the next `STRING` writes over the third
+character, and an `UNSTRING` that should go on from position 11 starts
+over at 1.
+
+Read are pointers stored as decimal digits (`DISPLAY` or
+`PACKED-DECIMAL`), whose picture decides the largest number they hold;
+what a binary pointer holds depends on the compiler's options. The
+receiver or sending item must have a fixed size and no reference
+modification.
 
 ## PLB-I001 pcb-dbd-unknown
 

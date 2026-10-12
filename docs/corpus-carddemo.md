@@ -349,6 +349,7 @@ Some findings that were read and are true:
   items take `DATE` and `DAY`. In a copy of `CBPAUP0C` whose `ACCEPT
   CURRENT-DATE FROM DATE` is made `FROM DATE YYYYMMDD`, it reports that
   `YY` is lost; in a copy of `PAUDBLOD` made `FROM TIME`, that `HH` is.
+- **PLB-C093 pointer-too-small.** None.
 - **PLB-Q015 insert-count-mismatch.** None: its three `INSERT`
   statements have as many values as columns, `COPAUS2C`'s 26 among them
   with `VARCHAR` host variables, a function, and `CURRENT DATE`. A first

@@ -304,6 +304,11 @@ The findings were checked by rule:
 - **PLB-C087 when-covered.** None in NIST or in GnuCOBOL's tests, which
   have one `WHEN` with a numeric range between them.
 
+- **PLB-C093 pointer-too-small.** None in NIST or in GnuCOBOL's tests.
+  In a copy of NIST's `NC218A` with its sending item made `PIC X(12)`
+  and its pointer `PIC 9`, it reports the three `UNSTRING` statements
+  with that pointer.
+
 - **PLB-Q015 insert-count-mismatch.** None in NIST or in GnuCOBOL's
   tests, which have no `INSERT`.
 
