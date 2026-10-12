@@ -113,7 +113,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C099](#plb-c099-value-overridden) | value-overridden | warning | VALUE of an item in a group that has a VALUE, which is ignored |
 | [PLB-C100](#plb-c100-table-keys-unsorted) | table-keys-unsorted | warning | SEARCH ALL table whose VALUE keys are out of their KEY order |
 | [PLB-C101](#plb-c101-string-numeric-sender) | string-numeric-sender | warning | STRING sends a number with decimal places or a sign as stored |
-| [PLB-C102](#plb-c102-nested-if-decided) | nested-if-decided | warning | IF first in a THEN branch whose test the outer IF already decides |
+| [PLB-C102](#plb-c102-nested-if-decided) | nested-if-decided | warning | IF first in a THEN branch or PERFORM body whose test is already decided |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2931,6 +2931,20 @@ next `IF` as its branch, which is how the second case above happens.
 Both tests must be one relation of the same numeric item with a number,
 read as PLB-C051 reads them, with the item written the same way and
 the same subscripts. An `IF` in the `ELSE` branch is PLB-C051's.
+
+An `IF` that is the first statement of an inline `PERFORM ... UNTIL` is
+read the same way: the body runs only while the `UNTIL` test is false.
+
+```cobol
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > 10
+        IF WS-I > 20                        *> reported: never true
+            ...
+```
+
+The `UNTIL` test must have one end (`>`, `<`, `>=`, `<=`, not `=`),
+so that the values it leaves are one range. A `PERFORM WITH TEST
+AFTER` runs its body once before it tests, and `VARYING ... AFTER`
+tests several items, and neither is read.
 
 ## PLB-I001 pcb-dbd-unknown
 

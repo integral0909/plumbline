@@ -319,7 +319,8 @@ The findings were checked by rule:
   (196 in `SQ110M`) are commented out and no period follows, so the
   next `IF XRECORD-NUMBER (1) EQUAL TO 750` (649) is its branch and is
   never true. A GnuCOBOL 3.2 copy of the loop counts past 750 without
-  leaving it. None in GnuCOBOL's tests.
+  leaving it. None in GnuCOBOL's tests, and none for an `IF` first in
+  a `PERFORM ... UNTIL` body in either.
 
 - **PLB-C100 table-keys-unsorted.** None: the tables of NIST's five
   programs with `SEARCH ALL` are filled by statements, not by `VALUE`
