@@ -485,6 +485,8 @@ uses [Semantic Versioning](https://semver.org/).
   (`WS-AMOUNT < 5 OR >= 5`); for an item without decimal places, of
   the whole numbers it holds (`WS-CODE > 3 AND WS-CODE < 4`). Its fix
   is not offered for these.
+- PLB-C008 move-truncation reports a numeric literal below zero moved
+  to an item without a sign, which stores its absolute value.
 - PLB-C036 arithmetic-overflow also reads `COMPUTE` with `+`, `-`, and
   `*` alone, no longer takes `LENGTH OF` an item for its value, and
   leaves out `COMP-5` receivers, whose bytes, not their picture,
