@@ -111,6 +111,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C097](#plb-c097-sort-file-open) | sort-file-open | error | SORT or MERGE USING or GIVING a file the program has open |
 | [PLB-C098](#plb-c098-group-value-into-packed) | group-value-into-packed | warning | Group VALUE puts characters in its packed-decimal or binary items |
 | [PLB-C099](#plb-c099-value-overridden) | value-overridden | warning | VALUE of an item in a group that has a VALUE, which is ignored |
+| [PLB-C100](#plb-c100-table-keys-unsorted) | table-keys-unsorted | warning | SEARCH ALL table whose VALUE keys are out of their KEY order |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2788,6 +2789,38 @@ A `VALUE` clause on an item in a group that has a `VALUE` of its own:
 The group's `VALUE` decides the start value of everything in it. With
 GnuCOBOL 3.2 the item's `VALUE` is ignored without a message, and
 `WS-LIMIT` above starts as spaces. Take one of the two clauses out.
+
+## PLB-C100 table-keys-unsorted
+
+A table that `SEARCH ALL` looks in, filled by `VALUE` clauses, whose
+keys are not in the order its `KEY` phrase gives:
+
+```cobol
+01  WS-STATES-V.
+    05  FILLER  PIC X(7) VALUE "01ALPHA".
+    05  FILLER  PIC X(7) VALUE "05BETA ".
+    05  FILLER  PIC X(7) VALUE "03GAMMA".
+01  WS-STATES REDEFINES WS-STATES-V.
+    05  WS-STATE OCCURS 3 ASCENDING KEY WS-STATE-CODE   *> reported
+                 INDEXED BY WS-SX.
+        10  WS-STATE-CODE  PIC X(2).
+        10  WS-STATE-NAME  PIC X(5).
+```
+
+`SEARCH ALL` is a binary search: it trusts the order of the keys, and
+in a table out of order it misses entries that are there. With GnuCOBOL
+3.2, a search of the table above for `05` ends `AT END`.
+
+The table's start value is rebuilt from the `VALUE` clauses of the item
+it redefines: literals of alphanumeric items, and unsigned whole
+numbers of `DISPLAY` items. The entries are compared on the first key
+the `KEY` phrase names, as characters, and a pair is reported only when
+it is out of order both in ASCII and in EBCDIC, whose orders of
+letters, digits, and signs differ (`AA` before `11` is in order on
+z/OS, not on a PC); a key with a character outside the letters, digits,
+space, and common signs is not compared. Tables with `OCCURS DEPENDING
+ON`, tables filled by statements, and keys that no `VALUE` covers are
+not read.
 
 ## PLB-I001 pcb-dbd-unknown
 

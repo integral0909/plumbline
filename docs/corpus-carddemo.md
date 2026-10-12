@@ -349,6 +349,10 @@ Some findings that were read and are true:
   items take `DATE` and `DAY`. In a copy of `CBPAUP0C` whose `ACCEPT
   CURRENT-DATE FROM DATE` is made `FROM DATE YYYYMMDD`, it reports that
   `YY` is lost; in a copy of `PAUDBLOD` made `FROM TIME`, that `HH` is.
+- **PLB-C100 table-keys-unsorted.** None: `COPAUS1C`'s
+  `WS-DECLINE-REASON-TAB`, the one table `SEARCH ALL` looks in, has its
+  ten codes in order (0000 to 9000). In a copy with the rows for 4100
+  and 4200 swapped, it reports entry 4 after entry 3.
 - **PLB-C098 group-value-into-packed** and **PLB-C099
   value-overridden.** None.
 - **PLB-Q017 fetch-after-close.** None. In a copy of `COTRTLIC` with
