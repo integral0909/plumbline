@@ -367,6 +367,9 @@ Some findings that were read and are true:
 - **PLB-C089 loop-never-runs.** None. In a copy of `CBACT01C` with
   `MOVE 'Y' TO END-OF-FILE.` put before its `PERFORM UNTIL END-OF-FILE
   = 'Y'`, it reports that loop.
+- **PLB-J015 step-name-repeated.** 2: `DEFCUST` names two `IDCAMS`
+  steps `STEP05`, and `TRANREPT` names both the `REPROC` step and the
+  `SORT` after it `STEP05R`.
 - **PLB-J014 output-deleted.** None. In a copy of `READACCT` whose
   `OUTFILE` DD is made `DISP=(NEW,DELETE,DELETE)`, it reports that DD.
 - **PLB-J013 shr-for-output.** None: its jobs write their sequential

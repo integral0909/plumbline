@@ -123,6 +123,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J012](#plb-j012-read-after-delete) | read-after-delete | error | Step reads a data set that an earlier step deleted |
 | [PLB-J013](#plb-j013-shr-for-output) | shr-for-output | warning | Step writes a sequential data set its DD shares with DISP=SHR |
 | [PLB-J014](#plb-j014-output-deleted) | output-deleted | warning | Step writes a data set that its DD deletes when the step ends |
+| [PLB-J015](#plb-j015-step-name-repeated) | step-name-repeated | warning | Two steps of a job or procedure have the same name |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -2965,6 +2966,23 @@ The second `DISP` subparameter is what happens when the step ends
 well: `DELETE` throws away what the program wrote. `CATLG` or `KEEP`
 was meant, or `PASS` for a later step. Temporary data sets (`&&NAME`),
 which go at the end of the job anyway, are left alone.
+## PLB-J015 step-name-repeated
+
+Two steps of one job, or of one procedure, with the same name:
+
+```
+//EXTRACT  EXEC PGM=ACCTEXT
+//SORT     EXEC PGM=SORT
+//EXTRACT  EXEC PGM=ACCTRPT                    reported
+```
+
+`COND` and `IF` tests, backward references (`*.EXTRACT.OUT`), restarts
+(`RESTART=EXTRACT`), and the job's messages name a step by its name,
+and cannot tell two steps of one name apart. Usually a step was copied
+and not renamed. Steps without a name are not compared; a procedure's
+steps are compared among themselves, not with those of the job that
+runs it, and steps of different jobs are not compared.
+
 ## PLB-K001 cics-resource-undefined
 
 An `EXEC CICS` command that names a file, transaction, program, mapset,

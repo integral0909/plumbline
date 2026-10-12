@@ -237,6 +237,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C091 varying-counter-repeated.
 - Rule PLB-C092 swap-lost.
 - Rule PLB-M021 empty-branch-statement.
+- Rule PLB-J015 step-name-repeated.
 - Rule PLB-C085 zeros-into-packed; it and spaces-into-numeric leave a
   `FILE STATUS` group alone.
 - The HTML report shows the fix of each finding that has one: its title,
