@@ -11,6 +11,7 @@
 *>   PLB-C059  key-error-not-handled
 *>   PLB-C075  io-after-close
 *>   PLB-C076  open-while-open
+*>   PLB-C094  open-after-lock
 *>
 *> Each program on its own: its files (SELECT), their records (FD),
 *> the declaratives that handle their errors (USE ... ERROR or
@@ -77,6 +78,7 @@ COPY "plbnlist.cpy".
 01  LS-RULE-KEY-ERROR       PIC 9(4) COMP-5.
 01  LS-RULE-AFTER-CLOSE     PIC 9(4) COMP-5.
 01  LS-RULE-OPEN-TWICE      PIC 9(4) COMP-5.
+01  LS-RULE-LOCKED          PIC 9(4) COMP-5.
 *> PLB-C075 and PLB-C076: the list the CLOSE or OPEN is in, the first
 *> operation on its file after it, and the statements between them.
 01  LS-AC-SCOPE             PIC 9(9) COMP-5.
@@ -135,6 +137,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C059" LS-RULE-KEY-ERROR
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C075" LS-RULE-AFTER-CLOSE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C076" LS-RULE-OPEN-TWICE
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C094" LS-RULE-LOCKED
     IF AS-COUNT = 0
         GOBACK
     END-IF
@@ -450,6 +453,10 @@ REPORT-FINDINGS.
                AND RL-ENABLED(LS-RULE-OPEN-TWICE) = "Y"
                 PERFORM CHECK-NEXT-OPERATION
             END-IF
+            IF OP-VERB(LS-I) = "CLOSE"
+               AND RL-ENABLED(LS-RULE-LOCKED) = "Y"
+                PERFORM CHECK-LOCKED
+            END-IF
         END-IF
         EVALUATE OP-VERB(LS-I)
             WHEN "READ"
@@ -621,6 +628,88 @@ CHECK-NEXT-OPERATION.
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE-AFTER-CLOSE OP-TOKEN(LS-AC-NEXT) LS-MESSAGE.
+
+*> PLB-C094 open-after-lock: CLOSE file WITH LOCK, statement LS-I,
+*> then, later in the same list of statements (or, for a CLOSE directly
+*> in a sentence, later in its paragraph), an OPEN of the file: a file
+*> closed with lock cannot be opened again while the program runs, and
+*> the OPEN fails with file status 38. GO TO, CALL, EXEC, GOBACK, STOP,
+*> or EXIT between, which may leave, ends the search; a PERFORM, which
+*> comes back, and other operations on the file do not.
+CHECK-LOCKED.
+    *> WITH LOCK, or LOCK, right after the file's name.
+    COMPUTE LS-AC-K = OP-TOKEN(LS-I) + 1
+    IF LS-AC-K > ND-TOK-LAST(OP-STMT(LS-I))
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-AC-K LS-TEXT LS-LEN
+    IF FUNCTION UPPER-CASE(LS-TEXT) = "WITH"
+        ADD 1 TO LS-AC-K
+        IF LS-AC-K > ND-TOK-LAST(OP-STMT(LS-I))
+            EXIT PARAGRAPH
+        END-IF
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-AC-K LS-TEXT LS-LEN
+    END-IF
+    IF FUNCTION UPPER-CASE(LS-TEXT) NOT = "LOCK"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE ND-PARENT(OP-STMT(LS-I)) TO LS-AC-SCOPE
+    IF LS-AC-SCOPE = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF ND-KIND(LS-AC-SCOPE) = "SENT"
+        MOVE ND-PARENT(LS-AC-SCOPE) TO LS-AC-SCOPE
+    END-IF
+    *> The first OPEN of the file after the CLOSE.
+    MOVE 0 TO LS-AC-NEXT
+    PERFORM VARYING LS-AC-J FROM 1 BY 1 UNTIL LS-AC-J > WS-OP-COUNT
+        IF OP-FILE(LS-AC-J) = LS-F AND OP-VERB(LS-AC-J) = "OPEN"
+           AND ND-TOK-FIRST(OP-STMT(LS-AC-J))
+               > ND-TOK-LAST(OP-STMT(LS-I))
+            IF LS-AC-NEXT = 0
+                MOVE LS-AC-J TO LS-AC-NEXT
+            ELSE
+                IF ND-TOK-FIRST(OP-STMT(LS-AC-J))
+                   < ND-TOK-FIRST(OP-STMT(LS-AC-NEXT))
+                    MOVE LS-AC-J TO LS-AC-NEXT
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-AC-NEXT = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE ND-PARENT(OP-STMT(LS-AC-NEXT)) TO LS-AC-UP
+    PERFORM UNTIL LS-AC-UP = 0 OR LS-AC-UP = LS-AC-SCOPE
+        MOVE ND-PARENT(LS-AC-UP) TO LS-AC-UP
+    END-PERFORM
+    IF LS-AC-UP = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-AC-K FROM 1 BY 1 UNTIL LS-AC-K > AS-COUNT
+        IF ND-KIND(LS-AC-K) = "STMT"
+           AND ND-TOK-FIRST(LS-AC-K) > ND-TOK-LAST(OP-STMT(LS-I))
+           AND ND-TOK-FIRST(LS-AC-K)
+               < ND-TOK-FIRST(OP-STMT(LS-AC-NEXT))
+            EVALUATE ND-DETAIL(LS-AC-K)
+                WHEN "GO" WHEN "CALL" WHEN "EXEC" WHEN "GOBACK"
+                WHEN "STOP" WHEN "EXIT"
+                    EXIT PARAGRAPH
+            END-EVALUATE
+        END-IF
+    END-PERFORM
+    MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-FIRST(OP-STMT(LS-I))))
+        TO LS-AC-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-AC-NUM LS-AC-NUM-TEXT LS-AC-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING FL-NAME(LS-F) DELIMITED BY SPACE
+           " was closed WITH LOCK on line " DELIMITED BY SIZE
+           LS-AC-NUM-TEXT(1:LS-AC-NUM-LEN) DELIMITED BY SIZE
+           ": it cannot be opened again while the program runs, and "
+           "this OPEN fails with file status 38" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-LOCKED OP-TOKEN(LS-AC-NEXT) LS-MESSAGE.
 
 REPORT-OPEN-TWICE.
     MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-FIRST(OP-STMT(LS-I))))

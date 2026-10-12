@@ -304,6 +304,11 @@ The findings were checked by rule:
 - **PLB-C087 when-covered.** None in NIST or in GnuCOBOL's tests, which
   have one `WHEN` with a numeric range between them.
 
+- **PLB-C094 open-after-lock.** 1 in NIST, in `RL401M`, a test of the
+  flagging of non-standard features that never runs: `CLOSE TFIL WITH
+  LOCK`, marked as non-conforming for a relative file, then `OPEN INPUT
+  TFIL`. None in GnuCOBOL's tests.
+
 - **PLB-C093 pointer-too-small.** None in NIST or in GnuCOBOL's tests.
   In a copy of NIST's `NC218A` with its sending item made `PIC X(12)`
   and its pointer `PIC 9`, it reports the three `UNSTRING` statements

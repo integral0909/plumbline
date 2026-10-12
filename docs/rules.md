@@ -105,6 +105,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C091](#plb-c091-varying-counter-repeated) | varying-counter-repeated | warning | AFTER phrase of PERFORM VARYING names a counter already stepped |
 | [PLB-C092](#plb-c092-swap-lost) | swap-lost | warning | MOVE of an item to another and straight back, as a swap |
 | [PLB-C093](#plb-c093-pointer-too-small) | pointer-too-small | warning | STRING or UNSTRING POINTER too small for the positions it counts |
+| [PLB-C094](#plb-c094-open-after-lock) | open-after-lock | error | OPEN of a file closed WITH LOCK, which fails with status 38 |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2637,6 +2638,29 @@ Read are pointers stored as decimal digits (`DISPLAY` or
 what a binary pointer holds depends on the compiler's options. The
 receiver or sending item must have a fixed size and no reference
 modification.
+
+## PLB-C094 open-after-lock
+
+An `OPEN` of a file that a `CLOSE ... WITH LOCK` before it closed:
+
+```cobol
+    CLOSE OUT-FILE WITH LOCK
+    OPEN INPUT OUT-FILE                     *> reported
+```
+
+A file closed with lock cannot be opened again while the program runs:
+with GnuCOBOL 3.2 the `OPEN` fails with file status 38
+(`COB_STATUS_38_CLOSED_WITH_LOCK`). Usually `WITH LOCK` was copied from
+the program's last `CLOSE` to one that is not the last. The lock
+applies to the file it follows: `CLOSE F1 WITH LOCK F2` locks `F1`
+alone, and `F2` opens again.
+
+Read as for [PLB-C075](#plb-c075-io-after-close): the `OPEN` must come
+later in the same list of statements as the `CLOSE` (or, for a `CLOSE`
+directly in a sentence, later in its paragraph), with no `GO TO`,
+`CALL`, `EXEC`, `GOBACK`, `STOP`, or `EXIT` between, which may leave.
+A `PERFORM` between does not end the search: nothing it does can undo
+the lock.
 
 ## PLB-I001 pcb-dbd-unknown
 
