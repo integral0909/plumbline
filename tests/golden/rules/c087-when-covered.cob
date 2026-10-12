@@ -25,9 +25,20 @@ PROCEDURE DIVISION.
         WHEN OTHER
             DISPLAY "OTHER"
     END-EVALUATE
-    *> Not reported: EVALUATE TRUE.
+    *> EVALUATE TRUE: > 20 and = 15 after > 10, <= 5 after NOT > 9
+    *> (reported); >= 10 after > 10, which 10 takes (not).
     EVALUATE TRUE
-        WHEN WS-CODE > 0
-            DISPLAY "POSITIVE"
+        WHEN WS-CODE > 10
+            DISPLAY "OVER TEN"
+        WHEN WS-CODE > 20
+            DISPLAY "OVER TWENTY"
+        WHEN WS-CODE >= 10
+            DISPLAY "TEN"
+        WHEN WS-CODE = 15
+            DISPLAY "FIFTEEN"
+        WHEN WS-CODE NOT > 9
+            DISPLAY "UP TO NINE"
+        WHEN WS-CODE <= 5
+            DISPLAY "UP TO FIVE"
     END-EVALUATE
     GOBACK.
