@@ -1,0 +1,4 @@
+tests/golden/rules/c098-c099-group-values.cob:9:5: warning: the VALUE of WS-TOTALS puts spaces in WS-COUNT, a packed-decimal item: no valid number [PLB-C098]
+tests/golden/rules/c098-c099-group-values.cob:12:5: warning: the VALUE of WS-SUMS puts the character 0 in WS-AMOUNT, a packed-decimal item: no valid number [PLB-C098]
+tests/golden/rules/c098-c099-group-values.cob:14:5: warning: the VALUE of WS-KEYS puts spaces in WS-KEY-NUM, a binary item: a meaningless number (and in 1 more such item) [PLB-C098]
+tests/golden/rules/c098-c099-group-values.cob:25:9: warning: WS-LIMIT has a VALUE, but the group WS-LIMITS it is in has one too: the group's decides the start value, and this one is ignored [PLB-C099]

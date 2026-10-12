@@ -349,6 +349,8 @@ Some findings that were read and are true:
   items take `DATE` and `DAY`. In a copy of `CBPAUP0C` whose `ACCEPT
   CURRENT-DATE FROM DATE` is made `FROM DATE YYYYMMDD`, it reports that
   `YY` is lost; in a copy of `PAUDBLOD` made `FROM TIME`, that `HH` is.
+- **PLB-C098 group-value-into-packed** and **PLB-C099
+  value-overridden.** None.
 - **PLB-Q017 fetch-after-close.** None. In a copy of `COTRTLIC` with
   a `FETCH C-TR-TYPE-FORWARD` put after its `CLOSE`, it reports it.
 - **PLB-Q016 cursor-open-twice.** None. In a copy of `COTRTLIC` with

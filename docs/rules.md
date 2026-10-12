@@ -109,6 +109,8 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C095](#plb-c095-rewrite-without-read) | rewrite-without-read | error | Sequential REWRITE or DELETE that does not follow a READ |
 | [PLB-C096](#plb-c096-converting-repeated) | converting-repeated | warning | INSPECT CONVERTING string with a character twice, mapped apart |
 | [PLB-C097](#plb-c097-sort-file-open) | sort-file-open | error | SORT or MERGE USING or GIVING a file the program has open |
+| [PLB-C098](#plb-c098-group-value-into-packed) | group-value-into-packed | warning | Group VALUE puts characters in its packed-decimal or binary items |
+| [PLB-C099](#plb-c099-value-overridden) | value-overridden | warning | VALUE of an item in a group that has a VALUE, which is ignored |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2749,6 +2751,42 @@ statements (or, for statements directly in sentences, the same
 paragraph), with no `PERFORM` of a procedure, `GO TO`, `CALL`, `EXEC`,
 `GOBACK`, `STOP`, or `EXIT` between, nor another `SORT` or `MERGE` of
 the file, which closes it.
+
+## PLB-C098 group-value-into-packed
+
+A group whose `VALUE` puts characters in its packed-decimal or binary
+items:
+
+```cobol
+01  WS-TOTALS VALUE SPACES.                     *> reported
+    05  WS-COUNT        PIC S9(7) COMP-3.
+    05  WS-NAME         PIC X(20).
+```
+
+A group's `VALUE` gives the whole group its start value byte for byte,
+as an alphanumeric item. Spaces, or the character 0 of `ZERO`, are no
+valid packed-decimal number: with GnuCOBOL 3.2, `ADD 1 TO WS-COUNT`
+gives +2020203, and with run-time checks (`-fec=all`) the run stops
+with "WS-COUNT (Type: PACKED-DECIMAL) not numeric"; on z/OS the first
+arithmetic fails with a data exception. In a binary item they are a
+meaningless number. `LOW-VALUES` gives a binary item the number 0, and
+is not reported for binary items. Give the items values of their own
+with `INITIALIZE`, or move the group's `VALUE` to its alphanumeric
+items. One finding is made for each group, naming its first such item.
+Items of the WORKING-STORAGE and LOCAL-STORAGE SECTIONs are read.
+
+## PLB-C099 value-overridden
+
+A `VALUE` clause on an item in a group that has a `VALUE` of its own:
+
+```cobol
+01  WS-LIMITS VALUE SPACES.
+    05  WS-LIMIT        PIC X(3) VALUE "MAX".     *> reported
+```
+
+The group's `VALUE` decides the start value of everything in it. With
+GnuCOBOL 3.2 the item's `VALUE` is ignored without a message, and
+`WS-LIMIT` above starts as spaces. Take one of the two clauses out.
 
 ## PLB-I001 pcb-dbd-unknown
 
