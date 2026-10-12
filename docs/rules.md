@@ -99,6 +99,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C085](#plb-c085-zeros-into-packed) | zeros-into-packed | warning | MOVE ZEROS to a group puts the character 0 in its packed items |
 | [PLB-C086](#plb-c086-read-loop-end-only) | read-loop-end-only | warning | READ loop ends only at end of file, and loops for ever on errors |
 | [PLB-C087](#plb-c087-when-covered) | when-covered | warning | WHEN of an EVALUATE whose values an earlier WHEN range takes |
+| [PLB-C088](#plb-c088-accept-truncation) | accept-truncation | warning | ACCEPT of the date or time into a numeric item with too few digits |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2438,6 +2439,35 @@ a `WHEN` inside one earlier range is reported. A `WHEN` the same as an
 earlier one is [PLB-C032](#plb-c032-duplicate-when)'s, and ranges of
 alphanumeric values, which depend on the collating sequence, are not
 read.
+
+## PLB-C088 accept-truncation
+
+`ACCEPT` of the date or the time into a numeric item with fewer digits
+than it gives:
+
+```cobol
+01  WS-TIME  PIC 9(6).
+01  WS-DATE  PIC 9(6).
+    ACCEPT WS-TIME FROM TIME                *> reported: HH is lost
+    ACCEPT WS-DATE FROM DATE YYYYMMDD       *> reported: YY is lost
+```
+
+`ACCEPT ... FROM` moves an unsigned whole number to the item, as `MOVE`
+does: `DATE` gives 6 digits (YYMMDD), `DATE YYYYMMDD` 8, `DAY` 5
+(YYDDD), `DAY YYYYDDD` 7, and `TIME` 8 (HHMMSShh). A numeric item keeps
+the digits on the right, so what is lost is the hours or the start of
+the year: with GnuCOBOL 3.2, `WS-TIME` above holds minutes, seconds and
+hundredths, and `WS-DATE` a two-digit year. The message names the
+digits kept and lost. Usually `TIME` was taken for `HHMMSS`, or the
+item was not widened when the date became `YYYYMMDD`.
+
+Read are numeric items stored as decimal digits (`DISPLAY` or
+`PACKED-DECIMAL`), with the digits before the decimal point counted. A
+binary item does not keep the last digits (with GnuCOBOL, a `COMP-5`
+item wraps round its bytes), and a picture with `P` (`9(4)PP`) loses
+the low-order digits too; neither is read. An alphanumeric item keeps
+the characters on the left (`HHMMSS` of the time in a `PIC X(6)`),
+which is usually meant, and is not reported.
 
 ## PLB-I001 pcb-dbd-unknown
 

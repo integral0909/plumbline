@@ -345,6 +345,10 @@ Some findings that were read and are true:
 - **PLB-C087 when-covered.** None. In a copy of `COADM01C` whose `WHEN 1`
   of `EVALUATE WS-IDX` is made `WHEN 1 THRU 3`, it reports its `WHEN 2`
   and `WHEN 3`.
+- **PLB-C088 accept-truncation.** None: its `PIC 9(06)` and `PIC 9(05)`
+  items take `DATE` and `DAY`. In a copy of `CBPAUP0C` whose `ACCEPT
+  CURRENT-DATE FROM DATE` is made `FROM DATE YYYYMMDD`, it reports that
+  `YY` is lost; in a copy of `PAUDBLOD` made `FROM TIME`, that `HH` is.
 - **PLB-J014 output-deleted.** None. In a copy of `READACCT` whose
   `OUTFILE` DD is made `DISP=(NEW,DELETE,DELETE)`, it reports that DD.
 - **PLB-J013 shr-for-output.** None: its jobs write their sequential
