@@ -446,7 +446,7 @@ PROCEDURE DIVISION USING PLB-RULES.
         "STRING sends a number with decimal places or a sign as stored"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C102"
         "nested-if-decided" "W"
-        "IF first in a THEN branch whose test the outer IF already decides"
+        "IF first in a THEN branch or PERFORM body whose test is already decided"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C070"
         "mq-completion-not-checked" "W"
         "Completion code of an MQ call is not tested"

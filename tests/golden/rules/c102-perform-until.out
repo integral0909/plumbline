@@ -1,0 +1,2 @@
+tests/golden/rules/c102-perform-until.cob:12:12: warning: this test is never true: the PERFORM on line 11 runs its body for no value that passes it [PLB-C102]
+tests/golden/rules/c102-perform-until.cob:19:12: warning: this test is always true: the PERFORM on line 18 runs its body only for values that pass it [PLB-C102]

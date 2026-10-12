@@ -510,6 +510,9 @@ uses [Semantic Versioning](https://semver.org/).
   is one relation of a numeric item with a number and accepts only
   values an earlier `IF` of the chain already took (`IF A > 10 ...
   ELSE IF A > 20`).
+- PLB-C102 nested-if-decided also reads an `IF` that starts the body of
+  an inline `PERFORM ... UNTIL` against the values the `UNTIL` test
+  leaves.
 
 ### Fixed
 
