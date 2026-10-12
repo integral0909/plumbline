@@ -101,6 +101,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C087](#plb-c087-when-covered) | when-covered | warning | WHEN of an EVALUATE whose values an earlier WHEN range takes |
 | [PLB-C088](#plb-c088-accept-truncation) | accept-truncation | warning | ACCEPT of the date or time into a numeric item with too few digits |
 | [PLB-C089](#plb-c089-loop-never-runs) | loop-never-runs | warning | PERFORM UNTIL or VARYING whose condition is true when it starts |
+| [PLB-C090](#plb-c090-condition-never-true) | condition-never-true | warning | Condition name tested whose item is never given one of its values |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2514,6 +2515,48 @@ For `PERFORM VARYING`, read are loops as for
 [PLB-C081](#plb-c081-varying-wrong-direction): a `FROM` literal the
 counter holds, and an `UNTIL` that compares the counter with a literal
 alone, the counter an integer stored as decimal digits.
+
+## PLB-C090 condition-never-true
+
+A condition name that a statement tests, when nothing gives its item
+one of the condition's values:
+
+```cobol
+01  WS-EOF          PIC X VALUE "N".
+    88  END-OF-FILE VALUE "Y".
+    ...
+    MOVE "E" TO WS-EOF
+    PERFORM PROCESS-RECORD UNTIL END-OF-FILE      *> reported
+```
+
+The condition is never true, so the loop never ends, or the branch it
+guards never runs. Usually the value moved is mistyped, the `SET` of
+the condition was left out, or the condition's `VALUE` is wrong. The
+message lists every value the item can hold.
+
+The values are read from every way the item gets one: its `VALUE`
+clause (or, with none, the spaces or zero GnuCOBOL starts it with, or
+`SPACE` or `ZERO` in the `VALUE` of a group it is in), `MOVE` of a
+literal to it (cut to the item's size), `SET` of one of its condition
+names `TO TRUE` (the first value) or `TO FALSE` (the `WHEN SET TO
+FALSE` value), `INITIALIZE` of it or a group it is in, and `MOVE` of
+`SPACE` or `ZERO` to such a group. A number counts only when the
+item's picture holds it as written. Any other store into the item or
+storage it shares makes its values unknown and the condition is not
+read: `MOVE` of another item, arithmetic, `READ ... INTO`, `ACCEPT`,
+`CALL ... BY REFERENCE`, embedded SQL or CICS `INTO`, a `REDEFINES`.
+
+Only items that at least one statement stores into are read. An item
+that keeps its `VALUE` is often a switch set by editing the program
+(`88 DEBUG-ON VALUE "Y"` of an item with `VALUE "N"`), and one that
+has no `VALUE` either is reported by
+[PLB-C011](#plb-c011-read-never-set). Left out too are items of the
+LINKAGE, FILE, and REPORT sections, items longer than 64 bytes,
+FILE STATUS items (I/O statements set them without naming them), the
+`SQLCA` and items named `SQL...`, `EXTERNAL`, `BASED` and `JUSTIFIED`
+items, programs with a SCREEN SECTION (its `ACCEPT` stores into items
+no statement names), and conditions with literals with a prefix
+(`X"..."`) or ranges of characters.
 
 ## PLB-I001 pcb-dbd-unknown
 

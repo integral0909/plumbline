@@ -1,0 +1,5 @@
+tests/golden/rules/c090-condition-never-true.cob:9:12: note: IN-FILE is opened but never closed [PLB-M008]
+tests/golden/rules/c090-condition-never-true.cob:46:8: warning: END-OF-FILE is never true: WS-EOF is only ever "N" or "E" [PLB-C090]
+tests/golden/rules/c090-condition-never-true.cob:50:8: warning: LEVEL-HIGH is never true: WS-LEVEL is only ever 0 or 2 [PLB-C090]
+tests/golden/rules/c090-condition-never-true.cob:58:19: warning: MOVE truncates a 3-character literal to fit WS-SHORT (1 characters) [PLB-C008]
+tests/golden/rules/c090-condition-never-true.cob:60:8: warning: NOVAL-BLANK is read but never given a value [PLB-C011]
