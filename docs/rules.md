@@ -85,7 +85,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C071](#plb-c071-contradictory-condition) | contradictory-condition | warning | Relations of one item joined so the condition is never or always true |
 | [PLB-C072](#plb-c072-unreachable-statement) | unreachable-statement | warning | Statement after a GO TO, GOBACK, or STOP RUN never runs |
 | [PLB-C073](#plb-c073-value-ignored) | value-ignored | warning | VALUE clause in the FILE or LINKAGE SECTION gives no value |
-| [PLB-C074](#plb-c074-condition-range-reversed) | condition-range-reversed | warning | Condition name has a THRU range whose start is above its end |
+| [PLB-C074](#plb-c074-condition-range-reversed) | condition-range-reversed | warning | Condition name or WHEN has a THRU range whose start is above its end |
 | [PLB-C075](#plb-c075-io-after-close) | io-after-close | warning | I/O statement on a file after its CLOSE, with no OPEN between |
 | [PLB-C076](#plb-c076-open-while-open) | open-while-open | warning | OPEN of a file already opened, with no CLOSE between |
 | [PLB-C077](#plb-c077-index-set-out-of-range) | index-set-out-of-range | warning | SET of an index to a number outside its table |
@@ -2195,6 +2195,18 @@ A condition name with a range `a THRU b` whose start is above its end:
 The range holds no value, so that part of the condition is never true;
 GnuCOBOL 3.2 accepts it without a warning, and `MONTH-VALID` is false
 for every month. The ends were written the wrong way round.
+
+A `WHEN` of an `EVALUATE` with such a range is reported too:
+
+```cobol
+    EVALUATE WS-AGE
+        WHEN 65 THRU 18                     *> reported
+```
+
+GnuCOBOL 3.2 matches no value with it, and every value with `WHEN NOT
+65 THRU 18`. Only ranges whose ends stand alone are read: each end
+starts or ends the `WHEN`, or is next to `ALSO` (or `NOT`, before the
+start), and is not part of an expression.
 
 Numbers are compared by value, with their signs and decimal places.
 Alphanumeric literals are compared only where ASCII and EBCDIC agree:
