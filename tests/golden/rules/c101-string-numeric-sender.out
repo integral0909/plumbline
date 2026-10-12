@@ -1,0 +1,4 @@
+tests/golden/rules/c101-string-numeric-sender.cob:17:22: warning: STRING sends the digits of WS-AMOUNT without its decimal point: 1.5 in a 9(3)V99 is sent as 00150 [PLB-C101]
+tests/golden/rules/c101-string-numeric-sender.cob:17:44: warning: STRING sends signed WS-BALANCE as stored, its sign in its last digit: -123 is sent as 12s [PLB-C101]
+tests/golden/rules/c101-string-numeric-sender.cob:18:21: warning: STRING sends the digits of WS-RATE without its decimal point: 1.5 in a 9(3)V99 is sent as 00150 [PLB-C101]
+tests/golden/rules/c101-string-numeric-sender.cob:26:14: warning: STRING sends WS-LINE into itself: the result is undefined [PLB-C052]

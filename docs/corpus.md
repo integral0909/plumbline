@@ -311,6 +311,9 @@ The findings were checked by rule:
   EQUAL TO ZERO` in NIST's `NC126A`, whose `PIC 0009999` shows 0 as
   zeros; pictures of `9` and `0` alone are now left out for `ZERO`.
 
+- **PLB-C101 string-numeric-sender.** None in NIST or in GnuCOBOL's
+  tests.
+
 - **PLB-C100 table-keys-unsorted.** None: the tables of NIST's five
   programs with `SEARCH ALL` are filled by statements, not by `VALUE`
   clauses. None in GnuCOBOL's tests.
