@@ -304,6 +304,11 @@ The findings were checked by rule:
 - **PLB-C087 when-covered.** None in NIST or in GnuCOBOL's tests, which
   have one `WHEN` with a numeric range between them.
 
+- **PLB-C045 alnum-compared-to-number** on numeric-edited items: none
+  in NIST or in GnuCOBOL's tests. A first version reported `IF GP-19
+  EQUAL TO ZERO` in NIST's `NC126A`, whose `PIC 0009999` shows 0 as
+  zeros; pictures of `9` and `0` alone are now left out for `ZERO`.
+
 - **PLB-C096 converting-repeated.** None in NIST or in GnuCOBOL's
   tests. In a copy of NIST's `NC216A` whose `CONVERTING "AU" TO "23"`
   is made `CONVERTING "AUA" TO "234"`, it reports that `A` becomes `2`

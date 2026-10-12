@@ -8,6 +8,8 @@ WORKING-STORAGE SECTION.
 01  TYPE-CODE-N REDEFINES TYPE-CODE PIC 9(2).
 01  FLAG                PIC X VALUE "1".
 01  COUNTER             PIC 9(2) VALUE 0.
+01  AMOUNT-OUT          PIC ZZ,ZZ9.99 VALUE 0.
+01  PADDED-OUT          PIC 0009999 VALUE 0.
 PROCEDURE DIVISION.
     IF TYPE-CODE = 0
         DISPLAY "NEVER FOR 00"
@@ -28,4 +30,18 @@ PROCEDURE DIVISION.
         WHEN TYPE-CODE = 5
             DISPLAY "FIVE"
     END-EVALUATE
+    *> A numeric-edited item holds characters: any number, and ZERO.
+    IF AMOUNT-OUT = 0 OR AMOUNT-OUT > 1234.5 OR AMOUNT-OUT = ZERO
+        DISPLAY "EDITED"
+    END-IF
+    IF AMOUNT-OUT = "     0.00"
+        DISPLAY "AS SHOWN"
+    END-IF
+    *> 9 and 0 alone: zero shows as zeros; 7 digits for 7 characters.
+    IF PADDED-OUT = ZERO OR PADDED-OUT = 0001234
+        DISPLAY "PADDED"
+    END-IF
+    IF PADDED-OUT = 1234
+        DISPLAY "SHORT"
+    END-IF
     STOP RUN.

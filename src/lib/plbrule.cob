@@ -284,7 +284,7 @@ PROCEDURE DIVISION USING PLB-RULES.
         "Statement in a PERFORM VARYING loop changes the loop's control"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C045"
         "alnum-compared-to-number" "W"
-        "Alphanumeric item compared with a shorter numeric literal"
+        "Alphanumeric or numeric-edited item compared with a number"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C046"
         "overlapping-move" "W"
         "MOVE between items that share storage"
