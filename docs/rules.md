@@ -796,7 +796,10 @@ An I/O statement that none of the file's open modes allows:
 ```
 
 `READ` and `START` need `INPUT` or `I-O`, `WRITE` needs `OUTPUT`,
-`EXTEND`, or `I-O`, and `REWRITE` and `DELETE` need `I-O`.
+`EXTEND`, or `I-O`, and `REWRITE` and `DELETE` need `I-O`. A sequential
+file opened `I-O` takes `REWRITE` but not `WRITE`: with GnuCOBOL 3.2 the
+`WRITE` fails with file status 48, and only `OUTPUT` or `EXTEND` allows
+it.
 
 ## PLB-C023 subscript-out-of-range
 
