@@ -232,6 +232,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-J014 output-deleted.
 - Rule PLB-C087 when-covered.
 - Rule PLB-C088 accept-truncation.
+- Rule PLB-C089 loop-never-runs.
 - Rule PLB-C085 zeros-into-packed; it and spaces-into-numeric leave a
   `FILE STATUS` group alone.
 - The HTML report shows the fix of each finding that has one: its title,

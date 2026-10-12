@@ -349,6 +349,9 @@ Some findings that were read and are true:
   items take `DATE` and `DAY`. In a copy of `CBPAUP0C` whose `ACCEPT
   CURRENT-DATE FROM DATE` is made `FROM DATE YYYYMMDD`, it reports that
   `YY` is lost; in a copy of `PAUDBLOD` made `FROM TIME`, that `HH` is.
+- **PLB-C089 loop-never-runs.** None. In a copy of `CBACT01C` with
+  `MOVE 'Y' TO END-OF-FILE.` put before its `PERFORM UNTIL END-OF-FILE
+  = 'Y'`, it reports that loop.
 - **PLB-J014 output-deleted.** None. In a copy of `READACCT` whose
   `OUTFILE` DD is made `DISP=(NEW,DELETE,DELETE)`, it reports that DD.
 - **PLB-J013 shr-for-output.** None: its jobs write their sequential

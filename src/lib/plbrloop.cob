@@ -6,6 +6,7 @@
 *>   PLB-C044  varying-control-changed
 *>   PLB-C049  loop-condition-unchanged
 *>   PLB-C081  varying-wrong-direction
+*>   PLB-C089  loop-never-runs (PERFORM VARYING; see plbrnever)
 *>
 *> PERFORM VARYING I ... UNTIL I > 99, with I PIC 99: I goes from 99
 *> to 00 when it is increased, so it is never greater than 99, and the
@@ -31,6 +32,11 @@
 *> limit without reaching it (FROM 1 BY 2 UNTIL I = 10), the condition
 *> never comes true; the loop ends only when the counter wraps around
 *> at the end of its picture, or never.
+*>
+*> PLB-C089 reads them for the other case: a FROM literal that makes
+*> the UNTIL condition true at the start (FROM 1 UNTIL I > 0), so that
+*> the loop runs no times, unless WITH TEST AFTER. The counter must be
+*> one PLB-C026 checks, and hold the FROM value.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-LOOPS.
@@ -55,6 +61,7 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE-COMPARE         PIC 9(4) COMP-5.
 01  LS-RULE-ALNUM           PIC 9(4) COMP-5.
 01  LS-RULE-STEP            PIC 9(4) COMP-5.
+01  LS-RULE-START           PIC 9(4) COMP-5.
 *> PLB-C081: the UNTIL limit, the FROM and BY values, and their tokens.
 01  LS-UNTIL-VALUE          PIC S9(18) COMP-5.
 01  LS-FROM-VALUE           PIC S9(18) COMP-5.
@@ -109,10 +116,12 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C028" LS-RULE-COMPARE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C045" LS-RULE-ALNUM
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C081" LS-RULE-STEP
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C089" LS-RULE-START
     IF AS-COUNT = 0
         GOBACK
     END-IF
     IF RL-ENABLED(LS-RULE) = "Y" OR RL-ENABLED(LS-RULE-STEP) = "Y"
+       OR RL-ENABLED(LS-RULE-START) = "Y"
         MOVE 1 TO LS-NODE
         MOVE 0 TO LS-DEPTH
         PERFORM UNTIL LS-NODE = 0
@@ -530,10 +539,80 @@ CHECK-PERFORM.
             PERFORM REPORT-LOOP
         END-IF
     END-IF
+    *> CHECK-STEP reads other literals into LS-VALUE.
+    MOVE LS-VALUE TO LS-UNTIL-VALUE
     IF RL-ENABLED(LS-RULE-STEP) = "Y"
-        MOVE LS-VALUE TO LS-UNTIL-VALUE
         PERFORM CHECK-STEP
+    END-IF
+    IF RL-ENABLED(LS-RULE-START) = "Y" AND LS-LARGEST >= 0
+        PERFORM CHECK-START
     END-IF.
+
+*> PLB-C089: FROM literal, held by the counter, that makes the UNTIL
+*> condition true; not WITH TEST AFTER.
+CHECK-START.
+    PERFORM VARYING LS-NEXT FROM ND-TOK-FIRST(LS-NODE) BY 1
+            UNTIL LS-NEXT >= LS-COUNTER-TOKEN
+        IF TK-IS-WORD(LS-NEXT)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-NEXT LS-WORD LS-LEN
+            IF FUNCTION UPPER-CASE(LS-WORD) = "AFTER"
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+    END-PERFORM
+    COMPUTE LS-NEXT = LS-COUNTER-TOKEN + 1
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-NEXT LS-WORD LS-LEN
+    IF FUNCTION UPPER-CASE(LS-WORD) NOT = "FROM"
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-T = LS-NEXT + 1
+    PERFORM READ-LITERAL
+    IF LS-VALUE-TOKEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-VALUE > LS-LARGEST OR LS-VALUE < LS-SMALLEST
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-VALUE TO LS-FROM-VALUE
+    MOVE "N" TO LS-NEVER
+    EVALUATE LS-OP
+        WHEN "G"
+            IF LS-FROM-VALUE > LS-UNTIL-VALUE
+                MOVE "Y" TO LS-NEVER
+            END-IF
+        WHEN "H"
+            IF LS-FROM-VALUE >= LS-UNTIL-VALUE
+                MOVE "Y" TO LS-NEVER
+            END-IF
+        WHEN "E"
+            IF LS-FROM-VALUE = LS-UNTIL-VALUE
+                MOVE "Y" TO LS-NEVER
+            END-IF
+        WHEN "L"
+            IF LS-FROM-VALUE < LS-UNTIL-VALUE
+                MOVE "Y" TO LS-NEVER
+            END-IF
+        WHEN "M"
+            IF LS-FROM-VALUE <= LS-UNTIL-VALUE
+                MOVE "Y" TO LS-NEVER
+            END-IF
+    END-EVALUATE
+    IF LS-NEVER = "N"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    STRING LS-COUNTER DELIMITED BY SPACE
+           " starts at " DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    MOVE LS-FROM-VALUE TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           ", where the UNTIL condition is already true, and is "
+           "tested first: the loop runs no times" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-START LS-UNTIL-TOKEN LS-MESSAGE.
 
 *> PLB-C081: FROM literal BY literal between the counter and UNTIL.
 CHECK-STEP.

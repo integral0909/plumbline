@@ -304,6 +304,10 @@ The findings were checked by rule:
 - **PLB-C087 when-covered.** None in NIST or in GnuCOBOL's tests, which
   have one `WHEN` with a numeric range between them.
 
+- **PLB-C089 loop-never-runs.** None in NIST or in GnuCOBOL's tests. In
+  a copy of NIST's `NC233A` whose `UNTIL N1 > 2` is made `UNTIL N1 >=
+  1`, it reports that loop.
+
 - **PLB-C088 accept-truncation.** None in NIST, whose `ACCEPT ... FROM`
   the date or time go to groups of `HH`, `MM` and `SS` items or to
   numeric items with all the digits, or in GnuCOBOL's tests.

@@ -1,0 +1,90 @@
+*> PLB-C089 loop-never-runs: a PERFORM UNTIL whose condition the MOVE
+*> or SET before it makes true, or a PERFORM VARYING whose FROM does.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. NEVER.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-EOF              PIC X.
+    88  END-OF-FILE     VALUE "Y" FALSE "N".
+    88  NOT-END         VALUE "N".
+01  WS-ERR              PIC X.
+01  WS-COUNT            PIC 9(3).
+01  WS-AMT              PIC S9(3)V9.
+01  WS-REC.
+    05  WS-FLAG         PIC X.
+01  WS-SHORT            PIC X.
+01  WS-I                PIC S9(3).
+01  WS-U                PIC 9(2).
+01  WS-B                PIC 9(4) COMP-5.
+PROCEDURE DIVISION.
+MAIN-LINE.
+    *> Reported.
+    MOVE "N" TO WS-EOF
+    PERFORM UNTIL WS-EOF = "N"
+        MOVE "N" TO WS-EOF
+    END-PERFORM
+    SET END-OF-FILE TO TRUE
+    PERFORM READ-NEXT UNTIL END-OF-FILE
+    SET END-OF-FILE TO FALSE
+    PERFORM READ-NEXT UNTIL NOT END-OF-FILE
+    MOVE ZERO TO WS-COUNT
+    PERFORM UNTIL WS-COUNT < 10
+        ADD 1 TO WS-COUNT
+    END-PERFORM
+    MOVE "Y" TO WS-EOF
+    MOVE "N" TO WS-ERR.
+    PERFORM UNTIL WS-EOF = "Y" OR WS-ERR = "Y"
+        MOVE "Y" TO WS-EOF
+    END-PERFORM
+    MOVE 5 TO WS-AMT
+    PERFORM UNTIL WS-AMT IS GREATER THAN OR EQUAL TO 5 AND WS-AMT NOT = 4
+        MOVE 5 TO WS-AMT
+    END-PERFORM
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > 0
+        DISPLAY WS-I
+    END-PERFORM
+    PERFORM VARYING WS-I FROM 5 BY 1 UNTIL WS-I = 5
+        DISPLAY WS-I
+    END-PERFORM
+    *> Not reported: WITH TEST AFTER, a group moved after, a literal
+    *> the item does not hold as written, AND with a relation false,
+    *> another statement between, a counter the FROM does not fit, and
+    *> a binary counter.
+    MOVE "Y" TO WS-EOF
+    PERFORM WITH TEST AFTER UNTIL WS-EOF = "Y"
+        MOVE "Y" TO WS-EOF
+    END-PERFORM
+    MOVE "Y" TO WS-FLAG
+    MOVE SPACES TO WS-REC
+    PERFORM UNTIL WS-FLAG = "Y"
+        MOVE "Y" TO WS-FLAG
+    END-PERFORM
+    MOVE "YES" TO WS-SHORT
+    PERFORM UNTIL WS-SHORT = "Y"
+        MOVE "Y" TO WS-SHORT
+    END-PERFORM
+    MOVE 1000 TO WS-COUNT
+    PERFORM UNTIL WS-COUNT = 0
+        MOVE 0 TO WS-COUNT
+    END-PERFORM
+    MOVE "N" TO WS-EOF
+    PERFORM UNTIL WS-EOF = "Y" AND WS-ERR = "N"
+        MOVE "Y" TO WS-EOF
+    END-PERFORM
+    MOVE "N" TO WS-EOF
+    DISPLAY "X"
+    PERFORM UNTIL WS-EOF = "N"
+        MOVE "N" TO WS-EOF
+    END-PERFORM
+    PERFORM WITH TEST AFTER VARYING WS-I FROM 1 BY 1 UNTIL WS-I > 0
+        DISPLAY WS-I
+    END-PERFORM
+    PERFORM VARYING WS-U FROM 100 BY 1 UNTIL WS-U > 50
+        DISPLAY WS-U
+    END-PERFORM
+    PERFORM VARYING WS-B FROM 1 BY 1 UNTIL WS-B > 0
+        DISPLAY WS-B
+    END-PERFORM
+    STOP RUN.
+READ-NEXT.
+    SET NOT-END TO TRUE.
