@@ -2019,10 +2019,26 @@ Under `AND`, ranges that have no number in common are reported; under
 `OR`, ranges that hold every number between them. Only items of a
 numeric picture are read this way: an alphanumeric item is compared
 with a number character by character, where `"10"` comes before `"9"`,
-so `WS-TEXT > 10 AND WS-TEXT < 9` is true when `WS-TEXT` is `"5"`. The
-ranges are of all numbers, not only those the item's picture holds:
-`WS-CODE > 3 AND WS-CODE < 4` is never true of a `PIC 9(3)` item, but
-is not reported.
+so `WS-TEXT > 10 AND WS-TEXT < 9` is true when `WS-TEXT` is `"5"`, and
+a reference modification (`WS-NUMBER(1:2)`) is alphanumeric too.
+
+An item without decimal places holds whole numbers only, and the
+ranges are read as the whole numbers they hold:
+
+```cobol
+01  WS-CODE  PIC 9(3).
+    IF WS-CODE > 3 AND WS-CODE < 4          *> reported: never true
+    IF WS-CODE <= 3.5 OR >= 3.6             *> reported: always true
+    IF WS-CODE <= 3 OR >= 5                 *> not reported: false for 4
+```
+
+The message then says so (`as it holds whole numbers only`). The
+largest and smallest value the picture allows are not used: two ranges
+that meet only outside them have one that no value meets on its own,
+which [PLB-C028](#plb-c028-comparison-never-true) reports for an item
+stored as decimal digits and a whole-number literal. A picture
+with `P` (`9PP`, multiples of 100) is read as whole numbers, not as
+its multiples.
 
 In an editor, the language server offers a quick fix that changes the
 condition's `AND`s to `OR`, or its `OR`s to `AND` (see

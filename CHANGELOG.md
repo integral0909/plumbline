@@ -458,7 +458,9 @@ uses [Semantic Versioning](https://semver.org/).
   (and `GREATER`, `LESS`, with `NOT`), and reports two ranges of a
   numeric item that never meet under `AND` (`WS-AMOUNT > 5 AND
   WS-AMOUNT < 3`), or that cover every number under `OR`
-  (`WS-AMOUNT < 5 OR >= 5`). Its fix is not offered for these.
+  (`WS-AMOUNT < 5 OR >= 5`); for an item without decimal places, of
+  the whole numbers it holds (`WS-CODE > 3 AND WS-CODE < 4`). Its fix
+  is not offered for these.
 
 ### Fixed
 

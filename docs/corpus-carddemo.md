@@ -326,6 +326,8 @@ Some findings that were read and are true:
   whose `IF DISCGRP-STATUS = '00' OR '23'` is made `AND`, it reports
   that condition. With ranges read, still none; it reports
   `IF WS-CURDATE-MONTH > 12 AND < 1` put in a copy of `CORPT00C`, and
+  `IF WS-CURDATE-MONTH > 11 AND < 12`, as the month holds whole
+  numbers, and
   `IF WS-REJECT-COUNT > 0 OR WS-REJECT-COUNT <= 0` in a copy of
   `CBTRN02C`.
 - **PLB-C072 unreachable-statement.** None. In copies of `CBACT01C`
