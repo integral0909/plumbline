@@ -10,6 +10,10 @@ WORKING-STORAGE SECTION.
 01  COUNTER             PIC 9(2) VALUE 0.
 01  AMOUNT-OUT          PIC ZZ,ZZ9.99 VALUE 0.
 01  PADDED-OUT          PIC 0009999 VALUE 0.
+01  SHORT-CODE          PIC X(3) VALUE "001".
+01  LONG-CODE           PIC X(5) VALUE "001".
+01  CODE-NUM            PIC 9(5) VALUE 1.
+01  CODE-NUM3           PIC 9(3) VALUE 1.
 PROCEDURE DIVISION.
     IF TYPE-CODE = 0
         DISPLAY "NEVER FOR 00"
@@ -59,4 +63,15 @@ PROCEDURE DIVISION.
         WHEN "     0.00"
             DISPLAY "SHOWN AS NOTHING"
     END-EVALUATE
+    *> Two items: a number with more digits than the alphanumeric item
+    *> has characters, either side (reported); fewer (not).
+    IF SHORT-CODE = CODE-NUM
+        DISPLAY "NEVER"
+    END-IF
+    IF CODE-NUM = SHORT-CODE
+        DISPLAY "NEVER EITHER"
+    END-IF
+    IF LONG-CODE = CODE-NUM3
+        DISPLAY "001 AND 1"
+    END-IF
     STOP RUN.
