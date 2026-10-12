@@ -386,6 +386,9 @@ Some findings that were read and are true:
 - **PLB-C089 loop-never-runs.** None. In a copy of `CBACT01C` with
   `MOVE 'Y' TO END-OF-FILE.` put before its `PERFORM UNTIL END-OF-FILE
   = 'Y'`, it reports that loop.
+- **PLB-K009 browse-not-active.** None: each browse command is in a
+  paragraph of its own. In a copy of `COTRN00C` with a `READPREV` put
+  after its `ENDBR`, it reports it.
 - **PLB-K008 cics-name-too-long.** None among its 68 resource names
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
