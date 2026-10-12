@@ -1,0 +1,67 @@
+*> PLB-C090 condition-never-true: a condition name tested whose item
+*> nothing gives one of its values. Reported: END-OF-FILE (a MOVE of
+*> the wrong letter) and LEVEL-HIGH (no value in its range).
+IDENTIFICATION DIVISION.
+PROGRAM-ID. CNEVER.
+ENVIRONMENT DIVISION.
+INPUT-OUTPUT SECTION.
+FILE-CONTROL.
+    SELECT IN-FILE ASSIGN TO "cnever.dat" ORGANIZATION LINE SEQUENTIAL
+        FILE STATUS IS WS-FS.
+DATA DIVISION.
+FILE SECTION.
+FD  IN-FILE.
+01  IN-REC              PIC X(10).
+WORKING-STORAGE SECTION.
+01  WS-FS               PIC XX.
+    88  FS-EOF          VALUE "10".
+01  WS-EOF              PIC X VALUE "N".
+    88  END-OF-FILE     VALUE "Y".
+01  WS-MODE             PIC X VALUE "A".
+    88  MODE-A          VALUE "A".
+    88  MODE-B          VALUE "B".
+01  WS-LEVEL            PIC 9 VALUE 0.
+    88  LEVEL-HIGH      VALUE 6 THRU 9.
+    88  LEVEL-LOW       VALUE 1 THRU 3.
+01  WS-COPY             PIC X VALUE "N".
+    88  COPY-DONE       VALUE "Y".
+01  WS-SRC              PIC X VALUE "Y".
+01  WS-GRP.
+    05  WS-G1           PIC X VALUE "N".
+        88  G1-BLANK    VALUE SPACE.
+01  WS-SHORT            PIC X VALUE "N".
+    88  SHORT-Y         VALUE "Y".
+01  WS-NOVAL            PIC X.
+    88  NOVAL-BLANK     VALUE SPACE.
+01  WS-R1               PIC X VALUE "N".
+    88  R1-Y            VALUE "Y".
+01  WS-R2 REDEFINES WS-R1 PIC X.
+01  WS-F                PIC X VALUE "Y".
+    88  F-ON            VALUE "Y" FALSE "N".
+    88  F-OFF           VALUE "N".
+01  WS-ACC              PIC X VALUE "N".
+    88  ACC-Y           VALUE "Y".
+PROCEDURE DIVISION.
+    MOVE "E" TO WS-EOF
+    IF END-OF-FILE DISPLAY "1" END-IF
+    SET MODE-B TO TRUE
+    IF MODE-B DISPLAY "2" END-IF
+    MOVE 2 TO WS-LEVEL
+    IF LEVEL-HIGH DISPLAY "3" END-IF
+    IF LEVEL-LOW DISPLAY "4" END-IF
+    MOVE WS-SRC TO WS-COPY
+    IF COPY-DONE DISPLAY "5" END-IF
+    OPEN INPUT IN-FILE
+    IF FS-EOF DISPLAY "6" END-IF
+    MOVE SPACES TO WS-GRP
+    IF G1-BLANK DISPLAY "7" END-IF
+    MOVE "YES" TO WS-SHORT
+    IF SHORT-Y DISPLAY "8" END-IF
+    IF NOVAL-BLANK DISPLAY "9" END-IF
+    MOVE "Y" TO WS-R2
+    IF R1-Y DISPLAY "10" END-IF
+    SET F-ON TO FALSE
+    IF F-OFF DISPLAY "11" END-IF
+    ACCEPT WS-ACC
+    IF ACC-Y DISPLAY "12" END-IF
+    STOP RUN.

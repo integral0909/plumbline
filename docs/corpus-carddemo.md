@@ -349,6 +349,15 @@ Some findings that were read and are true:
   items take `DATE` and `DAY`. In a copy of `CBPAUP0C` whose `ACCEPT
   CURRENT-DATE FROM DATE` is made `FROM DATE YYYYMMDD`, it reports that
   `YY` is lost; in a copy of `PAUDBLOD` made `FROM TIME`, that `HH` is.
+- **PLB-C090 condition-never-true.** 4, in `COPAUA0C`: its
+  `WS-DECLINE-REASON-FLG` is only set by `SET INSUFFICIENT-FUND TO
+  TRUE`, so the `WHEN CARD-NOT-ACTIVE`, `ACCOUNT-CLOSED`, `CARD-FRAUD`,
+  and `MERCHANT-FRAUD` of its `EVALUATE` never match: reasons the
+  program does not decide yet. `CBPAUP0C` loops `UNTIL ERR-FLG-ON OR
+  END-OF-AUTHDB` and never sets `WS-ERR-FLG`, which keeps its `VALUE
+  'N'`; as no statement stores into it, it is not reported. In a copy
+  whose `SET END-OF-AUTHDB TO TRUE` is made `MOVE 'E' TO
+  WS-END-OF-AUTHDB-FLAG`, it reports `END-OF-AUTHDB`.
 - **PLB-C089 loop-never-runs.** None. In a copy of `CBACT01C` with
   `MOVE 'Y' TO END-OF-FILE.` put before its `PERFORM UNTIL END-OF-FILE
   = 'Y'`, it reports that loop.
