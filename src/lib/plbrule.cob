@@ -597,6 +597,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J017"
         "blksize-invalid" "E"
         "DD BLKSIZE does not fit its RECFM and LRECL"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J018"
+        "gdg-generation-not-created" "E"
+        "Step reads generation (+1) that no earlier step of the job creates"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

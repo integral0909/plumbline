@@ -274,3 +274,111 @@ CHECK-DD.
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
         JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
 END PROGRAM PLB-RULE-J017.
+
+*> ---------------------------------------------------------------
+*> PLB-J018 gdg-generation-not-created: a DD that reads a new
+*> generation of a generation data group (NAME(+1), with DISP=OLD or
+*> SHR) that no earlier step of its job, or procedure, creates:
+*>
+*>     //REPORT   EXEC PGM=PAYRPT
+*>     //IN       DD DSN=PAY.HISTORY(+1),DISP=SHR
+*>
+*> Relative generation numbers are fixed when the job starts: (+1) is
+*> the generation a step of this job creates, and (0) the newest one
+*> before it. Read before any step creates it, (+1) does not exist, and
+*> the step fails (data set not found); (0) was usually meant. Names
+*> with symbols, and steps after one that runs a procedure, which may
+*> create the generation, are not read.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J018.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-FOUND                PIC X.
+01  LS-AT                   PIC 9(9) COMP-5.
+01  LS-AMPERSANDS           PIC 9(4) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J018" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-KIND(LS-D) = "D"
+           AND (JD-DISP(LS-D) = "OLD" OR JD-DISP(LS-D) = "SHR")
+           AND JD-QUALIFIER(LS-D) = SPACES AND JD-STEP(LS-D) > 0
+            PERFORM NEW-GENERATION
+            IF LS-AT > 0
+                PERFORM CHECK-CREATED
+            END-IF
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> LS-AT: where (+n) starts in the DSN of DD LS-D, n from 1 to 9; 0
+*> when it names no new generation, or holds a symbol.
+NEW-GENERATION.
+    MOVE 0 TO LS-AT LS-AMPERSANDS
+    INSPECT JD-DSN(LS-D) TALLYING LS-AMPERSANDS FOR ALL "&"
+    IF LS-AMPERSANDS > 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T > 40
+        IF JD-DSN(LS-D)(LS-T:2) = "(+"
+            IF JD-DSN(LS-D)(LS-T + 2:1) >= "1"
+               AND JD-DSN(LS-D)(LS-T + 2:1) <= "9"
+               AND JD-DSN(LS-D)(LS-T + 3:1) = ")"
+                MOVE LS-T TO LS-AT
+            END-IF
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+*> An earlier step of the same job or procedure that creates the
+*> generation, or one that runs a procedure, which may.
+CHECK-CREATED.
+    MOVE JD-STEP(LS-D) TO LS-S
+    MOVE "N" TO LS-FOUND
+    PERFORM VARYING LS-T FROM 1 BY 1
+            UNTIL LS-T >= LS-S OR LS-FOUND = "Y"
+        IF (JS-JOB(LS-S) > 0 AND JS-JOB(LS-T) = JS-JOB(LS-S))
+           OR (JS-PROC(LS-S) > 0 AND JS-PROC(LS-T) = JS-PROC(LS-S))
+            IF JS-KIND(LS-T) = "R"
+                MOVE "Y" TO LS-FOUND
+            END-IF
+            PERFORM VARYING LS-E FROM JS-DD-FIRST(LS-T) BY 1
+                    UNTIL LS-E >= JS-DD-FIRST(LS-T) + JS-DD-COUNT(LS-T)
+                       OR LS-FOUND = "Y"
+                IF JD-DSN(LS-E) = JD-DSN(LS-D)
+                   AND (JD-DISP(LS-E) = "NEW" OR JD-DISP(LS-E) = "MOD"
+                        OR JD-DISP(LS-E) = SPACES)
+                    MOVE "Y" TO LS-FOUND
+                END-IF
+            END-PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-FOUND = "N"
+        MOVE SPACES TO LS-MESSAGE
+        STRING JD-DSN(LS-D) DELIMITED BY SPACE
+               " is a new generation, read with DISP=" DELIMITED BY SIZE
+               JD-DISP(LS-D) DELIMITED BY SPACE
+               ", but no earlier step creates it: it does not exist yet"
+               " (the newest is (0))" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+        CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+            JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE
+    END-IF.
+END PROGRAM PLB-RULE-J018.

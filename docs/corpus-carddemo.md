@@ -407,6 +407,9 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J018 gdg-generation-not-created.** None: its jobs read `(0)` and
+  create `(+1)`. In a copy of `DEFGDGD` whose `TRANTYPE.BKUP(+1)` DD is
+  made `DISP=SHR`, it reports that DD.
 - **PLB-J017 blksize-invalid.** None: its 11 DD statements with a
   `BLKSIZE` other than 0 are `RECFM=FB` with a multiple of `LRECL` (or
   `SYSOUT`). In a copy of the job whose `SORTOUT` has `LRECL=350`, with
