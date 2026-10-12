@@ -165,6 +165,27 @@ CHECK-STATEMENT.
             END-IF
     END-EVALUATE.
 
+*> LS-VALUE as count LS-O stores it: without its sign, when the count
+*> has none (MOVE -3 stores 3), and without the digits its picture
+*> has no room for, when it is stored as decimal digits or truncated
+*> binary (MOVE 1005 to a PIC 999 stores 5). PLB-C008 reports the move
+*> itself.
+STORED-VALUE.
+    IF LS-VALUE < 0 AND SY-SIGNED(LS-O) NOT = "Y"
+        COMPUTE LS-VALUE = 0 - LS-VALUE
+    END-IF
+    IF SY-SCALE(LS-O) NOT = 0 OR SY-DIGITS(LS-O) = 0
+       OR SY-DIGITS(LS-O) > 17
+        EXIT PARAGRAPH
+    END-IF
+    EVALUATE SY-USAGE(LS-O)
+        WHEN "COMP-5" WHEN "COMPUTATIONAL-5" WHEN "COMP-X"
+        WHEN "COMPUTATIONAL-X" WHEN "INDEX" WHEN "POINTER"
+            EXIT PARAGRAPH
+    END-EVALUATE
+    COMPUTE LS-VALUE = FUNCTION REM(LS-VALUE,
+                                    10 ** SY-DIGITS(LS-O)).
+
 *> LS-VALUE from an integer literal at LS-T (a sign allowed).
 READ-NUMBER.
     MOVE "N" TO LS-VALUE-OK
@@ -187,6 +208,7 @@ READ-NUMBER.
 
 *> LS-VALUE against the bounds; reported at token LS-AT.
 TEST-VALUE.
+    PERFORM STORED-VALUE
     *> Zero is the count of a table not filled yet (VALUE 0, MOVE 0
     *> before loading it), whatever the minimum.
     IF LS-VALUE <= LS-MAX AND (LS-VALUE >= LS-MIN OR LS-VALUE = 0)
