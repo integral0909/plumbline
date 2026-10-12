@@ -138,12 +138,18 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     END-IF
     IF RL-ENABLED(LS-RULE-COMPARE) = "Y" OR RL-ENABLED(LS-RULE-ALNUM) = "Y"
         PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+            MOVE LS-R TO WS-TOKEN-REF(RF-TOKEN(LS-R))
+        END-PERFORM
+        PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
             *> A table element holds what its entry does, so
             *> subscripts are fine; reference modification is not.
             IF RF-KIND(LS-R) = "D" AND RF-REFMOD(LS-R) = "N"
                AND RF-STMT(LS-R) > 0
                 PERFORM CHECK-COMPARISON
             END-IF
+        END-PERFORM
+        PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+            MOVE 0 TO WS-TOKEN-REF(RF-TOKEN(LS-R))
         END-PERFORM
     END-IF
     IF RL-ENABLED(LS-RULE-COMPARE) = "Y" OR RL-ENABLED(LS-RULE-ALNUM) = "Y"
@@ -320,6 +326,10 @@ CHECK-COMPARISON.
         PERFORM CHECK-EDITED-NUMBER
         EXIT PARAGRAPH
     END-IF
+    IF LS-T <= LS-LIMIT AND WS-TOKEN-REF(LS-T) > 0
+        PERFORM CHECK-ITEM-ITEM
+        EXIT PARAGRAPH
+    END-IF
     PERFORM READ-LITERAL
     IF LS-VALUE-TOKEN = 0
         EXIT PARAGRAPH
@@ -434,6 +444,79 @@ CHECK-ALNUM-NUMBER.
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE-ALNUM LS-VALUE-TOKEN LS-MESSAGE.
+
+*> PLB-C045 for two items, = or NOT =: an alphanumeric item and an
+*> unsigned whole number stored as digits, with more digits than the
+*> alphanumeric item has characters. The number compares as its
+*> digits, and the alphanumeric item is padded with spaces, which no
+*> digit matches: = is never true. Reference modification, and the
+*> operand of arithmetic, are not read.
+CHECK-ITEM-ITEM.
+    IF RL-ENABLED(LS-RULE-ALNUM) NOT = "Y" OR LS-OP NOT = "E"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE WS-TOKEN-REF(LS-T) TO LS-NEXT
+    IF RF-KIND(LS-NEXT) NOT = "D" OR RF-REFMOD(LS-NEXT) = "Y"
+       OR RF-REFMOD(LS-R) = "Y" OR RF-SYMBOL(LS-NEXT) = 0
+        EXIT PARAGRAPH
+    END-IF
+    *> The operand must end the relation: no arithmetic after it.
+    COMPUTE LS-CLAUSE = RF-LAST(LS-NEXT) + 1
+    IF LS-CLAUSE <= LS-LIMIT AND TK-IS-OPERATOR(LS-CLAUSE)
+        EXIT PARAGRAPH
+    END-IF
+    MOVE RF-SYMBOL(LS-R) TO LS-S
+    MOVE RF-SYMBOL(LS-NEXT) TO LS-CHILD
+    PERFORM ALNUM-AND-DIGITS
+    IF LS-DIGITS-ONLY NOT = "Y"
+        MOVE RF-SYMBOL(LS-NEXT) TO LS-S
+        MOVE RF-SYMBOL(LS-R) TO LS-CHILD
+        PERFORM ALNUM-AND-DIGITS
+    END-IF
+    IF LS-DIGITS-ONLY NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SY-DIGITS(LS-CHILD) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    STRING SY-NAME(LS-S) DELIMITED BY SPACE
+           " is alphanumeric, and " DELIMITED BY SIZE
+           SY-NAME(LS-CHILD) DELIMITED BY SPACE
+           " compares as its " DELIMITED BY SIZE
+           LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           " digits, more than the " DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    MOVE SY-SIZE(LS-S) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           " characters it holds: they are never equal" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-ALNUM LS-T LS-MESSAGE.
+
+*> LS-DIGITS-ONLY = "Y" when LS-S is an alphanumeric item of fixed size
+*> and LS-CHILD an unsigned whole DISPLAY number with more digits.
+ALNUM-AND-DIGITS.
+    MOVE "N" TO LS-DIGITS-ONLY
+    IF (SY-CATEGORY(LS-S) NOT = "X" AND SY-CATEGORY(LS-S) NOT = "A")
+       OR SY-VARIABLE(LS-S) = "Y" OR SY-SIZE(LS-S) = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF SY-USAGE(LS-S) NOT = SPACES AND SY-USAGE(LS-S) NOT = "DISPLAY"
+        EXIT PARAGRAPH
+    END-IF
+    IF SY-CATEGORY(LS-CHILD) NOT = "9" OR SY-SCALE(LS-CHILD) NOT = 0
+       OR SY-SIGNED(LS-CHILD) = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    IF SY-USAGE(LS-CHILD) NOT = SPACES
+       AND SY-USAGE(LS-CHILD) NOT = "DISPLAY"
+        EXIT PARAGRAPH
+    END-IF
+    IF SY-DIGITS(LS-CHILD) > SY-SIZE(LS-S)
+        MOVE "Y" TO LS-DIGITS-ONLY
+    END-IF.
 
 *> PLB-C045 for a numeric-edited item compared with a number or ZERO:
 *> an edited item holds characters (ZZ9 holds "  0" for 0), and the
