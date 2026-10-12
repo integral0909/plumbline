@@ -286,6 +286,12 @@ check_absent "IDCAMS with SYSIN is fine"     'utilities.jcl:7:' \
     -- check --no-config $jx/utilities.jcl
 check_absent "a procedure's utility step is not read" 'utilities.jcl:17:' \
     -- check --no-config $jx/utilities.jcl
+check "BLKSIZE not a multiple of LRECL for FB" 1 'blksize.jcl:6:3: error: DD SYSUT1 has BLKSIZE 27900 and LRECL 80, but RECFM=FB needs a BLKSIZE a multiple of LRECL.*\[PLB-J017\]' \
+    -- check --no-config $jx/blksize.jcl
+check "BLKSIZE too small for VB"            1 'blksize.jcl:9:3: error: DD SYSUT2 has BLKSIZE 100 and LRECL 100, but RECFM=VB needs a BLKSIZE at least LRECL + 4.*\[PLB-J017\]' \
+    -- check --no-config $jx/blksize.jcl
+check_absent "a BLKSIZE that fits is fine"   'blksize.jcl:1[5-9]:' \
+    -- check --no-config $jx/blksize.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
