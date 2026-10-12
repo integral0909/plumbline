@@ -304,6 +304,11 @@ The findings were checked by rule:
 - **PLB-C087 when-covered.** None in NIST or in GnuCOBOL's tests, which
   have one `WHEN` with a numeric range between them.
 
+- **PLB-C095 rewrite-without-read.** None in NIST or in GnuCOBOL's
+  tests. In a copy of NIST's `SQ115A` with its `REWRITE
+  SQ-FS5R1-F-G-126.` written twice, it reports the second. A first
+  version compared the statements' sentences, and missed it.
+
 - **PLB-M022 mixed-and-or.** 19 in NIST, all in its tests of how
   conditions are evaluated (`NC201A`, `NC205A`, `NC211A`, `NC250A`),
   such as `IF CCON-1 EQUAL TO 11 AND CCON-3 GREATER THAN 12 OR CCON-2
