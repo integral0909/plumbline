@@ -102,6 +102,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C088](#plb-c088-accept-truncation) | accept-truncation | warning | ACCEPT of the date or time into a numeric item with too few digits |
 | [PLB-C089](#plb-c089-loop-never-runs) | loop-never-runs | warning | PERFORM UNTIL or VARYING whose condition is true when it starts |
 | [PLB-C090](#plb-c090-condition-never-true) | condition-never-true | warning | Condition name tested whose item is never given one of its values |
+| [PLB-C091](#plb-c091-varying-counter-repeated) | varying-counter-repeated | warning | AFTER phrase of PERFORM VARYING names a counter already stepped |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2557,6 +2558,24 @@ FILE STATUS items (I/O statements set them without naming them), the
 items, programs with a SCREEN SECTION (its `ACCEPT` stores into items
 no statement names), and conditions with literals with a prefix
 (`X"..."`) or ranges of characters.
+
+## PLB-C091 varying-counter-repeated
+
+A `PERFORM VARYING` whose `AFTER` phrase names the counter of the
+`VARYING` phrase, or of an `AFTER` phrase before it:
+
+```cobol
+    PERFORM FILL-CELL VARYING WS-I FROM 1 BY 1 UNTIL WS-I > 3
+                        AFTER WS-I FROM 1 BY 1 UNTIL WS-I > 3   *> reported
+```
+
+When the inner phrase's condition comes true, the outer phrase steps
+its counter and the inner one sets its counter to its `FROM` value
+again; with one counter for both, the outer condition is then tested
+on that `FROM` value. Unless that value meets it, the loop never ends:
+with GnuCOBOL 3.2, the one above does not. Usually an `AFTER` phrase
+was copied and its counter not changed (`WS-J` was meant). Counters
+are compared by the data item they name, without subscripts.
 
 ## PLB-I001 pcb-dbd-unknown
 
