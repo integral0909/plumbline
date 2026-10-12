@@ -304,6 +304,14 @@ The findings were checked by rule:
 - **PLB-C087 when-covered.** None in NIST or in GnuCOBOL's tests, which
   have one `WHEN` with a numeric range between them.
 
+- **PLB-C090 condition-never-true.** 2 in NIST, both conditions its
+  tests mean to be false: `NOT NEGATIVEZERO` in `NC205A` (`VALUE +10`
+  of an item given 0 and -10) and `E` in `NC211A` (values .01 to .81
+  of an item given 0, -1, and 1235). None in GnuCOBOL's tests. A
+  first version also read items no statement stores into, and
+  reported conditions of items that keep their `VALUE`, or have
+  none, which PLB-C011 reports.
+
 - **PLB-C089 loop-never-runs.** None in NIST or in GnuCOBOL's tests. In
   a copy of NIST's `NC233A` whose `UNTIL N1 > 2` is made `UNTIL N1 >=
   1`, it reports that loop.
