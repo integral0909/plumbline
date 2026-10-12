@@ -252,6 +252,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-K009 browse-not-active.
 - Rules PLB-C098 group-value-into-packed and PLB-C099 value-overridden.
 - Rule PLB-J017 blksize-invalid.
+- Rule PLB-C100 table-keys-unsorted.
 - The JCL reader keeps the `BLKSIZE` of each DD (as a keyword or in
   `DCB=( )`), and `plumbline dump jcl` shows it.
 - Rule PLB-C085 zeros-into-packed; it and spaces-into-numeric leave a

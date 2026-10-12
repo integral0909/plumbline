@@ -1,0 +1,2 @@
+tests/golden/rules/c100-table-keys-unsorted.cob:13:5: warning: the start value of WS-STATE is out of its KEY order: entry 3 ("03") comes after entry 2 ("05"), and SEARCH ALL may miss entries [PLB-C100]
+tests/golden/rules/c100-table-keys-unsorted.cob:22:5: warning: the start value of WS-RATE is out of its KEY order: entry 3 ("009") comes after entry 2 ("007"), and SEARCH ALL may miss entries [PLB-C100]
