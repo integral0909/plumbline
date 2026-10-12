@@ -304,6 +304,10 @@ The findings were checked by rule:
 - **PLB-C087 when-covered.** None in NIST or in GnuCOBOL's tests, which
   have one `WHEN` with a numeric range between them.
 
+- **PLB-C088 accept-truncation.** None in NIST, whose `ACCEPT ... FROM`
+  the date or time go to groups of `HH`, `MM` and `SS` items or to
+  numeric items with all the digits, or in GnuCOBOL's tests.
+
 - **PLB-C086 read-loop-end-only** and **PLB-Q014 fetch-loop-end-only.**
   None in NIST or in GnuCOBOL's tests, which have no loop that ends on
   a status of `"10"` or an `SQLCODE` of 100 alone.
