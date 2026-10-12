@@ -128,6 +128,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J013](#plb-j013-shr-for-output) | shr-for-output | warning | Step writes a sequential data set its DD shares with DISP=SHR |
 | [PLB-J014](#plb-j014-output-deleted) | output-deleted | warning | Step writes a data set that its DD deletes when the step ends |
 | [PLB-J015](#plb-j015-step-name-repeated) | step-name-repeated | warning | Two steps of a job or procedure have the same name |
+| [PLB-J016](#plb-j016-utility-dd-missing) | utility-dd-missing | error | Step runs IEBGENER, IDCAMS, or IKJEFT01 without a DD it needs |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -3090,6 +3091,27 @@ and cannot tell two steps of one name apart. Usually a step was copied
 and not renamed. Steps without a name are not compared; a procedure's
 steps are compared among themselves, not with those of the job that
 runs it, and steps of different jobs are not compared.
+
+## PLB-J016 utility-dd-missing
+
+A job step that runs an IBM utility without a DD statement the utility
+reads or writes by name:
+
+```
+//COPY     EXEC PGM=IEBGENER                    reported: no SYSIN,
+//SYSUT1   DD DSN=PAY.INPUT,DISP=SHR             no SYSPRINT
+//SYSUT2   DD DSN=PAY.COPY,DISP=(NEW,CATLG)
+```
+
+`IEBGENER` copies `SYSUT1` to `SYSUT2`, takes its control statements
+from `SYSIN` (`DD DUMMY` when there are none), and writes its messages
+to `SYSPRINT`. `IDCAMS` takes its commands from `SYSIN`, and the TSO
+batch program `IKJEFT01` (and `IKJEFT1A`, `IKJEFT1B`), which runs DB2
+programs, its commands from `SYSTSIN`. A step without them fails.
+
+Read are steps of a job that run the program themselves. A procedure's
+steps can get their DD statements from the job that runs the procedure
+(`//GEN.SYSUT2 DD ...`), and are not read.
 
 ## PLB-K001 cics-resource-undefined
 

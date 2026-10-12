@@ -564,6 +564,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J015"
         "step-name-repeated" "W"
         "Two steps of a job or procedure have the same name"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J016"
+        "utility-dd-missing" "E"
+        "Step runs IEBGENER, IDCAMS, or IKJEFT01 without a DD it needs"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

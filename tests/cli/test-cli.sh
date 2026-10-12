@@ -278,6 +278,14 @@ check_absent "a procedure's step may have a job step's name" 'steps.jcl:8:' \
     -- check --no-config $jx/steps.jcl
 check_absent "another job may use the same step names" 'steps.jcl:15:' \
     -- check --no-config $jx/steps.jcl
+check "IEBGENER without SYSIN and SYSPRINT" 1 'utilities.jcl:3:3: error: step COPY runs IEBGENER but has no DD SYSIN, SYSPRINT, which it needs: the step fails \[PLB-J016\]' \
+    -- check --no-config $jx/utilities.jcl
+check "IKJEFT01 without SYSTSIN"            1 'utilities.jcl:13:3: error: step RUNDB2 runs IKJEFT01 but has no DD SYSTSIN.*\[PLB-J016\]' \
+    -- check --no-config $jx/utilities.jcl
+check_absent "IDCAMS with SYSIN is fine"     'utilities.jcl:7:' \
+    -- check --no-config $jx/utilities.jcl
+check_absent "a procedure's utility step is not read" 'utilities.jcl:17:' \
+    -- check --no-config $jx/utilities.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
