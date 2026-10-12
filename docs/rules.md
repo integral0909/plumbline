@@ -154,6 +154,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M019](#plb-m019-commented-out-code) | commented-out-code | note, off | Comment lines that are COBOL statements |
 | [PLB-M020](#plb-m020-constant-condition) | constant-condition | note | Condition compares two constants |
 | [PLB-M021](#plb-m021-empty-branch-statement) | empty-branch-statement | note | IF or EVALUATE whose every branch is CONTINUE or empty |
+| [PLB-M022](#plb-m022-mixed-and-or) | mixed-and-or | note | Condition joins with AND and OR without parentheses |
 | [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, off | CALL of a compiler library routine |
 | [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
 | [PLB-Q001](#plb-q001-sql-table-undeclared) | sql-table-undeclared | note | Embedded SQL uses a table the program does not declare |
@@ -3535,6 +3536,24 @@ reported, nor is `NEXT SENTENCE`, which goes somewhere. An `IF` whose
 [PLB-C066](#plb-c066-identical-branches). A condition, subject, or
 `WHEN` that calls a `FUNCTION` may act (`FUNCTION RANDOM` moves its
 seed), and the statement is not reported.
+
+## PLB-M022 mixed-and-or
+
+A condition that joins relations with both `AND` and `OR` at one level
+of parentheses:
+
+```cobol
+    IF WS-TYPE = "A" OR WS-TYPE = "B" AND WS-AMOUNT > 0   *> reported
+```
+
+`AND` is evaluated before `OR`, so this is `WS-TYPE = "A" OR (WS-TYPE =
+"B" AND WS-AMOUNT > 0)`: an `"A"` passes with any amount. Readers take
+such a condition either way, and so do the people who change it;
+parentheses say which is meant, as C compilers ask with
+`-Wparentheses`. Each level of parentheses is read on its own, and one
+condition is reported once. The `OR` of `GREATER OR EQUAL` and `LESS
+OR EQUAL` is no join, and `ALSO` (in `EVALUATE`) and the `UNTIL`,
+`AFTER`, and `VARYING` phrases of a `PERFORM` start another condition.
 ## PLB-P001 vendor-routine
 
 *Off by default.* A CALL of a library routine that comes with some

@@ -118,8 +118,8 @@ READ-SYMBOL.
     MOVE LS-PIC(LS-POS:1) TO LS-SYM(1:1)
     ADD 1 TO LS-POS
     IF (LS-SYM = "C" OR LS-SYM = "D") AND LS-POS <= LS-LEN
-        IF LS-SYM = "C" AND LS-PIC(LS-POS:1) = "R"
-           OR LS-SYM = "D" AND LS-PIC(LS-POS:1) = "B"
+        IF (LS-SYM = "C" AND LS-PIC(LS-POS:1) = "R")
+           OR (LS-SYM = "D" AND LS-PIC(LS-POS:1) = "B")
             MOVE LS-PIC(LS-POS:1) TO LS-SYM(2:1)
             ADD 1 TO LS-POS
         END-IF

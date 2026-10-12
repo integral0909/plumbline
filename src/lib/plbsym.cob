@@ -527,8 +527,8 @@ FIND-REDEFINED.
     COMPUTE LS-R = LS-S - 1
     PERFORM UNTIL LS-R = 0
         IF SY-PROGRAM(LS-R) NOT = SY-PROGRAM(LS-S)
-           OR SY-LEVEL(LS-R) < SY-LEVEL(LS-S)
-           AND SY-LEVEL(LS-R) NOT = 88
+           OR (SY-LEVEL(LS-R) < SY-LEVEL(LS-S)
+               AND SY-LEVEL(LS-R) NOT = 88)
             MOVE 0 TO LS-R
             EXIT PERFORM
         END-IF
