@@ -485,6 +485,10 @@ uses [Semantic Versioning](https://semver.org/).
   (`WS-AMOUNT < 5 OR >= 5`); for an item without decimal places, of
   the whole numbers it holds (`WS-CODE > 3 AND WS-CODE < 4`). Its fix
   is not offered for these.
+- PLB-C036 arithmetic-overflow also reads `COMPUTE` with `+`, `-`, and
+  `*` alone, no longer takes `LENGTH OF` an item for its value, and
+  leaves out `COMP-5` receivers, whose bytes, not their picture,
+  decide what they hold.
 - PLB-C045 alnum-compared-to-number also reports a numeric-edited
   item compared with a number or `ZERO`, which compares as text, and
   the subject of an `EVALUATE` with numbers in its `WHEN` phrases.

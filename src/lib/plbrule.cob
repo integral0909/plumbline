@@ -257,7 +257,7 @@ PROCEDURE DIVISION USING PLB-RULES.
         "Paragraph or section name defined twice in the same scope"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C036"
         "arithmetic-overflow" "W"
-        "ADD, SUBTRACT, or MULTIPLY into a receiver narrower than an operand"
+        "ADD, SUBTRACT, MULTIPLY, or COMPUTE into a receiver narrower than an operand"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C037"
         "search-index-not-set" "W"
         "Serial SEARCH whose index the paragraph does not set first"
