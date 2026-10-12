@@ -1,0 +1,2 @@
+tests/golden/rules/c093-pointer-too-small.cob:20:64: warning: WS-P holds at most 9, but as the pointer into WS-OUT it goes up to 21: past 9 it loses its high-order digits [PLB-C093]
+tests/golden/rules/c093-pointer-too-small.cob:22:64: warning: WS-P2 holds at most 99, but as the pointer into WS-IN it goes up to 100: past 99 it loses its high-order digits [PLB-C093]
