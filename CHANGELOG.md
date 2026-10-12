@@ -502,6 +502,10 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- PLB-C068 odo-count-out-of-range judges the value the count stores:
+  `MOVE -3` to a count without a sign stores 3, and `MOVE 1005` to a
+  `PIC 999` count stores 5, both of which it reported as out of range.
+
 - PLB-C022 open-mode-mismatch reports `WRITE` of a sequential file the
   program opens only `I-O` (and `INPUT`), which fails with file status
   48; it took `I-O` to allow `WRITE` for every organization.
