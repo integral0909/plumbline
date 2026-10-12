@@ -477,6 +477,10 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- PLB-Q005 into-count-mismatch counts INTO lists with a `VARCHAR` host
+  variable (a group of level-49 items), which it took for a host
+  structure and did not count.
+
 - A pipe closed early (`plumbline rules | head`) ends plumbline quietly,
   as it does other tools; the run-time library reported it as a crash,
   with a stack of COBOL statements on standard error.
