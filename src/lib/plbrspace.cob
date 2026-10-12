@@ -145,8 +145,8 @@ CHECK-MOVE.
         WHEN OTHER
             EXIT PARAGRAPH
     END-EVALUATE
-    IF LS-FILL = "S" AND RL-ENABLED(LS-RULE) NOT = "Y"
-       OR LS-FILL = "Z" AND RL-ENABLED(LS-RULE-ZEROS) NOT = "Y"
+    IF (LS-FILL = "S" AND RL-ENABLED(LS-RULE) NOT = "Y")
+       OR (LS-FILL = "Z" AND RL-ENABLED(LS-RULE-ZEROS) NOT = "Y")
         EXIT PARAGRAPH
     END-IF
     *> The receivers: the references after TO, not in subscripts.

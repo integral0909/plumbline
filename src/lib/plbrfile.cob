@@ -429,10 +429,10 @@ ADD-OPERATION.
 *> A USE for a mode covers the files opened in that mode.
 NOTE-COVERED-MODES.
     PERFORM VARYING LS-F FROM 1 BY 1 UNTIL LS-F > WS-FILE-COUNT
-        IF WS-USE-INPUT = "Y" AND FL-INPUT(LS-F) = "Y"
-           OR WS-USE-OUTPUT = "Y" AND FL-OUTPUT(LS-F) = "Y"
-           OR WS-USE-I-O = "Y" AND FL-I-O(LS-F) = "Y"
-           OR WS-USE-EXTEND = "Y" AND FL-EXTEND(LS-F) = "Y"
+        IF (WS-USE-INPUT = "Y" AND FL-INPUT(LS-F) = "Y")
+           OR (WS-USE-OUTPUT = "Y" AND FL-OUTPUT(LS-F) = "Y")
+           OR (WS-USE-I-O = "Y" AND FL-I-O(LS-F) = "Y")
+           OR (WS-USE-EXTEND = "Y" AND FL-EXTEND(LS-F) = "Y")
             MOVE "Y" TO FL-COVERED(LS-F)
         END-IF
     END-PERFORM.
@@ -447,10 +447,10 @@ REPORT-FINDINGS.
             PERFORM CHECK-STATUS-TESTED
         END-IF
         IF FL-EXTERNAL(LS-F) = "N"
-            IF OP-VERB(LS-I) = "CLOSE"
-               AND RL-ENABLED(LS-RULE-AFTER-CLOSE) = "Y"
-               OR OP-VERB(LS-I) = "OPEN"
-               AND RL-ENABLED(LS-RULE-OPEN-TWICE) = "Y"
+            IF (OP-VERB(LS-I) = "CLOSE"
+                AND RL-ENABLED(LS-RULE-AFTER-CLOSE) = "Y")
+               OR (OP-VERB(LS-I) = "OPEN"
+                   AND RL-ENABLED(LS-RULE-OPEN-TWICE) = "Y")
                 PERFORM CHECK-NEXT-OPERATION
             END-IF
             IF OP-VERB(LS-I) = "CLOSE"
@@ -558,8 +558,8 @@ CHECK-NEXT-OPERATION.
         EXIT PARAGRAPH
     END-IF
     *> After a CLOSE, anything but an OPEN; after an OPEN, an OPEN.
-    IF OP-VERB(LS-I) = "CLOSE" AND OP-VERB(LS-AC-NEXT) = "OPEN"
-       OR OP-VERB(LS-I) = "OPEN" AND OP-VERB(LS-AC-NEXT) NOT = "OPEN"
+    IF (OP-VERB(LS-I) = "CLOSE" AND OP-VERB(LS-AC-NEXT) = "OPEN")
+       OR (OP-VERB(LS-I) = "OPEN" AND OP-VERB(LS-AC-NEXT) NOT = "OPEN")
         EXIT PARAGRAPH
     END-IF
     *> In the list of statement LS-I.

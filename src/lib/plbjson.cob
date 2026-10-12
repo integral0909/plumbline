@@ -102,8 +102,8 @@ PROCEDURE DIVISION USING LK-PATH LK-OUT LK-POINTER.
         IF LK-POINTER + 2 > FUNCTION LENGTH(LK-OUT)
             EXIT PERFORM
         END-IF
-        IF LS-CH >= "A" AND LS-CH <= "Z" OR LS-CH >= "a" AND LS-CH <= "z"
-           OR LS-CH >= "0" AND LS-CH <= "9" OR LS-CH = "-" OR LS-CH = "."
+        IF (LS-CH >= "A" AND LS-CH <= "Z") OR (LS-CH >= "a" AND LS-CH <= "z")
+           OR (LS-CH >= "0" AND LS-CH <= "9") OR LS-CH = "-" OR LS-CH = "."
            OR LS-CH = "_" OR LS-CH = "~" OR LS-CH = "/"
             MOVE LS-CH TO LK-OUT(LK-POINTER:1)
             ADD 1 TO LK-POINTER

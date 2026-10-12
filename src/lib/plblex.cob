@@ -391,9 +391,9 @@ SCAN-TOKEN.
         *> digits, follow it: +1, -.5.
         WHEN (LS-CH = "+" OR LS-CH = "-")
              AND (LS-NEXT-CLS = "D"
-                  OR LS-POS + 2 <= ST-LEN
-                     AND ST-TEXT(LS-POS + 1:1) = "."
-                     AND LS-NEXT2-CLS = "D")
+                  OR (LS-POS + 2 <= ST-LEN
+                      AND ST-TEXT(LS-POS + 1:1) = "."
+                      AND LS-NEXT2-CLS = "D"))
              AND (LS-POS = 1 OR ST-TEXT(LS-POS - 1:1) = SPACE
                   OR ST-TEXT(LS-POS - 1:1) = X"0A"
                   OR ST-TEXT(LS-POS - 1:1) = "("
@@ -693,7 +693,7 @@ SCAN-NUMBER-DIGITS.
 *> Optional fraction and exponent after the integer digits.
 SCAN-NUMBER-TAIL.
     IF LS-POS < ST-LEN AND (ST-TEXT(LS-POS:1) = "."
-       OR ST-TEXT(LS-POS:1) = "," AND LS-DECIMAL-COMMA = "Y")
+       OR (ST-TEXT(LS-POS:1) = "," AND LS-DECIMAL-COMMA = "Y"))
         COMPUTE LS-CLASS-POS = LS-POS + 1
         PERFORM CLASS-AT
         IF LS-CLASS-OF = "D"
@@ -785,9 +785,9 @@ SCAN-LITERAL.
 
 CHECK-HEX-DIGITS.
     PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J > LS-BUF-LEN
-        IF NOT (LS-BUF(LS-J:1) >= "0" AND LS-BUF(LS-J:1) <= "9"
-             OR LS-BUF(LS-J:1) >= "A" AND LS-BUF(LS-J:1) <= "F"
-             OR LS-BUF(LS-J:1) >= "a" AND LS-BUF(LS-J:1) <= "f")
+        IF NOT ((LS-BUF(LS-J:1) >= "0" AND LS-BUF(LS-J:1) <= "9")
+             OR (LS-BUF(LS-J:1) >= "A" AND LS-BUF(LS-J:1) <= "F")
+             OR (LS-BUF(LS-J:1) >= "a" AND LS-BUF(LS-J:1) <= "f"))
             MOVE LS-START TO LS-DIAG-POS
             MOVE "hexadecimal literal contains a non-hexadecimal digit"
                 TO LS-MESSAGE
