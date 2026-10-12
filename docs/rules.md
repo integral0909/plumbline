@@ -113,6 +113,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C099](#plb-c099-value-overridden) | value-overridden | warning | VALUE of an item in a group that has a VALUE, which is ignored |
 | [PLB-C100](#plb-c100-table-keys-unsorted) | table-keys-unsorted | warning | SEARCH ALL table whose VALUE keys are out of their KEY order |
 | [PLB-C101](#plb-c101-string-numeric-sender) | string-numeric-sender | warning | STRING sends a number with decimal places or a sign as stored |
+| [PLB-C102](#plb-c102-nested-if-decided) | nested-if-decided | warning | IF first in a THEN branch whose test the outer IF already decides |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2905,6 +2906,31 @@ An item with a separate sign (`SIGN LEADING SEPARATE`) sends a real `-`
 or `+`, and is reported only for its decimal places. A delimiter
 (`DELIMITED BY item`) is not a sent item; packed and binary items in
 `STRING` are compile errors.
+
+## PLB-C102 nested-if-decided
+
+An `IF` that is the first statement of the `THEN` branch of another
+`IF`, whose test the outer test already decides:
+
+```cobol
+    IF WS-AMOUNT > 100
+        IF WS-AMOUNT > 50                   *> reported: always true
+            ...
+    IF WS-COUNT = 325
+        IF WS-COUNT = 750                   *> reported: never true
+            ...
+```
+
+The inner test runs only when the outer one was true, and nothing runs
+in between, so its item still holds a value the outer test took. When
+every such value passes the inner test, the inner `ELSE` never runs;
+when none does, the inner branch never runs. Without a period or
+`END-IF`, an `IF` whose own statements were commented out takes the
+next `IF` as its branch, which is how the second case above happens.
+
+Both tests must be one relation of the same numeric item with a number,
+read as PLB-C051 reads them, with the item written the same way and
+the same subscripts. An `IF` in the `ELSE` branch is PLB-C051's.
 
 ## PLB-I001 pcb-dbd-unknown
 

@@ -1,0 +1,4 @@
+tests/golden/rules/c102-nested-if-decided.cob:16:12: warning: this test is always true: the IF on line 15, whose THEN it starts, took only values that pass it [PLB-C102]
+tests/golden/rules/c102-nested-if-decided.cob:24:12: warning: this test is never true: the IF on line 23, whose THEN it starts, took no value that passes it [PLB-C102]
+tests/golden/rules/c102-nested-if-decided.cob:29:12: warning: this test is always true: the IF on line 28, whose THEN it starts, took only values that pass it [PLB-C102]
+tests/golden/rules/c102-nested-if-decided.cob:60:12: warning: every value this IF accepts passes the IF on line 57, whose ELSE it is in; its branch never runs [PLB-C051]

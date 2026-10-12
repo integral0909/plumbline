@@ -362,6 +362,9 @@ Some findings that were read and are true:
   send unsigned whole numbers (`ACCT-ID`, `WS-TRANID-SUFFIX`). In a copy
   of `CBACT04C` with `WS-TRANID-SUFFIX` made `PIC S9(06)`, it reports
   that item.
+- **PLB-C102 nested-if-decided.** None. In a copy of `COCRDSLC` whose
+  `IF CDEMO-ACCT-ID = 0` branch is made to start with `IF
+  CDEMO-ACCT-ID > 0`, the inner test is reported as never true.
 - **PLB-C100 table-keys-unsorted.** None: `COPAUS1C`'s
   `WS-DECLINE-REASON-TAB`, the one table `SEARCH ALL` looks in, has its
   ten codes in order (0000 to 9000). In a copy with the rows for 4100

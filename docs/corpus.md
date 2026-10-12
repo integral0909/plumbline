@@ -314,6 +314,13 @@ The findings were checked by rule:
 - **PLB-C101 string-numeric-sender.** None in NIST or in GnuCOBOL's
   tests.
 
+- **PLB-C102 nested-if-decided.** Two in NIST, both real: in `SQ109M`
+  and `SQ110M` the statements of `IF XRECORD-NUMBER (1) EQUAL TO 325`
+  (196 in `SQ110M`) are commented out and no period follows, so the
+  next `IF XRECORD-NUMBER (1) EQUAL TO 750` (649) is its branch and is
+  never true. A GnuCOBOL 3.2 copy of the loop counts past 750 without
+  leaving it. None in GnuCOBOL's tests.
+
 - **PLB-C100 table-keys-unsorted.** None: the tables of NIST's five
   programs with `SEARCH ALL` are filled by statements, not by `VALUE`
   clauses. None in GnuCOBOL's tests.
