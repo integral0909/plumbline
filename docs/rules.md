@@ -167,6 +167,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q011](#plb-q011-cursor-opened-in-loop) | cursor-opened-in-loop | error | SQL cursor opened on every pass of a loop that never closes it |
 | [PLB-Q012](#plb-q012-fetch-after-commit) | fetch-after-commit | error | Loop fetches from a cursor and commits, which closes the cursor |
 | [PLB-Q013](#plb-q013-select-into-no-where) | select-into-no-where | warning | SELECT INTO without WHERE takes every row of the table |
+| [PLB-Q015](#plb-q015-insert-count-mismatch) | insert-count-mismatch | error | INSERT names more or fewer columns than it gives values |
 | [PLB-Q014](#plb-q014-fetch-loop-end-only) | fetch-loop-end-only | warning | FETCH loop ends only on SQLCODE 100, and loops for ever on errors |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
@@ -3802,6 +3803,31 @@ A `FETCH` that fails gives a negative `SQLCODE`, and the loop goes on
 fetching. Left alone are loops whose statements name `SQLCODE`,
 `SQLSTATE`, or `SQLCA` otherwise, or can leave the loop, as for
 PLB-C086.
+## PLB-Q015 insert-count-mismatch
+
+An `INSERT` whose column list and `VALUES` list have different numbers
+of items:
+
+```cobol
+    EXEC SQL INSERT INTO ACCOUNT (ACCT_ID, BALANCE, STATUS)
+        VALUES (:WS-ACCT-ID, :WS-BALANCE)          *> reported
+    END-EXEC
+```
+
+DB2 rejects the statement with SQLCODE -117 (the number of values is
+not the number of columns), so the row is never written. Usually a
+column was added to one list and not the other.
+
+Read are `INSERT` statements with a column list and one `VALUES` row.
+Commas are not tokens, so the items are counted from the source text,
+as for [PLB-Q005](#plb-q005-into-count-mismatch): commas outside inner
+parentheses, so that a function's arguments are not counted. A host
+variable with an indicator (`:HV :IND`) is one value, and so is a
+`VARCHAR` host variable (a group of level-49 items). A `VALUES` list
+with a host structure (another group item, which stands for its
+fields), an `INSERT` without a column list (its columns come from the
+table), and `INSERT ... SELECT` are not read.
+
 ## PLB-S001 dynamic-sql
 
 SQL text that the program builds at run time and hands to the database:
