@@ -395,6 +395,10 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J017 blksize-invalid.** None: its 11 DD statements with a
+  `BLKSIZE` other than 0 are `RECFM=FB` with a multiple of `LRECL` (or
+  `SYSOUT`). In a copy of the job whose `SORTOUT` has `LRECL=350`, with
+  `BLKSIZE=3400` for its 3500, it reports that DD.
 - **PLB-J016 utility-dd-missing.** None: its 62 `IDCAMS`, 8
   `IEBGENER`, and 8 `IKJEFT01`/`IKJEFT1B` steps have their DD
   statements. In a copy of `DEFCUST` with the first `SYSIN` renamed, it

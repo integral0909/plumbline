@@ -132,6 +132,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J014](#plb-j014-output-deleted) | output-deleted | warning | Step writes a data set that its DD deletes when the step ends |
 | [PLB-J015](#plb-j015-step-name-repeated) | step-name-repeated | warning | Two steps of a job or procedure have the same name |
 | [PLB-J016](#plb-j016-utility-dd-missing) | utility-dd-missing | error | Step runs IEBGENER, IDCAMS, or IKJEFT01 without a DD it needs |
+| [PLB-J017](#plb-j017-blksize-invalid) | blksize-invalid | error | DD BLKSIZE does not fit its RECFM and LRECL |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -3181,6 +3182,24 @@ programs, its commands from `SYSTSIN`. A step without them fails.
 Read are steps of a job that run the program themselves. A procedure's
 steps can get their DD statements from the job that runs the procedure
 (`//GEN.SYSUT2 DD ...`), and are not read.
+
+## PLB-J017 blksize-invalid
+
+A DD whose `BLKSIZE` does not fit its `RECFM` and `LRECL`:
+
+```
+//OUT      DD DSN=PAY.COPY,DISP=(NEW,CATLG),       reported
+//            DCB=(RECFM=FB,LRECL=80,BLKSIZE=27900)
+```
+
+A block of fixed blocked records (`FB`) holds whole records, so its
+size must be a multiple of `LRECL`; for fixed unblocked records (`F`)
+it equals `LRECL`; for variable records (`V`, `VB`, not spanned) it is
+at least `LRECL` + 4, the 4 bytes of the block descriptor word. With
+another, the data set cannot be opened; for fixed records the `OPEN`
+abends with 013-34. Read are DDs that give `RECFM`, `LRECL`, and a
+`BLKSIZE` other than 0, which lets the system choose one (the best
+choice, unless a block size is needed for a reason).
 
 ## PLB-K001 cics-resource-undefined
 

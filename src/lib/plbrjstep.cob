@@ -179,3 +179,98 @@ CHECK-STEP.
             JS-FILE-ID(LS-S) JS-LINE(LS-S) LS-COLUMN LS-ZERO LS-MESSAGE
     END-IF.
 END PROGRAM PLB-RULE-J016.
+
+*> ---------------------------------------------------------------
+*> PLB-J017 blksize-invalid: a DD whose BLKSIZE does not fit its
+*> RECFM and LRECL:
+*>
+*>     //OUT DD DSN=PAY.COPY,DISP=(NEW,CATLG),
+*>     //       DCB=(RECFM=FB,LRECL=80,BLKSIZE=27900)
+*>
+*> With fixed blocked records (FB), a block holds whole records, so
+*> BLKSIZE must be a multiple of LRECL; with fixed unblocked records
+*> (F), equal to it; with variable records (V, VB, not spanned), at
+*> least LRECL + 4, for the block descriptor word. Otherwise the data
+*> set cannot be opened: for fixed records, abend 013-34. Read are DDs
+*> that give RECFM, LRECL, and a BLKSIZE other than 0 (which lets the
+*> system choose).
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J017.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-BAD                  PIC X.
+01  LS-NEED                 PIC X(40).
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-1                PIC X(20).
+01  LS-NUM-1-LEN            PIC 9(9) COMP-5.
+01  LS-NUM-2                PIC X(20).
+01  LS-NUM-2-LEN            PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J017" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-LRECL(LS-D) > 0 AND JD-BLKSIZE(LS-D) > 0
+           AND JD-RECFM(LS-D) NOT = SPACES
+            PERFORM CHECK-DD
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> DD LS-D: its BLKSIZE against its RECFM and LRECL.
+CHECK-DD.
+    MOVE "N" TO LS-BAD
+    EVALUATE TRUE
+        WHEN JD-RECFM(LS-D)(1:2) = "FB"
+            IF FUNCTION MOD(JD-BLKSIZE(LS-D), JD-LRECL(LS-D)) NOT = 0
+                MOVE "Y" TO LS-BAD
+                MOVE "a multiple of LRECL" TO LS-NEED
+            END-IF
+        WHEN JD-RECFM(LS-D) = "F" OR JD-RECFM(LS-D) = "FA"
+            IF JD-BLKSIZE(LS-D) NOT = JD-LRECL(LS-D)
+                MOVE "LRECL" TO LS-NEED
+                MOVE "Y" TO LS-BAD
+            END-IF
+        WHEN JD-RECFM(LS-D) = "V" OR JD-RECFM(LS-D) = "VB"
+             OR JD-RECFM(LS-D) = "VA" OR JD-RECFM(LS-D) = "VBA"
+            IF JD-BLKSIZE(LS-D) < JD-LRECL(LS-D) + 4
+                MOVE "at least LRECL + 4" TO LS-NEED
+                MOVE "Y" TO LS-BAD
+            END-IF
+    END-EVALUATE
+    IF LS-BAD = "N"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE JD-BLKSIZE(LS-D) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-1 LS-NUM-1-LEN
+    MOVE JD-LRECL(LS-D) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-2 LS-NUM-2-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING "DD " DELIMITED BY SIZE
+           JD-NAME(LS-D) DELIMITED BY SPACE
+           " has BLKSIZE " DELIMITED BY SIZE
+           LS-NUM-1(1:LS-NUM-1-LEN) DELIMITED BY SIZE
+           " and LRECL " DELIMITED BY SIZE
+           LS-NUM-2(1:LS-NUM-2-LEN) DELIMITED BY SIZE
+           ", but RECFM=" DELIMITED BY SIZE
+           JD-RECFM(LS-D) DELIMITED BY SPACE
+           " needs a BLKSIZE " DELIMITED BY SIZE
+           LS-NEED DELIMITED BY "  "
+           ": the data set cannot be opened" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
+END PROGRAM PLB-RULE-J017.
