@@ -309,6 +309,9 @@ The findings were checked by rule:
   EQUAL TO ZERO` in NIST's `NC126A`, whose `PIC 0009999` shows 0 as
   zeros; pictures of `9` and `0` alone are now left out for `ZERO`.
 
+- **PLB-C098 group-value-into-packed** and **PLB-C099
+  value-overridden.** None in NIST or in GnuCOBOL's tests.
+
 - **PLB-Q016 cursor-open-twice** and **PLB-Q017 fetch-after-close.**
   None in NIST or in GnuCOBOL's tests.
 
