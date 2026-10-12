@@ -47,7 +47,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C033](#plb-c033-self-move) | self-move | warning | MOVE of an item to itself |
 | [PLB-C034](#plb-c034-linkage-not-addressed) | linkage-not-addressed | error | LINKAGE record is used but nothing gives it an address |
 | [PLB-C035](#plb-c035-duplicate-paragraph) | duplicate-paragraph | warning | Paragraph or section name defined twice in the same scope |
-| [PLB-C036](#plb-c036-arithmetic-overflow) | arithmetic-overflow | warning | ADD, SUBTRACT, or MULTIPLY into a receiver narrower than an operand |
+| [PLB-C036](#plb-c036-arithmetic-overflow) | arithmetic-overflow | warning | ADD, SUBTRACT, MULTIPLY, or COMPUTE into a receiver narrower than an operand |
 | [PLB-C037](#plb-c037-search-index-not-set) | search-index-not-set | warning | Serial SEARCH whose index the paragraph does not set first |
 | [PLB-C038](#plb-c038-condition-value-unfit) | condition-value-unfit | warning | Condition name with a value its item cannot hold |
 | [PLB-C039](#plb-c039-decimal-to-alphanumeric) | decimal-to-alphanumeric | warning | MOVE of a number with decimal places to an alphanumeric item |
@@ -1160,8 +1160,8 @@ line of the first.
 
 ## PLB-C036 arithmetic-overflow
 
-An `ADD`, `SUBTRACT`, or `MULTIPLY` without `ON SIZE ERROR` whose
-receiver has fewer integer digits than one of its operands:
+An `ADD`, `SUBTRACT`, `MULTIPLY`, or `COMPUTE` without `ON SIZE ERROR`
+whose receiver has fewer integer digits than one of its operands:
 
 ```cobol
 01  PA-APPROVED-AUTH-AMT  PIC S9(09)V99 COMP-3.
@@ -1175,10 +1175,17 @@ leaves the receiver unchanged and lets the program act; a wider
 receiver avoids the question.
 
 The operands are the items and numeric literals before `TO`, `FROM`,
-or `BY`, and with `GIVING` the one after them too; subscripts do not
-count. `COMPUTE` and `DIVIDE` are not checked, because a quotient is
-commonly much smaller than its dividend, nor are the `CORRESPONDING`
-forms, reference-modified items, or items of unknown size.
+or `BY`, and with `GIVING` the one after them too; for `COMPUTE`, those
+of the expression after `=`, whose receivers are before it. Subscripts
+do not count, nor does `LENGTH OF` an item, which is its length.
+`DIVIDE`, and a `COMPUTE` with `/` or `**` (or a `FUNCTION`), are not
+checked, because a quotient is commonly much smaller than its dividend,
+nor are the `CORRESPONDING` forms, reference-modified items, or items
+of unknown size. With GnuCOBOL 3.2, `COMPUTE WS-SMALL = WS-A + 1` with
+`WS-A` 99999 and `WS-SMALL` `PIC 9(3)` stores 000. A `COMP-5` (or
+`COMP-X`) receiver holds what its bytes hold, not what its picture
+says (a `PIC 9(4) COMP-5` holds 12001, and wraps past 65535), and is
+not read.
 
 The rule reads declarations, not values. One case is known without
 them: inside an inline `PERFORM VARYING IX ... UNTIL IX > 50` (or `>=`),
