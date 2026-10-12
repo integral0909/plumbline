@@ -248,6 +248,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-K008 cics-name-too-long.
 - Rule PLB-C097 sort-file-open.
 - Rule PLB-Q016 cursor-open-twice.
+- Rule PLB-Q017 fetch-after-close.
 - Rule PLB-C085 zeros-into-packed; it and spaces-into-numeric leave a
   `FILE STATUS` group alone.
 - The HTML report shows the fix of each finding that has one: its title,
