@@ -244,6 +244,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-M022 mixed-and-or.
 - Rule PLB-C095 rewrite-without-read.
 - Rule PLB-C096 converting-repeated.
+- Rule PLB-J016 utility-dd-missing.
 - Rule PLB-C085 zeros-into-packed; it and spaces-into-numeric leave a
   `FILE STATUS` group alone.
 - The HTML report shows the fix of each finding that has one: its title,
