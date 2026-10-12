@@ -349,6 +349,12 @@ Some findings that were read and are true:
   items take `DATE` and `DAY`. In a copy of `CBPAUP0C` whose `ACCEPT
   CURRENT-DATE FROM DATE` is made `FROM DATE YYYYMMDD`, it reports that
   `YY` is lost; in a copy of `PAUDBLOD` made `FROM TIME`, that `HH` is.
+- **PLB-Q015 insert-count-mismatch.** None: its three `INSERT`
+  statements have as many values as columns, `COPAUS2C`'s 26 among them
+  with `VARCHAR` host variables, a function, and `CURRENT DATE`. A first
+  version took a `VARCHAR` for a host structure and did not count that
+  list. In a copy of `COPAUS2C` with one column taken out of the list,
+  it reports 25 columns and 26 values.
 - **PLB-M021 empty-branch-statement.** None.
 - **PLB-C092 swap-lost.** None. In a copy of `COSGN00C` with `MOVE
   WS-MESSAGE TO CCDA-MSG-THANK-YOU` put after its `MOVE

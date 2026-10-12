@@ -304,6 +304,9 @@ The findings were checked by rule:
 - **PLB-C087 when-covered.** None in NIST or in GnuCOBOL's tests, which
   have one `WHEN` with a numeric range between them.
 
+- **PLB-Q015 insert-count-mismatch.** None in NIST or in GnuCOBOL's
+  tests, which have no `INSERT`.
+
 - **PLB-M021 empty-branch-statement.** None in NIST or in GnuCOBOL's
   tests. A first version reported 36 in NIST's `IF401M`, `IF402M`, and
   `IF403M`, which test the flagging of intrinsic functions with `IF
