@@ -1,0 +1,4 @@
+tests/golden/rules/c028-when-number.cob:14:14: warning: WS-AGE holds nothing above 99, so this comparison is never true [PLB-C028]
+tests/golden/rules/c028-when-number.cob:16:14: warning: WS-AGE holds nothing below 0, so this comparison is never true [PLB-C028]
+tests/golden/rules/c028-when-number.cob:18:14: warning: WS-AGE holds nothing above 99, so this comparison is never true [PLB-C028]
+tests/golden/rules/c028-when-number.cob:26:34: warning: WS-BALANCE holds nothing below -999, so this comparison is never true [PLB-C028]
