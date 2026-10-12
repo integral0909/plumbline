@@ -100,6 +100,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C086](#plb-c086-read-loop-end-only) | read-loop-end-only | warning | READ loop ends only at end of file, and loops for ever on errors |
 | [PLB-C087](#plb-c087-when-covered) | when-covered | warning | WHEN of an EVALUATE whose values an earlier WHEN range takes |
 | [PLB-C088](#plb-c088-accept-truncation) | accept-truncation | warning | ACCEPT of the date or time into a numeric item with too few digits |
+| [PLB-C089](#plb-c089-loop-never-runs) | loop-never-runs | warning | PERFORM UNTIL or VARYING whose condition is true when it starts |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2291,7 +2292,8 @@ or the comparison is usually what is wrong.
 Checked are loops whose `FROM`, `BY`, and `UNTIL` limit are literal
 numbers and whose condition is the counter compared with that limit
 alone, as for PLB-C026. A loop whose condition is true at the start
-does not run its body and is not reported.
+does not run its body; [PLB-C089](#plb-c089-loop-never-runs) reports
+it.
 
 ## PLB-C082 pointer-below-one
 
@@ -2468,6 +2470,46 @@ item wraps round its bytes), and a picture with `P` (`9(4)PP`) loses
 the low-order digits too; neither is read. An alphanumeric item keeps
 the characters on the left (`HHMMSS` of the time in a `PIC X(6)`),
 which is usually meant, and is not reported.
+
+## PLB-C089 loop-never-runs
+
+A `PERFORM ... UNTIL` whose condition is already true when the loop
+starts, so that it runs no times:
+
+```cobol
+    MOVE "N" TO WS-EOF
+    PERFORM READ-NEXT UNTIL WS-EOF = "N"          *> reported
+    SET END-OF-FILE TO TRUE
+    PERFORM UNTIL END-OF-FILE                     *> reported
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > 0   *> reported
+```
+
+`PERFORM` tests the condition before each pass, the first one too
+(unless `WITH TEST AFTER`), so the body never runs: usually the value
+moved or tested is the wrong one, or `>` was meant for `<`.
+
+For `PERFORM ... UNTIL`, read are the statements right before it that
+`MOVE` a literal to items or `SET` condition names `TO TRUE` or
+`FALSE`, back to the first other statement, across the ends of
+sentences but not out of the paragraph or the branch the `PERFORM` is
+in. The condition is read when it is relations `item [IS] [NOT] op
+literal` (`=`, `>`, `<`, `>=`, `<=`, and their words) and condition
+names, joined all by `AND` or all by `OR`, without parentheses or
+abbreviations; it is true when every relation joined by `AND` is, or
+one joined by `OR`. Items are named without subscripts. A value is
+known only when the item holds the literal as written: an
+alphanumeric literal no longer than the item (then compared with `=`
+alone, as the collating sequence decides the order), or a number an
+item stored as decimal digits holds, signs and decimal places too. A
+`MOVE` to a group or other item that shares storage with an item,
+nearer the loop, makes its earlier value unknown. So
+`MOVE "YES" TO WS-FLAG` into a `PIC X` is not read, nor a value moved
+before a `DISPLAY` that comes before the loop.
+
+For `PERFORM VARYING`, read are loops as for
+[PLB-C081](#plb-c081-varying-wrong-direction): a `FROM` literal the
+counter holds, and an `UNTIL` that compares the counter with a literal
+alone, the counter an integer stored as decimal digits.
 
 ## PLB-I001 pcb-dbd-unknown
 
