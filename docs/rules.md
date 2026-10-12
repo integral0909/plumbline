@@ -103,6 +103,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C089](#plb-c089-loop-never-runs) | loop-never-runs | warning | PERFORM UNTIL or VARYING whose condition is true when it starts |
 | [PLB-C090](#plb-c090-condition-never-true) | condition-never-true | warning | Condition name tested whose item is never given one of its values |
 | [PLB-C091](#plb-c091-varying-counter-repeated) | varying-counter-repeated | warning | AFTER phrase of PERFORM VARYING names a counter already stepped |
+| [PLB-C092](#plb-c092-swap-lost) | swap-lost | warning | MOVE of an item to another and straight back, as a swap |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2576,6 +2577,31 @@ on that `FROM` value. Unless that value meets it, the loop never ends:
 with GnuCOBOL 3.2, the one above does not. Usually an `AFTER` phrase
 was copied and its counter not changed (`WS-J` was meant). Counters
 are compared by the data item they name, without subscripts.
+
+## PLB-C092 swap-lost
+
+Two `MOVE` statements in a row that move an item to another and
+straight back:
+
+```cobol
+    MOVE WS-A TO WS-B
+    MOVE WS-B TO WS-A                       *> reported
+```
+
+Meant as a swap, the pair loses the value of `WS-B`, and the second
+`MOVE` gives `WS-A` the value it already has: with GnuCOBOL 3.2 both
+items end up `"AAAAA"`. A swap needs a third item (`MOVE WS-A TO
+WS-TEMP`, `MOVE WS-B TO WS-A`, `MOVE WS-TEMP TO WS-B`).
+
+Reported only when the middle item holds every value of the first as
+it is: both alphanumeric (or alphabetic) and the middle one no
+shorter, or both numeric with as many digits before and after the
+decimal point, and a sign if the first has one. Moving through a
+smaller item and back cuts a value (its decimal places, or the end of a
+text), which is a way to round down or truncate, and is not reported.
+The statements are read across the end of a sentence; as for
+[PLB-C033](#plb-c033-self-move), the names must stand alone, without
+qualification, subscripts, or reference modification.
 
 ## PLB-I001 pcb-dbd-unknown
 
