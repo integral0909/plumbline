@@ -78,6 +78,9 @@ LOCAL-STORAGE SECTION.
 01  LS-CHILD                PIC 9(9) COMP-5.
 01  LS-T                    PIC 9(9) COMP-5.
 01  LS-NEXT                 PIC 9(9) COMP-5.
+01  LS-DIGITS-ONLY          PIC X.
+01  LS-PICTURE              PIC X(64).
+01  LS-PICTURE-LEN          PIC 9(9) COMP-5.
 01  LS-LIMIT                PIC 9(9) COMP-5.
 01  LS-R                    PIC 9(9) COMP-5.
 01  LS-S                    PIC 9(9) COMP-5.
@@ -285,6 +288,11 @@ CHECK-COMPARISON.
         END-IF
         EXIT PARAGRAPH
     END-IF
+    IF SY-CATEGORY(RF-SYMBOL(LS-R)) = "E" AND LS-T <= LS-LIMIT
+        MOVE RF-SYMBOL(LS-R) TO LS-S
+        PERFORM CHECK-EDITED-NUMBER
+        EXIT PARAGRAPH
+    END-IF
     PERFORM READ-LITERAL
     IF LS-VALUE-TOKEN = 0
         EXIT PARAGRAPH
@@ -399,6 +407,80 @@ CHECK-ALNUM-NUMBER.
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE-ALNUM LS-VALUE-TOKEN LS-MESSAGE.
+
+*> PLB-C045 for a numeric-edited item compared with a number or ZERO:
+*> an edited item holds characters (ZZ9 holds "  0" for 0), and the
+*> comparison is of characters, so IF AMOUNT-OUT = 0 is false when it
+*> shows 0. Compare the number it was edited from. A picture of 9 and
+*> 0 alone is left out for ZERO, and literals as long as the item.
+CHECK-EDITED-NUMBER.
+    IF RL-ENABLED(LS-RULE-ALNUM) NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    IF TK-IS-WORD(LS-T)
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+        MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD
+        IF LS-WORD NOT = "ZERO" AND LS-WORD NOT = "ZEROS"
+           AND LS-WORD NOT = "ZEROES"
+            EXIT PARAGRAPH
+        END-IF
+    ELSE
+        IF NOT TK-IS-NUMBER(LS-T)
+            EXIT PARAGRAPH
+        END-IF
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+    END-IF
+    *> Not the start of arithmetic: AMOUNT-OUT = 0 + X.
+    COMPUTE LS-NEXT = LS-T + 1
+    IF LS-NEXT <= LS-LIMIT AND TK-IS-OPERATOR(LS-NEXT)
+        EXIT PARAGRAPH
+    END-IF
+    *> A picture of 9 and inserted 0 alone (0009999) shows 0 as zeros,
+    *> and a number as all its digits: ZERO, or a literal with as many
+    *> digits as the item has characters, compares as meant.
+    PERFORM PICTURE-DIGITS-ONLY
+    IF LS-DIGITS-ONLY = "Y"
+       AND (TK-IS-WORD(LS-T) OR LS-LEN = SY-SIZE(LS-S))
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    STRING SY-NAME(LS-S) DELIMITED BY SPACE
+           " is numeric-edited, and holds characters: it compares with "
+           DELIMITED BY SIZE
+           LS-WORD(1:LS-LEN) DELIMITED BY SIZE
+           " as text, not as a number" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-ALNUM LS-T LS-MESSAGE.
+
+*> LS-DIGITS-ONLY = "Y" when the picture of item LS-S has only 9, 0,
+*> and repetition counts in parentheses.
+PICTURE-DIGITS-ONLY.
+    MOVE "N" TO LS-DIGITS-ONLY
+    IF SY-NODE(LS-S) = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE ND-FIRST(SY-NODE(LS-S)) TO LS-CHILD
+    PERFORM UNTIL LS-CHILD = 0
+        IF ND-KIND(LS-CHILD) = "CLAU" AND ND-DETAIL(LS-CHILD) = "PICTURE"
+            EXIT PERFORM
+        END-IF
+        MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+    END-PERFORM
+    IF LS-CHILD = 0
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-TOK-LAST(LS-CHILD)
+        LS-PICTURE LS-PICTURE-LEN
+    IF LS-PICTURE-LEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-NUM
+    INSPECT LS-PICTURE(1:LS-PICTURE-LEN) TALLYING LS-NUM
+        FOR ALL "0" "1" "2" "3" "4" "5" "6" "7" "8" "9" "(" ")"
+    IF LS-NUM = LS-PICTURE-LEN
+        MOVE "Y" TO LS-DIGITS-ONLY
+    END-IF.
 
 *> LS-COND = the condition of statement RF-STMT(LS-R), or of one of
 *> its WHEN phrases, that contains the reference; 0 when the reference

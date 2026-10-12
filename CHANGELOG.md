@@ -474,6 +474,8 @@ uses [Semantic Versioning](https://semver.org/).
   (`WS-AMOUNT < 5 OR >= 5`); for an item without decimal places, of
   the whole numbers it holds (`WS-CODE > 3 AND WS-CODE < 4`). Its fix
   is not offered for these.
+- PLB-C045 alnum-compared-to-number also reports a numeric-edited
+  item compared with a number or `ZERO`, which compares as text.
 - PLB-C089 loop-never-runs reads back over statements whose data
   references show all they change (`DISPLAY`, arithmetic, `MOVE` of an
   item, ...) to the `MOVE` or `SET` that makes the condition true, and
