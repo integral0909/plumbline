@@ -100,7 +100,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C086](#plb-c086-read-loop-end-only) | read-loop-end-only | warning | READ loop ends only at end of file, and loops for ever on errors |
 | [PLB-C087](#plb-c087-when-covered) | when-covered | warning | WHEN of an EVALUATE whose values an earlier WHEN range takes |
 | [PLB-C088](#plb-c088-accept-truncation) | accept-truncation | warning | ACCEPT of the date or time into a numeric item with too few digits |
-| [PLB-C089](#plb-c089-loop-never-runs) | loop-never-runs | warning | PERFORM UNTIL or VARYING whose condition is true when it starts |
+| [PLB-C089](#plb-c089-loop-never-runs) | loop-never-runs | warning | PERFORM UNTIL, VARYING, or TIMES loop that runs no times |
 | [PLB-C090](#plb-c090-condition-never-true) | condition-never-true | warning | Condition name tested whose item is never given one of its values |
 | [PLB-C091](#plb-c091-varying-counter-repeated) | varying-counter-repeated | warning | AFTER phrase of PERFORM VARYING names a counter already stepped |
 | [PLB-C092](#plb-c092-swap-lost) | swap-lost | warning | MOVE of an item to another and straight back, as a swap |
@@ -2477,7 +2477,8 @@ which is usually meant, and is not reported.
 ## PLB-C089 loop-never-runs
 
 A `PERFORM ... UNTIL` whose condition is already true when the loop
-starts, so that it runs no times:
+starts, or a `PERFORM ... TIMES` whose count is zero, so that it runs no
+times:
 
 ```cobol
     MOVE "N" TO WS-EOF
@@ -2512,6 +2513,10 @@ item stored as decimal digits holds, signs and decimal places too. A
 nearer the loop, makes its earlier value unknown. So
 `MOVE "YES" TO WS-FLAG` into a `PIC X` is not read, nor a value moved
 before a `PERFORM` that comes before the loop.
+
+`PERFORM ... n TIMES` runs no times when `n` is the literal 0, or an
+item that a `MOVE` of 0 or `ZERO` before it leaves at 0, read as for
+`UNTIL`.
 
 For `PERFORM VARYING`, read are loops as for
 [PLB-C081](#plb-c081-varying-wrong-direction): a `FROM` literal the

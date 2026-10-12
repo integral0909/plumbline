@@ -23,6 +23,9 @@
 *> holds it as written: an alphanumeric literal no longer than the item
 *> (compared with = only), or a number its numeric picture holds.
 *>
+*> PERFORM ... n TIMES runs no times when n is the literal 0, or an
+*> item the statements before it set to 0 the same way.
+*>
 *> PERFORM VARYING with a FROM that makes the UNTIL true is read in
 *> plbrloop.
 *> ---------------------------------------------------------------
@@ -43,6 +46,7 @@ LOCAL-STORAGE SECTION.
 01  LS-CHILD                PIC 9(9) COMP-5.
 01  LS-UP                   PIC 9(9) COMP-5.
 01  LS-UNTIL                PIC 9(9) COMP-5.
+01  LS-TIMES                PIC 9(9) COMP-5.
 01  LS-FIRST                PIC 9(9) COMP-5.
 01  LS-LAST                 PIC 9(9) COMP-5.
 01  LS-T                    PIC 9(9) COMP-5.
@@ -134,6 +138,10 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
 
 CHECK-PERFORM.
     PERFORM FIND-CONDITION
+    IF LS-TIMES > 0
+        PERFORM CHECK-TIMES
+        EXIT PARAGRAPH
+    END-IF
     IF LS-UNTIL = 0
         EXIT PARAGRAPH
     END-IF
@@ -171,8 +179,9 @@ CHECK-PERFORM.
 
 *> LS-UNTIL: the UNTIL token of a PERFORM without VARYING, TIMES, or
 *> WITH TEST AFTER (0 otherwise); LS-FIRST and LS-LAST: the condition.
+*> LS-TIMES: the TIMES token of PERFORM ... n TIMES, or 0.
 FIND-CONDITION.
-    MOVE 0 TO LS-UNTIL
+    MOVE 0 TO LS-UNTIL LS-TIMES
     MOVE ND-TOK-LAST(LS-STMT) TO LS-LAST
     MOVE ND-FIRST(LS-STMT) TO LS-CHILD
     PERFORM UNTIL LS-CHILD = 0
@@ -188,8 +197,11 @@ FIND-CONDITION.
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
             MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD
             EVALUATE LS-WORD
-                WHEN "VARYING"
                 WHEN "TIMES"
+                    MOVE LS-T TO LS-TIMES
+                    MOVE 0 TO LS-UNTIL
+                    EXIT PARAGRAPH
+                WHEN "VARYING"
                 WHEN "AFTER"
                     MOVE 0 TO LS-UNTIL
                     EXIT PARAGRAPH
@@ -201,6 +213,66 @@ FIND-CONDITION.
         END-IF
     END-PERFORM
     COMPUTE LS-FIRST = LS-UNTIL + 1.
+
+*> PERFORM ... n TIMES: n the literal 0, or an item a MOVE before the
+*> PERFORM sets to 0.
+CHECK-TIMES.
+    COMPUTE LS-T = LS-TIMES - 1
+    MOVE LS-T TO LS-VALUE-TOKEN
+    IF TK-IS-NUMBER(LS-T)
+        PERFORM READ-LITERAL
+        IF LS-KIND = "N" AND LS-NUMBER = 0
+            MOVE SPACES TO LS-MESSAGE
+            STRING "PERFORM 0 TIMES runs no times" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-RULES PLB-FINDINGS LS-RULE LS-VALUE-TOKEN LS-MESSAGE
+        END-IF
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "N" TO LS-GIVE-UP
+    PERFORM SUBJECT-AT
+    IF LS-GIVE-UP = "Y" OR LS-T NOT = LS-TIMES
+        EXIT PARAGRAPH
+    END-IF
+    IF SY-CATEGORY(LS-SUBJECT) NOT = "9"
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM READ-BEFORE
+    PERFORM VARYING LS-K FROM 1 BY 1 UNTIL LS-K > LS-KNOWN-COUNT
+        IF LS-KNOWN-SYMBOL(LS-K) = LS-SUBJECT
+            IF LS-KNOWN-HOW(LS-K) = "L"
+                MOVE LS-KNOWN-TOKEN(LS-K) TO LS-T
+                PERFORM READ-LITERAL
+                IF LS-KIND = "Z"
+                    MOVE "N" TO LS-KIND
+                    MOVE 0 TO LS-NUMBER
+                END-IF
+                MOVE LS-NUMBER TO LS-A-NUMBER
+                IF LS-KIND = "N" AND LS-NUMBER = 0
+                    PERFORM NUMBER-FITS
+                    IF LS-FITS = "Y"
+                        MOVE LS-K TO LS-DECIDER
+                        PERFORM REPORT-TIMES
+                    END-IF
+                END-IF
+            END-IF
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+REPORT-TIMES.
+    MOVE LS-KNOWN-STMT(LS-DECIDER) TO LS-K
+    MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-FIRST(LS-K))) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING SY-NAME(LS-SUBJECT) DELIMITED BY SPACE
+           " is 0 after the MOVE on line " DELIMITED BY SIZE
+           LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           ", so the loop runs no times" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-VALUE-TOKEN LS-MESSAGE.
 
 *> The MOVE and SET statements right before the PERFORM, nearest
 *> first, into LS-KNOWN.

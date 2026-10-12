@@ -52,6 +52,11 @@ MAIN-LINE.
     PERFORM VARYING WS-I FROM 5 BY 1 UNTIL WS-I = 5
         DISPLAY WS-I
     END-PERFORM
+    PERFORM 0 TIMES
+        DISPLAY "X"
+    END-PERFORM
+    MOVE ZERO TO WS-COUNT
+    PERFORM READ-NEXT WS-COUNT TIMES
     *> Not reported: WITH TEST AFTER, a group moved after, a literal
     *> the item does not hold as written, AND with a relation false, a
     *> statement between that stores into the item, or that may (ON
@@ -106,6 +111,11 @@ MAIN-LINE.
     END-PERFORM
     PERFORM VARYING WS-B FROM 1 BY 1 UNTIL WS-B > 0
         DISPLAY WS-B
+    END-PERFORM
+    MOVE 2 TO WS-COUNT
+    PERFORM READ-NEXT WS-COUNT TIMES
+    PERFORM 3 TIMES
+        DISPLAY "X"
     END-PERFORM
     STOP RUN.
 READ-NEXT.

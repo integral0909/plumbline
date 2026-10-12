@@ -468,7 +468,9 @@ uses [Semantic Versioning](https://semver.org/).
   is not offered for these.
 - PLB-C089 loop-never-runs reads back over statements whose data
   references show all they change (`DISPLAY`, arithmetic, `MOVE` of an
-  item, ...) to the `MOVE` or `SET` that makes the condition true.
+  item, ...) to the `MOVE` or `SET` that makes the condition true, and
+  reports `PERFORM ... TIMES` with a count of 0 (a literal, or an item
+  moved 0 before it).
 
 ### Fixed
 
