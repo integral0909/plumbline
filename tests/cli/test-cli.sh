@@ -1058,8 +1058,8 @@ check "fix sends literals whole"            0 '^           " WELCOME" DELIMITED 
 check "fix leaves a group with a data item" 0 '^    STRING "DEAR MR " WS-NAME DELIMITED BY SPACE$' -- fix $rgx/c078-string-literal-cut.cob
 check "fix starts a pointer at 1"           0 '^    MOVE 1 TO WS-PTR$' -- fix $rgx/c082-pointer-below-one.cob
 check_absent "fix: no fix for a COMPUTE of the pointer" ':18:' -- fix --check $rgx/c082-pointer-below-one.cob
-check "fix --check: AND to OR for equalities" 1 'c071-contradictory-condition.cob:16:8: PLB-C071: Change AND to OR in this condition$' -- fix --check $rgx/c071-contradictory-condition.cob
-check_absent "fix: no fix for a range \[PLB-C071\]" ':30:' -- fix --check $rgx/c071-contradictory-condition.cob
+check "fix --check: AND to OR for equalities" 1 'c071-contradictory-condition.cob:17:8: PLB-C071: Change AND to OR in this condition$' -- fix --check $rgx/c071-contradictory-condition.cob
+check_absent "fix: no fix for a range \[PLB-C071\]" ':31:' -- fix --check $rgx/c071-contradictory-condition.cob
 check "fix --patch: the file's name"        0 '^--- a/tests/fixtures/fix/fixable.cob$' -- fix --patch $fx/fixable.cob
 check "fix --patch: a changed line"         0 '^+           88  MONTH-VALID VALUE 1 THRU 12\.$' -- fix --patch $fx/fixable.cob
 check "fix --patch: its hunk"               0 '^@@ -4,17 +4,17 @@$' -- fix --patch $fx/fixable.cob

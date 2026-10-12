@@ -9,6 +9,7 @@ WORKING-STORAGE SECTION.
 01  WS-CODE             PIC 9(3) VALUE 0.
 01  WS-AMOUNT           PIC S9(5)V99 VALUE 0.
 01  WS-TEXT             PIC XX VALUE "5".
+01  WS-NUMBER           PIC 9(4) VALUE 0.
 01  WS-TABLE.
     05  WS-FLAG         PIC X OCCURS 3.
 PROCEDURE DIVISION.
@@ -42,6 +43,14 @@ PROCEDURE DIVISION.
     IF WS-AMOUNT NOT GREATER 0 OR > -1
         DISPLAY "R5"
     END-IF
+    *> Reported: ranges with no whole number between them, of an item
+    *> without decimal places.
+    IF WS-CODE > 3 AND WS-CODE < 4
+        DISPLAY "W1"
+    END-IF
+    IF WS-CODE <= 3.5 OR WS-CODE >= 3.6
+        DISPLAY "W2"
+    END-IF
     *> Not reported: OR of equalities, the same value, different items
     *> or subscripts, AND of inequalities, ranges that meet or leave a
     *> gap, and an alphanumeric item, compared character by character.
@@ -74,5 +83,14 @@ PROCEDURE DIVISION.
     END-IF
     IF WS-AMOUNT NOT = 5 AND WS-AMOUNT > 4
         DISPLAY "14"
+    END-IF
+    IF WS-AMOUNT > 3 AND WS-AMOUNT < 4
+        DISPLAY "15"
+    END-IF
+    IF WS-CODE <= 3 OR WS-CODE >= 5
+        DISPLAY "16"
+    END-IF
+    IF WS-NUMBER(1:2) > 3 AND WS-NUMBER(1:2) < 4
+        DISPLAY "17"
     END-IF
     STOP RUN.

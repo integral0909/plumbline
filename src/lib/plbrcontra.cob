@@ -22,6 +22,9 @@
 *>
 *>     IF WS-AMOUNT > 5 AND WS-AMOUNT < 3           never true
 *>     IF WS-AMOUNT < 5 OR >= 5                     always true
+*>
+*> For an item without decimal places, the ranges are of the whole
+*> numbers it holds: WS-CODE > 3 AND WS-CODE < 4 is never true.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-C071.
@@ -72,6 +75,14 @@ LOCAL-STORAGE SECTION.
 01  LS-S                    PIC 9(9) COMP-5.
 01  LS-NAME                 PIC X(31).
 01  LS-NUMERIC              PIC X.
+*> Y when the subject holds whole numbers only, and when that is what
+*> makes the ranges contradict.
+01  LS-WHOLE                PIC X.
+01  LS-BY-WHOLE             PIC X.
+01  LS-W-LOW                PIC S9(18)V9(9) COMP-3.
+01  LS-W-HIGH               PIC S9(18)V9(9) COMP-3.
+01  LS-W-NO-LOW             PIC X.
+01  LS-W-NO-HIGH            PIC X.
 01  LS-JOIN                 PIC X.
 *> The subject and operator carried to abbreviated relations.
 01  LS-SUBJECT              PIC X(64).
@@ -207,6 +218,44 @@ TEST-RANGES.
     MOVE LS-B-OPEN-HIGH TO LS-A-OPEN-HIGH
     MOVE LS-K TO LS-P
     PERFORM INTERVAL-OF
+    MOVE "N" TO LS-BY-WHOLE
+    PERFORM TEST-INTERVALS
+    IF LS-RANGE-FOUND = "N" AND LS-WHOLE = "Y"
+        *> Again with the whole numbers each holds. WHOLE-B works on
+        *> LS-B-*, so the two are swapped round it; the tests do not
+        *> depend on which is which.
+        PERFORM WHOLE-B
+        MOVE LS-B-LOW TO LS-W-LOW
+        MOVE LS-B-HIGH TO LS-W-HIGH
+        MOVE LS-A-LOW TO LS-B-LOW
+        MOVE LS-A-HIGH TO LS-B-HIGH
+        MOVE LS-A-NO-LOW TO LS-W-NO-LOW
+        MOVE LS-B-NO-LOW TO LS-A-NO-LOW
+        MOVE LS-W-NO-LOW TO LS-B-NO-LOW
+        MOVE LS-A-NO-HIGH TO LS-W-NO-HIGH
+        MOVE LS-B-NO-HIGH TO LS-A-NO-HIGH
+        MOVE LS-W-NO-HIGH TO LS-B-NO-HIGH
+        MOVE LS-A-OPEN-LOW TO LS-B-OPEN-LOW
+        MOVE LS-A-OPEN-HIGH TO LS-B-OPEN-HIGH
+        PERFORM WHOLE-B
+        MOVE LS-W-LOW TO LS-A-LOW
+        MOVE LS-W-HIGH TO LS-A-HIGH
+        MOVE "N" TO LS-A-OPEN-LOW
+        MOVE "Y" TO LS-A-OPEN-HIGH
+        *> A relation no whole number meets on its own is not this
+        *> rule's (PLB-C028).
+        IF (LS-A-NO-LOW = "Y" OR LS-A-NO-HIGH = "Y"
+            OR LS-A-LOW < LS-A-HIGH)
+           AND (LS-B-NO-LOW = "Y" OR LS-B-NO-HIGH = "Y"
+                OR LS-B-LOW < LS-B-HIGH)
+            PERFORM TEST-INTERVALS
+            MOVE LS-RANGE-FOUND TO LS-BY-WHOLE
+        END-IF
+    END-IF.
+
+*> LS-RANGE-FOUND = "Y" when the intervals LS-A-* and LS-B-* have no
+*> number in common (AND) or hold every number between them (OR).
+TEST-INTERVALS.
     IF LS-JOIN = "A"
         *> The higher low end against the lower high end.
         IF LS-A-NO-LOW = "N" AND LS-B-NO-HIGH = "N"
@@ -247,18 +296,55 @@ TEST-RANGES.
 *> items only. An alphanumeric item is compared with a number character
 *> by character, where "10" comes before "9".
 SUBJECT-NUMERIC.
-    MOVE "N" TO LS-NUMERIC
+    MOVE "N" TO LS-NUMERIC LS-WHOLE
+    *> A reference modification is alphanumeric.
+    MOVE 0 TO LS-S
+    INSPECT LS-PIECE-SUBJECT(LS-I) TALLYING LS-S FOR ALL ":"
+    IF LS-S > 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-NAME
     UNSTRING LS-PIECE-SUBJECT(LS-I) DELIMITED BY "(" INTO LS-NAME
     MOVE FUNCTION UPPER-CASE(LS-NAME) TO LS-NAME
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
         IF FUNCTION UPPER-CASE(SY-NAME(LS-S)) = LS-NAME
             IF SY-CATEGORY(LS-S) NOT = "9"
-                MOVE "N" TO LS-NUMERIC
+                MOVE "N" TO LS-NUMERIC LS-WHOLE
                 EXIT PARAGRAPH
+            END-IF
+            *> Whole numbers only, when no item of the name has
+            *> decimal places.
+            IF LS-NUMERIC = "N" OR LS-WHOLE = "Y"
+                IF SY-SCALE(LS-S) <= 0
+                    MOVE "Y" TO LS-WHOLE
+                ELSE
+                    MOVE "N" TO LS-WHOLE
+                END-IF
             END-IF
             MOVE "Y" TO LS-NUMERIC
         END-IF
     END-PERFORM.
+
+*> The interval LS-B-* as the whole numbers it holds: its low end the
+*> lowest of them, included; its high end the one past the highest,
+*> not included. Ends without limit stay so.
+WHOLE-B.
+    IF LS-B-NO-LOW = "N"
+        IF LS-B-OPEN-LOW = "Y"
+            COMPUTE LS-B-LOW = FUNCTION INTEGER(LS-B-LOW) + 1
+        ELSE
+            COMPUTE LS-B-LOW = 0 - FUNCTION INTEGER(0 - LS-B-LOW)
+        END-IF
+    END-IF
+    IF LS-B-NO-HIGH = "N"
+        IF LS-B-OPEN-HIGH = "Y"
+            COMPUTE LS-B-HIGH = 0 - FUNCTION INTEGER(0 - LS-B-HIGH)
+        ELSE
+            COMPUTE LS-B-HIGH = FUNCTION INTEGER(LS-B-HIGH) + 1
+        END-IF
+    END-IF
+    MOVE "N" TO LS-B-OPEN-LOW
+    MOVE "Y" TO LS-B-OPEN-HIGH.
 
 *> Relation LS-P as the interval LS-B-*.
 INTERVAL-OF.
@@ -298,6 +384,10 @@ REPORT-RANGES.
     END-IF
     MOVE LS-K TO LS-P
     PERFORM APPEND-RELATION
+    IF LS-BY-WHOLE = "Y"
+        STRING ", as it holds whole numbers only" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-FIRST LS-MESSAGE.
 
