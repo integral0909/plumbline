@@ -1,9 +1,11 @@
 *> ---------------------------------------------------------------
 *> plbinterval: relations of a numeric item with a number, as ranges.
 *>
-*> PLB-COND-RANGE USING TOKENS AST SYMBOLS REFS COND RANGE reads
-*> condition node COND as item [IS] [NOT] op number (op =, >, <, >=,
-*> <=, or their words) into RANGE (plbrange.cpy). The item must be a
+*> PLB-SPAN-RANGE USING TOKENS AST SYMBOLS REFS FIRST LAST RANGE reads
+*> the condition from token FIRST to token LAST as item [IS] [NOT] op
+*> number (op =, >, <, >=, <=, or their words) into RANGE
+*> (plbrange.cpy); PLB-COND-RANGE USING TOKENS AST SYMBOLS REFS COND
+*> RANGE reads condition node COND. The item must be a
 *> numeric data item without reference modification; NOT = is not
 *> read, and NOT turns the other operators round (NOT > 9 is <= 9).
 *>
@@ -15,6 +17,26 @@
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-COND-RANGE.
+DATA DIVISION.
+LINKAGE SECTION.
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbastc.cpy".
+COPY "plbast.cpy".
+COPY "plbsym.cpy".
+COPY "plbref.cpy".
+01  LK-COND                 PIC 9(9) COMP-5.
+01  PLB-RANGE.
+COPY "plbrange.cpy".
+PROCEDURE DIVISION USING PLB-TOKENS PLB-AST PLB-SYMBOLS PLB-REFS
+        LK-COND PLB-RANGE.
+    CALL "PLB-SPAN-RANGE" USING PLB-TOKENS PLB-AST PLB-SYMBOLS PLB-REFS
+        ND-TOK-FIRST(LK-COND) ND-TOK-LAST(LK-COND) PLB-RANGE
+    GOBACK.
+END PROGRAM PLB-COND-RANGE.
+
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-SPAN-RANGE.
 DATA DIVISION.
 LOCAL-STORAGE SECTION.
 01  LS-T                    PIC 9(9) COMP-5.
@@ -34,14 +56,15 @@ COPY "plbastc.cpy".
 COPY "plbast.cpy".
 COPY "plbsym.cpy".
 COPY "plbref.cpy".
-01  LK-COND                 PIC 9(9) COMP-5.
+01  LK-FIRST                PIC 9(9) COMP-5.
+01  LK-LAST                 PIC 9(9) COMP-5.
 01  PLB-RANGE.
 COPY "plbrange.cpy".
 PROCEDURE DIVISION USING PLB-TOKENS PLB-AST PLB-SYMBOLS PLB-REFS
-        LK-COND PLB-RANGE.
+        LK-FIRST LK-LAST PLB-RANGE.
     MOVE "N" TO RG-OK
     MOVE SPACES TO RG-SUBJECT
-    MOVE ND-TOK-FIRST(LK-COND) TO LS-T
+    MOVE LK-FIRST TO LS-T
     MOVE 0 TO LS-SYM
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
         IF RF-TOKEN(LS-R) = LS-T
@@ -60,7 +83,7 @@ PROCEDURE DIVISION USING PLB-TOKENS PLB-AST PLB-SYMBOLS PLB-REFS
     END-IF
     *> The item as written, subscripts too.
     MOVE 1 TO LS-PTR
-    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LK-COND) BY 1
+    PERFORM VARYING LS-T FROM LK-FIRST BY 1
             UNTIL LS-T > RF-LAST(LS-R)
         CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
         IF LS-PTR + LS-LEN < 64
@@ -70,7 +93,7 @@ PROCEDURE DIVISION USING PLB-TOKENS PLB-AST PLB-SYMBOLS PLB-REFS
     END-PERFORM
     COMPUTE LS-T = RF-LAST(LS-R) + 1
     PERFORM READ-OPERATOR
-    IF LS-OP = SPACE OR LS-T NOT = ND-TOK-LAST(LK-COND)
+    IF LS-OP = SPACE OR LS-T NOT = LK-LAST
         GOBACK
     END-IF
     PERFORM READ-NUMBER
@@ -172,7 +195,7 @@ READ-NUMBER.
     END-IF
     COMPUTE LS-VALUE = FUNCTION NUMVAL(LS-TEXT(1:LS-LEN))
     MOVE "Y" TO RG-OK.
-END PROGRAM PLB-COND-RANGE.
+END PROGRAM PLB-SPAN-RANGE.
 
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RANGE-CONTAINS.
