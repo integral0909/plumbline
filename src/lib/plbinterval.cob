@@ -14,6 +14,10 @@
 *>
 *> PLB-RANGE-MEETS USING FIRST SECOND RESULT sets RESULT to "Y" when
 *> some value is in both ranges.
+*>
+*> PLB-RANGE-COMPLEMENT USING RANGE OTHER sets OTHER to the values not
+*> in RANGE, when they are one range: RANGE has one end, not two
+*> (OTHER's OK is "N" for = and for a range not read).
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-COND-RANGE.
@@ -271,3 +275,44 @@ PROCEDURE DIVISION USING LK-FIRST LK-SECOND LK-RESULT.
     MOVE "Y" TO LK-RESULT
     GOBACK.
 END PROGRAM PLB-RANGE-MEETS.
+
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RANGE-COMPLEMENT.
+DATA DIVISION.
+LINKAGE SECTION.
+01  LK-RANGE.
+COPY "plbrange.cpy" REPLACING LEADING ==RG-== BY ==IN-==.
+01  LK-OTHER.
+COPY "plbrange.cpy" REPLACING LEADING ==RG-== BY ==OT-==.
+PROCEDURE DIVISION USING LK-RANGE LK-OTHER.
+    MOVE LK-RANGE TO LK-OTHER
+    MOVE "N" TO OT-OK
+    IF IN-OK NOT = "Y"
+        GOBACK
+    END-IF
+    EVALUATE TRUE
+        *> From a value up: the values below it.
+        WHEN IN-NO-LOW = "N" AND IN-NO-HIGH = "Y"
+            MOVE IN-LOW TO OT-HIGH
+            MOVE "Y" TO OT-NO-LOW
+            MOVE "N" TO OT-NO-HIGH
+            IF IN-OPEN-LOW = "Y"
+                MOVE "N" TO OT-OPEN-HIGH
+            ELSE
+                MOVE "Y" TO OT-OPEN-HIGH
+            END-IF
+            MOVE "Y" TO OT-OK
+        *> Up to a value: the values above it.
+        WHEN IN-NO-LOW = "Y" AND IN-NO-HIGH = "N"
+            MOVE IN-HIGH TO OT-LOW
+            MOVE "N" TO OT-NO-LOW
+            MOVE "Y" TO OT-NO-HIGH
+            IF IN-OPEN-HIGH = "Y"
+                MOVE "N" TO OT-OPEN-LOW
+            ELSE
+                MOVE "Y" TO OT-OPEN-LOW
+            END-IF
+            MOVE "Y" TO OT-OK
+    END-EVALUATE
+    GOBACK.
+END PROGRAM PLB-RANGE-COMPLEMENT.

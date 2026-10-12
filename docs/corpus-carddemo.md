@@ -364,7 +364,10 @@ Some findings that were read and are true:
   that item.
 - **PLB-C102 nested-if-decided.** None. In a copy of `COCRDSLC` whose
   `IF CDEMO-ACCT-ID = 0` branch is made to start with `IF
-  CDEMO-ACCT-ID > 0`, the inner test is reported as never true.
+  CDEMO-ACCT-ID > 0`, the inner test is reported as never true. In a
+  copy of `COTRN00C` whose `PERFORM VARYING WS-IDX FROM 1 BY 1 UNTIL
+  WS-IDX > 10` body is made to start with `IF WS-IDX > 11`, that test
+  is reported.
 - **PLB-C100 table-keys-unsorted.** None: `COPAUS1C`'s
   `WS-DECLINE-REASON-TAB`, the one table `SEARCH ALL` looks in, has its
   ten codes in order (0000 to 9000). In a copy with the rows for 4100
