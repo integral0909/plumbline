@@ -178,7 +178,9 @@ The findings were checked by rule:
   `123.4`. In GnuCOBOL's tests there is one too, in `Numeric
   operations (3) PACKED-DECIMAL`, whose comment says the last digits
   are truncated.
-- **PLB-C036 arithmetic-overflow.** 31 findings, a sample read. The
+- **PLB-C036 arithmetic-overflow.** 37 findings, a sample read; 6 of
+  them `COMPUTE` statements, read since, five of which compute times of
+  day in seconds (`IN-HRS * 3600 + ...`) into 2- and 3-digit items. The
   operands are declared wider than the values they hold: `DNAME-10`
   is `PIC 9(18) VALUE 1` and is added into a `PIC 9(17)` total, and
   the indexed-file tests subtract a `PIC 9(6)` counter from a `PIC

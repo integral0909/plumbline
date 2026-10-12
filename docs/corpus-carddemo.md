@@ -162,6 +162,10 @@ Some findings that were read and are true:
   `COPAUA0C` and `CBPAUP0C` add and subtract `S9(10)V99` amounts into
   the `S9(09)V99` totals of the pending-authorization summary
   (`CIPAUSMY`), so a large enough amount wraps a total (5 findings).
+  Since `COMPUTE` is read, 3 more: `COPAUA0C` and `CBTRN02C` compute
+  `S9(10)V99` amounts into `S9(09)V99` items, and `CBPAUP0C` a
+  difference of `YYDDD` dates into a 4-digit item. A first version took
+  `LENGTH OF XREF-CUST-ID`, in `CBSTM03A`, for the item's value.
 - **PLB-K002 read-update-not-released.** `COTRN01C`, the screen that
   shows one transaction, reads the transaction file with `UPDATE` and
   never rewrites the record, so it holds the record's lock until the

@@ -90,6 +90,9 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
            AND (ND-DETAIL(LS-NODE) = "ADD" OR "SUBTRACT" OR "MULTIPLY")
             PERFORM CHECK-STATEMENT
         END-IF
+        IF ND-KIND(LS-NODE) = "STMT" AND ND-DETAIL(LS-NODE) = "COMPUTE"
+            PERFORM CHECK-COMPUTE
+        END-IF
         CALL "PLB-AST-NEXT" USING PLB-AST LS-ROOT LS-NODE LS-DEPTH
     END-PERFORM
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
@@ -147,6 +150,73 @@ CHECK-STATEMENT.
         END-EVALUATE
     END-PERFORM.
 
+*> COMPUTE receivers = expression, with +, -, and * alone: as for ADD,
+*> SUBTRACT, and MULTIPLY, the widest operand against each receiver.
+*> An expression with / or **, whose result is often far smaller, a
+*> FUNCTION, or a SIZE ERROR phrase is not read. A subscript is part
+*> of its operand; other parentheses group.
+CHECK-COMPUTE.
+    MOVE 0 TO LS-JOIN
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
+            UNTIL LS-T > ND-TOK-LAST(LS-NODE) OR LS-JOIN > 0
+        IF TK-IS-OPERATOR(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            IF LS-WORD = "="
+                MOVE LS-T TO LS-JOIN
+            END-IF
+        END-IF
+        IF TK-IS-WORD(LS-T) AND WS-TOKEN-REF(LS-T) = 0
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            IF FUNCTION UPPER-CASE(LS-WORD) = "EQUAL"
+                MOVE LS-T TO LS-JOIN
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-JOIN = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-WIDE-INT LS-WIDE-TOKEN
+    COMPUTE LS-T = LS-JOIN + 1
+    PERFORM UNTIL LS-T > ND-TOK-LAST(LS-NODE)
+        EVALUATE TRUE
+            WHEN TK-IS-OPERATOR(LS-T)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+                IF LS-WORD = "/" OR LS-WORD = "**"
+                    EXIT PARAGRAPH
+                END-IF
+            WHEN TK-IS-WORD(LS-T) AND WS-TOKEN-REF(LS-T) = 0
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+                MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD
+                IF LS-WORD = "FUNCTION" OR LS-WORD = "SIZE"
+                    EXIT PARAGRAPH
+                END-IF
+            WHEN TK-IS-NUMBER(LS-T) OR WS-TOKEN-REF(LS-T) > 0
+                PERFORM OPERAND-DIGITS
+                IF LS-INT > LS-WIDE-INT
+                    MOVE LS-INT TO LS-WIDE-INT
+                    MOVE LS-T TO LS-WIDE-TOKEN
+                END-IF
+                *> Past the operand's subscripts.
+                IF WS-TOKEN-REF(LS-T) > 0
+                    MOVE RF-LAST(WS-TOKEN-REF(LS-T)) TO LS-T
+                END-IF
+        END-EVALUATE
+        ADD 1 TO LS-T
+    END-PERFORM
+    IF LS-WIDE-TOKEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-T = ND-TOK-FIRST(LS-NODE) + 1
+    PERFORM UNTIL LS-T >= LS-JOIN
+        IF WS-TOKEN-REF(LS-T) > 0
+            MOVE LS-T TO LS-GIVING
+            PERFORM CHECK-RECEIVER
+            MOVE LS-GIVING TO LS-T
+            MOVE RF-LAST(WS-TOKEN-REF(LS-T)) TO LS-T
+        END-IF
+        ADD 1 TO LS-T
+    END-PERFORM.
+
 *> LS-JOIN: TO, FROM, or BY; LS-GIVING: GIVING; LS-SKIP = "Y" for the
 *> CORRESPONDING forms and those with SIZE ERROR phrases. Only words
 *> outside parentheses count.
@@ -181,9 +251,21 @@ FIND-KEYWORDS.
     END-PERFORM.
 
 *> LS-INT: the integer digits of the operand at LS-T, or 0 when it is
-*> not a numeric literal or a numeric item of known size.
+*> not a numeric literal or a numeric item of known size. LENGTH OF an
+*> item is its length, not its value, and is not read.
 OPERAND-DIGITS.
     MOVE 0 TO LS-INT
+    IF LS-T > 2
+        COMPUTE LS-I = LS-T - 1
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-I LS-WORD LS-LEN
+        IF FUNCTION UPPER-CASE(LS-WORD) = "OF"
+            SUBTRACT 1 FROM LS-I
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-I LS-WORD LS-LEN
+            IF FUNCTION UPPER-CASE(LS-WORD) = "LENGTH"
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+    END-IF
     EVALUATE TRUE
         WHEN TK-IS-NUMBER(LS-T)
             PERFORM LITERAL-INTEGER-DIGITS
@@ -310,6 +392,13 @@ CHECK-RECEIVER.
     MOVE RF-SYMBOL(LS-R) TO LS-RECV
     IF SY-SIZE(LS-RECV) = 0
        OR (SY-CATEGORY(LS-RECV) NOT = "9" AND NOT = "E")
+        EXIT PARAGRAPH
+    END-IF
+    *> A native binary item holds what its bytes hold, not what its
+    *> picture says (GnuCOBOL: a PIC 9(4) COMP-5 holds 12001).
+    IF SY-USAGE(LS-RECV) = "COMP-5" OR SY-USAGE(LS-RECV) = "COMP-X"
+       OR SY-USAGE(LS-RECV) = "COMPUTATIONAL-5"
+       OR SY-USAGE(LS-RECV) = "COMPUTATIONAL-X"
         EXIT PARAGRAPH
     END-IF
     COMPUTE LS-RECV-INT = SY-DIGITS(LS-RECV) - SY-SCALE(LS-RECV)
