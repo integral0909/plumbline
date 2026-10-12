@@ -505,6 +505,10 @@ uses [Semantic Versioning](https://semver.org/).
   item, ...) to the `MOVE` or `SET` that makes the condition true, and
   reports `PERFORM ... TIMES` with a count of 0 (a literal, or an item
   moved 0 before it).
+- PLB-C051 duplicate-if-condition also reports an `ELSE IF` whose test
+  is one relation of a numeric item with a number and accepts only
+  values an earlier `IF` of the chain already took (`IF A > 10 ...
+  ELSE IF A > 20`).
 
 ### Fixed
 

@@ -1,0 +1,8 @@
+tests/golden/rules/c051-if-range.cob:14:8: warning: WS-AMOUNT is read but never given a value [PLB-C011]
+tests/golden/rules/c051-if-range.cob:16:13: warning: every value this IF accepts passes the IF on line 14, whose ELSE it is in; its branch never runs [PLB-C051]
+tests/golden/rules/c051-if-range.cob:22:8: warning: WS-COUNT is read but never given a value [PLB-C011]
+tests/golden/rules/c051-if-range.cob:26:13: warning: every value this IF accepts passes the IF on line 22, whose ELSE it is in; its branch never runs [PLB-C051]
+tests/golden/rules/c051-if-range.cob:32:8: warning: WS-RATE is read but never given a value [PLB-C011]
+tests/golden/rules/c051-if-range.cob:32:16: warning: WS-I is read but never given a value [PLB-C011]
+tests/golden/rules/c051-if-range.cob:34:13: warning: every value this IF accepts passes the IF on line 32, whose ELSE it is in; its branch never runs [PLB-C051]
+tests/golden/rules/c051-if-range.cob:75:8: warning: WS-CODE is read but never given a value [PLB-C011]
