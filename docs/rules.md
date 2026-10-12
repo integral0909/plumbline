@@ -150,6 +150,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M018](#plb-m018-signed-to-unsigned) | signed-to-unsigned | note, off | MOVE of a signed number to an unsigned one drops its sign |
 | [PLB-M019](#plb-m019-commented-out-code) | commented-out-code | note, off | Comment lines that are COBOL statements |
 | [PLB-M020](#plb-m020-constant-condition) | constant-condition | note | Condition compares two constants |
+| [PLB-M021](#plb-m021-empty-branch-statement) | empty-branch-statement | note | IF or EVALUATE whose every branch is CONTINUE or empty |
 | [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, off | CALL of a compiler library routine |
 | [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
 | [PLB-Q001](#plb-q001-sql-table-undeclared) | sql-table-undeclared | note | Embedded SQL uses a table the program does not declare |
@@ -3443,6 +3444,27 @@ them, the shorter padded with spaces), or the same figurative
 constant, the message says whether the condition is always true or
 always false. A side that is part of an arithmetic expression is not a
 constant.
+
+## PLB-M021 empty-branch-statement
+
+An `IF` without `ELSE`, or an `EVALUATE`, whose every branch is
+`CONTINUE` or empty:
+
+```cobol
+    IF WS-CODE = "A"                        *> reported
+        CONTINUE
+    END-IF
+```
+
+The statement does nothing, as a condition changes no data. It is
+usually what is left after code was taken out, or the branch that was
+to act is missing. An `IF` with `CONTINUE` in one branch and statements
+in the other is the usual way to write a negated test, and is not
+reported, nor is `NEXT SENTENCE`, which goes somewhere. An `IF` whose
+`ELSE` is `CONTINUE` too is reported by
+[PLB-C066](#plb-c066-identical-branches). A condition, subject, or
+`WHEN` that calls a `FUNCTION` may act (`FUNCTION RANDOM` moves its
+seed), and the statement is not reported.
 ## PLB-P001 vendor-routine
 
 *Off by default.* A CALL of a library routine that comes with some
