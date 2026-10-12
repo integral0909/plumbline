@@ -349,6 +349,9 @@ Some findings that were read and are true:
   items take `DATE` and `DAY`. In a copy of `CBPAUP0C` whose `ACCEPT
   CURRENT-DATE FROM DATE` is made `FROM DATE YYYYMMDD`, it reports that
   `YY` is lost; in a copy of `PAUDBLOD` made `FROM TIME`, that `HH` is.
+- **PLB-C092 swap-lost.** None. In a copy of `COSGN00C` with `MOVE
+  WS-MESSAGE TO CCDA-MSG-THANK-YOU` put after its `MOVE
+  CCDA-MSG-THANK-YOU TO WS-MESSAGE`, it reports the second `MOVE`.
 - **PLB-C091 varying-counter-repeated.** None: no `PERFORM` of
   CardDemo has an `AFTER` phrase.
 - **PLB-C090 condition-never-true.** 4, in `COPAUA0C`: its

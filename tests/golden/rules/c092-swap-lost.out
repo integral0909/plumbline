@@ -1,0 +1,5 @@
+tests/golden/rules/c092-swap-lost.cob:18:5: warning: this MOVE gives WS-A back the value the MOVE before it gave WS-B, so it does nothing, and the value WS-B had is lost: a swap needs a third item [PLB-C092]
+tests/golden/rules/c092-swap-lost.cob:20:5: warning: this MOVE gives WS-A back the value the MOVE before it gave WS-LONG, so it does nothing, and the value WS-LONG had is lost: a swap needs a third item [PLB-C092]
+tests/golden/rules/c092-swap-lost.cob:22:5: warning: this MOVE gives WS-AMOUNT back the value the MOVE before it gave WS-OTHER, so it does nothing, and the value WS-OTHER had is lost: a swap needs a third item [PLB-C092]
+tests/golden/rules/c092-swap-lost.cob:22:22: warning: MOVE loses high-order digits: WS-OTHER has 7 integer digits, WS-AMOUNT has 5 [PLB-C008]
+tests/golden/rules/c092-swap-lost.cob:28:21: warning: the value given to WS-B here is replaced on line 33 before it is used [PLB-C030]
