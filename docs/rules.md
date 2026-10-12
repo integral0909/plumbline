@@ -136,6 +136,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-K005](#plb-k005-batch-io-in-cics) | batch-io-in-cics | error | COBOL file statement or ACCEPT in a CICS program |
 | [PLB-K006](#plb-k006-return-transid-without-commarea) | return-transid-without-commarea | warning | RETURN TRANSID passes no COMMAREA to a program that receives one |
 | [PLB-K007](#plb-k007-commarea-too-short) | commarea-too-short | warning | XCTL or LINK passes less COMMAREA than the program's DFHCOMMAREA |
+| [PLB-K008](#plb-k008-cics-name-too-long) | cics-name-too-long | error | EXEC CICS names a transaction, program, file, or map too long |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -3274,6 +3275,23 @@ the `COMMAREA` item. The program must be named by a literal or a
 constant item, and be a program of the run whose `DFHCOMMAREA` has a
 fixed size: one declared `OCCURS ... DEPENDING ON EIBCALEN`, which
 takes the length passed, is not checked.
+
+## PLB-K008 cics-name-too-long
+
+An `EXEC CICS` command that names a resource with a literal longer than
+names of its kind are:
+
+```cobol
+    EXEC CICS RETURN TRANSID('ACCTU') END-EXEC     *> reported: 5
+```
+
+A transaction is named with 1 to 4 characters; a program, and a file
+(`FILE` or `DATASET`), with 1 to 8; a BMS map and mapset with 1 to 7.
+No resource has a longer name, so the command finds none, and CICS
+raises a condition (`INVREQ`, `PGMIDERR`, `FILENOTFOUND`, `MAPFAIL`)
+that abends the task unless the program handles it. Usually a name was
+typed with a character too many, or a test system's name was left in.
+Read are literals without a prefix; their trailing spaces do not count.
 
 ## PLB-M001 go-to
 

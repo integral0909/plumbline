@@ -381,6 +381,10 @@ Some findings that were read and are true:
 - **PLB-C089 loop-never-runs.** None. In a copy of `CBACT01C` with
   `MOVE 'Y' TO END-OF-FILE.` put before its `PERFORM UNTIL END-OF-FILE
   = 'Y'`, it reports that loop.
+- **PLB-K008 cics-name-too-long.** None among its 68 resource names
+  written as literals; its maps and mapsets have 7 characters
+  (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
+  `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
 - **PLB-J016 utility-dd-missing.** None: its 62 `IDCAMS`, 8
   `IEBGENER`, and 8 `IKJEFT01`/`IKJEFT1B` steps have their DD
   statements. In a copy of `DEFCUST` with the first `SYSIN` renamed, it
