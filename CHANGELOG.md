@@ -235,6 +235,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C089 loop-never-runs.
 - Rule PLB-C090 condition-never-true.
 - Rule PLB-C091 varying-counter-repeated.
+- Rule PLB-C092 swap-lost.
 - Rule PLB-C085 zeros-into-packed; it and spaces-into-numeric leave a
   `FILE STATUS` group alone.
 - The HTML report shows the fix of each finding that has one: its title,

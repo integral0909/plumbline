@@ -304,6 +304,8 @@ The findings were checked by rule:
 - **PLB-C087 when-covered.** None in NIST or in GnuCOBOL's tests, which
   have one `WHEN` with a numeric range between them.
 
+- **PLB-C092 swap-lost.** None in NIST or in GnuCOBOL's tests.
+
 - **PLB-C091 varying-counter-repeated.** None in NIST or in GnuCOBOL's
   tests. In a copy of NIST's `NC233A` whose `AFTER N2` is made `AFTER
   N1`, it reports that phrase.
