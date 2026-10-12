@@ -1,0 +1,3 @@
+tests/golden/rules/c074-when-range.cob:13:14: warning: this WHEN has a range that holds no value: 65 is above 18 [PLB-C074]
+tests/golden/rules/c074-when-range.cob:16:18: warning: this WHEN has a range that holds no value: 12 is above 0 [PLB-C074]
+tests/golden/rules/c074-when-range.cob:21:29: warning: this WHEN has a range that holds no value: "F" is above "A" [PLB-C074]

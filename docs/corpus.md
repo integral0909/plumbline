@@ -466,7 +466,9 @@ The findings were checked by rule:
 
 - **PLB-C074 condition-range-reversed.** None in NIST or in GnuCOBOL's
   tests, whose sources have 62 and 13 lines with a `VALUE ... THRU`
-  range.
+  range. NIST has `WHEN ... THRU` in 20 programs, all in order; in a
+  copy of `IF104A` whose `WHEN 0.463638 THRU 0.463656` is turned round,
+  that range is reported.
 
 - **PLB-C069 search-index-used-unchecked.** None in NIST or in
   GnuCOBOL's tests: their `SEARCH` statements have `AT END`, or do not

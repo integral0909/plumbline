@@ -513,6 +513,9 @@ uses [Semantic Versioning](https://semver.org/).
 - PLB-C102 nested-if-decided also reads an `IF` that starts the body of
   an inline `PERFORM ... UNTIL` against the values the `UNTIL` test
   leaves.
+- PLB-C074 condition-range-reversed also reports a `WHEN` of an
+  `EVALUATE` with a `THRU` range whose start is above its end, and its
+  fix turns that range round as well.
 
 ### Fixed
 
