@@ -198,6 +198,8 @@ LOCAL-STORAGE SECTION.
 01  LS-SEND-INT             PIC S9(9) COMP-5.
 *> Decimal places of a numeric literal, without trailing zeros.
 01  LS-SEND-DEC             PIC S9(9) COMP-5.
+*> "Y" for a numeric literal below zero.
+01  LS-SEND-NEGATIVE        PIC X.
 01  LS-IN-DECIMALS          PIC X.
 01  LS-DECIMAL              PIC S9(9) COMP-5.
 01  LS-SEND-SYM             PIC 9(9) COMP-5.
@@ -341,7 +343,7 @@ CLASSIFY-SENDER.
 *> Floating-point literals are not checked.
 LITERAL-INTEGER-DIGITS.
     MOVE 0 TO LS-SEND-INT LS-SEND-DEC LS-DECIMAL
-    MOVE "N" TO LS-DIGITS-SEEN LS-IN-DECIMALS
+    MOVE "N" TO LS-DIGITS-SEEN LS-IN-DECIMALS LS-SEND-NEGATIVE
     MOVE "N" TO LS-SEND-KIND
     PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > LS-LEN
         EVALUATE TRUE
@@ -363,7 +365,11 @@ LITERAL-INTEGER-DIGITS.
             WHEN LS-DIGITS-SEEN = "Y"
                 ADD 1 TO LS-SEND-INT
         END-EVALUATE
-    END-PERFORM.
+    END-PERFORM
+    IF LS-LEN > 0 AND LS-TEXT(1:1) = "-"
+       AND (LS-SEND-INT > 0 OR LS-SEND-DEC > 0)
+        MOVE "Y" TO LS-SEND-NEGATIVE
+    END-IF.
 
 CHECK-RECEIVER.
     MOVE WS-TOKEN-REF(LS-T) TO LS-R
@@ -427,6 +433,12 @@ CHECK-RECEIVER.
                AND SY-SCALE(LS-RECV) >= 0
                AND LS-SEND-DEC > SY-SCALE(LS-RECV)
                 PERFORM REPORT-DECIMALS
+            END-IF
+            *> A number below zero into an item without a sign.
+            IF LS-SEND-KIND = "N" AND LS-SEND-NEGATIVE = "Y"
+               AND SY-CATEGORY(LS-RECV) = "9"
+               AND SY-SIGNED(LS-RECV) NOT = "Y"
+                PERFORM REPORT-LITERAL-SIGN
             END-IF
             IF LS-SEND-KIND = "D"
                 IF SY-CATEGORY(LS-SEND-SYM) = "9"
@@ -571,6 +583,24 @@ REPORT-DIGITS.
            " has " LS-B-TEXT(1:LS-B-LEN) DELIMITED BY SIZE
         INTO LS-MESSAGE
     PERFORM REPORT-FINDING.
+
+*> The receiver keeps the literal's absolute value: MOVE -5 stores 5.
+REPORT-LITERAL-SIGN.
+    IF RL-ENABLED(LS-RULE-TRUNCATION) NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-RULE-TRUNCATION TO LS-RULE
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-SENDER LS-A-TEXT LS-A-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING "MOVE drops the sign: " DELIMITED BY SIZE
+           LS-A-TEXT(1:LS-A-LEN) DELIMITED BY SIZE
+           " into " DELIMITED BY SIZE
+           SY-NAME(LS-RECV) DELIMITED BY SPACE
+           ", which has no sign, stores " DELIMITED BY SIZE
+           LS-A-TEXT(2:LS-A-LEN - 1) DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    PERFORM REPORT-FINDING
+    MOVE SPACES TO LS-MESSAGE.
 
 *> PLB-C079: the literal holds a character that is not a digit.
 CHECK-NONNUMERIC.

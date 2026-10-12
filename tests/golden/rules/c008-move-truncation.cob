@@ -28,4 +28,9 @@ PROCEDURE DIVISION.
     MOVE SPACES TO SHORT-TEXT
     MOVE ALL "*" TO SHORT-TEXT
     MOVE X"414243444546" TO SHORT-TEXT
+    *> A number below zero: into an item without a sign (reported),
+    *> with one, and -0 (not).
+    MOVE -5 TO SMALL-NUM
+    MOVE -5 TO BIG-NUM
+    MOVE -0 TO SMALL-NUM
     STOP RUN.
