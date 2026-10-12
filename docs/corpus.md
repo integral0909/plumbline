@@ -265,7 +265,8 @@ The findings were checked by rule:
   written.
 
 - **PLB-C028 comparison-never-true**, for alphanumeric items compared
-  with longer literals: none in NIST or in GnuCOBOL's tests.
+  with longer literals: none in NIST or in GnuCOBOL's tests. For a
+  numeric `EVALUATE` subject and its `WHEN` numbers: none.
 
 - **PLB-C062 varying-subscript-out-of-range.** None in NIST or in
   GnuCOBOL's tests.

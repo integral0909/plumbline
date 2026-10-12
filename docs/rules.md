@@ -966,6 +966,20 @@ not report:
 A numeric item that holds invalid data (spaces, after a `MOVE` to its
 group) still never compares greater than its picture allows.
 
+An `EVALUATE` whose subject is such an item is checked the same way, for
+each `WHEN` that is an integer, or a `THRU` range of integers, alone:
+
+```cobol
+    EVALUATE AGE
+        WHEN 100                            *> reported
+        WHEN 120 THRU 150                   *> reported
+        WHEN 90 THRU 150                    *> not reported: 90 to 99
+```
+
+A range is reported when it lies wholly above or wholly below the
+values the item holds; one whose start is above its end is
+[PLB-C074](#plb-c074-condition-range-reversed)'s.
+
 For an alphanumeric item (or alphabetic, or a group of fixed size), the
 rule reports an equality with a literal that has more characters than
 the item:

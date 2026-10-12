@@ -98,6 +98,10 @@ LOCAL-STORAGE SECTION.
 01  LS-SMALLEST             PIC S9(18) COMP-5.
 01  LS-I                    PIC 9(4) COMP-5.
 01  LS-NEVER                PIC X.
+*> A WHEN number [THRU number] of PLB-C028: its tokens, and its start.
+01  LS-WHEN-FIRST           PIC 9(9) COMP-5.
+01  LS-WHEN-LAST            PIC 9(9) COMP-5.
+01  LS-WHEN-LOW             PIC S9(18) COMP-5.
 01  LS-NUM                  PIC S9(18) COMP-5.
 01  LS-NUM-TEXT             PIC X(20).
 01  LS-NUM-LEN              PIC 9(9) COMP-5.
@@ -270,7 +274,7 @@ CHECK-WHEN-PARTS.
     END-PERFORM.
 
 *> PLB-C045 for WHEN number, or WHEN number THRU number, at LS-T to
-*> LS-LIMIT, of subject LS-S.
+*> LS-LIMIT, of subject LS-S; and PLB-C028 for a numeric subject.
 WHEN-NUMBER.
     IF LS-T NOT = LS-LIMIT
         IF LS-T + 2 NOT = LS-LIMIT OR NOT TK-IS-NUMBER(LS-LIMIT)
@@ -283,11 +287,52 @@ WHEN-NUMBER.
             EXIT PARAGRAPH
         END-IF
     END-IF
+    IF SY-CATEGORY(LS-S) = "9" AND RL-ENABLED(LS-RULE-COMPARE) = "Y"
+        MOVE LS-T TO LS-WHEN-FIRST
+        MOVE LS-LIMIT TO LS-WHEN-LAST
+        PERFORM WHEN-OUT-OF-RANGE
+        MOVE LS-WHEN-FIRST TO LS-T
+        MOVE LS-WHEN-LAST TO LS-LIMIT
+    END-IF
     IF SY-CATEGORY(LS-S) = "E"
         PERFORM CHECK-EDITED-NUMBER
     ELSE
         MOVE LS-T TO LS-VALUE-TOKEN
         PERFORM CHECK-ALNUM-NUMBER
+    END-IF.
+
+*> PLB-C028 for WHEN LS-WHEN-FIRST [THRU LS-WHEN-LAST] of numeric
+*> subject LS-S: no value the subject can hold is in it. A range is
+*> out when its end is below what the item holds or its start above;
+*> one turned round is PLB-C074's.
+WHEN-OUT-OF-RANGE.
+    PERFORM COUNTER-RANGE
+    IF LS-LARGEST < 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "E" TO LS-OP
+    MOVE LS-WHEN-FIRST TO LS-T
+    PERFORM READ-LITERAL
+    IF LS-VALUE-TOKEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-VALUE TO LS-WHEN-LOW
+    IF LS-WHEN-LAST NOT = LS-WHEN-FIRST
+        MOVE LS-WHEN-LAST TO LS-T
+        PERFORM READ-LITERAL
+        IF LS-VALUE-TOKEN = 0 OR LS-VALUE < LS-WHEN-LOW
+            EXIT PARAGRAPH
+        END-IF
+        *> The end below the item's values, or else the start.
+        IF LS-VALUE >= LS-SMALLEST
+            MOVE LS-WHEN-LOW TO LS-VALUE
+            MOVE LS-WHEN-FIRST TO LS-VALUE-TOKEN
+        END-IF
+    END-IF
+    PERFORM DECIDE
+    IF LS-NEVER = "Y"
+        MOVE SY-NAME(LS-S) TO LS-COUNTER
+        PERFORM REPORT-COMPARISON
     END-IF.
 
 *> PLB-C028: reference LS-R, when it is the subject of a relation
