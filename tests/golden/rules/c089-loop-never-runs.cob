@@ -40,6 +40,12 @@ MAIN-LINE.
     PERFORM UNTIL WS-AMT IS GREATER THAN OR EQUAL TO 5 AND WS-AMT NOT = 4
         MOVE 5 TO WS-AMT
     END-PERFORM
+    MOVE "N" TO WS-EOF
+    DISPLAY "X"
+    ADD 1 TO WS-COUNT
+    PERFORM UNTIL WS-EOF = "N"
+        MOVE "N" TO WS-EOF
+    END-PERFORM
     PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > 0
         DISPLAY WS-I
     END-PERFORM
@@ -47,9 +53,10 @@ MAIN-LINE.
         DISPLAY WS-I
     END-PERFORM
     *> Not reported: WITH TEST AFTER, a group moved after, a literal
-    *> the item does not hold as written, AND with a relation false,
-    *> another statement between, a counter the FROM does not fit, and
-    *> a binary counter.
+    *> the item does not hold as written, AND with a relation false, a
+    *> statement between that stores into the item, or that may (ON
+    *> SIZE ERROR, PERFORM), a counter the FROM does not fit, and a
+    *> binary counter.
     MOVE "Y" TO WS-EOF
     PERFORM WITH TEST AFTER UNTIL WS-EOF = "Y"
         MOVE "Y" TO WS-EOF
@@ -72,7 +79,22 @@ MAIN-LINE.
         MOVE "Y" TO WS-EOF
     END-PERFORM
     MOVE "N" TO WS-EOF
-    DISPLAY "X"
+    MOVE WS-ERR TO WS-EOF
+    PERFORM UNTIL WS-EOF = "N"
+        MOVE "N" TO WS-EOF
+    END-PERFORM
+    MOVE "N" TO WS-FLAG
+    MOVE WS-ERR TO WS-REC
+    PERFORM UNTIL WS-FLAG = "N"
+        MOVE "N" TO WS-FLAG
+    END-PERFORM
+    MOVE "N" TO WS-EOF
+    ADD 1 TO WS-COUNT ON SIZE ERROR MOVE "Y" TO WS-EOF END-ADD
+    PERFORM UNTIL WS-EOF = "N"
+        MOVE "N" TO WS-EOF
+    END-PERFORM
+    MOVE "N" TO WS-EOF
+    PERFORM READ-NEXT
     PERFORM UNTIL WS-EOF = "N"
         MOVE "N" TO WS-EOF
     END-PERFORM

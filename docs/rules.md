@@ -2488,11 +2488,15 @@ starts, so that it runs no times:
 (unless `WITH TEST AFTER`), so the body never runs: usually the value
 moved or tested is the wrong one, or `>` was meant for `<`.
 
-For `PERFORM ... UNTIL`, read are the statements right before it that
+For `PERFORM ... UNTIL`, read are the statements before it that
 `MOVE` a literal to items or `SET` condition names `TO TRUE` or
-`FALSE`, back to the first other statement, across the ends of
-sentences but not out of the paragraph or the branch the `PERFORM` is
-in. The condition is read when it is relations `item [IS] [NOT] op
+`FALSE`, across the ends of sentences but not out of the paragraph or
+the branch the `PERFORM` is in. The walk back goes on over statements
+whose data references show all they change: `DISPLAY`, `CONTINUE`,
+`MOVE` and `SET` of other values, arithmetic, `INITIALIZE`, `STRING`,
+`UNSTRING` and `INSPECT`, without phrases such as `ON SIZE ERROR`;
+what they store into is no longer known. It stops at any other
+statement (a `PERFORM` or `CALL` may change anything). The condition is read when it is relations `item [IS] [NOT] op
 literal` (`=`, `>`, `<`, `>=`, `<=`, and their words) and condition
 names, joined all by `AND` or all by `OR`, without parentheses or
 abbreviations; it is true when every relation joined by `AND` is, or
@@ -2504,7 +2508,7 @@ item stored as decimal digits holds, signs and decimal places too. A
 `MOVE` to a group or other item that shares storage with an item,
 nearer the loop, makes its earlier value unknown. So
 `MOVE "YES" TO WS-FLAG` into a `PIC X` is not read, nor a value moved
-before a `DISPLAY` that comes before the loop.
+before a `PERFORM` that comes before the loop.
 
 For `PERFORM VARYING`, read are loops as for
 [PLB-C081](#plb-c081-varying-wrong-direction): a `FROM` literal the
