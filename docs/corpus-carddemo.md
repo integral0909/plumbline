@@ -349,6 +349,7 @@ Some findings that were read and are true:
   items take `DATE` and `DAY`. In a copy of `CBPAUP0C` whose `ACCEPT
   CURRENT-DATE FROM DATE` is made `FROM DATE YYYYMMDD`, it reports that
   `YY` is lost; in a copy of `PAUDBLOD` made `FROM TIME`, that `HH` is.
+- **PLB-C097 sort-file-open.** None.
 - **PLB-C096 converting-repeated.** None.
 - **PLB-C095 rewrite-without-read.** None.
 - **PLB-M022 mixed-and-or.** 2, in `COTRTLIC`: `IF WS-IN-TYPE-CD EQUAL
