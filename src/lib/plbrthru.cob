@@ -8,7 +8,9 @@
 *>
 *> The range holds no value, so that part of the condition is never
 *> true (GnuCOBOL 3.2 accepts it without a warning). The ends were
-*> written the wrong way round.
+*> written the wrong way round. The same holds for a WHEN of an
+*> EVALUATE with a THRU range (WHEN 10 THRU 5 matches no value; WHEN
+*> NOT 10 THRU 5 matches every value).
 *>
 *> Numbers are compared by value. Alphanumeric literals are compared
 *> only where ASCII and EBCDIC agree: at the first character that
@@ -24,11 +26,17 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-S                    PIC 9(9) COMP-5.
 01  LS-C                    PIC 9(9) COMP-5.
+01  LS-NODE                 PIC 9(9) COMP-5.
+01  LS-COND                 PIC 9(9) COMP-5.
+01  LS-U                    PIC 9(9) COMP-5.
+*> What has the range: C a condition name, W a WHEN.
+01  LS-KIND                 PIC X.
 01  LS-T                    PIC 9(9) COMP-5.
 01  LS-LOW                  PIC 9(9) COMP-5.
 01  LS-HIGH                 PIC 9(9) COMP-5.
 01  LS-I                    PIC 9(9) COMP-5.
 01  LS-REVERSED             PIC X.
+01  LS-ALONE                PIC X.
 01  LS-TEXT                 PIC X(200).
 01  LS-LEN                  PIC 9(9) COMP-5.
 01  LS-LOW-TEXT             PIC X(200).
@@ -61,12 +69,70 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     IF RL-ENABLED(LS-RULE) NOT = "Y"
         GOBACK
     END-IF
+    MOVE "C" TO LS-KIND
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
         IF SY-LEVEL(LS-S) = 88 AND SY-NODE(LS-S) > 0
             PERFORM CHECK-CONDITION
         END-IF
     END-PERFORM
+    MOVE "W" TO LS-KIND
+    PERFORM VARYING LS-NODE FROM 1 BY 1 UNTIL LS-NODE > AS-COUNT
+        IF ND-KIND(LS-NODE) = "BLCK" AND ND-DETAIL(LS-NODE) = "WHEN"
+           AND ND-PARENT(LS-NODE) > 0
+            IF ND-KIND(ND-PARENT(LS-NODE)) = "STMT"
+               AND ND-DETAIL(ND-PARENT(LS-NODE)) = "EVALUATE"
+                PERFORM CHECK-WHEN
+            END-IF
+        END-IF
+    END-PERFORM
     GOBACK.
+
+*> The THRU ranges of WHEN LS-NODE: each a THRU b where a starts the
+*> WHEN, or follows ALSO or NOT, and b ends it or comes before ALSO,
+*> so that neither end is part of an expression.
+CHECK-WHEN.
+    MOVE ND-FIRST(LS-NODE) TO LS-COND
+    IF LS-COND = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF ND-KIND(LS-COND) NOT = "COND"
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-COND) BY 1
+            UNTIL LS-T >= ND-TOK-LAST(LS-COND)
+        IF TK-IS-WORD(LS-T) AND LS-T > ND-TOK-FIRST(LS-COND)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            IF FUNCTION UPPER-CASE(LS-TEXT) = "THRU"
+               OR FUNCTION UPPER-CASE(LS-TEXT) = "THROUGH"
+                COMPUTE LS-LOW = LS-T - 1
+                COMPUTE LS-HIGH = LS-T + 1
+                PERFORM TEST-WHEN-ENDS
+                IF LS-ALONE = "Y"
+                    PERFORM CHECK-RANGE
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> LS-ALONE = "Y" when LS-LOW and LS-HIGH stand alone.
+TEST-WHEN-ENDS.
+    MOVE "N" TO LS-ALONE
+    IF LS-LOW > ND-TOK-FIRST(LS-COND)
+        COMPUTE LS-U = LS-LOW - 1
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-U LS-TEXT LS-LEN
+        IF FUNCTION UPPER-CASE(LS-TEXT) NOT = "ALSO"
+           AND FUNCTION UPPER-CASE(LS-TEXT) NOT = "NOT"
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    IF LS-HIGH < ND-TOK-LAST(LS-COND)
+        COMPUTE LS-U = LS-HIGH + 1
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-U LS-TEXT LS-LEN
+        IF FUNCTION UPPER-CASE(LS-TEXT) NOT = "ALSO"
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    MOVE "Y" TO LS-ALONE.
 
 *> The THRU ranges of the VALUE clause of condition LS-S.
 CHECK-CONDITION.
@@ -193,8 +259,14 @@ CLASSIFY.
 REPORT-RANGE.
     MOVE SPACES TO LS-MESSAGE
     MOVE 1 TO LS-PTR
-    STRING SY-NAME(LS-S) DELIMITED BY SPACE
-           " has a range that holds no value: " DELIMITED BY SIZE
+    IF LS-KIND = "C"
+        STRING SY-NAME(LS-S) DELIMITED BY SPACE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    ELSE
+        STRING "this WHEN" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    STRING " has a range that holds no value: " DELIMITED BY SIZE
         INTO LS-MESSAGE WITH POINTER LS-PTR
     CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-LOW LS-TEXT LS-LEN
     IF TK-IS-ALNUM(LS-LOW)

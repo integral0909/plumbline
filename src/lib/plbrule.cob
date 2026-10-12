@@ -362,7 +362,7 @@ PROCEDURE DIVISION USING PLB-RULES.
         "VALUE clause in the FILE or LINKAGE SECTION gives no value"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C074"
         "condition-range-reversed" "W"
-        "Condition name has a THRU range whose start is above its end"
+        "Condition name or WHEN has a THRU range whose start is above its end"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C075"
         "io-after-close" "W"
         "I/O statement on a file after its CLOSE, with no OPEN between"
