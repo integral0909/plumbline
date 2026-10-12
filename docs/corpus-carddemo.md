@@ -364,6 +364,9 @@ Some findings that were read and are true:
   send unsigned whole numbers (`ACCT-ID`, `WS-TRANID-SUFFIX`). In a copy
   of `CBACT04C` with `WS-TRANID-SUFFIX` made `PIC S9(06)`, it reports
   that item.
+- **PLB-C103 chain-exhausted.** None. In a copy of `COCRDSLC` whose
+  `IF CDEMO-ACCT-ID = 0` is made `NOT > 0`, with `IF CDEMO-ACCT-ID > 0
+  ... ELSE ...` in its `ELSE`, that last `ELSE` is reported.
 - **PLB-C102 nested-if-decided.** None. In a copy of `COCRDSLC` whose
   `IF CDEMO-ACCT-ID = 0` branch is made to start with `IF
   CDEMO-ACCT-ID > 0`, the inner test is reported as never true. In a
