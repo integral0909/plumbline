@@ -1128,11 +1128,11 @@ check "checkstyle report lists a clean file" 0 '<file name="tests/golden/rules/c
     -- check --report checkstyle --disable PLB-C001 --disable go-to $rx/c001-unreachable.cob
 check "checkstyle report maps severities"  1 'severity="info" message="GO TO makes the flow of control hard to follow" source="plumbline.PLB-M001"' \
     -- check --report checkstyle $rx/c001-unreachable.cob
-check "summary has a row per program"    0 '^METRICS  *28  *13  *58  *0  *3  *1  tests/golden/metrics/complexity.cob$' \
+check "summary has a row per program"    0 '^METRICS  *28  *13  *58  *0  *3  *2  tests/golden/metrics/complexity.cob$' \
     -- summary $mx/complexity.cob
 check "summary counts findings by program" 0 '^BILLING,"tests/fixtures/calls/billing.cob",1,11,1,67,0,1,0$' \
     -- summary --report csv tests/fixtures/calls/billing.cob tests/fixtures/calls/custlook.cob
-check "summary in Markdown"                0 '^| METRICS | `tests/golden/metrics/complexity.cob` | 28 | 13 | 58 | 0 | 3 | 1 |$' \
+check "summary in Markdown"                0 '^| METRICS | `tests/golden/metrics/complexity.cob` | 28 | 13 | 58 | 0 | 3 | 2 |$' \
     -- summary --report md $mx/complexity.cob
 check "summary leaves out baselined findings" 0 '^ *27 *2 *[0-9]* *0 *0 *0  tests/golden/rules/c001-unreachable.cob$' \
     -- summary --baseline $bx/c001.baseline --disable go-to $rx/c001-unreachable.cob

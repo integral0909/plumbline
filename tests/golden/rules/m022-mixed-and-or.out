@@ -1,0 +1,3 @@
+tests/golden/rules/m022-mixed-and-or.cob:12:8: note: this condition joins with both AND and OR without parentheses: AND is done first (A OR B AND C is A OR (B AND C)); parentheses say which is meant [PLB-M022]
+tests/golden/rules/m022-mixed-and-or.cob:15:8: note: this condition joins with both AND and OR without parentheses: AND is done first (A OR B AND C is A OR (B AND C)); parentheses say which is meant [PLB-M022]
+tests/golden/rules/m022-mixed-and-or.cob:18:13: note: this condition joins with both AND and OR without parentheses: AND is done first (A OR B AND C is A OR (B AND C)); parentheses say which is meant [PLB-M022]

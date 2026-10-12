@@ -304,6 +304,11 @@ The findings were checked by rule:
 - **PLB-C087 when-covered.** None in NIST or in GnuCOBOL's tests, which
   have one `WHEN` with a numeric range between them.
 
+- **PLB-M022 mixed-and-or.** 19 in NIST, all in its tests of how
+  conditions are evaluated (`NC201A`, `NC205A`, `NC211A`, `NC250A`),
+  such as `IF CCON-1 EQUAL TO 11 AND CCON-3 GREATER THAN 12 OR CCON-2
+  LESS THAN 20 AND CCON-1 GREATER THAN 12`. None in GnuCOBOL's tests.
+
 - **PLB-C094 open-after-lock.** 1 in NIST, in `RL401M`, a test of the
   flagging of non-standard features that never runs: `CLOSE TFIL WITH
   LOCK`, marked as non-conforming for a relative file, then `OPEN INPUT
