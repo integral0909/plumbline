@@ -56,7 +56,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C042](#plb-c042-inspect-count-not-reset) | inspect-count-not-reset | warning | INSPECT TALLYING adds to a count the paragraph does not reset |
 | [PLB-C043](#plb-c043-pointer-not-reset) | pointer-not-reset | warning | STRING or UNSTRING POINTER that no statement sets |
 | [PLB-C044](#plb-c044-varying-control-changed) | varying-control-changed | warning | Statement in a PERFORM VARYING loop changes the loop's control |
-| [PLB-C045](#plb-c045-alnum-compared-to-number) | alnum-compared-to-number | warning | Alphanumeric item compared with a shorter numeric literal |
+| [PLB-C045](#plb-c045-alnum-compared-to-number) | alnum-compared-to-number | warning | Alphanumeric or numeric-edited item compared with a number |
 | [PLB-C046](#plb-c046-overlapping-move) | overlapping-move | warning | MOVE between items that share storage |
 | [PLB-C047](#plb-c047-foreign-index) | foreign-index | warning | Index of one table subscripts a table with entries of another length |
 | [PLB-C048](#plb-c048-sort-procedure-no-record) | sort-procedure-no-record | warning | SORT procedure never RELEASEs or RETURNs a record |
@@ -1380,6 +1380,15 @@ condition is true only for "0 ", never for "00". Compare the numeric
 view (`WS-IN-TYPE-CD-N = 0`), or `ZERO`, which fills the item. A
 literal as long as the item (`TYPE-CODE = 12`) compares as written, and
 an item with a binary usage (`PIC X COMP-X`) is a number.
+
+A numeric-edited item is reported when compared with any number, or
+with `ZERO`: it holds the characters its picture made, so with GnuCOBOL
+3.2 a `PIC ZZ9` holding 0 is `"  0"`, and `IF WS-ED = 0` is false, as is
+`IF WS-AMOUNT-OUT = 1234.5` for `" 1,234.50"`. Compare the number the
+item was edited from, or a literal written as it shows. A picture of
+`9` and inserted `0` alone (`PIC 0009999`) shows 0 as zeros and a number
+as all its digits, so `ZERO`, or a literal with as many digits as the
+item has characters, compares as meant and is not reported.
 
 ## PLB-C046 overlapping-move
 
