@@ -97,6 +97,10 @@ LOCAL-STORAGE SECTION.
 01  LS-DCB-LEN              PIC 9(9) COMP-5.
 01  LS-DOT                  PIC 9(4) COMP-5.
 01  LS-PARM                 PIC X(100) VALUE SPACES.
+*> COUNT-PARM: where the value starts and ends, and its characters.
+01  LS-PARM-AT              PIC 9(9) COMP-5.
+01  LS-PARM-END             PIC S9(9) COMP-5.
+01  LS-PARM-COUNT           PIC 9(9) COMP-5.
 01  LS-FIELD-1              PIC X(100).
 01  LS-FIELD-2              PIC X(100).
 01  LS-FIELD-3              PIC X(100).
@@ -455,6 +459,7 @@ ADD-STEP.
     MOVE LK-FILE-ID TO JS-FILE-ID(LS-STEP)
     MOVE ST-LINE TO JS-LINE(LS-STEP)
     MOVE 0 TO JS-DD-FIRST(LS-STEP) JS-DD-COUNT(LS-STEP)
+    MOVE 0 TO JS-PARM-LEN(LS-STEP)
     MOVE 1 TO OP-START
     MOVE 0 TO OP-POSITION
     PERFORM NEXT-OPERAND
@@ -471,6 +476,7 @@ ADD-STEP.
                 MOVE OP-VALUE TO JS-TARGET(LS-STEP)
             WHEN OP-KEY = "PARM"
                 MOVE OP-VALUE TO LS-PARM
+                PERFORM COUNT-PARM
             WHEN OP-KEY = "COND"
                 MOVE OP-VALUE TO JS-COND(LS-STEP)
         END-EVALUATE
@@ -488,6 +494,45 @@ ADD-STEP.
         MOVE FUNCTION TRIM(LS-FIELD-3) TO JS-PSB(LS-STEP)
     END-IF
     MOVE SPACES TO LS-PARM.
+
+*> JS-PARM-LEN of the step from PARM's value, OP-VALUE. In the form
+*> ('A','B') the apostrophes around each part are left out too, so
+*> the count is never more than what the program is passed.
+COUNT-PARM.
+    COMPUTE LS-PARM-END = OP-ITEM-LEN - OP-EQ
+    IF LS-PARM-END < 1
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-D
+    INSPECT OP-VALUE(1:LS-PARM-END) TALLYING LS-D FOR ALL "&"
+    IF LS-D > 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 1 TO LS-PARM-AT
+    IF LS-PARM-END > 1
+        IF (OP-VALUE(1:1) = "(" AND OP-VALUE(LS-PARM-END:1) = ")")
+           OR (OP-VALUE(1:1) = "'" AND OP-VALUE(LS-PARM-END:1) = "'")
+            MOVE 2 TO LS-PARM-AT
+            SUBTRACT 1 FROM LS-PARM-END
+        END-IF
+    END-IF
+    MOVE 0 TO LS-PARM-COUNT
+    MOVE LS-PARM-AT TO LS-D
+    PERFORM UNTIL LS-D > LS-PARM-END
+        IF OP-VALUE(LS-D:1) = "'"
+            *> A doubled apostrophe passes one; a single one encloses.
+            IF LS-D < LS-PARM-END
+                IF OP-VALUE(LS-D + 1:1) = "'"
+                    ADD 1 TO LS-PARM-COUNT
+                    ADD 1 TO LS-D
+                END-IF
+            END-IF
+        ELSE
+            ADD 1 TO LS-PARM-COUNT
+        END-IF
+        ADD 1 TO LS-D
+    END-PERFORM
+    MOVE LS-PARM-COUNT TO JS-PARM-LEN(LS-STEP).
 
 *> A DD of the current step. A DD without a name continues the one
 *> before it (a concatenation) and gets its name; DDs before the first

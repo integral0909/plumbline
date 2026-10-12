@@ -46,6 +46,11 @@
         *> The COND operand, in upper case: (4,LT), ((8,LE,EXTRACT),
         *> EVEN), ...
         10  JS-COND             PIC X(80).
+        *> The number of characters PARM= passes the program: without
+        *> the apostrophes or parentheses that enclose it, a doubled
+        *> apostrophe counted once. 0 when there is no PARM, or it has
+        *> a symbol (&).
+        10  JS-PARM-LEN         PIC 9(9) COMP-5.
         10  JS-FILE-ID          PIC 9(4) COMP-5.
         10  JS-LINE             PIC 9(9) COMP-5.
         *> The step's DD statements: JS-DD-COUNT entries from
