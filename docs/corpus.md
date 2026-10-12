@@ -330,6 +330,13 @@ The findings were checked by rule:
   is made `CONVERTING "AUA" TO "234"`, it reports that `A` becomes `2`
   and the `4` is never used.
 
+- **PLB-C008 move-truncation** on numeric literals below zero: 6 in
+  NIST, in the sort tests `SG104A`, `SG105A`, `SG106A`, `ST108A`,
+  `ST118A`, and `ST127A`, each `MOVE -501 TO SORTKEY-7`, a `PIC 999`,
+  with the comment `THIS ITEM IS INTENTIONALLY MOVED TO AN UNSIGNED`;
+  11 in GnuCOBOL's tests, in four "numeric operations" tests that move
+  -0.2 into an unsigned field on purpose.
+
 - **PLB-C095 rewrite-without-read.** None in NIST or in GnuCOBOL's
   tests. In a copy of NIST's `SQ115A` with its `REWRITE
   SQ-FS5R1-F-G-126.` written twice, it reports the second. A first

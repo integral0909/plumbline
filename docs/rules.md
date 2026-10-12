@@ -469,7 +469,10 @@ Leading zeros of a literal do not count. A numeric literal with more
 decimal places than its receiver loses its low-order digits:
 `MOVE 1.255 TO BIG-NUM` stores 1.25. Trailing zeros do not count, and
 data items are not checked for decimal places, since dropping those of
-a computed value is often what is meant.
+a computed value is often what is meant. A numeric literal below zero
+loses its sign in a receiver without one: `MOVE -5 TO SMALL-NUM`
+stores 5 (a signed item moved to an unsigned one is the opt-in
+[PLB-M018](#plb-m018-signed-to-unsigned)).
 
 Sizes come from the symbol table. Reference-modified operands, `MOVE
 CORRESPONDING`, `ALL` literals, figurative constants, function results,
