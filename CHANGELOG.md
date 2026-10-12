@@ -254,6 +254,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-J017 blksize-invalid.
 - Rule PLB-C100 table-keys-unsorted.
 - Rule PLB-C101 string-numeric-sender.
+- Rule PLB-J018 gdg-generation-not-created.
 - The JCL reader keeps the `BLKSIZE` of each DD (as a keyword or in
   `DCB=( )`), and `plumbline dump jcl` shows it.
 - Rule PLB-C085 zeros-into-packed; it and spaces-into-numeric leave a

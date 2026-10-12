@@ -292,6 +292,12 @@ check "BLKSIZE too small for VB"            1 'blksize.jcl:9:3: error: DD SYSUT2
     -- check --no-config $jx/blksize.jcl
 check_absent "a BLKSIZE that fits is fine"   'blksize.jcl:1[5-9]:' \
     -- check --no-config $jx/blksize.jcl
+check "a new generation read before it is made" 1 'gdg.jcl:4:3: error: PAY.HISTORY(+1) is a new generation, read with DISP=SHR, but no earlier step creates it.*\[PLB-J018\]' \
+    -- check --no-config $jx/gdg.jcl
+check_absent "a generation made, then read, is fine" 'gdg.jcl:9:' \
+    -- check --no-config $jx/gdg.jcl
+check_absent "(0) and names with symbols are fine" 'gdg.jcl:1[23]:' \
+    -- check --no-config $jx/gdg.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
