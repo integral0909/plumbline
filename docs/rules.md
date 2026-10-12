@@ -176,6 +176,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q012](#plb-q012-fetch-after-commit) | fetch-after-commit | error | Loop fetches from a cursor and commits, which closes the cursor |
 | [PLB-Q013](#plb-q013-select-into-no-where) | select-into-no-where | warning | SELECT INTO without WHERE takes every row of the table |
 | [PLB-Q015](#plb-q015-insert-count-mismatch) | insert-count-mismatch | error | INSERT names more or fewer columns than it gives values |
+| [PLB-Q016](#plb-q016-cursor-open-twice) | cursor-open-twice | error | SQL cursor opened again with no CLOSE between |
 | [PLB-Q014](#plb-q014-fetch-loop-end-only) | fetch-loop-end-only | warning | FETCH loop ends only on SQLCODE 100, and loops for ever on errors |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
@@ -4020,6 +4021,28 @@ variable with an indicator (`:HV :IND`) is one value, and so is a
 with a host structure (another group item, which stands for its
 fields), an `INSERT` without a column list (its columns come from the
 table), and `INSERT ... SELECT` are not read.
+
+## PLB-Q016 cursor-open-twice
+
+An `OPEN` of an SQL cursor, then, later in the same list of
+statements, another `OPEN` of it with no `CLOSE` between:
+
+```cobol
+    EXEC SQL OPEN ACCT-CUR END-EXEC
+    MOVE 0 TO WS-COUNT
+    EXEC SQL OPEN ACCT-CUR END-EXEC          *> reported
+```
+
+DB2 rejects the second `OPEN` with SQLCODE -502 (the cursor is already
+open), and a program that tests only for 100 goes on fetching from
+where the first left off.
+
+The statements after the `OPEN` are read in its list (for a statement
+directly in a sentence, on through the paragraph's later sentences).
+A `CLOSE` of the cursor ends the search, as do a `PERFORM` of a
+procedure, `GO TO`, `CALL`, `GOBACK`, `STOP`, `EXIT`, and a statement
+holding other SQL. A test of `SQLCODE` or `SQLSTATE` between them,
+which may find that the first `OPEN` failed and try again, ends it too.
 
 ## PLB-S001 dynamic-sql
 
