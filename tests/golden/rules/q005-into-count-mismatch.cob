@@ -8,6 +8,9 @@ WORKING-STORAGE SECTION.
 01  WS-NAME                 PIC X(30).
 01  WS-BALANCE              PIC S9(9)V99 COMP-3.
 01  WS-NAME-IND             PIC S9(4) COMP.
+01  WS-NOTE.
+    49  WS-NOTE-LEN         PIC S9(4) COMP.
+    49  WS-NOTE-TEXT        PIC X(100).
 01  WS-ACCOUNT.
     05  WS-ACC-ID           PIC S9(9) COMP.
     05  WS-ACC-NAME         PIC X(30).
@@ -34,6 +37,11 @@ PROCEDURE DIVISION.
     *> Reported: two columns into three host variables.
     EXEC SQL SELECT ACCT_ID, ACCT_NAME
         INTO :WS-ID, :WS-NAME, :WS-BALANCE
+        FROM ACCOUNT WHERE ACCT_ID = 1
+    END-EXEC
+    *> Reported: a VARCHAR (level-49 items) is one host variable.
+    EXEC SQL SELECT ACCT_ID, ACCT_NAME
+        INTO :WS-ID, :WS-NOTE, :WS-BALANCE
         FROM ACCOUNT WHERE ACCT_ID = 1
     END-EXEC
     *> Fine: SELECT * and a host structure are not counted.

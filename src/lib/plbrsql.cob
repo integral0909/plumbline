@@ -1013,9 +1013,10 @@ END PROGRAM PLB-RULE-CICS-UPDATES.
 *> Commas are separators to COBOL and are not tokens, so the lists are
 *> counted from the source text between their tokens: commas outside
 *> parentheses. A host variable with an indicator (:HV :IND, :HV
-*> INDICATOR :IND) is one. Lists with * at their top level, a cursor
-*> for a prepared statement, and host structures (a group item, which
-*> stands for its fields) are not counted.
+*> INDICATOR :IND) is one, and so is a VARCHAR (a group of level-49
+*> items). Lists with * at their top level, a cursor for a prepared
+*> statement, and host structures (another group item, which stands for
+*> its fields) are not counted.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-Q005.
 DATA DIVISION.
@@ -1041,6 +1042,8 @@ LOCAL-STORAGE SECTION.
 01  LS-HOSTS                PIC 9(4) COMP-5.
 01  LS-UNKNOWN              PIC X.
 01  LS-COMMA                PIC X.
+01  LS-VARCHAR              PIC X.
+01  LS-S                    PIC 9(9) COMP-5.
 01  LS-A                    PIC 9(9) COMP-5.
 01  LS-B                    PIC 9(9) COMP-5.
 01  LS-I                    PIC 9(9) COMP-5.
@@ -1187,7 +1190,8 @@ SELECT-LIST.
 
 *> LS-HOSTS: the host variables of an INTO list from LS-A up to the
 *> token before LS-B: one more than its top-level commas; 0 when one of
-*> them is a group (a host structure) or the list is empty.
+*> them is a group (a host structure) or the list is empty. A group of
+*> level-49 items is one VARCHAR host variable.
 INTO-LIST.
     MOVE 0 TO LS-HOSTS
     IF LS-A >= LS-B
@@ -1200,7 +1204,10 @@ INTO-LIST.
                 IF RF-TOKEN(LS-R) = LS-I
                     IF RF-KIND(LS-R) = "D" AND RF-SYMBOL(LS-R) > 0
                         IF SY-CATEGORY(RF-SYMBOL(LS-R)) = "G"
-                            EXIT PARAGRAPH
+                            PERFORM CHECK-VARCHAR
+                            IF LS-VARCHAR = "N"
+                                EXIT PARAGRAPH
+                            END-IF
                         END-IF
                     END-IF
                     EXIT PERFORM
@@ -1217,6 +1224,16 @@ INTO-LIST.
         END-IF
     END-PERFORM
     MOVE LS-COUNT TO LS-HOSTS.
+
+*> LS-VARCHAR = "Y" when group RF-SYMBOL(LS-R) has level-49 items.
+CHECK-VARCHAR.
+    MOVE "N" TO LS-VARCHAR
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
+        IF SY-PARENT(LS-S) = RF-SYMBOL(LS-R) AND SY-LEVEL(LS-S) = 49
+            MOVE "Y" TO LS-VARCHAR
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
 
 *> FETCH ... cursor ... INTO list.
 CHECK-FETCH.

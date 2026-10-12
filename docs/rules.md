@@ -3607,10 +3607,11 @@ later. With more, the statement is in error.
 Commas are separators to COBOL, so the lists are counted from the
 source text between their tokens, by the commas outside parentheses. A
 host variable with its indicator (`:HV :IND`, `:HV INDICATOR :IND`) is
-one. A cursor is matched by name with its `DECLARE` anywhere in the
-file. Select lists with `*` at their top level, cursors for prepared
-statements, and host structures (a group item, which stands for its
-fields) are not counted.
+one, and so is a `VARCHAR` host variable (a group of level-49 items).
+A cursor is matched by name with its `DECLARE` anywhere in the file.
+Select lists with `*` at their top level, cursors for prepared
+statements, and host structures (another group item, which stands for
+its fields) are not counted.
 
 ## PLB-Q006 host-variable-too-small
 
