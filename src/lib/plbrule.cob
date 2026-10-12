@@ -543,6 +543,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J014"
         "output-deleted" "W"
         "Step writes a data set that its DD deletes when the step ends"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J015"
+        "step-name-repeated" "W"
+        "Two steps of a job or procedure have the same name"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

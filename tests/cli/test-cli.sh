@@ -270,6 +270,14 @@ check "a written file shared with DISP=SHR" 1 'shared.jcl:7:3: warning: DD PAYRP
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check "a written data set deleted at the end" 1 'shared.jcl:15:3: warning: DD PAYRPT deletes PAY.REPORT.NEW when the step ends.*\[PLB-J014\]' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
+check "a step name used twice in a job" 1 'steps.jcl:5:3: warning: step name EXTRACT is already the name of the step on line 3: .*\[PLB-J015\]' \
+    -- check --no-config $jx/steps.jcl
+check "a step name used twice in a procedure" 1 'steps.jcl:10:3: warning: step name COPY is already the name of the step on line 9: .*\[PLB-J015\]' \
+    -- check --no-config $jx/steps.jcl
+check_absent "a procedure's step may have a job step's name" 'steps.jcl:8:' \
+    -- check --no-config $jx/steps.jcl
+check_absent "another job may use the same step names" 'steps.jcl:15:' \
+    -- check --no-config $jx/steps.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
