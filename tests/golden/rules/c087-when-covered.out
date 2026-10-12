@@ -2,3 +2,6 @@ tests/golden/rules/c087-when-covered.cob:9:14: warning: WS-CODE is read but neve
 tests/golden/rules/c087-when-covered.cob:13:14: warning: this WHEN never matches: the WHEN 1 THRU 10 on line 10 takes all its values first [PLB-C087]
 tests/golden/rules/c087-when-covered.cob:15:14: warning: this WHEN never matches: the WHEN 1 THRU 10 on line 10 takes all its values first [PLB-C087]
 tests/golden/rules/c087-when-covered.cob:23:14: warning: this WHEN repeats the one on line 10, which EVALUATE chooses first; it never runs [PLB-C032]
+tests/golden/rules/c087-when-covered.cob:33:14: warning: this WHEN never matches: the WHEN WS-CODE > 10 on line 31 takes all its values first [PLB-C087]
+tests/golden/rules/c087-when-covered.cob:37:14: warning: this WHEN never matches: the WHEN WS-CODE > 10 on line 31 takes all its values first [PLB-C087]
+tests/golden/rules/c087-when-covered.cob:41:14: warning: this WHEN never matches: the WHEN WS-CODE NOT > 9 on line 39 takes all its values first [PLB-C087]

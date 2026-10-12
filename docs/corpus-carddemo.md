@@ -348,7 +348,9 @@ Some findings that were read and are true:
   output record, it reports each.
 - **PLB-C087 when-covered.** None. In a copy of `COADM01C` whose `WHEN 1`
   of `EVALUATE WS-IDX` is made `WHEN 1 THRU 3`, it reports its `WHEN 2`
-  and `WHEN 3`.
+  and `WHEN 3`. With `EVALUATE TRUE` read, still none; in a copy of
+  `COACTUPC` with `WHEN CC-ACCT-ID-N < 10` and a later `WHEN
+  CC-ACCT-ID-N = 5`, it reports the second.
 - **PLB-C088 accept-truncation.** None: its `PIC 9(06)` and `PIC 9(05)`
   items take `DATE` and `DAY`. In a copy of `CBPAUP0C` whose `ACCEPT
   CURRENT-DATE FROM DATE` is made `FROM DATE YYYYMMDD`, it reports that
