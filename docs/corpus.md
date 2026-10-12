@@ -315,7 +315,10 @@ The findings were checked by rule:
 - **PLB-C101 string-numeric-sender.** None in NIST or in GnuCOBOL's
   tests.
 
-- **PLB-C103 chain-exhausted.** None in NIST or in GnuCOBOL's tests.
+- **PLB-C103 chain-exhausted.** One in NIST, as meant: `NC225A` tests
+  an `EVALUATE TRUE` whose `WHEN WRK-DU-08V00 > 10` and `WHEN
+  WRK-DU-08V00 < 100` take every value, and passes when its `WHEN
+  OTHER` does not run. None in GnuCOBOL's tests.
 
 - **PLB-C102 nested-if-decided.** Two in NIST, both real: in `SQ109M`
   and `SQ110M` the statements of `IF XRECORD-NUMBER (1) EQUAL TO 325`

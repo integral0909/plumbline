@@ -519,6 +519,9 @@ uses [Semantic Versioning](https://semver.org/).
 - PLB-C074 condition-range-reversed also reports a `WHEN` of an
   `EVALUATE` with a `THRU` range whose start is above its end, and its
   fix turns that range round as well.
+- PLB-C103 chain-exhausted also reads the `WHEN` phrases of an
+  `EVALUATE TRUE`, and reports a `WHEN` or the `WHEN OTHER` they leave
+  no value for.
 - PLB-C028 comparison-never-true also reports a `WHEN` number, or a
   `THRU` range of numbers, that the numeric subject of an `EVALUATE`
   cannot hold.
