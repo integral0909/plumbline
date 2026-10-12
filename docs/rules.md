@@ -107,6 +107,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C093](#plb-c093-pointer-too-small) | pointer-too-small | warning | STRING or UNSTRING POINTER too small for the positions it counts |
 | [PLB-C094](#plb-c094-open-after-lock) | open-after-lock | error | OPEN of a file closed WITH LOCK, which fails with status 38 |
 | [PLB-C095](#plb-c095-rewrite-without-read) | rewrite-without-read | error | Sequential REWRITE or DELETE that does not follow a READ |
+| [PLB-C096](#plb-c096-converting-repeated) | converting-repeated | warning | INSPECT CONVERTING string with a character twice, mapped apart |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -2688,6 +2689,22 @@ procedure, `GO TO`, `CALL`, `EXEC`, `GOBACK`, `STOP`, or `EXIT`
 between them, which may read, ends the search, as does an operation
 before it in another list; a `REWRITE` in the `NOT AT END` of its
 `READ` follows it.
+
+## PLB-C096 converting-repeated
+
+An `INSPECT ... CONVERTING` whose first string has a character twice,
+with different characters for it in the second:
+
+```cobol
+    INSPECT WS-TEXT CONVERTING "ABA" TO "XYZ"   *> reported
+```
+
+Only the first occurrence counts: with GnuCOBOL 3.2 each `A` becomes
+`X`, and the `Z` is never used. Usually a character of a translation
+table was typed twice and another left out (`"aeiouAEIOe"` for
+`"aeiouAEIOU"`). Read are both strings written as literals without a
+prefix; a character repeated with the same character for it changes
+nothing and is not reported.
 
 ## PLB-I001 pcb-dbd-unknown
 

@@ -304,6 +304,11 @@ The findings were checked by rule:
 - **PLB-C087 when-covered.** None in NIST or in GnuCOBOL's tests, which
   have one `WHEN` with a numeric range between them.
 
+- **PLB-C096 converting-repeated.** None in NIST or in GnuCOBOL's
+  tests. In a copy of NIST's `NC216A` whose `CONVERTING "AU" TO "23"`
+  is made `CONVERTING "AUA" TO "234"`, it reports that `A` becomes `2`
+  and the `4` is never used.
+
 - **PLB-C095 rewrite-without-read.** None in NIST or in GnuCOBOL's
   tests. In a copy of NIST's `SQ115A` with its `REWRITE
   SQ-FS5R1-F-G-126.` written twice, it reports the second. A first
