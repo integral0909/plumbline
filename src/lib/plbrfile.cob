@@ -500,8 +500,9 @@ CHECK-OPENED.
                 MOVE "N" TO LS-OK
             END-IF
         WHEN "WRITE"
+            *> A sequential file opened I-O takes REWRITE, not WRITE.
             IF FL-OUTPUT(LS-F) = "N" AND FL-EXTEND(LS-F) = "N"
-               AND FL-I-O(LS-F) = "N"
+               AND (FL-I-O(LS-F) = "N" OR FL-ORGANIZATION(LS-F) = "S")
                 MOVE "N" TO LS-OK
             END-IF
         WHEN "REWRITE" WHEN "DELETE"
@@ -511,12 +512,18 @@ CHECK-OPENED.
     END-EVALUATE
     IF LS-OK = "N"
         MOVE SPACES TO LS-MESSAGE
+        MOVE 1 TO LS-PTR
         STRING OP-VERB(LS-I) DELIMITED BY SPACE
                " of " DELIMITED BY SIZE
                FL-NAME(LS-F) DELIMITED BY SPACE
                ", which the program opens only " DELIMITED BY SIZE
                LS-MODES DELIMITED BY "  "
-            INTO LS-MESSAGE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+        IF OP-VERB(LS-I) = "WRITE" AND FL-I-O(LS-F) = "Y"
+            STRING ": a sequential file opened I-O takes REWRITE, not "
+                   "WRITE (file status 48)" DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+        END-IF
         CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
             PLB-RULES PLB-FINDINGS LS-RULE-MODE OP-TOKEN(LS-I) LS-MESSAGE
     END-IF.

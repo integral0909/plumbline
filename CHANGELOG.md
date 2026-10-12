@@ -486,6 +486,10 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- PLB-C022 open-mode-mismatch reports `WRITE` of a sequential file the
+  program opens only `I-O` (and `INPUT`), which fails with file status
+  48; it took `I-O` to allow `WRITE` for every organization.
+
 - PLB-Q005 into-count-mismatch counts INTO lists with a `VARCHAR` host
   variable (a group of level-49 items), which it took for a host
   structure and did not count.

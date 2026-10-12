@@ -1,0 +1,7 @@
+tests/golden/rules/c022-sequential-io.cob:24:14: warning: the FILE STATUS of SEQ-FILE (WS-FS) is not tested after this OPEN [PLB-C020]
+tests/golden/rules/c022-sequential-io.cob:24:23: warning: the FILE STATUS of IDX-FILE (WS-FS) is not tested after this OPEN [PLB-C020]
+tests/golden/rules/c022-sequential-io.cob:25:10: warning: the FILE STATUS of SEQ-FILE (WS-FS) is not tested after this READ [PLB-C020]
+tests/golden/rules/c022-sequential-io.cob:26:13: warning: the FILE STATUS of SEQ-FILE (WS-FS) is not tested after this REWRITE [PLB-C020]
+tests/golden/rules/c022-sequential-io.cob:27:11: warning: the FILE STATUS of SEQ-FILE (WS-FS) is not tested after this WRITE [PLB-C020]
+tests/golden/rules/c022-sequential-io.cob:27:11: error: WRITE of SEQ-FILE, which the program opens only I-O: a sequential file opened I-O takes REWRITE, not WRITE (file status 48) [PLB-C022]
+tests/golden/rules/c022-sequential-io.cob:28:11: warning: the FILE STATUS of IDX-FILE (WS-FS) is not tested after this WRITE [PLB-C020]
