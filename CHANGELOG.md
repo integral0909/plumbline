@@ -251,6 +251,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-Q017 fetch-after-close.
 - Rule PLB-K009 browse-not-active.
 - Rules PLB-C098 group-value-into-packed and PLB-C099 value-overridden.
+- The JCL reader keeps the `BLKSIZE` of each DD (as a keyword or in
+  `DCB=( )`), and `plumbline dump jcl` shows it.
 - Rule PLB-C085 zeros-into-packed; it and spaces-into-numeric leave a
   `FILE STATUS` group alone.
 - The HTML report shows the fix of each finding that has one: its title,

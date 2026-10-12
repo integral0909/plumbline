@@ -13,3 +13,6 @@ tests/golden/jcl/statements.jcl:21:   step BACKUP proc PAYBKUP
 tests/golden/jcl/statements.jcl:22:     dd COPY.INPUT dsn PROD.PAYROLL.EXTRACT(0) disp SHR
 tests/golden/jcl/statements.jcl:25: job NEXTJOB
 tests/golden/jcl/statements.jcl:26:   step STEP1 proc INSTRM
+tests/golden/jcl/statements.jcl:27:   step STEP2 pgm IEBGENER
+tests/golden/jcl/statements.jcl:28:     dd SYSUT2 dsn PROD.COPY disp NEW recfm FB lrecl 80 blksize 27920
+tests/golden/jcl/statements.jcl:30:     dd SYSUT1 dsn PROD.INPUT disp SHR lrecl 133
