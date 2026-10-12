@@ -10,9 +10,12 @@
 *> PERFORM tests its UNTIL condition before each pass (unless WITH TEST
 *> AFTER), so the loop runs no times; usually the value moved, or the
 *> one tested, is the wrong one. Read are the MOVE statements of a
-*> literal and the SET ... TO TRUE or FALSE statements right before the
-*> PERFORM, back to the first other statement (across the ends of
-*> sentences, within the paragraph), and conditions of relations
+*> literal and the SET ... TO TRUE or FALSE statements before the
+*> PERFORM, across statements whose references show all they change
+*> (DISPLAY, arithmetic, MOVE of an item, STRING, INSPECT, ...; what
+*> they store into is no longer known), back to the first other
+*> statement (across the ends of sentences, within the paragraph), and
+*> conditions of relations
 *> item [IS] [NOT] op literal and condition names, joined all by AND or
 *> all by OR, without parentheses. A condition is true when each of
 *> the relations ANDed is, or one of those ORed. Items are named without
@@ -216,6 +219,12 @@ READ-BEFORE.
                 PERFORM READ-MOVE
             WHEN "SET"
                 PERFORM READ-SET
+            *> Statements whose references show all they change.
+            WHEN "ADD" WHEN "SUBTRACT" WHEN "MULTIPLY" WHEN "DIVIDE"
+            WHEN "COMPUTE" WHEN "INITIALIZE" WHEN "STRING"
+            WHEN "UNSTRING" WHEN "INSPECT" WHEN "DISPLAY"
+            WHEN "CONTINUE"
+                PERFORM READ-STORES
             WHEN OTHER
                 MOVE "Y" TO LS-GIVE-UP
         END-EVALUATE
@@ -273,7 +282,7 @@ READ-MOVE.
     COMPUTE LS-SOURCE = ND-TOK-FIRST(LS-NODE) + 1
     PERFORM READ-LITERAL-AT-SOURCE
     IF LS-KIND = SPACE
-        MOVE "Y" TO LS-GIVE-UP
+        PERFORM READ-STORES
         EXIT PARAGRAPH
     END-IF
     MOVE "L" TO LS-HOW
@@ -289,11 +298,42 @@ READ-SET.
         WHEN "FALSE"
             MOVE "F" TO LS-HOW
         WHEN OTHER
-            MOVE "Y" TO LS-GIVE-UP
+            PERFORM READ-STORES
             EXIT PARAGRAPH
     END-EVALUATE
     MOVE 0 TO LS-SOURCE
     PERFORM READ-RECEIVERS.
+
+*> Statement LS-NODE, which sets no value the rule knows: what it
+*> stores into is stored, so earlier values there are not known. One
+*> with statements under it (ON SIZE ERROR), or that stores into
+*> something not a data item, ends the walk.
+READ-STORES.
+    MOVE ND-FIRST(LS-NODE) TO LS-CHILD
+    PERFORM UNTIL LS-CHILD = 0
+        IF ND-KIND(LS-CHILD) = "BLCK"
+            MOVE "Y" TO LS-GIVE-UP
+            EXIT PARAGRAPH
+        END-IF
+        MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+    END-PERFORM
+    PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
+        IF RF-STMT(LS-R) = LS-NODE
+           AND (RF-ROLE(LS-R) = "D" OR RF-ROLE(LS-R) = "B"
+                OR RF-ROLE(LS-R) = "X")
+            IF RF-KIND(LS-R) NOT = "D" OR RF-SYMBOL(LS-R) = 0
+               OR LS-STORED-COUNT >= KNOWN-MAX
+                MOVE "Y" TO LS-GIVE-UP
+                EXIT PARAGRAPH
+            END-IF
+            MOVE RF-SYMBOL(LS-R) TO LS-K
+            IF SY-CATEGORY(LS-K) = "C" AND SY-PARENT(LS-K) > 0
+                MOVE SY-PARENT(LS-K) TO LS-K
+            END-IF
+            ADD 1 TO LS-STORED-COUNT
+            MOVE LS-K TO LS-STORED(LS-STORED-COUNT)
+        END-IF
+    END-PERFORM.
 
 *> The references of statement LS-NODE that it stores into: each must
 *> be a data item without subscripts or reference modification (for
