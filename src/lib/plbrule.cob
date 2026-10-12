@@ -588,6 +588,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J016"
         "utility-dd-missing" "E"
         "Step runs IEBGENER, IDCAMS, or IKJEFT01 without a DD it needs"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J017"
+        "blksize-invalid" "E"
+        "DD BLKSIZE does not fit its RECFM and LRECL"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
