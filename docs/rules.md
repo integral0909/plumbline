@@ -1579,6 +1579,24 @@ An `IF` belongs to the chain when it is the first statement of the
 values and is not compared. Conditions are compared as text, as in
 PLB-C032, and those that call a `FUNCTION` are left out.
 
+A test that is one relation of a numeric item with a number (`=`, `>`,
+`<`, `>=`, `<=`, their words, and `NOT` of all but `=`) is also read as
+the values it accepts. A later `IF` on the same item, written the same
+way with the same subscripts, whose values all lie among those of an
+earlier one is reported too:
+
+```cobol
+    IF WS-AMOUNT > 10
+        DISPLAY "OVER 10"
+    ELSE IF WS-AMOUNT > 20                  *> reported
+        DISPLAY "NEVER"
+```
+
+A test is compared with each earlier one alone: in `IF A > 5 ... ELSE
+IF A < 8 ... ELSE IF A >= 3` the first two tests between them take
+every value, but neither holds all of the third's, and it is not
+reported. Items with reference modification are not compared.
+
 ## PLB-C052 string-overlap
 
 A `STRING` or `UNSTRING` whose receiving item shares storage with an
