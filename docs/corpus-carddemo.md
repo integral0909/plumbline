@@ -420,6 +420,10 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J019 parm-too-long.** None: its longest `PARM` passes 36
+  characters (`DFHCSDUP` in `CBADMCDJ`). In a copy of `INTCALC` whose
+  `PARM='2022071800'` is made 101 characters, continued over three
+  lines, it reports that step.
 - **PLB-J018 gdg-generation-not-created.** None: its jobs read `(0)` and
   create `(+1)`. In a copy of `DEFGDGD` whose `TRANTYPE.BKUP(+1)` DD is
   made `DISP=SHR`, it reports that DD.
