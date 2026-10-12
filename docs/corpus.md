@@ -315,6 +315,8 @@ The findings were checked by rule:
 - **PLB-C101 string-numeric-sender.** None in NIST or in GnuCOBOL's
   tests.
 
+- **PLB-C103 chain-exhausted.** None in NIST or in GnuCOBOL's tests.
+
 - **PLB-C102 nested-if-decided.** Two in NIST, both real: in `SQ109M`
   and `SQ110M` the statements of `IF XRECORD-NUMBER (1) EQUAL TO 325`
   (196 in `SQ110M`) are commented out and no period follows, so the

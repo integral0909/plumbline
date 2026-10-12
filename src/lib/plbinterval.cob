@@ -18,6 +18,11 @@
 *> PLB-RANGE-COMPLEMENT USING RANGE OTHER sets OTHER to the values not
 *> in RANGE, when they are one range: RANGE has one end, not two
 *> (OTHER's OK is "N" for = and for a range not read).
+*>
+*> PLB-RANGE-REMOVE USING LEFT STATE RANGE takes the values of RANGE
+*> out of what is left, LEFT, as long as that stays one range. STATE
+*> is A (every value: LEFT is not set), R (LEFT), E (no value), or U
+*> (more than one range: no longer followed).
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-COND-RANGE.
@@ -316,3 +321,90 @@ PROCEDURE DIVISION USING LK-RANGE LK-OTHER.
     END-EVALUATE
     GOBACK.
 END PROGRAM PLB-RANGE-COMPLEMENT.
+
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RANGE-REMOVE.
+DATA DIVISION.
+LOCAL-STORAGE SECTION.
+01  LS-RESULT               PIC X.
+01  LS-COVERS-LOW           PIC X.
+01  LS-COVERS-HIGH          PIC X.
+LINKAGE SECTION.
+01  LK-LEFT.
+COPY "plbrange.cpy" REPLACING LEADING ==RG-== BY ==LE-==.
+01  LK-STATE                PIC X.
+01  LK-RANGE.
+COPY "plbrange.cpy" REPLACING LEADING ==RG-== BY ==RM-==.
+PROCEDURE DIVISION USING LK-LEFT LK-STATE LK-RANGE.
+    EVALUATE LK-STATE
+        WHEN "A"
+            CALL "PLB-RANGE-COMPLEMENT" USING LK-RANGE LK-LEFT
+            IF LE-OK = "Y"
+                MOVE "R" TO LK-STATE
+            ELSE
+                MOVE "U" TO LK-STATE
+            END-IF
+        WHEN "R"
+            PERFORM REMOVE-FROM-RANGE
+    END-EVALUATE
+    GOBACK.
+
+REMOVE-FROM-RANGE.
+    CALL "PLB-RANGE-CONTAINS" USING LK-RANGE LK-LEFT LS-RESULT
+    IF LS-RESULT = "Y"
+        MOVE "E" TO LK-STATE
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-RANGE-MEETS" USING LK-RANGE LK-LEFT LS-RESULT
+    IF LS-RESULT = "N"
+        EXIT PARAGRAPH
+    END-IF
+    *> Whether the range takes the low end of what is left, or the
+    *> high end.
+    MOVE "N" TO LS-COVERS-LOW LS-COVERS-HIGH
+    EVALUATE TRUE
+        WHEN RM-NO-LOW = "Y"
+            MOVE "Y" TO LS-COVERS-LOW
+        WHEN LE-NO-LOW = "Y"
+            CONTINUE
+        WHEN RM-LOW < LE-LOW
+            MOVE "Y" TO LS-COVERS-LOW
+        WHEN RM-LOW = LE-LOW
+             AND (RM-OPEN-LOW = "N" OR LE-OPEN-LOW = "Y")
+            MOVE "Y" TO LS-COVERS-LOW
+    END-EVALUATE
+    EVALUATE TRUE
+        WHEN RM-NO-HIGH = "Y"
+            MOVE "Y" TO LS-COVERS-HIGH
+        WHEN LE-NO-HIGH = "Y"
+            CONTINUE
+        WHEN RM-HIGH > LE-HIGH
+            MOVE "Y" TO LS-COVERS-HIGH
+        WHEN RM-HIGH = LE-HIGH
+             AND (RM-OPEN-HIGH = "N" OR LE-OPEN-HIGH = "Y")
+            MOVE "Y" TO LS-COVERS-HIGH
+    END-EVALUATE
+    EVALUATE TRUE
+        *> What is left starts where the range ends.
+        WHEN LS-COVERS-LOW = "Y"
+            MOVE RM-HIGH TO LE-LOW
+            MOVE "N" TO LE-NO-LOW
+            IF RM-OPEN-HIGH = "Y"
+                MOVE "N" TO LE-OPEN-LOW
+            ELSE
+                MOVE "Y" TO LE-OPEN-LOW
+            END-IF
+        *> What is left ends where the range starts.
+        WHEN LS-COVERS-HIGH = "Y"
+            MOVE RM-LOW TO LE-HIGH
+            MOVE "N" TO LE-NO-HIGH
+            IF RM-OPEN-LOW = "Y"
+                MOVE "N" TO LE-OPEN-HIGH
+            ELSE
+                MOVE "Y" TO LE-OPEN-HIGH
+            END-IF
+        *> A range inside leaves two pieces.
+        WHEN OTHER
+            MOVE "U" TO LK-STATE
+    END-EVALUATE.
+END PROGRAM PLB-RANGE-REMOVE.

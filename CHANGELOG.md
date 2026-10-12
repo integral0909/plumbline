@@ -255,6 +255,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C100 table-keys-unsorted.
 - Rule PLB-C101 string-numeric-sender.
 - Rule PLB-C102 nested-if-decided.
+- Rule PLB-C103 chain-exhausted.
 - Rule PLB-J018 gdg-generation-not-created.
 - Rule PLB-J019 parm-too-long; the JCL reader counts the characters of
   each `PARM`, and `plumbline dump jcl` shows them.
