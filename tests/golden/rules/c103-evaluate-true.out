@@ -1,0 +1,3 @@
+tests/golden/rules/c103-evaluate-true.cob:16:14: warning: no value reaches this WHEN: the WHEN phrases before it take every value of WS-AMOUNT [PLB-C103]
+tests/golden/rules/c103-evaluate-true.cob:27:9: warning: this WHEN OTHER never runs: the WHEN phrases take every value of WS-AMOUNT [PLB-C103]
+tests/golden/rules/c103-evaluate-true.cob:49:14: warning: this WHEN never matches: the WHEN WS-AMOUNT >= 0 on line 47 takes all its values first [PLB-C087]

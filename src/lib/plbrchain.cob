@@ -20,6 +20,11 @@
 *> last ELSE is. An IF is a link of the chain when it is the first
 *> statement of the ELSE of the one before, so nothing runs between
 *> the tests.
+*>
+*> The WHEN phrases of an EVALUATE TRUE are read the same way, in
+*> order: a WHEN, or the WHEN OTHER, reached with nothing left is
+*> reported, unless one earlier WHEN alone holds all its values, which
+*> is PLB-C087's.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-C103.
@@ -34,6 +39,12 @@ LOCAL-STORAGE SECTION.
 01  LS-ELSE                 PIC 9(9) COMP-5.
 01  LS-I                    PIC 9(9) COMP-5.
 01  LS-TOKEN                PIC 9(9) COMP-5.
+01  LS-TEXT                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+*> TAKE-TEST: Y when the walk ends there.
+01  LS-STOP                 PIC X.
+*> What is reported: I an IF, L an ELSE, W a WHEN, O a WHEN OTHER.
+01  LS-KIND                 PIC X.
 01  LS-RESULT               PIC X.
 01  LS-STATE                PIC X.
 01  LS-SUBJECT              PIC X(64).
@@ -67,6 +78,10 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         IF ND-KIND(LS-NODE) = "STMT" AND ND-DETAIL(LS-NODE) = "IF"
             PERFORM CHECK-CHAIN
         END-IF
+        IF ND-KIND(LS-NODE) = "STMT"
+           AND ND-DETAIL(LS-NODE) = "EVALUATE"
+            PERFORM CHECK-EVALUATE
+        END-IF
     END-PERFORM
     GOBACK.
 
@@ -92,26 +107,10 @@ CHECK-CHAIN.
         IF ND-KIND(LS-COND) NOT = "COND"
             EXIT PARAGRAPH
         END-IF
-        CALL "PLB-COND-RANGE" USING PLB-TOKENS PLB-AST PLB-SYMBOLS
-            PLB-REFS LS-COND PLB-RANGE
-        IF LS-STATE = "E"
-            PERFORM REPORT-IF
+        MOVE "I" TO LS-KIND
+        PERFORM TAKE-TEST
+        IF LS-STOP = "Y"
             EXIT PARAGRAPH
-        END-IF
-        IF RG-OK = "Y"
-            IF LS-SUBJECT = SPACES
-                MOVE RG-SUBJECT TO LS-SUBJECT
-            END-IF
-            IF RG-SUBJECT = LS-SUBJECT
-                CALL "PLB-RANGE-REMOVE" USING LS-LEFT LS-STATE PLB-RANGE
-                IF LS-STATE = "U"
-                    EXIT PARAGRAPH
-                END-IF
-                IF LS-SEEN-COUNT < 50
-                    ADD 1 TO LS-SEEN-COUNT
-                    MOVE PLB-RANGE TO LS-SEEN(LS-SEEN-COUNT)
-                END-IF
-            END-IF
         END-IF
         *> The next link: the first statement of this IF's ELSE.
         MOVE 0 TO LS-ELSE
@@ -131,14 +130,89 @@ CHECK-CHAIN.
                 END-IF
             END-IF
             IF LS-IF = 0 AND LS-STATE = "E"
-                PERFORM REPORT-ELSE
+                MOVE "L" TO LS-KIND
+                MOVE ND-TOK-FIRST(LS-ELSE) TO LS-TOKEN
+                PERFORM REPORT-LAST
             END-IF
         END-IF
     END-PERFORM.
 
-*> IF LS-COND, reached with no value left, unless one test before it
-*> alone holds all its values (PLB-C051).
-REPORT-IF.
+*> EVALUATE TRUE LS-NODE: its WHEN phrases, in order.
+CHECK-EVALUATE.
+    MOVE ND-FIRST(LS-NODE) TO LS-C
+    IF LS-C = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF ND-KIND(LS-C) NOT = "COND" OR ND-DETAIL(LS-C) NOT = "SUBJECT"
+       OR ND-TOK-FIRST(LS-C) NOT = ND-TOK-LAST(LS-C)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS ND-TOK-FIRST(LS-C) LS-TEXT
+        LS-LEN
+    IF FUNCTION UPPER-CASE(LS-TEXT) NOT = "TRUE"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "A" TO LS-STATE
+    MOVE SPACES TO LS-SUBJECT
+    MOVE 0 TO LS-SEEN-COUNT
+    MOVE ND-NEXT(LS-C) TO LS-C
+    PERFORM UNTIL LS-C = 0
+        EVALUATE TRUE
+            WHEN ND-KIND(LS-C) = "BLCK" AND ND-DETAIL(LS-C) = "WHEN"
+                MOVE ND-FIRST(LS-C) TO LS-COND
+                IF LS-COND = 0
+                    EXIT PARAGRAPH
+                END-IF
+                IF ND-KIND(LS-COND) NOT = "COND"
+                    EXIT PARAGRAPH
+                END-IF
+                MOVE "W" TO LS-KIND
+                PERFORM TAKE-TEST
+                IF LS-STOP = "Y"
+                    EXIT PARAGRAPH
+                END-IF
+            WHEN ND-KIND(LS-C) = "BLCK"
+                 AND ND-DETAIL(LS-C) = "WHEN-OTHER"
+                IF LS-STATE = "E"
+                    MOVE "O" TO LS-KIND
+                    MOVE ND-TOK-FIRST(LS-C) TO LS-TOKEN
+                    PERFORM REPORT-LAST
+                END-IF
+        END-EVALUATE
+        MOVE ND-NEXT(LS-C) TO LS-C
+    END-PERFORM.
+
+*> The test LS-COND: reported when nothing is left to reach it, else
+*> its values taken out of what is left. LS-STOP = "Y" ends the walk.
+TAKE-TEST.
+    MOVE "N" TO LS-STOP
+    CALL "PLB-COND-RANGE" USING PLB-TOKENS PLB-AST PLB-SYMBOLS
+        PLB-REFS LS-COND PLB-RANGE
+    IF LS-STATE = "E"
+        PERFORM REPORT-TEST
+        MOVE "Y" TO LS-STOP
+        EXIT PARAGRAPH
+    END-IF
+    IF RG-OK = "Y"
+        IF LS-SUBJECT = SPACES
+            MOVE RG-SUBJECT TO LS-SUBJECT
+        END-IF
+        IF RG-SUBJECT = LS-SUBJECT
+            CALL "PLB-RANGE-REMOVE" USING LS-LEFT LS-STATE PLB-RANGE
+            IF LS-STATE = "U"
+                MOVE "Y" TO LS-STOP
+                EXIT PARAGRAPH
+            END-IF
+            IF LS-SEEN-COUNT < 50
+                ADD 1 TO LS-SEEN-COUNT
+                MOVE PLB-RANGE TO LS-SEEN(LS-SEEN-COUNT)
+            END-IF
+        END-IF
+    END-IF.
+
+*> The IF or WHEN LS-COND, reached with no value left, unless one
+*> test before it alone holds all its values (PLB-C051, PLB-C087).
+REPORT-TEST.
     IF RG-OK = "Y" AND RG-SUBJECT = LS-SUBJECT
         PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > LS-SEEN-COUNT
             CALL "PLB-RANGE-CONTAINS" USING LS-SEEN(LS-I) PLB-RANGE
@@ -149,21 +223,35 @@ REPORT-IF.
         END-PERFORM
     END-IF
     MOVE SPACES TO LS-MESSAGE
-    STRING "no value reaches this IF: the tests before it in the chain"
-           " take every value of " DELIMITED BY SIZE
-           LS-SUBJECT DELIMITED BY SPACE
-        INTO LS-MESSAGE
+    IF LS-KIND = "I"
+        STRING "no value reaches this IF: the tests before it in the"
+               " chain take every value of " DELIMITED BY SIZE
+               LS-SUBJECT DELIMITED BY SPACE
+            INTO LS-MESSAGE
+    ELSE
+        STRING "no value reaches this WHEN: the WHEN phrases before it"
+               " take every value of " DELIMITED BY SIZE
+               LS-SUBJECT DELIMITED BY SPACE
+            INTO LS-MESSAGE
+    END-IF
     MOVE ND-TOK-FIRST(LS-COND) TO LS-TOKEN
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-TOKEN LS-MESSAGE.
 
-REPORT-ELSE.
+*> The last ELSE, or the WHEN OTHER, at LS-TOKEN.
+REPORT-LAST.
     MOVE SPACES TO LS-MESSAGE
-    STRING "this ELSE never runs: the tests of the chain take every"
-           " value of " DELIMITED BY SIZE
-           LS-SUBJECT DELIMITED BY SPACE
-        INTO LS-MESSAGE
-    MOVE ND-TOK-FIRST(LS-ELSE) TO LS-TOKEN
+    IF LS-KIND = "L"
+        STRING "this ELSE never runs: the tests of the chain take every"
+               " value of " DELIMITED BY SIZE
+               LS-SUBJECT DELIMITED BY SPACE
+            INTO LS-MESSAGE
+    ELSE
+        STRING "this WHEN OTHER never runs: the WHEN phrases take every"
+               " value of " DELIMITED BY SIZE
+               LS-SUBJECT DELIMITED BY SPACE
+            INTO LS-MESSAGE
+    END-IF
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-TOKEN LS-MESSAGE.
 END PROGRAM PLB-RULE-C103.

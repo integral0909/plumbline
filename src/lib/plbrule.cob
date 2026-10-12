@@ -449,7 +449,7 @@ PROCEDURE DIVISION USING PLB-RULES.
         "IF first in a THEN branch or PERFORM body whose test is already decided"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C103"
         "chain-exhausted" "W"
-        "IF or ELSE of an ELSE IF chain that no value reaches"
+        "IF, ELSE, WHEN, or WHEN OTHER that the tests before it leave no value for"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C070"
         "mq-completion-not-checked" "W"
         "Completion code of an MQ call is not tested"

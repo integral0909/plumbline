@@ -114,7 +114,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C100](#plb-c100-table-keys-unsorted) | table-keys-unsorted | warning | SEARCH ALL table whose VALUE keys are out of their KEY order |
 | [PLB-C101](#plb-c101-string-numeric-sender) | string-numeric-sender | warning | STRING sends a number with decimal places or a sign as stored |
 | [PLB-C102](#plb-c102-nested-if-decided) | nested-if-decided | warning | IF first in a THEN branch or PERFORM body whose test is already decided |
-| [PLB-C103](#plb-c103-chain-exhausted) | chain-exhausted | warning | IF or ELSE of an ELSE IF chain that no value reaches |
+| [PLB-C103](#plb-c103-chain-exhausted) | chain-exhausted | warning | IF, ELSE, WHEN, or WHEN OTHER that the tests before it leave no value for |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -3010,6 +3010,19 @@ is left is followed while it is one range: `IF A = 50` leaves the
 values on both sides of 50, and the chain is not followed further. An
 `IF` that one earlier test alone covers is PLB-C051's, and only the
 first `IF` or `ELSE` that nothing reaches is reported.
+
+The `WHEN` phrases of an `EVALUATE TRUE` are read the same way, in
+order; a `WHEN` that one earlier `WHEN` covers is
+[PLB-C087](#plb-c087-when-covered)'s:
+
+```cobol
+    EVALUATE TRUE
+        WHEN WS-AMOUNT >= 0
+            ...
+        WHEN WS-AMOUNT < 0
+            ...
+        WHEN OTHER                          *> reported
+```
 
 ## PLB-I001 pcb-dbd-unknown
 

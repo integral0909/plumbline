@@ -366,7 +366,9 @@ Some findings that were read and are true:
   that item.
 - **PLB-C103 chain-exhausted.** None. In a copy of `COCRDSLC` whose
   `IF CDEMO-ACCT-ID = 0` is made `NOT > 0`, with `IF CDEMO-ACCT-ID > 0
-  ... ELSE ...` in its `ELSE`, that last `ELSE` is reported.
+  ... ELSE ...` in its `ELSE`, that last `ELSE` is reported. In a copy
+  of `COCRDLIC` whose `WHEN CDEMO-ACCT-ID = 0` is made `<= 0`, with a
+  `WHEN CDEMO-ACCT-ID > 0` after it, its `WHEN OTHER` is.
 - **PLB-C102 nested-if-decided.** None. In a copy of `COCRDSLC` whose
   `IF CDEMO-ACCT-ID = 0` branch is made to start with `IF
   CDEMO-ACCT-ID > 0`, the inner test is reported as never true. In a
