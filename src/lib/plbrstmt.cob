@@ -35,6 +35,12 @@ LOCAL-STORAGE SECTION.
 01  LS-COND-TEXT            PIC X(200).
 01  LS-COND-PTR             PIC 9(9) COMP-5.
 01  LS-COND-NODE            PIC 9(9) COMP-5.
+*> The IF conditions of one chain read as ranges (PLB-C051).
+01  LS-IF-RANGE             OCCURS 200 TIMES.
+COPY "plbrange.cpy" REPLACING LEADING ==RG-== BY ==IR-==.
+01  PLB-RANGE.
+COPY "plbrange.cpy".
+01  LS-CONTAINS             PIC X.
 01  LS-W                    PIC 9(4) COMP-5.
 01  LS-SOURCE               PIC X(31).
 01  LS-NUM                  PIC S9(18) COMP-5.
@@ -61,10 +67,12 @@ COPY "plbtokc.cpy".
 COPY "plbtok.cpy".
 COPY "plbastc.cpy".
 COPY "plbast.cpy".
+COPY "plbsym.cpy".
+COPY "plbref.cpy".
 COPY "plbrules.cpy".
 COPY "plbfind.cpy".
-PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-RULES
-        PLB-FINDINGS.
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
+        PLB-REFS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C004"
         LS-RULE-NEXT-SENTENCE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M001" LS-RULE-GO-TO
@@ -371,6 +379,12 @@ COMPARE-WHEN.
 *> one before. Conditions are compared as text, as in PLB-C032; one
 *> that calls a FUNCTION may give another answer the second time and
 *> is left out. The walk starts at the head of each chain.
+*>
+*> A condition that is one relation of a numeric item with a number is
+*> also read as a range (PLB-COND-RANGE), and an IF whose range lies
+*> inside that of an earlier IF on the same item is reported too:
+*>     IF A > 10 ... ELSE IF A > 20 ...
+*> Every value that passes the later test passed the earlier one.
 CHECK-DUPLICATE-IF.
     IF RL-ENABLED(LS-RULE-DUPLICATE-IF) NOT = "Y"
         EXIT PARAGRAPH
@@ -429,9 +443,21 @@ CHECK-FUNCTION.
         END-IF
     END-PERFORM.
 
-*> Report LS-COND-TEXT when an earlier IF of the chain has it; keep it.
+*> Report LS-COND-TEXT when an earlier IF of the chain has it, or
+*> holds every value of its range; keep it.
 COMPARE-IF.
+    CALL "PLB-COND-RANGE" USING PLB-TOKENS PLB-AST PLB-SYMBOLS PLB-REFS
+        LS-COND-NODE PLB-RANGE
     PERFORM VARYING LS-W FROM 1 BY 1 UNTIL LS-W > LS-WHEN-COUNT
+        IF LS-WHEN-TEXT(LS-W) NOT = LS-COND-TEXT AND RG-OK = "Y"
+           AND IR-OK(LS-W) = "Y" AND IR-SUBJECT(LS-W) = RG-SUBJECT
+            CALL "PLB-RANGE-CONTAINS" USING LS-IF-RANGE(LS-W)
+                PLB-RANGE LS-CONTAINS
+            IF LS-CONTAINS = "Y"
+                PERFORM REPORT-IF-RANGE
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
         IF LS-WHEN-TEXT(LS-W) = LS-COND-TEXT
             MOVE LS-WHEN-LINE(LS-W) TO LS-NUM
             CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
@@ -452,6 +478,7 @@ COMPARE-IF.
     IF LS-WHEN-COUNT < 200
         ADD 1 TO LS-WHEN-COUNT
         MOVE LS-COND-TEXT TO LS-WHEN-TEXT(LS-WHEN-COUNT)
+        MOVE PLB-RANGE TO LS-IF-RANGE(LS-WHEN-COUNT)
         MOVE ND-TOK-FIRST(LS-COND-NODE) TO LS-TOKEN
         MOVE 0 TO LS-WHEN-LINE(LS-WHEN-COUNT)
         IF TK-SRC-LINE(LS-TOKEN) > 0
@@ -459,6 +486,22 @@ COMPARE-IF.
                 TO LS-WHEN-LINE(LS-WHEN-COUNT)
         END-IF
     END-IF.
+
+*> The IF at LS-COND-NODE accepts only values the IF of the chain at
+*> LS-W already took.
+REPORT-IF-RANGE.
+    MOVE LS-WHEN-LINE(LS-W) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING "every value this IF accepts passes the IF on line "
+           DELIMITED BY SIZE
+           LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           ", whose ELSE it is in; its branch never runs"
+           DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    MOVE ND-TOK-FIRST(LS-COND-NODE) TO LS-TOKEN
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-DUPLICATE-IF LS-TOKEN LS-MESSAGE.
 
 *> PLB-C033: MOVE X TO ... X, with X a name on its own (no
 *> qualification, subscript, or reference modification) on both

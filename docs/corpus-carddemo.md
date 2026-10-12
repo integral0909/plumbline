@@ -219,7 +219,10 @@ Some findings that were read and are true:
   copy of NIST's `SQ103A` is reported.
 - **PLB-C051 duplicate-if-condition.** None, here or in the NIST and
   GnuCOBOL corpora. In a copy of NIST's `CM202M` whose third test is
-  made the same as its second, the third is reported.
+  made the same as its second, the third is reported. In a copy of
+  `COCRDSLC` whose `IF CDEMO-ACCT-ID = 0` is made `< 100` with
+  `IF CDEMO-ACCT-ID < 10` as the first statement of its `ELSE`, the
+  second test is reported.
 - **PLB-C052 string-overlap.** None, here or in the NIST and GnuCOBOL
   corpora. A copy of NIST's `NC217A` whose first `STRING` sends its
   receiver is reported.
