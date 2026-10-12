@@ -5,3 +5,6 @@ tests/golden/rules/c045-alnum-compared-to-number.cob:34:21: warning: AMOUNT-OUT 
 tests/golden/rules/c045-alnum-compared-to-number.cob:34:39: warning: AMOUNT-OUT is numeric-edited, and holds characters: it compares with 1234.5 as text, not as a number [PLB-C045]
 tests/golden/rules/c045-alnum-compared-to-number.cob:34:62: warning: AMOUNT-OUT is numeric-edited, and holds characters: it compares with ZERO as text, not as a number [PLB-C045]
 tests/golden/rules/c045-alnum-compared-to-number.cob:44:21: warning: PADDED-OUT is numeric-edited, and holds characters: it compares with 1234 as text, not as a number [PLB-C045]
+tests/golden/rules/c045-alnum-compared-to-number.cob:49:14: warning: TYPE-CODE is alphanumeric: 1 compares as the characters 1 followed by spaces, not as a number [PLB-C045]
+tests/golden/rules/c045-alnum-compared-to-number.cob:55:14: warning: AMOUNT-OUT is numeric-edited, and holds characters: it compares with 0 as text, not as a number [PLB-C045]
+tests/golden/rules/c045-alnum-compared-to-number.cob:57:14: warning: AMOUNT-OUT is numeric-edited, and holds characters: it compares with 1 as text, not as a number [PLB-C045]

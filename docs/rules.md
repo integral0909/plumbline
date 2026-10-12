@@ -1390,6 +1390,9 @@ item was edited from, or a literal written as it shows. A picture of
 as all its digits, so `ZERO`, or a literal with as many digits as the
 item has characters, compares as meant and is not reported.
 
+The same holds for the subject of an `EVALUATE` and the numbers, or
+ranges of numbers (`WHEN 1 THRU 99`), of its `WHEN` phrases.
+
 ## PLB-C046 overlapping-move
 
 A `MOVE` from one item to another that occupies some of the same

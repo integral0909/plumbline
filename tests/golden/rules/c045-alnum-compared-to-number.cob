@@ -44,4 +44,19 @@ PROCEDURE DIVISION.
     IF PADDED-OUT = 1234
         DISPLAY "SHORT"
     END-IF
+    *> The subject of an EVALUATE, with WHEN numbers and ranges.
+    EVALUATE TYPE-CODE
+        WHEN 1
+            DISPLAY "CODE ONE"
+        WHEN 12
+            DISPLAY "CODE TWELVE"
+    END-EVALUATE
+    EVALUATE AMOUNT-OUT
+        WHEN 0
+            DISPLAY "NOTHING"
+        WHEN 1 THRU 99
+            DISPLAY "SMALL"
+        WHEN "     0.00"
+            DISPLAY "SHOWN AS NOTHING"
+    END-EVALUATE
     STOP RUN.
