@@ -9,6 +9,9 @@
 *>
 *> PLB-RANGE-CONTAINS USING OUTER INNER RESULT sets RESULT to "Y" when
 *> range OUTER holds every value of range INNER.
+*>
+*> PLB-RANGE-MEETS USING FIRST SECOND RESULT sets RESULT to "Y" when
+*> some value is in both ranges.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-COND-RANGE.
@@ -210,3 +213,38 @@ PROCEDURE DIVISION USING LK-OUTER LK-INNER LK-RESULT.
     MOVE "Y" TO LK-RESULT
     GOBACK.
 END PROGRAM PLB-RANGE-CONTAINS.
+
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RANGE-MEETS.
+DATA DIVISION.
+LINKAGE SECTION.
+01  LK-FIRST.
+COPY "plbrange.cpy" REPLACING LEADING ==RG-== BY ==FI-==.
+01  LK-SECOND.
+COPY "plbrange.cpy" REPLACING LEADING ==RG-== BY ==SE-==.
+01  LK-RESULT               PIC X.
+PROCEDURE DIVISION USING LK-FIRST LK-SECOND LK-RESULT.
+    MOVE "N" TO LK-RESULT
+    *> The first ends below where the second starts.
+    IF FI-NO-HIGH = "N" AND SE-NO-LOW = "N"
+        IF FI-HIGH < SE-LOW
+            GOBACK
+        END-IF
+        IF FI-HIGH = SE-LOW
+           AND (FI-OPEN-HIGH = "Y" OR SE-OPEN-LOW = "Y")
+            GOBACK
+        END-IF
+    END-IF
+    *> The second ends below where the first starts.
+    IF SE-NO-HIGH = "N" AND FI-NO-LOW = "N"
+        IF SE-HIGH < FI-LOW
+            GOBACK
+        END-IF
+        IF SE-HIGH = FI-LOW
+           AND (SE-OPEN-HIGH = "Y" OR FI-OPEN-LOW = "Y")
+            GOBACK
+        END-IF
+    END-IF
+    MOVE "Y" TO LK-RESULT
+    GOBACK.
+END PROGRAM PLB-RANGE-MEETS.
