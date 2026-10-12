@@ -401,7 +401,7 @@ PROCEDURE DIVISION USING PLB-RULES.
         "ACCEPT of the date or time into a numeric item with too few digits"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C089"
         "loop-never-runs" "W"
-        "PERFORM UNTIL or VARYING whose condition is true when it starts"
+        "PERFORM UNTIL, VARYING, or TIMES loop that runs no times"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-C090"
         "condition-never-true" "W"
         "Condition name tested whose item is never given one of its values"
