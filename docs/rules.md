@@ -1986,9 +1986,13 @@ usual count of a table not filled yet, whatever its minimum. GnuCOBOL with run-t
 (`EC-BOUND-ODO`); without them, the program reads and writes storage
 that is not the table's. The rule checks the values written as numbers:
 a `MOVE` of a numeric literal to the count, a `COMPUTE` whose
-expression is one, and the count's `VALUE` clause. As for
-[PLB-C040](#plb-c040-odo-object-too-small), the count is the item of
-that name in the same program.
+expression is one, and the count's `VALUE` clause. The value is the
+one the count stores: a count without a sign keeps a negative number's
+absolute value (`MOVE -3` stores 3), and one stored as decimal digits
+loses the digits its picture has no room for (`MOVE 1005` to a `PIC
+999` stores 5), as GnuCOBOL 3.2 does; [PLB-C008](#plb-c008-move-truncation)
+reports such moves. As for [PLB-C040](#plb-c040-odo-object-too-small),
+the count is the item of that name in the same program.
 
 ## PLB-C069 search-index-used-unchecked
 
