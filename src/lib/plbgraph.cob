@@ -933,8 +933,8 @@ PROGRAM-IMPACT.
                 *> At the start, only calls of LS-P itself (an entry
                 *> point has callers of its own); later, of any entry
                 *> of the program reached.
-                IF LS-HEAD = 2 AND CC-TO(LS-C) = LS-P
-                   OR LS-HEAD > 2 AND CP-OWNER(CC-TO(LS-C)) = LS-Q
+                IF (LS-HEAD = 2 AND CC-TO(LS-C) = LS-P)
+                   OR (LS-HEAD > 2 AND CP-OWNER(CC-TO(LS-C)) = LS-Q)
                     MOVE CC-FROM(LS-C) TO LS-T
                     IF WS-PROG-SEEN(LS-T) = "N"
                         MOVE "Y" TO WS-PROG-SEEN(LS-T)

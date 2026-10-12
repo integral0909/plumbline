@@ -241,6 +241,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-Q015 insert-count-mismatch.
 - Rule PLB-C093 pointer-too-small.
 - Rule PLB-C094 open-after-lock.
+- Rule PLB-M022 mixed-and-or.
 - Rule PLB-C085 zeros-into-packed; it and spaces-into-numeric leave a
   `FILE STATUS` group alone.
 - The HTML report shows the fix of each finding that has one: its title,

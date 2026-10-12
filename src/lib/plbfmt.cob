@@ -113,8 +113,8 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET LK-FILE-ID LK-TARGET LK-CHECK
     *> is kept as it is, directives included.
     MOVE "N" TO LS-MIXED
     PERFORM VARYING LS-K FROM LS-L BY 1 UNTIL LS-K > LS-LAST
-        IF LK-TARGET = "free" AND SL-FORMAT(LS-K) NOT = "F"
-           OR LK-TARGET = "fixed" AND SL-FORMAT(LS-K) NOT = "X"
+        IF (LK-TARGET = "free" AND SL-FORMAT(LS-K) NOT = "F")
+           OR (LK-TARGET = "fixed" AND SL-FORMAT(LS-K) NOT = "X")
             MOVE "Y" TO LS-MIXED
             EXIT PERFORM
         END-IF
@@ -213,12 +213,12 @@ FORMAT-LINE.
     *> Lines already in the target format, and VARIABLE and xCard
     *> lines that are fixed lines too: no text past column 72, and not
     *> continued.
-    IF LK-TARGET = "free" AND SL-FORMAT(LS-L) = "F"
-       OR LK-TARGET = "fixed" AND SL-FORMAT(LS-L) = "X"
-       OR LK-TARGET = "fixed"
-          AND (SL-FORMAT(LS-L) = "V" OR SL-FORMAT(LS-L) = "K")
-          AND LS-RAW-LEN <= 72 AND NOT SL-IS-CONTINUATION(LS-L)
-          AND NOT (LS-L < LS-LAST AND SL-IS-CONTINUATION(LS-L + 1))
+    IF (LK-TARGET = "free" AND SL-FORMAT(LS-L) = "F")
+       OR (LK-TARGET = "fixed" AND SL-FORMAT(LS-L) = "X")
+       OR (LK-TARGET = "fixed"
+           AND (SL-FORMAT(LS-L) = "V" OR SL-FORMAT(LS-L) = "K")
+           AND LS-RAW-LEN <= 72 AND NOT SL-IS-CONTINUATION(LS-L)
+           AND NOT (LS-L < LS-LAST AND SL-IS-CONTINUATION(LS-L + 1)))
         MOVE SPACES TO LS-LINE
         IF LS-RAW-LEN > 0
             MOVE LS-RAW(1:LS-RAW-LEN) TO LS-LINE
