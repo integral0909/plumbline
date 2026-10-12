@@ -71,9 +71,10 @@
         *> "Y" for a DD without a name, which concatenates its data
         *> set to the DD before it; it has that DD's name.
         10  JD-CONCAT           PIC X.
-        *> LRECL and RECFM, given as keywords or in DCB=( ): 0 and
-        *> spaces when the DD gives none (or a symbol).
+        *> LRECL, BLKSIZE, and RECFM, given as keywords or in DCB=( ):
+        *> 0 and spaces when the DD gives none (or a symbol).
         10  JD-LRECL            PIC 9(9) COMP-5.
+        10  JD-BLKSIZE          PIC 9(9) COMP-5.
         10  JD-RECFM            PIC X(4).
         *> What is wrong with the name in DSN=, as z/OS forms data set
         *> names: space when nothing is (or the name is a temporary

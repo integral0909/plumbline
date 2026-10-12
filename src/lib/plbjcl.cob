@@ -511,7 +511,7 @@ ADD-DD.
     MOVE SPACES TO JD-QUALIFIER(LS-D) JD-NAME(LS-D) JD-DSN(LS-D)
         JD-DISP(LS-D) JD-NORMAL(LS-D)
     MOVE "N" TO JD-CONCAT(LS-D)
-    MOVE 0 TO JD-LRECL(LS-D) JD-DSN-AT(LS-D)
+    MOVE 0 TO JD-LRECL(LS-D) JD-BLKSIZE(LS-D) JD-DSN-AT(LS-D)
     MOVE SPACES TO JD-RECFM(LS-D) JD-DSN-PROBLEM(LS-D)
     MOVE 0 TO LS-DOT
     INSPECT ST-NAME TALLYING LS-DOT FOR CHARACTERS BEFORE "."
@@ -555,6 +555,7 @@ ADD-DD.
             WHEN OP-KEY = "DISP"
                 PERFORM READ-DISP
             WHEN OP-KEY = "LRECL" OR OP-KEY = "RECFM"
+                 OR OP-KEY = "BLKSIZE"
                 MOVE OP-KEY TO LS-DCB-KEY
                 MOVE OP-VALUE TO LS-DCB-VALUE
                 PERFORM DCB-PARAMETER
@@ -768,16 +769,22 @@ READ-DCB.
         PERFORM DCB-PARAMETER
     END-PERFORM.
 
-*> LRECL=n (a number) and RECFM=x, of the DD or of its DCB.
+*> LRECL=n and BLKSIZE=n (numbers) and RECFM=x, of the DD or of its
+*> DCB.
 DCB-PARAMETER.
     EVALUATE LS-DCB-KEY
-        WHEN "LRECL"
+        WHEN "LRECL" WHEN "BLKSIZE"
             MOVE FUNCTION TRIM(LS-DCB-VALUE) TO LS-DCB-VALUE
             CALL "PLB-STR-LENGTH" USING LS-DCB-VALUE LS-DCB-LEN
             IF LS-DCB-LEN > 0 AND LS-DCB-LEN < 10
                 IF LS-DCB-VALUE(1:LS-DCB-LEN) IS NUMERIC
-                    COMPUTE JD-LRECL(LS-D) =
-                        FUNCTION NUMVAL(LS-DCB-VALUE(1:LS-DCB-LEN))
+                    IF LS-DCB-KEY = "LRECL"
+                        COMPUTE JD-LRECL(LS-D) =
+                            FUNCTION NUMVAL(LS-DCB-VALUE(1:LS-DCB-LEN))
+                    ELSE
+                        COMPUTE JD-BLKSIZE(LS-D) =
+                            FUNCTION NUMVAL(LS-DCB-VALUE(1:LS-DCB-LEN))
+                    END-IF
                 END-IF
             END-IF
         WHEN "RECFM"
