@@ -1,0 +1,4 @@
+tests/golden/rules/k009-browse-not-active.cob:12:46: warning: WS-KEY is used before it is given a value [PLB-C012]
+tests/golden/rules/k009-browse-not-active.cob:13:45: note: WS-REC is given a value but never read [PLB-M005]
+tests/golden/rules/k009-browse-not-active.cob:16:5: error: the browse of ACCTDAT ended on line 15, with no STARTBR between: CICS rejects this READNEXT (INVREQ) [PLB-K009]
+tests/golden/rules/k009-browse-not-active.cob:20:5: error: the browse of CUSTDAT started on line 18 is still active, with no ENDBR between: CICS rejects this STARTBR (INVREQ) [PLB-K009]

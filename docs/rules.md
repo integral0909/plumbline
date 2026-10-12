@@ -138,6 +138,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-K006](#plb-k006-return-transid-without-commarea) | return-transid-without-commarea | warning | RETURN TRANSID passes no COMMAREA to a program that receives one |
 | [PLB-K007](#plb-k007-commarea-too-short) | commarea-too-short | warning | XCTL or LINK passes less COMMAREA than the program's DFHCOMMAREA |
 | [PLB-K008](#plb-k008-cics-name-too-long) | cics-name-too-long | error | EXEC CICS names a transaction, program, file, or map too long |
+| [PLB-K009](#plb-k009-browse-not-active) | browse-not-active | error | CICS browse command with no browse of the file active, or two |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -3318,6 +3319,31 @@ raises a condition (`INVREQ`, `PGMIDERR`, `FILENOTFOUND`, `MAPFAIL`)
 that abends the task unless the program handles it. Usually a name was
 typed with a character too many, or a test system's name was left in.
 Read are literals without a prefix; their trailing spaces do not count.
+
+## PLB-K009 browse-not-active
+
+A CICS browse command for a file whose browse is not active, or a
+second `STARTBR` while one is:
+
+```cobol
+    EXEC CICS ENDBR FILE('ACCTDAT') END-EXEC
+    EXEC CICS READNEXT FILE('ACCTDAT') INTO(WS-REC)
+        RIDFLD(WS-KEY) END-EXEC                    *> reported
+```
+
+After `ENDBR`, a `READNEXT`, `READPREV`, `RESETBR`, or `ENDBR` of the
+file before a `STARTBR` of it has no browse to act on; after
+`STARTBR`, another `STARTBR` of the file before its `ENDBR` starts one
+that is already active. CICS rejects the command with `INVREQ`, which
+abends the task unless the program handles it.
+
+The statements after the `ENDBR` or `STARTBR` are read in their list
+(for a statement directly in a sentence, on through the paragraph's
+later sentences). A `STARTBR` or `ENDBR` of the file ends the search,
+as do a `PERFORM` of a procedure, `GO TO`, `CALL`, `GOBACK`, `STOP`,
+`EXIT`, and a statement holding other CICS commands. Files are compared
+by what `FILE` or `DATASET` names, as written; commands with a
+`REQID`, which runs several browses of one file at once, are not read.
 
 ## PLB-M001 go-to
 
