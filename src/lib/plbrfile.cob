@@ -12,6 +12,7 @@
 *>   PLB-C075  io-after-close
 *>   PLB-C076  open-while-open
 *>   PLB-C094  open-after-lock
+*>   PLB-C095  rewrite-without-read
 *>
 *> Each program on its own: its files (SELECT), their records (FD),
 *> the declaratives that handle their errors (USE ... ERROR or
@@ -79,6 +80,7 @@ COPY "plbnlist.cpy".
 01  LS-RULE-AFTER-CLOSE     PIC 9(4) COMP-5.
 01  LS-RULE-OPEN-TWICE      PIC 9(4) COMP-5.
 01  LS-RULE-LOCKED          PIC 9(4) COMP-5.
+01  LS-RULE-NO-READ         PIC 9(4) COMP-5.
 *> PLB-C075 and PLB-C076: the list the CLOSE or OPEN is in, the first
 *> operation on its file after it, and the statements between them.
 01  LS-AC-SCOPE             PIC 9(9) COMP-5.
@@ -138,6 +140,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C075" LS-RULE-AFTER-CLOSE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C076" LS-RULE-OPEN-TWICE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C094" LS-RULE-LOCKED
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C095" LS-RULE-NO-READ
     IF AS-COUNT = 0
         GOBACK
     END-IF
@@ -457,6 +460,11 @@ REPORT-FINDINGS.
                AND RL-ENABLED(LS-RULE-LOCKED) = "Y"
                 PERFORM CHECK-LOCKED
             END-IF
+            IF (OP-VERB(LS-I) = "REWRITE" OR OP-VERB(LS-I) = "DELETE")
+               AND FL-ACCESS(LS-F) = "S"
+               AND RL-ENABLED(LS-RULE-NO-READ) = "Y"
+                PERFORM CHECK-READ-BEFORE
+            END-IF
         END-IF
         EVALUATE OP-VERB(LS-I)
             WHEN "READ"
@@ -710,6 +718,89 @@ CHECK-LOCKED.
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE-LOCKED OP-TOKEN(LS-AC-NEXT) LS-MESSAGE.
+
+*> PLB-C095 rewrite-without-read: REWRITE or DELETE LS-I of a file with
+*> sequential access, whose operation before it, in the same list of
+*> statements (or, for statements directly in sentences, in the same
+*> paragraph), is not a READ: OPEN, WRITE, REWRITE, DELETE, or START.
+*> With sequential access the statement must follow a successful READ,
+*> or it fails with file status 43. A PERFORM of a procedure, GO TO,
+*> CALL, EXEC, GOBACK, STOP, or EXIT between, which may read, ends the
+*> search, as does an operation before it in another list.
+CHECK-READ-BEFORE.
+    MOVE 0 TO LS-AC-NEXT
+    PERFORM VARYING LS-AC-J FROM 1 BY 1 UNTIL LS-AC-J > WS-OP-COUNT
+        IF OP-FILE(LS-AC-J) = LS-F
+           AND ND-TOK-LAST(OP-STMT(LS-AC-J))
+               < ND-TOK-FIRST(OP-STMT(LS-I))
+            IF LS-AC-NEXT = 0
+                MOVE LS-AC-J TO LS-AC-NEXT
+            ELSE
+                IF ND-TOK-FIRST(OP-STMT(LS-AC-J))
+                   > ND-TOK-FIRST(OP-STMT(LS-AC-NEXT))
+                    MOVE LS-AC-J TO LS-AC-NEXT
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-AC-NEXT = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF OP-VERB(LS-AC-NEXT) = "READ" OR OP-VERB(LS-AC-NEXT) = "CLOSE"
+        EXIT PARAGRAPH
+    END-IF
+    *> The same list: a statement directly in a sentence counts as in
+    *> its paragraph.
+    MOVE ND-PARENT(OP-STMT(LS-I)) TO LS-AC-SCOPE
+    IF LS-AC-SCOPE > 0
+        IF ND-KIND(LS-AC-SCOPE) = "SENT"
+            MOVE ND-PARENT(LS-AC-SCOPE) TO LS-AC-SCOPE
+        END-IF
+    END-IF
+    MOVE ND-PARENT(OP-STMT(LS-AC-NEXT)) TO LS-AC-UP
+    IF LS-AC-UP > 0
+        IF ND-KIND(LS-AC-UP) = "SENT"
+            MOVE ND-PARENT(LS-AC-UP) TO LS-AC-UP
+        END-IF
+    END-IF
+    IF LS-AC-UP NOT = LS-AC-SCOPE OR LS-AC-SCOPE = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-AC-K FROM 1 BY 1 UNTIL LS-AC-K > AS-COUNT
+        IF ND-KIND(LS-AC-K) = "STMT"
+           AND ND-TOK-FIRST(LS-AC-K) > ND-TOK-LAST(OP-STMT(LS-AC-NEXT))
+           AND ND-TOK-FIRST(LS-AC-K) < ND-TOK-FIRST(OP-STMT(LS-I))
+            EVALUATE ND-DETAIL(LS-AC-K)
+                WHEN "GO" WHEN "CALL" WHEN "EXEC" WHEN "GOBACK"
+                WHEN "STOP" WHEN "EXIT"
+                    EXIT PARAGRAPH
+                WHEN "PERFORM"
+                    MOVE ND-FIRST(LS-AC-K) TO LS-AC-UP
+                    PERFORM UNTIL LS-AC-UP = 0
+                        IF ND-KIND(LS-AC-UP) = "PROC"
+                            EXIT PARAGRAPH
+                        END-IF
+                        MOVE ND-NEXT(LS-AC-UP) TO LS-AC-UP
+                    END-PERFORM
+            END-EVALUATE
+        END-IF
+    END-PERFORM
+    MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-FIRST(OP-STMT(LS-AC-NEXT))))
+        TO LS-AC-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-AC-NUM LS-AC-NUM-TEXT LS-AC-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING OP-VERB(LS-I) DELIMITED BY SPACE
+           " of " DELIMITED BY SIZE
+           FL-NAME(LS-F) DELIMITED BY SPACE
+           " follows the " DELIMITED BY SIZE
+           OP-VERB(LS-AC-NEXT) DELIMITED BY SPACE
+           " on line " DELIMITED BY SIZE
+           LS-AC-NUM-TEXT(1:LS-AC-NUM-LEN) DELIMITED BY SIZE
+           " with no READ between: with sequential access it fails "
+           "with file status 43" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-NO-READ OP-TOKEN(LS-I) LS-MESSAGE.
 
 REPORT-OPEN-TWICE.
     MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-FIRST(OP-STMT(LS-I))))
