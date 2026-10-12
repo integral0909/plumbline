@@ -1,0 +1,2 @@
+tests/golden/rules/c096-converting-repeated.cob:12:32: warning: "A" is at positions 1 and 3 of the CONVERTING string: only the first counts, so it becomes "X", and the "Z" for it is never used [PLB-C096]
+tests/golden/rules/c096-converting-repeated.cob:13:32: warning: "e" is at positions 2 and 10 of the CONVERTING string: only the first counts, so it becomes "2", and the "5" for it is never used [PLB-C096]
