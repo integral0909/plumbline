@@ -1,0 +1,1 @@
+tests/golden/rules/c110-file-dd-shared.cob:10:12: warning: file NEW-MASTER is assigned to DD MASTER, as file OLD-MASTER is, and an OPEN opens both, one to write: they share one data set [PLB-C110]
