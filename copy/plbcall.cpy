@@ -56,6 +56,14 @@
         10  CP-EXIT-LINE        PIC 9(9) COMP-5.
         10  CP-EXIT-COLUMN      PIC 9(4) COMP-5.
         10  CP-EXIT-SRC-LINE    PIC 9(9) COMP-5.
+        *> The same for its first EXEC CICS RETURN with COMMAREA,
+        *> CHANNEL, or IMMEDIATE, which only a program at the highest
+        *> logical level may issue, and that option.
+        10  CP-RETURN-FILE-ID   PIC 9(4) COMP-5.
+        10  CP-RETURN-LINE      PIC 9(9) COMP-5.
+        10  CP-RETURN-COLUMN    PIC 9(4) COMP-5.
+        10  CP-RETURN-SRC-LINE  PIC 9(9) COMP-5.
+        10  CP-RETURN-OPTION    PIC X(9).
     05  CA-COUNT                PIC 9(9) COMP-5.
     05  CA-ENTRY                OCCURS CA-MAX TIMES.
         10  CA-NAME             PIC X(31).
