@@ -295,6 +295,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-J024 sysout-parameter-conflict; the JCL reader notes the
   parameters of each DD that conflict with `SYSOUT`, or need it.
 - Rule PLB-J025 dlm-not-instream.
+- Rule PLB-J026 job-too-many-steps.
 - Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
   the name field.
 - Rule PLB-J019 parm-too-long; the JCL reader counts the characters of

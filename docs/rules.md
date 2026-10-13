@@ -156,6 +156,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J023](#plb-j023-copy-onto-itself) | copy-onto-itself | error | IEBGENER step whose SYSUT2 is a data set its SYSUT1 reads |
 | [PLB-J024](#plb-j024-sysout-parameter-conflict) | sysout-parameter-conflict | warning | DD codes SYSOUT with DISP, VOL, LABEL, ..., or DEST, HOLD, OUTLIM without it |
 | [PLB-J025](#plb-j025-dlm-not-instream) | dlm-not-instream | error | DD codes DLM but is not DD * or DD DATA |
+| [PLB-J026](#plb-j026-job-too-many-steps) | job-too-many-steps | error | Job has more than 255 steps, counting those of its procedures |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -3927,6 +3928,26 @@ DD * and DD DATA statements. If DLM is specified on any other
 statement, a JCL error message is issued." Usually the data was meant
 to follow in the stream, or the DD was changed to name a data set and
 `DLM` was left behind. DDs named `STEP.DD` are not checked.
+
+## PLB-J026 job-too-many-steps
+
+A job of more than 255 steps, counting the steps of the procedures it
+calls:
+
+```jcl
+//PAYALL   JOB (ACCT),'ALL',CLASS=A             reported
+//DAY01    EXEC PAYDAY                          16 steps each
+...
+//DAY16    EXEC PAYDAY                          256 in all
+```
+
+The z/OS MVS JCL Reference ("Steps in a Job") says: "A job can consist
+of up to 255 job steps, including all steps in any procedures that the
+job calls. Specification of a greater number of steps produces a JCL
+error." The count is a lower bound, so that what is reported is over
+the limit: a procedure that is not among the inputs counts as one step,
+and of procedures with the same name, the one with the fewest steps is
+taken.
 
 ## PLB-K001 cics-resource-undefined
 
