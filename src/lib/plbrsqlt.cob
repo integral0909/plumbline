@@ -919,3 +919,129 @@ REPORT-MISSING.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-AT LS-MESSAGE.
 END PROGRAM PLB-RULE-Q025.
+
+*> ---------------------------------------------------------------
+*> PLB-Q026 cursor-table-mismatch: an UPDATE or DELETE ... WHERE
+*> CURRENT OF a cursor declared on another table:
+*>
+*>     EXEC SQL DECLARE ACCT-CUR CURSOR FOR
+*>         SELECT ACCT_ID FROM ACCOUNT FOR UPDATE END-EXEC
+*>     EXEC SQL DELETE FROM HISTORY WHERE CURRENT OF ACCT-CUR END-EXEC
+*>
+*> The statement changes the row the cursor is on, which is a row of
+*> the cursor's table: Db2 rejects one that names another table with
+*> SQLCODE -509. Usually the statement was copied from another cursor's
+*> loop. Tables are compared without their qualifiers; a cursor on
+*> more than one table is not read.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-Q026.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbsqlm.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-C                    PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-K                    PIC 9(9) COMP-5.
+01  LS-AT                   PIC 9(9) COMP-5.
+01  LS-TEXT                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-CURSOR               PIC X(31).
+01  LS-NAME                 PIC X(64).
+01  LS-SHORT-1              PIC X(64).
+01  LS-SHORT-2              PIC X(64).
+01  LS-SHORT-TMP            PIC X(64).
+01  LS-I                    PIC 9(4) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q026" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    CALL "PLB-SQL-MODEL-BUILD" USING PLB-SOURCE-SET PLB-TOKENS
+        PLB-SQL-MODEL
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > QS-COUNT
+        IF (QS-KIND(LS-S) = "U" OR QS-KIND(LS-S) = "D")
+           AND QS-TABLE-COUNT(LS-S) = 1
+            PERFORM CHECK-POSITIONED
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> UPDATE or DELETE LS-S: CURRENT OF a cursor, and that cursor's table.
+CHECK-POSITIONED.
+    MOVE SPACES TO LS-CURSOR
+    PERFORM VARYING LS-T FROM QS-TOKEN(LS-S) BY 1
+            UNTIL LS-T >= QS-END(LS-S)
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            IF FUNCTION UPPER-CASE(LS-TEXT) = "CURRENT"
+                COMPUTE LS-K = LS-T + 1
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+                IF FUNCTION UPPER-CASE(LS-TEXT) = "OF"
+                    ADD 1 TO LS-K
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT
+                        LS-LEN
+                    MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-CURSOR
+                    MOVE LS-K TO LS-AT
+                    EXIT PERFORM
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-CURSOR = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-C FROM 1 BY 1 UNTIL LS-C > QS-COUNT
+        IF QS-KIND(LS-C) = "C" AND QS-CURSOR(LS-C) = LS-CURSOR
+            IF QS-TABLE-COUNT(LS-C) = 1
+                MOVE QS-TABLE(LS-C, 1) TO LS-NAME
+                PERFORM SHORT-NAME
+                MOVE LS-NAME TO LS-SHORT-1
+                MOVE QS-TABLE(LS-S, 1) TO LS-NAME
+                PERFORM SHORT-NAME
+                MOVE LS-NAME TO LS-SHORT-2
+                IF LS-SHORT-1 NOT = LS-SHORT-2
+                    PERFORM REPORT-MISMATCH
+                END-IF
+            END-IF
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+*> LS-NAME without its qualifier: the part after its last dot.
+SHORT-NAME.
+    PERFORM VARYING LS-I FROM 64 BY -1 UNTIL LS-I = 0
+        IF LS-NAME(LS-I:1) = "."
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-I > 0 AND LS-I < 64
+        MOVE LS-NAME(LS-I + 1:) TO LS-SHORT-TMP
+        MOVE LS-SHORT-TMP TO LS-NAME
+    END-IF.
+
+REPORT-MISMATCH.
+    MOVE SPACES TO LS-MESSAGE
+    STRING "cursor " DELIMITED BY SIZE
+           LS-CURSOR DELIMITED BY SPACE
+           " is declared on " DELIMITED BY SIZE
+           QS-TABLE(LS-C, 1) DELIMITED BY SPACE
+           ", not on " DELIMITED BY SIZE
+           QS-TABLE(LS-S, 1) DELIMITED BY SPACE
+           ": Db2 rejects this statement (SQLCODE -509)"
+           DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-AT LS-MESSAGE.
+END PROGRAM PLB-RULE-Q026.

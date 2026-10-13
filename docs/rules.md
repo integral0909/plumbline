@@ -205,6 +205,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q023](#plb-q023-select-not-grouped) | select-not-grouped | error | SQL grouped query selects or tests a column it does not group by |
 | [PLB-Q024](#plb-q024-column-undeclared) | column-undeclared | error | SQL names a column that the DECLARE TABLE of its table lacks |
 | [PLB-Q025](#plb-q025-insert-not-null-missing) | insert-not-null-missing | error | SQL INSERT leaves out, or UPDATE sets to NULL, a NOT NULL column |
+| [PLB-Q026](#plb-q026-cursor-table-mismatch) | cursor-table-mismatch | error | UPDATE or DELETE WHERE CURRENT OF a cursor on another table |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -4883,6 +4884,31 @@ and in SQLite 3 the same "NOT NULL constraint failed".
          WHERE ACCT_ID = :WS-ID
     END-EXEC
 ```
+
+## PLB-Q026 cursor-table-mismatch
+
+An `UPDATE` or `DELETE ... WHERE CURRENT OF` a cursor declared on
+another table:
+
+```cobol
+    EXEC SQL DECLARE ACCT-CUR CURSOR FOR
+        SELECT ACCT_ID FROM ACCOUNT FOR UPDATE END-EXEC.
+    ...
+    EXEC SQL
+        DELETE FROM HISTORY WHERE CURRENT OF ACCT-CUR     *> reported
+    END-EXEC
+```
+
+The statement changes the row the cursor is on, which is a row of the
+cursor's table. Db2 for z/OS rejects one that names another table with
+SQLCODE -509, "the table identified in the UPDATE or DELETE statement
+is not the same table designated by the cursor"
+([Db2 codes](https://www.ibm.com/docs/en/db2-for-zos/12?topic=codes-509)).
+Usually the statement was copied from the loop of another cursor.
+
+Cursors are matched by name with their `DECLARE` in the file, and
+tables are compared without their qualifiers (`BANK.ACCOUNT` is
+`ACCOUNT`). A cursor on more than one table is not read.
 
 ## PLB-S001 dynamic-sql
 
