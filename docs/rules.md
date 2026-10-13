@@ -114,8 +114,9 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C100](#plb-c100-table-keys-unsorted) | table-keys-unsorted | warning | SEARCH ALL table whose VALUE keys are out of their KEY order |
 | [PLB-C101](#plb-c101-string-numeric-sender) | string-numeric-sender | warning | STRING sends a number with decimal places or a sign as stored |
 | [PLB-C102](#plb-c102-nested-if-decided) | nested-if-decided | warning | IF first in a THEN branch or PERFORM body whose test is already decided |
-| [PLB-C104](#plb-c104-count-too-small) | count-too-small | warning | INSPECT TALLYING or UNSTRING COUNT IN item too small for the count |
 | [PLB-C103](#plb-c103-chain-exhausted) | chain-exhausted | warning | IF, ELSE, WHEN, or WHEN OTHER that the tests before it leave no value for |
+| [PLB-C104](#plb-c104-count-too-small) | count-too-small | warning | INSPECT TALLYING or UNSTRING COUNT IN item too small for the count |
+| [PLB-C105](#plb-c105-string-edited-leading-space) | string-edited-leading-space | warning | STRING DELIMITED BY SPACE sends an edited item that can start blank |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -3055,6 +3056,31 @@ modification or of variable size, and a count of native binary usage
 (`COMP-5`) are not read. A count that `INSPECT` adds to without
 setting it first can grow larger still; that is
 [PLB-C042](#plb-c042-inspect-count-not-reset).
+
+## PLB-C105 string-edited-leading-space
+
+A `STRING` that sends a numeric-edited item `DELIMITED BY SPACE`, when
+the item's picture starts with a symbol that leaves a space for some
+values:
+
+```cobol
+01  WS-COUNT    PIC ZZZ9.
+    ...
+    STRING "COUNT " WS-COUNT DELIMITED BY SPACE      *> reported
+        INTO WS-LINE
+```
+
+`STRING` stops sending an item at its first space. For 5, `WS-COUNT`
+holds `"   5"`, so nothing of it is sent, and the line says `COUNT` with
+no number. With GnuCOBOL 3.2, 5 moved to `PIC ZZZ9`, `PIC +(3)9`, `PIC
+$$$9`, `PIC B99`, and `PIC -9` gives `"   5"`, `"  +5"`, `"  $5"`, `"
+05"`, and `" 5"`, and `STRING ... DELIMITED BY SPACE` sends none of
+them; `PIC ***9`, `PIC +9`, and `PIC $999` are sent.
+
+The symbols read are `Z` and `B` at the start, a leading `-` (a space
+for a value that is not negative), and a floating `+` or `$` (`++9`,
+`$(3)9`). Send the item `DELIMITED BY SIZE`, or take its spaces off
+first, for example with `FUNCTION TRIM`.
 
 ## PLB-I001 pcb-dbd-unknown
 
