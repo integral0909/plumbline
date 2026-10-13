@@ -502,6 +502,9 @@ Some findings that were read and are true:
 - **PLB-C089 loop-never-runs.** None. In a copy of `CBACT01C` with
   `MOVE 'Y' TO END-OF-FILE.` put before its `PERFORM UNTIL END-OF-FILE
   = 'Y'`, it reports that loop.
+- **PLB-K017 tsq-option-invalid.** None: CardDemo writes transient data
+  queues only (`WRITEQ TD`). In a copy of `COSGN00C` with a `WRITEQ TS`
+  that has `REWRITE` and no `ITEM` added, it reports it.
 - **PLB-K016 abcode-invalid.** None: its four literal codes are
   `'9999'`. In a copy of `COCRDUPC` whose `ABCODE('9999')` is made
   `ABCODE('ACCT')`, it reports it.

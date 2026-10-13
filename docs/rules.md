@@ -189,6 +189,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-K014](#plb-k014-return-not-top-level) | return-not-top-level | warning | RETURN with COMMAREA, CHANNEL, or IMMEDIATE in a linked program |
 | [PLB-K015](#plb-k015-time-option-out-of-range) | time-option-out-of-range | error | CICS DELAY or START HOURS, MINUTES, SECONDS, MILLISECS out of range |
 | [PLB-K016](#plb-k016-abcode-invalid) | abcode-invalid | warning | CICS ABEND ABCODE starting with A, longer than 4, or with a blank |
+| [PLB-K017](#plb-k017-tsq-option-invalid) | tsq-option-invalid | error | CICS WRITEQ TS with REWRITE and no ITEM, or a LENGTH of 0 or above 32763 |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -4630,6 +4631,22 @@ blanks, the dump is produced but INVREQ is raised". A code that starts
 with `A` is read as one of CICS's own (`ASRA`, `AEIP`, ...) by whoever
 looks up the abend. Codes in data items are not read; trailing blanks
 do not count.
+
+## PLB-K017 tsq-option-invalid
+
+An `EXEC CICS WRITEQ TS` that the CICS API reference does not allow:
+
+```cobol
+    EXEC CICS WRITEQ TS QUEUE('PAYQ') FROM(WS-RECORD) REWRITE
+    END-EXEC                                          *> reported
+```
+
+`REWRITE` overwrites an item of the queue, and "if the REWRITE option is
+specified, the ITEM option must also be specified" to say which. The
+`LENGTH` of the data is at most 32763 bytes, and CICS raises `LENGERR`
+when "the length of the stored data is zero or negative" or "greater
+than 32763". Lengths are read when they are numbers; `WRITEQ TD` is not
+read.
 
 ## PLB-M001 go-to
 
