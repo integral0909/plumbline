@@ -523,6 +523,9 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J033 cond-invalid.** None: its `COND` tests are `(0,NE)`,
+  `(4,LT)`, and `(8,LT)`, some naming a step. In a copy of `TRANBKP`
+  whose `COND=(4,LT)` is made `(4,LTE)`, it reports that step.
 - **PLB-J032 class-invalid.** None: its jobs code `CLASS=A`, and
   `MSGCLASS` 0, A, H, X, or Y, and its DDs `SYSOUT=*` or `SYSOUT=(A,...)`.
   In a copy of `DUSRSECJ` with `MSGCLASS=HX`, it reports the job.

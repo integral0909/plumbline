@@ -544,6 +544,12 @@ END PROGRAM PLB-RULE-J020.
 *> bypasses all remaining job steps and terminates the job" (JOB
 *> statement, COND parameter). (0,LE) there ends the job after its
 *> first step, and (0,GT) never ends it.
+*>
+*> PLB-J033 cond-invalid: a COND that the z/OS MVS JCL Reference does
+*> not allow, on any step or job: a code above 4095 ("code is a decimal
+*> number from 0 through 4095"), an operator other than GT, GE, EQ, LT,
+*> LE, and NE, or more than eight tests ("if you code EVEN or ONLY,
+*> specify up to seven return code tests").
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-J021.
@@ -553,6 +559,17 @@ COPY "plbjclc.cpy".
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-RULE-NEVER           PIC 9(4) COMP-5.
+01  LS-RULE-INVALID         PIC 9(4) COMP-5.
+*> "Y" when the tests are judged for J021 and J022: a step with a step
+*> of its job before it, or a job.
+01  LS-JUDGE                PIC X.
+01  LS-TESTS                PIC 9(4) COMP-5.
+01  LS-K                    PIC 9(4) COMP-5.
+01  LS-OP-LEN               PIC 9(4) COMP-5.
+01  LS-MOST                 PIC 9(4) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
 01  LS-S                    PIC 9(9) COMP-5.
 01  LS-E                    PIC 9(9) COMP-5.
 01  LS-I                    PIC 9(4) COMP-5.
@@ -579,12 +596,13 @@ COPY "plbjcl.cpy".
 PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J021" LS-RULE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J022" LS-RULE-NEVER
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J033" LS-RULE-INVALID
     IF RL-ENABLED(LS-RULE) NOT = "Y" AND RL-ENABLED(LS-RULE-NEVER) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-INVALID) NOT = "Y"
         GOBACK
     END-IF
-    PERFORM VARYING LS-S FROM 2 BY 1 UNTIL LS-S > JS-COUNT
-        IF JS-PROC(LS-S) = 0 AND JS-JOB(LS-S) > 0
-           AND JS-COND(LS-S) NOT = SPACES
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
+        IF JS-COND(LS-S) NOT = SPACES
             PERFORM CHECK-STEP
         END-IF
     END-PERFORM
@@ -595,20 +613,25 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
             MOVE JJ-NAME(LS-J-NO) TO LS-OF-NAME
             MOVE JJ-FILE-ID(LS-J-NO) TO LS-OF-FILE-ID
             MOVE JJ-LINE(LS-J-NO) TO LS-OF-LINE
+            MOVE "Y" TO LS-JUDGE
             PERFORM READ-TESTS
         END-IF
     END-PERFORM
     GOBACK.
 
-*> Step LS-S: a step of its job before it, then each test of its COND.
+*> Step LS-S: each test of its COND, judged when it is a step of a job
+*> with a step of the job before it.
 CHECK-STEP.
     MOVE "N" TO LS-FOUND
-    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E >= LS-S
-        IF JS-JOB(LS-E) = JS-JOB(LS-S) AND JS-PROC(LS-E) = 0
-            MOVE "Y" TO LS-FOUND
-        END-IF
-    END-PERFORM
-    IF LS-FOUND = "N"
+    IF JS-PROC(LS-S) = 0 AND JS-JOB(LS-S) > 0
+        PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E >= LS-S
+            IF JS-JOB(LS-E) = JS-JOB(LS-S) AND JS-PROC(LS-E) = 0
+                MOVE "Y" TO LS-FOUND
+            END-IF
+        END-PERFORM
+    END-IF
+    MOVE LS-FOUND TO LS-JUDGE
+    IF LS-JUDGE = "N" AND RL-ENABLED(LS-RULE-INVALID) NOT = "Y"
         EXIT PARAGRAPH
     END-IF
     MOVE JS-COND(LS-S) TO LS-COND
@@ -620,11 +643,34 @@ CHECK-STEP.
 
 *> Each test of LS-COND: a parenthesis, a number, a comma, an operator.
 READ-TESTS.
+    MOVE 0 TO LS-TESTS
     PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > 75
         IF LS-COND(LS-I:1) = "("
             PERFORM READ-TEST
         END-IF
-    END-PERFORM.
+    END-PERFORM
+    *> At most eight tests, seven with EVEN or ONLY (of a step).
+    MOVE 8 TO LS-MOST
+    MOVE 0 TO LS-E
+    INSPECT LS-COND TALLYING LS-E FOR ALL ",EVEN" ALL ",ONLY"
+        ALL "(EVEN" ALL "(ONLY"
+    IF LS-E > 0 OR LS-COND(1:4) = "EVEN" OR LS-COND(1:4) = "ONLY"
+        MOVE 7 TO LS-MOST
+    END-IF
+    IF LS-TESTS > LS-MOST AND RL-ENABLED(LS-RULE-INVALID) = "Y"
+        MOVE LS-TESTS TO LS-NUM
+        CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+        MOVE SPACES TO LS-MESSAGE
+        STRING "COND of " DELIMITED BY SIZE
+               LS-OF-NAME DELIMITED BY SPACE
+               " has " DELIMITED BY SIZE
+               LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+               " return code tests; z/OS takes 8, or 7 with EVEN or ONLY"
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE
+        CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE-INVALID
+            LS-OF-FILE-ID LS-OF-LINE LS-COLUMN LS-ZERO LS-MESSAGE
+    END-IF.
 
 *> The test after the parenthesis at LS-I.
 READ-TEST.
@@ -646,9 +692,62 @@ READ-TEST.
     IF LS-COND(LS-J:1) NOT = ","
         EXIT PARAGRAPH
     END-IF
-    MOVE LS-COND(LS-J + 1:2) TO LS-OP
-    MOVE LS-COND(LS-J + 3:1) TO LS-AFTER
-    IF LS-AFTER NOT = ")" AND LS-AFTER NOT = ","
+    *> The operator: up to the parenthesis or comma after it.
+    MOVE 0 TO LS-OP-LEN
+    MOVE SPACE TO LS-AFTER
+    COMPUTE LS-K = LS-J + 1
+    PERFORM VARYING LS-K FROM LS-K BY 1 UNTIL LS-K > 80
+        IF LS-COND(LS-K:1) = ")" OR LS-COND(LS-K:1) = ","
+            MOVE LS-COND(LS-K:1) TO LS-AFTER
+            EXIT PERFORM
+        END-IF
+        IF LS-COND(LS-K:1) = SPACE OR LS-COND(LS-K:1) = "("
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-OP-LEN
+    END-PERFORM
+    IF LS-AFTER = SPACE OR LS-OP-LEN = 0 OR LS-OP-LEN > 8
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-OP
+    IF LS-OP-LEN = 2
+        MOVE LS-COND(LS-J + 1:2) TO LS-OP
+    END-IF
+    ADD 1 TO LS-TESTS
+    MOVE SPACES TO LS-TEST
+    STRING LS-COND(LS-I + 1:LS-J + LS-OP-LEN - LS-I) DELIMITED BY SIZE
+        INTO LS-TEST
+    IF RL-ENABLED(LS-RULE-INVALID) = "Y"
+        IF LS-CODE > 4095
+            MOVE SPACES TO LS-MESSAGE
+            STRING "COND test (" DELIMITED BY SIZE
+                   LS-TEST DELIMITED BY SPACE
+                   ") of " DELIMITED BY SIZE
+                   LS-OF-NAME DELIMITED BY SPACE
+                   " has a code above 4095, the highest return code"
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS
+                LS-RULE-INVALID LS-OF-FILE-ID LS-OF-LINE LS-COLUMN
+                LS-ZERO LS-MESSAGE
+        END-IF
+        IF LS-OP NOT = "GT" AND LS-OP NOT = "GE" AND LS-OP NOT = "EQ"
+           AND LS-OP NOT = "LT" AND LS-OP NOT = "LE" AND LS-OP NOT = "NE"
+            MOVE SPACES TO LS-MESSAGE
+            STRING "COND test (" DELIMITED BY SIZE
+                   LS-TEST DELIMITED BY SPACE
+                   ") of " DELIMITED BY SIZE
+                   LS-OF-NAME DELIMITED BY SPACE
+                   " has operator " DELIMITED BY SIZE
+                   LS-COND(LS-J + 1:LS-OP-LEN) DELIMITED BY SIZE
+                   ", not GT, GE, EQ, LT, LE, or NE" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS
+                LS-RULE-INVALID LS-OF-FILE-ID LS-OF-LINE LS-COLUMN
+                LS-ZERO LS-MESSAGE
+        END-IF
+    END-IF
+    IF LS-JUDGE NOT = "Y"
         EXIT PARAGRAPH
     END-IF
     IF ((LS-CODE = 0 AND LS-OP = "GT")

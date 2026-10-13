@@ -163,6 +163,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J030](#plb-j030-region-invalid) | region-invalid | error | REGION= not 0K to 2096128K or 0M to 2047M |
 | [PLB-J031](#plb-j031-msglevel-invalid) | msglevel-invalid | error | MSGLEVEL= statements not 0, 1, or 2, or messages not 0 or 1 |
 | [PLB-J032](#plb-j032-class-invalid) | class-invalid | error | Job class not 1-8 letters and digits, or output class not one A-Z, 0-9 |
+| [PLB-J033](#plb-j033-cond-invalid) | cond-invalid | error | COND test code above 4095, operator unknown, or more than 8 tests |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -4069,6 +4070,24 @@ statement, "is 1-8 characters"; the first is "a member of the
 36-character set A-Z and 0-9", and the others are letters, digits, or
 national characters. Values with symbols are not read; whether a class
 is defined at JES initialization cannot be known from the JCL.
+
+## PLB-J033 cond-invalid
+
+A `COND` on an `EXEC` or `JOB` statement that the z/OS MVS JCL
+Reference does not allow:
+
+```jcl
+//PAYJOB   JOB (ACCT),'PAY',COND=(5000,LT)      reported
+//EXTRACT  EXEC PGM=PAYEXTR,COND=(4,GTE)        reported
+```
+
+A test's code "is a decimal number from 0 through 4095" (a greater one
+"could result in invalid return code testing"), and its operator is
+`GT`, `GE`, `EQ`, `LT`, `LE`, or `NE`. A step may "specify up to eight
+return code tests. However, if you code EVEN or ONLY, specify up to
+seven"; a job, up to eight. Unlike
+[PLB-J021](#plb-j021-cond-always-bypasses), the rule reads the first
+step of a job and the steps of procedures too.
 
 ## PLB-K001 cics-resource-undefined
 
