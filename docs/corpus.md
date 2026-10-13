@@ -315,6 +315,9 @@ The findings were checked by rule:
 - **PLB-C101 string-numeric-sender.** None in NIST or in GnuCOBOL's
   tests.
 
+- **PLB-C105 string-edited-leading-space.** None in NIST or in
+  GnuCOBOL's tests.
+
 - **PLB-C104 count-too-small.** None in NIST's 6 programs with
   `TALLYING`, or in GnuCOBOL's tests.
 
