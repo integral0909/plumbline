@@ -568,6 +568,14 @@ check_absent "ADDRSPC=REAL, RD=RNC, 16384P" 'execval.jcl:[89]:.*PLB-J042' \
     -- check --no-config $jx/execval.jcl
 check_absent "MEMLIMIT=NOLIMIT and 10G"   'execval.jcl:1[01]:.*PLB-J042' \
     -- check --no-config $jx/execval.jcl
+check "TYPRUN=CHECK"                      1 'execval.jcl:13:3: error: job TYPJOB codes TYPRUN=CHECK,.*\[PLB-J042\]' \
+    -- check --no-config $jx/execval.jcl
+check "PRTY=20"                           1 'execval.jcl:14:3: error: job PRTYJOB codes PRTY=20,.*\[PLB-J042\]' \
+    -- check --no-config $jx/execval.jcl
+check "JESLOG=SPUN"                       1 'execval.jcl:15:3: error: job LOGJOB codes JESLOG=SPUN,.*\[PLB-J042\]' \
+    -- check --no-config $jx/execval.jcl
+check_absent "TYPRUN, PRTY, JESLOG listed" 'execval.jcl:17:.*PLB-J042' \
+    -- check --no-config $jx/execval.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \

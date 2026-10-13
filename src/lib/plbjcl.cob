@@ -702,16 +702,19 @@ CHECK-REGION.
     PERFORM CHECK-TIME-PART.
 
 *> LS-TIME-BAD: OP-VALUE when OP-KEY is ADDRSPC, RD, or MEMLIMIT (or
-*> KEY.procstep) and the z/OS MVS JCL Reference does not list it: ADDRSPC
-*> VIRT or REAL; RD R, RNC, NR, or NC; MEMLIMIT NOLIMIT or nnnnn (0 to
-*> 99999) with M, G, T, or P, at most 16384P. Values with symbols are
-*> not read.
+*> KEY.procstep), or of a JOB statement TYPRUN, PRTY, or JESLOG, and the
+*> z/OS MVS JCL Reference does not list it: ADDRSPC VIRT or REAL; RD R,
+*> RNC, NR, or NC; MEMLIMIT NOLIMIT or nnnnn (0 to 99999) with M, G, T,
+*> or P, at most 16384P; TYPRUN COPY, HOLD, JCLHOLD, or SCAN; PRTY 0
+*> through 15; JESLOG SPIN (first, in parentheses), NOSPIN, or SUPPRESS.
+*> Values with symbols are not read.
 CHECK-EXEC-VALUE.
     MOVE SPACES TO LS-TIME-BAD
     MOVE SPACES TO LS-SP-Q1
     UNSTRING OP-KEY DELIMITED BY "." INTO LS-SP-Q1
     IF LS-SP-Q1 NOT = "ADDRSPC" AND LS-SP-Q1 NOT = "RD"
-       AND LS-SP-Q1 NOT = "MEMLIMIT"
+       AND LS-SP-Q1 NOT = "MEMLIMIT" AND LS-SP-Q1 NOT = "TYPRUN"
+       AND LS-SP-Q1 NOT = "PRTY" AND LS-SP-Q1 NOT = "JESLOG"
         EXIT PARAGRAPH
     END-IF
     MOVE 0 TO LS-TIME-N
@@ -727,6 +730,30 @@ CHECK-EXEC-VALUE.
         WHEN "RD"
             IF OP-VALUE NOT = "R" AND OP-VALUE NOT = "RNC"
                AND OP-VALUE NOT = "NR" AND OP-VALUE NOT = "NC"
+                MOVE OP-VALUE TO LS-TIME-BAD
+            END-IF
+        WHEN "TYPRUN"
+            IF OP-VALUE NOT = "COPY" AND OP-VALUE NOT = "HOLD"
+               AND OP-VALUE NOT = "JCLHOLD" AND OP-VALUE NOT = "SCAN"
+                MOVE OP-VALUE TO LS-TIME-BAD
+            END-IF
+        WHEN "PRTY"
+            MOVE OP-VALUE TO LS-SPACE-ITEM
+            MOVE 15 TO LS-TIME-MAX
+            PERFORM SPACE-NUMBER
+            IF LS-CLASS-OK = "N"
+                MOVE OP-VALUE TO LS-TIME-BAD
+            END-IF
+        WHEN "JESLOG"
+            MOVE SPACES TO LS-SP-Q2
+            IF OP-VALUE(1:1) = "("
+                UNSTRING OP-VALUE(2:) DELIMITED BY "," OR ")"
+                    INTO LS-SP-Q2
+            ELSE
+                MOVE OP-VALUE TO LS-SP-Q2
+            END-IF
+            IF LS-SP-Q2 NOT = "SPIN" AND LS-SP-Q2 NOT = "NOSPIN"
+               AND LS-SP-Q2 NOT = "SUPPRESS"
                 MOVE OP-VALUE TO LS-TIME-BAD
             END-IF
         WHEN OTHER
