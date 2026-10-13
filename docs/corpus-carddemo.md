@@ -502,6 +502,9 @@ Some findings that were read and are true:
 - **PLB-C089 loop-never-runs.** None. In a copy of `CBACT01C` with
   `MOVE 'Y' TO END-OF-FILE.` put before its `PERFORM UNTIL END-OF-FILE
   = 'Y'`, it reports that loop.
+- **PLB-K015 time-option-out-of-range.** None: CardDemo has no `DELAY`
+  or `START`. In a copy of `COSGN00C` with `EXEC CICS DELAY FOR
+  MINUTES(1) SECONDS(90)` added, it reports the 90.
 - **PLB-K014 return-not-top-level.** None: its one `LINK`, in
   `COPAUS1C`, names `COPAUS2C`, whose `RETURN` has no options. In a
   copy of `COPAUS2C` whose `RETURN` is given `COMMAREA(DFHCOMMAREA)`,
