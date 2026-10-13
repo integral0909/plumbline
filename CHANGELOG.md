@@ -307,6 +307,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-J031 msglevel-invalid.
 - Rule PLB-J032 class-invalid; the JCL reader checks `CLASS=` and
   `MSGCLASS=` on `JOB` statements and the class of `SYSOUT=`.
+- PLB-J021 cond-always-bypasses and PLB-J022 cond-never-true read the
+  `COND` of `JOB` statements too.
 - Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
   the name field.
 - Rule PLB-J019 parm-too-long; the JCL reader counts the characters of

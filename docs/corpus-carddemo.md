@@ -558,7 +558,9 @@ Some findings that were read and are true:
   `DEFGDGD` whose `COND=(0,NE)` is made `(0,GT)`, it reports that step.
 - **PLB-J021 cond-always-bypasses.** None: the `COND` tests of its steps are
   `(0,NE)` and `(4,LT)`. In a copy of `DEFGDGD` whose `COND=(0,NE)` is
-  made `(0,LE)`, it reports that step.
+  made `(0,LE)`, it reports that step. No `JOB` statement codes `COND`;
+  in a copy of `DUSRSECJ` with `COND=(0,LE)` added to its `JOB`
+  statement, it reports the job.
 - **PLB-J020 jcl-name-invalid.** None in its 48 JCL and procedure
   files. In a copy of `INTCALC` whose `STEP15` is renamed
   `STEP15CALC`, it reports that name, and in one whose `PGM=CBACT04C`
