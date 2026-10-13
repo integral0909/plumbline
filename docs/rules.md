@@ -3935,6 +3935,11 @@ SYSOUT parameter", and lists `*`, `AMP`, `CHKPT`, `DATA`, `DATACLAS`,
 keywords among them. Of `DEST`, `HOLD`, and `OUTLIM` it says "Code the
 ... parameter only on a DD statement with the SYSOUT parameter".
 
+`OUTPUT=`, which names an `OUTPUT` JCL statement for the sysout data
+set, goes "only on a DD statement with the SYSOUT or SUBSYS parameter",
+and not "when the SYSOUT parameter specifies a JES2 internal reader by
+an INTRDR parameter" (`OUTPUT`, "Relationship to other parameters").
+
 The DDs of a step that calls a procedure, and DDs named `STEP.DD`, are
 not checked: they may override a DD of the procedure, which has, or
 lacks, `SYSOUT` itself.

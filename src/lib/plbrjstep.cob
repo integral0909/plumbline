@@ -895,7 +895,10 @@ END PROGRAM PLB-RULE-J023.
 *> EXPDT, LABEL, LIKE, PROTECT, QNAME, RETPD, ROACCESS, SUBSYS, and
 *> VOLUME; and "Code the DEST [HOLD, OUTLIM] parameter only on a DD
 *> statement with the SYSOUT parameter". The keywords are checked, not
-*> * and DATA. The DDs of a step that calls a
+*> * and DATA. OUTPUT, which refers to an OUTPUT JCL statement, goes
+*> "only on a DD statement with the SYSOUT or SUBSYS parameter", and not
+*> "when the SYSOUT parameter specifies a JES2 internal reader by an
+*> INTRDR parameter". The DDs of a step that calls a
 *> procedure, and DDs named STEP.DD, are left out: they may override a
 *> DD of the procedure that has, or lacks, SYSOUT.
 *> ---------------------------------------------------------------
@@ -931,6 +934,27 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
 
 REPORT-CLASH.
     MOVE SPACES TO LS-MESSAGE
+    EVALUATE TRUE
+        WHEN JD-SYSOUT-CLASH(LS-D) = "OUTPUT" AND JD-SYSOUT(LS-D) = "Y"
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " codes OUTPUT with SYSOUT=(...,INTRDR), the JES2"
+                   " internal reader, which the JCL Reference says not to"
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE
+        WHEN JD-SYSOUT-CLASH(LS-D) = "OUTPUT"
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " codes OUTPUT without SYSOUT or SUBSYS; the JCL"
+                   " Reference says to code it only on a DD with one"
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE
+    END-EVALUATE
+    IF LS-MESSAGE NOT = SPACES
+        CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+            JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE
+        EXIT PARAGRAPH
+    END-IF
     IF JD-SYSOUT(LS-D) = "Y"
         STRING "DD " DELIMITED BY SIZE
                JD-NAME(LS-D) DELIMITED BY SPACE

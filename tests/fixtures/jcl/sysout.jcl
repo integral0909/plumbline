@@ -10,6 +10,11 @@
 //LIST     DD SYSOUT=A,DEST=RMT1,HOLD=YES,OUTLIM=5000
 //* Not reported: a data set with DISP and VOL.
 //MASTER   DD DSN=PAY.MASTER,DISP=OLD,VOL=SER=PAY002,UNIT=3390
+//* Reported: OUTPUT without SYSOUT, and with the internal reader.
+//RPTCOPY  DD DSN=PAY.RPTCOPY,DISP=SHR,OUTPUT=*.LASER
+//SUBMIT   DD SYSOUT=(A,INTRDR),OUTPUT=*.LASER
+//* Not reported: OUTPUT with SYSOUT.
+//PRINTED  DD SYSOUT=A,OUTPUT=*.LASER
 //* Not reported: an override of a procedure's DD.
 //RUN      EXEC PAYPROC
 //UPD.LOG  DD HOLD=YES
