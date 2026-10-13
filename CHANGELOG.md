@@ -289,6 +289,7 @@ uses [Semantic Versioning](https://semver.org/).
   `RETURN` of each program with `COMMAREA`, `CHANNEL`, or `IMMEDIATE`.
 - Rule PLB-K015 time-option-out-of-range.
 - Rule PLB-K016 abcode-invalid.
+- Rule PLB-K017 tsq-option-invalid.
 - Rule PLB-Q025 insert-not-null-missing; `plumbline dump sql` shows a
   column with a default as `default`.
 - Rule PLB-J018 gdg-generation-not-created.
