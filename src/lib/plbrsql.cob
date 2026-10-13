@@ -7,6 +7,7 @@
 *>   PLB-M014  sql-select-star
 *>   PLB-Q004  sql-no-where
 *>   PLB-Q013  select-into-no-where
+*>   PLB-Q018  null-compared
 *>   PLB-Q005  into-count-mismatch (PLB-RULE-Q005, below)
 *>   PLB-K003  commarea-without-length (PLB-RULE-K003, below)
 *>   PLB-K004  commarea-length-too-long (PLB-RULE-K004, below)
@@ -30,6 +31,10 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE-STAR            PIC 9(4) COMP-5.
 01  LS-RULE-NO-WHERE        PIC 9(4) COMP-5.
 01  LS-RULE-SELECT-ALL      PIC 9(4) COMP-5.
+01  LS-RULE-NULL            PIC 9(4) COMP-5.
+*> PLB-Q018: "Y" in a condition (after WHERE, HAVING, ON, or WHEN, and
+*> before SET).
+01  LS-IN-CONDITION         PIC X.
 *> PLB-Q013: what the SELECT has at its outer level, and whether each
 *> item of its select list so far starts with an aggregate function.
 01  LS-SEEN-INTO            PIC X.
@@ -80,8 +85,12 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-M014" LS-RULE-STAR
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q004" LS-RULE-NO-WHERE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q013" LS-RULE-SELECT-ALL
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q018" LS-RULE-NULL
     IF RL-ENABLED(LS-RULE-STAR) = "Y"
         PERFORM CHECK-SELECT-STAR
+    END-IF
+    IF RL-ENABLED(LS-RULE-NULL) = "Y"
+        PERFORM CHECK-NULL-COMPARED
     END-IF
     IF AS-COUNT = 0
         GOBACK
@@ -139,6 +148,70 @@ CHECK-SELECT-STAR.
             END-EVALUATE
         END-IF
     END-PERFORM.
+
+*> PLB-Q018: a comparison with NULL in a condition of embedded SQL,
+*> such as WHERE END_DATE = NULL. A comparison with the null value is
+*> unknown for every row, never true, so the condition selects no row
+*> (with <> as well); IS NULL and IS NOT NULL test for it. SET col =
+*> NULL in an UPDATE gives a column the null value, and is fine.
+CHECK-NULL-COMPARED.
+    MOVE "N" TO LS-IN-SQL LS-IN-CONDITION
+    PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T >= TK-COUNT
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+            EVALUATE TRUE
+                WHEN LS-TEXT = "EXEC" OR LS-TEXT = "EXECUTE"
+                    COMPUTE LS-K = LS-T + 1
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT
+                        LS-LEN
+                    IF FUNCTION UPPER-CASE(LS-TEXT) = "SQL"
+                        MOVE "Y" TO LS-IN-SQL
+                        MOVE "N" TO LS-IN-CONDITION
+                    END-IF
+                WHEN LS-TEXT = "END-EXEC"
+                    MOVE "N" TO LS-IN-SQL LS-IN-CONDITION
+                WHEN LS-IN-SQL = "N"
+                    CONTINUE
+                WHEN LS-TEXT = "WHERE" OR LS-TEXT = "HAVING"
+                     OR LS-TEXT = "ON" OR LS-TEXT = "WHEN"
+                    MOVE "Y" TO LS-IN-CONDITION
+                WHEN LS-TEXT = "SET"
+                    MOVE "N" TO LS-IN-CONDITION
+                WHEN LS-TEXT = "NULL" AND LS-IN-CONDITION = "Y"
+                    PERFORM CHECK-NULL-OPERATOR
+            END-EVALUATE
+        END-IF
+    END-PERFORM.
+
+*> NULL at LS-T with a relational operator before or after it.
+CHECK-NULL-OPERATOR.
+    MOVE "N" TO LS-FOUND
+    IF LS-T > 1
+        COMPUTE LS-K = LS-T - 1
+        PERFORM TEST-RELATION
+    END-IF
+    IF LS-FOUND = "N"
+        COMPUTE LS-K = LS-T + 1
+        PERFORM TEST-RELATION
+    END-IF
+    IF LS-FOUND = "Y"
+        MOVE SPACES TO LS-MESSAGE
+        STRING "comparing with NULL is never true in SQL, for any row;"
+               " test with IS NULL or IS NOT NULL" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE-NULL LS-K LS-MESSAGE
+    END-IF.
+
+*> LS-FOUND = "Y" when the token at LS-K is a relational operator.
+TEST-RELATION.
+    IF TK-IS-OPERATOR(LS-K)
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+        IF LS-TEXT = "=" OR "<>" OR "<" OR ">" OR "<=" OR ">="
+            MOVE "Y" TO LS-FOUND
+        END-IF
+    END-IF.
 
 CHECK-STAR-AFTER-SELECT.
     COMPUTE LS-K = LS-T + 1
