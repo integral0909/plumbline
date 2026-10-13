@@ -1,4 +1,5 @@
 tests/golden/rules/q001-sql-tables.cob:14:46: note: table PAY.DEPARTMENT is not declared in TABLES (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]
+tests/golden/rules/q001-sql-tables.cob:16:9: error: cursor EMP-CURSOR is FOR UPDATE, but it reads more than one table, so its rows cannot be changed: Db2 rejects it (SQLCODE -511) [PLB-Q030]
 tests/golden/rules/q001-sql-tables.cob:21:40: note: TODAY is given a value but never read [PLB-M005]
 tests/golden/rules/q001-sql-tables.cob:26:50: warning: EMP-NAME is used before it is given a value [PLB-C012]
 tests/golden/rules/q001-sql-tables.cob:27:45: note: table PAY.LEAVERS is not declared in TABLES (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]

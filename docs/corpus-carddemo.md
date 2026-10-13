@@ -419,6 +419,10 @@ Some findings that were read and are true:
 - **PLB-C098 group-value-into-packed** and **PLB-C099
   value-overridden.** None.
 - **PLB-Q029 cursor-unused.** None: its cursors are all opened.
+- **PLB-Q030 for-update-read-only.** None: no cursor of CardDemo is
+  declared `FOR UPDATE`. In a copy of `COTRTLIC` whose
+  `C-TR-TYPE-FORWARD` cursor selects `DISTINCT TR_TYPE`, with its `ORDER
+  BY` made `FOR UPDATE`, it reports that cursor.
 - **PLB-Q028 order-by-for-update.** None: its two ordered cursors, in
   `COTRTLIC`, are not `FOR UPDATE`. In a copy whose first gets `FOR
   UPDATE OF TR_DESCRIPTION` after its `ORDER BY TR_TYPE`, it reports

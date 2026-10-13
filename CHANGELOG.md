@@ -280,6 +280,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-Q027 update-not-for-update.
 - Rule PLB-Q028 order-by-for-update.
 - Rule PLB-Q029 cursor-unused.
+- Rule PLB-Q030 for-update-read-only.
 - Rule PLB-K010 resp-not-fullword.
 - Rule PLB-K011 length-not-halfword.
 - Rule PLB-K012 abstime-not-packed.
