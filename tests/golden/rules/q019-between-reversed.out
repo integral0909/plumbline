@@ -1,0 +1,8 @@
+tests/golden/rules/q019-between-reversed.cob:11:5: warning: the result of EXEC SQL SELECT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q019-between-reversed.cob:12:45: note: table ACCOUNT is not declared in BETWEENR (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]
+tests/golden/rules/q019-between-reversed.cob:13:28: warning: BETWEEN 65 AND 18 holds no value, as its first end is above its second: no row satisfies it [PLB-Q019]
+tests/golden/rules/q019-between-reversed.cob:15:5: warning: the result of EXEC SQL SELECT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q019-between-reversed.cob:17:29: warning: BETWEEN 1.50 AND 0.75 holds no value, as its first end is above its second: no row satisfies it [PLB-Q019]
+tests/golden/rules/q019-between-reversed.cob:18:36: warning: BETWEEN -5 AND -10 holds no value, as its first end is above its second: NOT BETWEEN is true for every value [PLB-Q019]
+tests/golden/rules/q019-between-reversed.cob:21:5: warning: the result of EXEC SQL SELECT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q019-between-reversed.cob:25:29: warning: WS-LOW is read but never given a value [PLB-C011]

@@ -341,7 +341,8 @@ The findings were checked by rule:
 - **PLB-Q016 cursor-open-twice** and **PLB-Q017 fetch-after-close.**
   None in NIST or in GnuCOBOL's tests.
 
-- **PLB-Q018 null-compared.** None in NIST or in GnuCOBOL's tests.
+- **PLB-Q018 null-compared** and **PLB-Q019 between-reversed.** None
+  in NIST or in GnuCOBOL's tests.
 
 - **PLB-C097 sort-file-open.** None in NIST or in GnuCOBOL's tests. In
   a copy of NIST's `ST110A` with `OPEN INPUT SORTIN-1J` put before its

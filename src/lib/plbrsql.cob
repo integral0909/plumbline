@@ -8,6 +8,7 @@
 *>   PLB-Q004  sql-no-where
 *>   PLB-Q013  select-into-no-where
 *>   PLB-Q018  null-compared
+*>   PLB-Q019  between-reversed
 *>   PLB-Q005  into-count-mismatch (PLB-RULE-Q005, below)
 *>   PLB-K003  commarea-without-length (PLB-RULE-K003, below)
 *>   PLB-K004  commarea-length-too-long (PLB-RULE-K004, below)
@@ -32,6 +33,17 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE-NO-WHERE        PIC 9(4) COMP-5.
 01  LS-RULE-SELECT-ALL      PIC 9(4) COMP-5.
 01  LS-RULE-NULL            PIC 9(4) COMP-5.
+01  LS-RULE-BETWEEN         PIC 9(4) COMP-5.
+*> PLB-Q019: the two ends of a BETWEEN, as written and as numbers.
+01  LS-LOW-T                PIC 9(9) COMP-5.
+01  LS-HIGH-T               PIC 9(9) COMP-5.
+01  LS-END-TEXT             PIC X(31).
+01  LS-LOW-TEXT             PIC X(31).
+01  LS-HIGH-TEXT            PIC X(31).
+01  LS-END-VALUE            PIC S9(18)V9(9) COMP-3.
+01  LS-LOW-VALUE            PIC S9(18)V9(9) COMP-3.
+01  LS-NUMBER-OK            PIC X.
+01  LS-PTR                  PIC 9(9) COMP-5.
 *> PLB-Q018: "Y" in a condition (after WHERE, HAVING, ON, or WHEN, and
 *> before SET).
 01  LS-IN-CONDITION         PIC X.
@@ -86,11 +98,15 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q004" LS-RULE-NO-WHERE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q013" LS-RULE-SELECT-ALL
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q018" LS-RULE-NULL
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q019" LS-RULE-BETWEEN
     IF RL-ENABLED(LS-RULE-STAR) = "Y"
         PERFORM CHECK-SELECT-STAR
     END-IF
     IF RL-ENABLED(LS-RULE-NULL) = "Y"
         PERFORM CHECK-NULL-COMPARED
+    END-IF
+    IF RL-ENABLED(LS-RULE-BETWEEN) = "Y"
+        PERFORM CHECK-BETWEEN
     END-IF
     IF AS-COUNT = 0
         GOBACK
@@ -212,6 +228,129 @@ TEST-RELATION.
             MOVE "Y" TO LS-FOUND
         END-IF
     END-IF.
+
+*> PLB-Q019: BETWEEN low AND high in embedded SQL with numbers for
+*> both ends, the first above the second, as in BETWEEN 10 AND 5. The
+*> range holds no value: no row satisfies it, and every row with a
+*> value satisfies NOT BETWEEN. A number may have a sign (- or +, in
+*> one token with it or the token before) and decimal places.
+CHECK-BETWEEN.
+    MOVE "N" TO LS-IN-SQL
+    PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T >= TK-COUNT
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+            EVALUATE TRUE
+                WHEN LS-TEXT = "EXEC" OR LS-TEXT = "EXECUTE"
+                    COMPUTE LS-K = LS-T + 1
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT
+                        LS-LEN
+                    IF FUNCTION UPPER-CASE(LS-TEXT) = "SQL"
+                        MOVE "Y" TO LS-IN-SQL
+                    END-IF
+                WHEN LS-TEXT = "END-EXEC"
+                    MOVE "N" TO LS-IN-SQL
+                WHEN LS-TEXT = "BETWEEN" AND LS-IN-SQL = "Y"
+                    PERFORM CHECK-BETWEEN-ENDS
+            END-EVALUATE
+        END-IF
+    END-PERFORM.
+
+*> BETWEEN at LS-T: a number, AND, a number.
+CHECK-BETWEEN-ENDS.
+    COMPUTE LS-K = LS-T + 1
+    PERFORM READ-SQL-NUMBER
+    IF LS-NUMBER-OK = "N"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-END-VALUE TO LS-LOW-VALUE
+    MOVE LS-END-TEXT TO LS-LOW-TEXT
+    MOVE LS-K TO LS-LOW-T
+    ADD 1 TO LS-K
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+    IF FUNCTION UPPER-CASE(LS-TEXT) NOT = "AND"
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-K
+    PERFORM READ-SQL-NUMBER
+    IF LS-NUMBER-OK = "N"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-END-TEXT TO LS-HIGH-TEXT
+    MOVE LS-K TO LS-HIGH-T
+    *> Not a number followed by more of an expression: BETWEEN 10 AND
+    *> 5 + :X.
+    IF LS-K < TK-COUNT
+        COMPUTE LS-HIGH-T = LS-K + 1
+        IF TK-IS-OPERATOR(LS-HIGH-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-HIGH-T LS-TEXT LS-LEN
+            IF LS-TEXT = "+" OR "-" OR "*" OR "/" OR "||"
+                EXIT PARAGRAPH
+            END-IF
+        END-IF
+    END-IF
+    IF LS-LOW-VALUE > LS-END-VALUE
+        MOVE SPACES TO LS-MESSAGE
+        MOVE 1 TO LS-PTR
+        STRING "BETWEEN " DELIMITED BY SIZE
+               LS-LOW-TEXT DELIMITED BY SPACE
+               " AND " DELIMITED BY SIZE
+               LS-HIGH-TEXT DELIMITED BY SPACE
+               " holds no value, as its first end is above its second:"
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+        COMPUTE LS-HIGH-T = LS-T - 1
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-HIGH-T LS-TEXT LS-LEN
+        IF FUNCTION UPPER-CASE(LS-TEXT) = "NOT"
+            STRING " NOT BETWEEN is true for every value" DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+        ELSE
+            STRING " no row satisfies it" DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+        END-IF
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE-BETWEEN LS-LOW-T LS-MESSAGE
+    END-IF.
+
+*> LS-END-VALUE and LS-END-TEXT from the number at LS-K, with a sign
+*> before it if there is one (LS-K is left at the number);
+*> LS-NUMBER-OK = "N" when there is none.
+READ-SQL-NUMBER.
+    MOVE "N" TO LS-NUMBER-OK
+    MOVE SPACES TO LS-END-TEXT
+    IF LS-K >= TK-COUNT
+        EXIT PARAGRAPH
+    END-IF
+    IF TK-IS-OPERATOR(LS-K)
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+        IF LS-TEXT NOT = "-" AND LS-TEXT NOT = "+"
+            EXIT PARAGRAPH
+        END-IF
+        MOVE LS-TEXT(1:1) TO LS-END-TEXT
+        ADD 1 TO LS-K
+    END-IF
+    IF NOT TK-IS-NUMBER(LS-K)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+    IF LS-LEN > 27
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-END-TEXT = SPACES
+        MOVE LS-TEXT(1:LS-LEN) TO LS-END-TEXT
+    ELSE
+        MOVE LS-TEXT(1:LS-LEN) TO LS-END-TEXT(2:)
+    END-IF
+    MOVE 0 TO LS-LEVEL
+    INSPECT LS-END-TEXT TALLYING LS-LEVEL FOR ALL "," "E" "e"
+    IF LS-LEVEL > 0
+        EXIT PARAGRAPH
+    END-IF
+    IF FUNCTION TEST-NUMVAL(FUNCTION TRIM(LS-END-TEXT)) NOT = 0
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-END-VALUE = FUNCTION NUMVAL(FUNCTION TRIM(LS-END-TEXT))
+    MOVE "Y" TO LS-NUMBER-OK.
 
 CHECK-STAR-AFTER-SELECT.
     COMPUTE LS-K = LS-T + 1
