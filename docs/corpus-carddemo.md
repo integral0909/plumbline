@@ -444,7 +444,8 @@ Some findings that were read and are true:
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
 - **PLB-J020 jcl-name-invalid.** None in its 48 JCL and procedure
   files. In a copy of `INTCALC` whose `STEP15` is renamed
-  `STEP15CALC`, it reports that name.
+  `STEP15CALC`, it reports that name, and in one whose `PGM=CBACT04C`
+  is made `PGM=CBACT04CALC`, the program name.
 - **PLB-J019 parm-too-long.** None: its longest `PARM` passes 36
   characters (`DFHCSDUP` in `CBADMCDJ`). In a copy of `INTCALC` whose
   `PARM='2022071800'` is made 101 characters, continued over three
