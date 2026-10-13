@@ -234,3 +234,10 @@
         10  JO-STEP             PIC 9(9) COMP-5.
         10  JO-FILE-ID          PIC 9(4) COMP-5.
         10  JO-LINE             PIC 9(9) COMP-5.
+    *> JCLLIB statements out of their place: A after the job's first
+    *> EXEC, T a second of the job, P in a procedure.
+    05  JL-COUNT                PIC 9(9) COMP-5.
+    05  JL-ENTRY                OCCURS JL-MAX TIMES.
+        10  JL-PROBLEM          PIC X.
+        10  JL-FILE-ID          PIC 9(4) COMP-5.
+        10  JL-LINE             PIC 9(9) COMP-5.
