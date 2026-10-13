@@ -127,6 +127,7 @@ LOCAL-STORAGE SECTION.
 01  LS-GEN-LEN              PIC 9(4) COMP-5.
 01  LS-ONLY-WITH-SYSOUT     PIC X(8).
 01  LS-OUTPUT-CODED         PIC X.
+01  LS-PRE-DD               PIC X(17).
 01  LS-IN-DCB               PIC X VALUE "N".
 01  LS-LRECL-KW             PIC X.
 01  LS-LRECL-DCB            PIC X.
@@ -589,6 +590,8 @@ ADD-JOB.
     MOVE SPACES TO JJ-TIME-BAD(LS-JOB) JJ-REGION-BAD(LS-JOB)
         JJ-MSGLEVEL-BAD(LS-JOB) JJ-CLASS-BAD(LS-JOB) JJ-CLASS-KEY(LS-JOB)
         JJ-COND(LS-JOB) JJ-VALUE-KEY(LS-JOB) JJ-VALUE-BAD(LS-JOB)
+        JJ-JOBLIB-AFTER(LS-JOB) LS-PRE-DD
+    MOVE 0 TO JJ-JOBLIB-LINE(LS-JOB)
     MOVE 1 TO OP-START
     MOVE 0 TO OP-POSITION
     PERFORM NEXT-OPERAND
@@ -1493,6 +1496,18 @@ COUNT-PARM.
 *> before it (a concatenation) and gets its name; DDs before the first
 *> step (JOBLIB, JOBCAT) belong to no step.
 ADD-DD.
+    *> Before the first EXEC of a job: a JOBLIB after another DD.
+    IF LS-STEP = 0 AND LS-JOB > 0 AND LS-PROC = 0
+        IF ST-NAME = "JOBLIB" AND LS-PRE-DD NOT = SPACES
+           AND LS-PRE-DD NOT = "JOBLIB"
+           AND JJ-JOBLIB-AFTER(LS-JOB) = SPACES
+            MOVE LS-PRE-DD TO JJ-JOBLIB-AFTER(LS-JOB)
+            MOVE ST-LINE TO JJ-JOBLIB-LINE(LS-JOB)
+        END-IF
+        IF ST-NAME NOT = SPACES
+            MOVE ST-NAME TO LS-PRE-DD
+        END-IF
+    END-IF
     IF LS-STEP = 0 OR JD-COUNT >= JD-MAX
         PERFORM SCAN-DD-DATA
         EXIT PARAGRAPH

@@ -542,6 +542,10 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J043 joblib-misplaced.** None: its one `JOBLIB` DD (`CREADB21`)
+  follows the `JOB` statement and `SET` statements. (Its `//JOBLIB
+  JCLLIB` statements are not DDs.) In a copy of `DUSRSECJ` with a
+  `JOBLIB` DD put after its first `EXEC`, it reports that DD.
 - **PLB-J042 exec-value-invalid.** None: CardDemo codes no `ADDRSPC`,
   `RD`, `MEMLIMIT`, `PRTY`, or `JESLOG`, and one `TYPRUN=SCAN`
   (`CREADB21`). In a copy of `DUSRSECJ` with `RD=RESTART` added to its
