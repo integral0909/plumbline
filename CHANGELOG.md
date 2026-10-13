@@ -263,6 +263,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-Q018 null-compared.
 - Rule PLB-Q019 between-reversed.
 - Rule PLB-J018 gdg-generation-not-created.
+- Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
+  the name field.
 - Rule PLB-J019 parm-too-long; the JCL reader counts the characters of
   each `PARM`, and `plumbline dump jcl` shows them.
 - The JCL reader keeps the `BLKSIZE` of each DD (as a keyword or in

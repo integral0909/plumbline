@@ -439,3 +439,76 @@ REPORT-LONG.
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
         JS-FILE-ID(LS-S) JS-LINE(LS-S) LS-COLUMN LS-ZERO LS-MESSAGE.
 END PROGRAM PLB-RULE-J019.
+
+*> ---------------------------------------------------------------
+*> PLB-J020 jcl-name-invalid: a statement whose name z/OS does not
+*> accept:
+*>
+*>     //EXTRACTSTEP EXEC PGM=PAYEXT       eleven characters
+*>     //1COPY    EXEC PGM=IEBGENER        starts with a digit
+*>
+*> A name in the name field (of a JOB, EXEC, DD, PROC, or any other
+*> statement) is 1 to 8 letters, digits, or national characters ($, #,
+*> @), the first not a digit; in a STEP.DDNAME override, each part
+*> is. z/OS ends the job with a JCL error. The JCL reader checks each
+*> name (JN-ENTRY in plbjcl.cpy); names with a symbol are not checked.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J020.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-N                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-PTR                  PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J020" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-N FROM 1 BY 1 UNTIL LS-N > JN-COUNT
+        PERFORM REPORT-NAME
+    END-PERFORM
+    GOBACK.
+
+REPORT-NAME.
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    STRING "name " DELIMITED BY SIZE
+           JN-NAME(LS-N) DELIMITED BY SPACE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    IF JN-LEN(LS-N) > 17
+        STRING "..." DELIMITED BY SIZE INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    IF JN-PART(LS-N) > 1
+        STRING " (after the dot)" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    EVALUATE JN-PROBLEM(LS-N)
+        WHEN "L"
+            STRING " is longer than 8 characters" DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+        WHEN "F"
+            STRING " does not start with a letter or $, #, or @"
+                DELIMITED BY SIZE INTO LS-MESSAGE WITH POINTER LS-PTR
+        WHEN "C"
+            STRING " has a character other than a letter, digit, $, #,"
+                   " or @" DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+        WHEN OTHER
+            STRING " has an empty part" DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-EVALUATE
+    STRING ": z/OS ends the job with a JCL error" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        JN-FILE-ID(LS-N) JN-LINE(LS-N) LS-COLUMN LS-ZERO LS-MESSAGE.
+END PROGRAM PLB-RULE-J020.

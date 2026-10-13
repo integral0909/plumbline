@@ -116,3 +116,19 @@
         10  JI-STEP             PIC X(8).
         10  JI-FILE-ID          PIC 9(4) COMP-5.
         10  JI-LINE             PIC 9(9) COMP-5.
+    *> Statements whose name z/OS does not accept: 1 to 8 letters,
+    *> digits, or national characters ($ # @), the first not a digit,
+    *> in each part of a STEP.DDNAME. JN-NAME is the name as written
+    *> (its first 17 characters), JN-LEN its length, JN-PART the part
+    *> that is wrong (1 or 2), and JN-PROBLEM what is wrong with it: L
+    *> longer than 8 characters, F a first character that is not a
+    *> letter or national character, C another character, E empty.
+    *> Names with a symbol (&) are not checked.
+    05  JN-COUNT                PIC 9(9) COMP-5.
+    05  JN-ENTRY                OCCURS JN-MAX TIMES.
+        10  JN-NAME             PIC X(17).
+        10  JN-LEN              PIC 9(9) COMP-5.
+        10  JN-PART             PIC 9(4) COMP-5.
+        10  JN-PROBLEM          PIC X.
+        10  JN-FILE-ID          PIC 9(4) COMP-5.
+        10  JN-LINE             PIC 9(9) COMP-5.
