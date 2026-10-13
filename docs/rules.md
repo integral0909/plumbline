@@ -121,6 +121,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C107](#plb-c107-times-count-changed) | times-count-changed | warning | Statement in a PERFORM TIMES loop changes its count, read only once |
 | [PLB-C108](#plb-c108-number-compared-to-text) | number-compared-to-text | warning | Numeric item compared with digits in quotes of another length |
 | [PLB-C109](#plb-c109-pointer-past-end) | pointer-past-end | warning | STRING or UNSTRING POINTER set past the end of its item just before |
+| [PLB-C110](#plb-c110-file-dd-shared) | file-dd-shared | warning | Two files of a program, one of them written, assigned to one DD |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -3177,6 +3178,34 @@ The value is read as for PLB-C082: the last statement before, in the
 same paragraph, that gives the pointer a number, with nothing between
 that may change it. An item with reference modification or of variable
 size is not read.
+
+## PLB-C110 file-dd-shared
+
+Two files of a program assigned to the same DD name and opened by one
+`OPEN`, at least one of them for writing:
+
+```cobol
+    SELECT OLD-MASTER ASSIGN TO MASTER.
+    SELECT NEW-MASTER ASSIGN TO UT-S-MASTER.    *> reported
+    ...
+    OPEN INPUT OLD-MASTER OUTPUT NEW-MASTER
+```
+
+On z/OS `UT-S-MASTER` is DD `MASTER`, so both files are the one data
+set it names, and each works on it as if the other were not there.
+With GnuCOBOL 3.2 and both files assigned to `MASTER`, `OPEN OUTPUT`
+of the new file empties the data set the old one reads, whose first
+`READ` is then at end of file; and two files opened `OUTPUT` on one DD
+both write from its start, so the records of the first are lost. A new
+file needs a DD of its own.
+
+The DD name is the one the JCL rules use: the assignment, or its last
+part after a hyphen. Only files opened by the same `OPEN` statement are
+compared, which shows they are open together; a file written, closed,
+and read back through another `FD` on its DD, as NIST's `RL111A` does,
+is common and fine. Two `OPEN` statements that leave both files open
+are not followed. Files assigned to a data item, a path, or a device
+are not compared.
 
 ## PLB-I001 pcb-dbd-unknown
 

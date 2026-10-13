@@ -262,6 +262,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C107 times-count-changed.
 - Rule PLB-C108 number-compared-to-text.
 - Rule PLB-C109 pointer-past-end.
+- Rule PLB-C110 file-dd-shared; the call graph notes files that one
+  `OPEN` opens together on a DD.
 - Rule PLB-Q018 null-compared.
 - Rule PLB-Q019 between-reversed.
 - Rule PLB-J018 gdg-generation-not-created.

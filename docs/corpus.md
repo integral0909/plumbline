@@ -329,6 +329,13 @@ The findings were checked by rule:
 - **PLB-C105 string-edited-leading-space.** None in NIST or in
   GnuCOBOL's tests.
 
+- **PLB-C110 file-dd-shared.** None in NIST or in GnuCOBOL's tests. A
+  first version, which compared any two opened files, reported NIST's
+  `RL111A`, `RL116A`, `RL117A`, `RL118A`, and `SQ114A`, and files in
+  GnuCOBOL's tests; `RL111A`, for one, writes `RL-FS2`, closes it, and
+  opens `RL-FS3` on its DD. Only files opened by one `OPEN` are
+  compared now.
+
 - **PLB-C109 pointer-past-end.** None in NIST. One in GnuCOBOL's tests,
   as meant: case C of `string-with-pointer-on-overflow-with-del` moves
   4 to the pointer of a `PIC X(03)` and checks that `STRING`

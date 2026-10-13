@@ -68,6 +68,11 @@ LOCAL-STORAGE SECTION.
 01  LS-DEPTH                PIC 9(9) COMP-5.
 01  LS-SIZE                 PIC 9(9) COMP-5.
 01  LS-MODE                 PIC X.
+*> NOTE-OPEN: the files an OPEN names so far, with their modes.
+01  LS-OPENED-COUNT         PIC 9(4) COMP-5.
+01  LS-J                    PIC 9(4) COMP-5.
+01  LS-OPENED               PIC 9(9) COMP-5 OCCURS 50 TIMES.
+01  LS-OPENED-MODE          PIC X OCCURS 50 TIMES.
 01  LS-KIND                 PIC X.
 01  LS-TEXT                 PIC X(31).
 01  LS-WORD                 PIC X(31).
@@ -428,6 +433,7 @@ ADD-FILE.
     MOVE "N" TO PF-OPTIONAL(PF-COUNT) PF-SORT(PF-COUNT)
         PF-INPUT(PF-COUNT) PF-OUTPUT(PF-COUNT) PF-I-O(PF-COUNT)
         PF-EXTEND(PF-COUNT)
+    MOVE 0 TO PF-SAME-OPEN(PF-COUNT)
     PERFORM RECORD-SIZE
     PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-N) BY 1
             UNTIL LS-T >= ND-TOK-LAST(LS-N)
@@ -626,6 +632,7 @@ NOTE-OPEN.
         EXIT PARAGRAPH
     END-IF
     MOVE SPACE TO LS-MODE
+    MOVE 0 TO LS-OPENED-COUNT
     PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-N) BY 1
             UNTIL LS-T > ND-TOK-LAST(LS-N)
         IF TK-IS-WORD(LS-T)
@@ -652,9 +659,28 @@ NOTE-OPEN-FILE.
                 WHEN "U"  MOVE "Y" TO PF-I-O(LS-I)
                 WHEN "E"  MOVE "Y" TO PF-EXTEND(LS-I)
             END-EVALUATE
+            PERFORM NOTE-SAME-OPEN
             EXIT PERFORM
         END-IF
     END-PERFORM.
+
+*> File LS-I, opened in mode LS-MODE: a file before it in the same
+*> OPEN on the same DD, one of the two opened for writing.
+NOTE-SAME-OPEN.
+    IF PF-DDNAME(LS-I) NOT = SPACES
+        PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J > LS-OPENED-COUNT
+            IF PF-DDNAME(LS-OPENED(LS-J)) = PF-DDNAME(LS-I)
+               AND (LS-MODE NOT = "I" OR LS-OPENED-MODE(LS-J) NOT = "I")
+               AND PF-SAME-OPEN(LS-I) = 0
+                MOVE LS-OPENED(LS-J) TO PF-SAME-OPEN(LS-I)
+            END-IF
+        END-PERFORM
+    END-IF
+    IF LS-OPENED-COUNT < 50
+        ADD 1 TO LS-OPENED-COUNT
+        MOVE LS-I TO LS-OPENED(LS-OPENED-COUNT)
+        MOVE LS-MODE TO LS-OPENED-MODE(LS-OPENED-COUNT)
+    END-IF.
 
 *> Maps --------------------------------------------------------------
 

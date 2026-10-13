@@ -1,0 +1,40 @@
+*> PLB-C110 file-dd-shared: two files of a program on one DD name,
+*> both opened, one of them written.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. DDSHARE.
+ENVIRONMENT DIVISION.
+INPUT-OUTPUT SECTION.
+FILE-CONTROL.
+    *> Reported: the new master is on the old master's DD.
+    SELECT OLD-MASTER ASSIGN TO MASTER.
+    SELECT NEW-MASTER ASSIGN TO UT-S-MASTER.
+    *> Not reported: files on their own DDs, two files only read from
+    *> one DD, and a file on one DD with a file opened by another OPEN.
+    SELECT TRANS-IN   ASSIGN TO TRANS.
+    SELECT REPORT-OUT ASSIGN TO REPORT1.
+    SELECT CODES-A    ASSIGN TO CODES.
+    SELECT CODES-B    ASSIGN TO S-CODES.
+    SELECT SPARE-OUT  ASSIGN TO REPORT1.
+DATA DIVISION.
+FILE SECTION.
+FD  OLD-MASTER.
+01  OLD-REC             PIC X(80).
+FD  NEW-MASTER.
+01  NEW-REC             PIC X(80).
+FD  TRANS-IN.
+01  TRANS-REC           PIC X(80).
+FD  REPORT-OUT.
+01  REPORT-REC          PIC X(80).
+FD  CODES-A.
+01  CODE-A-REC          PIC X(80).
+FD  CODES-B.
+01  CODE-B-REC          PIC X(80).
+FD  SPARE-OUT.
+01  SPARE-REC           PIC X(80).
+PROCEDURE DIVISION.
+    OPEN INPUT OLD-MASTER TRANS-IN CODES-A CODES-B
+         OUTPUT NEW-MASTER REPORT-OUT
+    CLOSE OLD-MASTER TRANS-IN CODES-A CODES-B NEW-MASTER REPORT-OUT
+    OPEN INPUT SPARE-OUT
+    CLOSE SPARE-OUT
+    STOP RUN.
