@@ -329,6 +329,11 @@ The findings were checked by rule:
 - **PLB-C105 string-edited-leading-space.** None in NIST or in
   GnuCOBOL's tests.
 
+- **PLB-C111 sort-statement-wrong-phase.** None in NIST's 29 programs
+  with a `SORT` procedure, or in GnuCOBOL's tests. In a copy of NIST's
+  `ST101A` with a `RELEASE` put first in its output procedure, it
+  reports it.
+
 - **PLB-C110 file-dd-shared.** None in NIST or in GnuCOBOL's tests. A
   first version, which compared any two opened files, reported NIST's
   `RL111A`, `RL116A`, `RL117A`, `RL118A`, and `SQ114A`, and files in
