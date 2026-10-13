@@ -714,6 +714,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J025"
         "dlm-not-instream" "E"
         "DD codes DLM but is not DD * or DD DATA"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J026"
+        "job-too-many-steps" "E"
+        "Job has more than 255 steps, counting those of its procedures"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
