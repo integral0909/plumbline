@@ -390,6 +390,16 @@ check "a sixteenth in-stream procedure"  1 'instream.jcl:49:3: error: procedure 
     -- check --no-config $jx/instream.jcl
 check_absent "the fifteenth is allowed"   'procedure P15 is in-stream' \
     -- check --no-config $jx/instream.jcl
+check "TIME=0 on a JOB statement"         1 'time.jcl:2:3: error: job PAYJOB codes TIME=0.*\[PLB-J029\]' \
+    -- check --no-config $jx/time.jcl
+check "90 seconds"                        1 'time.jcl:5:3: error: step EXTRACT codes TIME=(5,90), not minutes.*\[PLB-J029\]' \
+    -- check --no-config $jx/time.jcl
+check "400000 minutes"                    1 'time.jcl:6:3: error: step SORT codes TIME=400000.*\[PLB-J029\]' \
+    -- check --no-config $jx/time.jcl
+check "minutes that are not a number"     1 'time.jcl:7:3: error: step REPORT codes TIME=FIVE.*\[PLB-J029\]' \
+    -- check --no-config $jx/time.jcl
+check_absent "TIME in range, or no limit" 'time.jcl:1[0-5]:.*PLB-J029' \
+    -- check --no-config $jx/time.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \

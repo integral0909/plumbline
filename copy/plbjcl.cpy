@@ -18,6 +18,10 @@
         10  JJ-NAME             PIC X(8).
         10  JJ-FILE-ID          PIC 9(4) COMP-5.
         10  JJ-LINE             PIC 9(9) COMP-5.
+        *> A TIME= value the z/OS MVS JCL Reference does not allow
+        *> (minutes above 357912, seconds above 59, not a number, or 0
+        *> on a JOB statement), as written; spaces when there is none.
+        10  JJ-TIME-BAD         PIC X(20).
     *> Procedure definitions: PROC statements.
     05  JP-COUNT                PIC 9(9) COMP-5.
     05  JP-ENTRY                OCCURS JP-MAX TIMES.
@@ -52,6 +56,8 @@
         *> apostrophe counted once. 0 when there is no PARM, or it has
         *> a symbol (&).
         10  JS-PARM-LEN         PIC 9(9) COMP-5.
+        *> The same as JJ-TIME-BAD, for TIME= of the EXEC statement.
+        10  JS-TIME-BAD         PIC X(20).
         10  JS-FILE-ID          PIC 9(4) COMP-5.
         10  JS-LINE             PIC 9(9) COMP-5.
         *> The step's DD statements: JS-DD-COUNT entries from

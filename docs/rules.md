@@ -159,6 +159,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J026](#plb-j026-job-too-many-steps) | job-too-many-steps | error | Job has more than 255 steps, counting those of its procedures |
 | [PLB-J027](#plb-j027-proc-calls-itself) | proc-calls-itself | error | Procedure calls itself, directly or through the procedures it calls |
 | [PLB-J028](#plb-j028-instream-procs-too-many) | instream-procs-too-many | error | Job has more than 15 in-stream procedures |
+| [PLB-J029](#plb-j029-time-invalid) | time-invalid | error | TIME= minutes above 357912, seconds above 59, or 0 on a JOB statement |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -3989,6 +3990,25 @@ The z/OS MVS JCL Reference ("Entering jobs") says: "The maximum number
 of in-stream procedures you can code in any job is 15." Procedures that
 many are better cataloged in a procedure library, where a job may call
 any number.
+
+## PLB-J029 time-invalid
+
+A `TIME=` on a `JOB` or `EXEC` statement that the z/OS MVS JCL
+Reference does not allow:
+
+```jcl
+//PAYJOB   JOB (ACCT),'PAY',CLASS=A,TIME=0      reported
+//EXTRACT  EXEC PGM=PAYEXTR,TIME=(5,90)         reported
+//SORT     EXEC PGM=SORT,TIME=400000            reported
+```
+
+`TIME` limits the processor time of a job or step: minutes "from 0
+through 357912 (248.55 days)", and seconds "from 0 through 59", as
+`TIME=minutes`, `TIME=(minutes,seconds)`, or `TIME=(,seconds)`; `1440`,
+`NOLIMIT`, and `MAXIMUM` ask for no limit. On a `JOB` statement, the
+Reference says: "Do not code TIME=0 on a JOB statement. The results are
+unpredictable." (On an `EXEC` statement, `TIME=0` gives the step the
+time left from the step before.) Values with symbols are not read.
 
 ## PLB-K001 cics-resource-undefined
 
