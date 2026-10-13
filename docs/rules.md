@@ -232,6 +232,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q027](#plb-q027-update-not-for-update) | update-not-for-update | error | Positioned UPDATE sets a column the cursor's FOR UPDATE OF leaves out |
 | [PLB-Q028](#plb-q028-order-by-for-update) | order-by-for-update | error | SQL cursor declared with both ORDER BY and FOR UPDATE |
 | [PLB-Q029](#plb-q029-cursor-unused) | cursor-unused | note | SQL cursor is declared but never opened, fetched, or closed |
+| [PLB-Q030](#plb-q030-for-update-read-only) | for-update-read-only | error | SQL cursor FOR UPDATE whose result table is read-only (join, DISTINCT, ...) |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -5502,6 +5503,32 @@ rewrite replaced was left behind, or the cursor meant to be opened is
 another one with a similar name. Cursors are
 matched by name with their `OPEN`, `FETCH`, and `CLOSE` statements in
 the file, as for [PLB-Q003](#plb-q003-cursor-not-opened).
+
+## PLB-Q030 for-update-read-only
+
+A cursor declared `FOR UPDATE` whose result table cannot be changed:
+
+```cobol
+    EXEC SQL
+        DECLARE DIST-CUR CURSOR FOR
+            SELECT DISTINCT BRANCH FROM ACCOUNT
+               FOR UPDATE                         *> reported
+    END-EXEC
+```
+
+A row of the result is not a row of one table when the query joins
+tables, removes duplicates, computes a function over rows, groups, or
+combines queries. Db2 for z/OS rejects such a declaration with SQLCODE
+-511, "the FOR UPDATE clause cannot be specified because the result
+table designated by the select statement cannot be modified"
+([Db2 codes](https://www.ibm.com/docs/en/db2-for-zos/12?topic=codes-511)).
+The rule reports more than one table in the first `FROM`, `DISTINCT` or
+a column function (`AVG`, `COUNT`, `MAX`, `MIN`, `SUM`) in the first
+`SELECT` clause, and `GROUP BY`, `HAVING`, `UNION`, `EXCEPT`, or
+`INTERSECT` at the top level of the query. `ORDER BY` with `FOR UPDATE`
+is [PLB-Q028](#plb-q028-order-by-for-update); what subqueries hold
+does not count. Update the rows through a cursor on the one table, by
+key.
 
 ## PLB-S001 dynamic-sql
 

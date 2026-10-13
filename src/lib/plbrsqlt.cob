@@ -943,6 +943,12 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-RULE-COLUMN          PIC 9(4) COMP-5.
 01  LS-RULE-ORDER           PIC 9(4) COMP-5.
+01  LS-RULE-READ-ONLY       PIC 9(4) COMP-5.
+*> PLB-Q030: what makes the cursor's result table read-only, and where
+*> its first SELECT clause is.
+01  LS-WHY                  PIC X(40).
+01  LS-SELECTS              PIC 9(4) COMP-5.
+01  LS-IN-SELECT            PIC X.
 *> PLB-Q028: where the cursor has ORDER BY, FOR UPDATE, SENSITIVE.
 01  LS-ORDER-AT             PIC 9(9) COMP-5.
 01  LS-UPDATE-AT            PIC 9(9) COMP-5.
@@ -981,9 +987,11 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q026" LS-RULE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q027" LS-RULE-COLUMN
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q028" LS-RULE-ORDER
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q030" LS-RULE-READ-ONLY
     IF RL-ENABLED(LS-RULE) NOT = "Y"
        AND RL-ENABLED(LS-RULE-COLUMN) NOT = "Y"
        AND RL-ENABLED(LS-RULE-ORDER) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-READ-ONLY) NOT = "Y"
         GOBACK
     END-IF
     CALL "PLB-SQL-MODEL-BUILD" USING PLB-SOURCE-SET PLB-TOKENS
@@ -995,7 +1003,9 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
                 OR RL-ENABLED(LS-RULE-COLUMN) = "Y")
             PERFORM CHECK-POSITIONED
         END-IF
-        IF QS-KIND(LS-S) = "C" AND RL-ENABLED(LS-RULE-ORDER) = "Y"
+        IF QS-KIND(LS-S) = "C"
+           AND (RL-ENABLED(LS-RULE-ORDER) = "Y"
+                OR RL-ENABLED(LS-RULE-READ-ONLY) = "Y")
             PERFORM CHECK-ORDER-UPDATE
         END-IF
     END-PERFORM
@@ -1138,9 +1148,20 @@ SET-COLUMN.
 *> and FOR UPDATE, at the top level of its query. Db2 rejects it with
 *> SQLCODE -126 unless the cursor is static sensitive scrollable (a
 *> declaration with SENSITIVE is not read).
+*>
+*> PLB-Q030 for-update-read-only: a cursor declared FOR UPDATE whose
+*> result table cannot be changed, which Db2 rejects with SQLCODE
+*> -511: more than one table in its first FROM, DISTINCT or a column
+*> function (AVG, COUNT, MAX, MIN, SUM) in its first SELECT clause, or
+*> GROUP BY, HAVING, or a set operator (UNION, EXCEPT, INTERSECT) at
+*> the top level.
 CHECK-ORDER-UPDATE.
-    MOVE 0 TO LS-ORDER-AT LS-UPDATE-AT LS-DEPTH
-    MOVE "N" TO LS-SENSITIVE
+    MOVE 0 TO LS-ORDER-AT LS-UPDATE-AT LS-DEPTH LS-SELECTS
+    MOVE "N" TO LS-SENSITIVE LS-IN-SELECT
+    MOVE SPACES TO LS-WHY
+    IF QS-TABLE-COUNT(LS-S) > 1
+        MOVE "it reads more than one table" TO LS-WHY
+    END-IF
     PERFORM VARYING LS-T FROM QS-TOKEN(LS-S) BY 1
             UNTIL LS-T >= QS-END(LS-S)
         EVALUATE TRUE
@@ -1153,6 +1174,7 @@ CHECK-ORDER-UPDATE.
             WHEN TK-IS-WORD(LS-T)
                 CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
                 MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+                PERFORM NOTE-READ-ONLY
                 EVALUATE TRUE
                     WHEN LS-TEXT = "SENSITIVE"
                         MOVE "Y" TO LS-SENSITIVE
@@ -1168,7 +1190,24 @@ CHECK-ORDER-UPDATE.
                 END-EVALUATE
         END-EVALUATE
     END-PERFORM
-    IF LS-ORDER-AT = 0 OR LS-UPDATE-AT = 0 OR LS-SENSITIVE = "Y"
+    IF LS-UPDATE-AT = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-WHY NOT = SPACES AND RL-ENABLED(LS-RULE-READ-ONLY) = "Y"
+        MOVE SPACES TO LS-MESSAGE
+        STRING "cursor " DELIMITED BY SIZE
+               QS-CURSOR(LS-S) DELIMITED BY SPACE
+               " is FOR UPDATE, but " DELIMITED BY SIZE
+               LS-WHY DELIMITED BY "  "
+               ", so its rows cannot be changed: Db2 rejects it"
+               " (SQLCODE -511)" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE-READ-ONLY LS-UPDATE-AT
+            LS-MESSAGE
+    END-IF
+    IF LS-ORDER-AT = 0 OR LS-SENSITIVE = "Y"
+       OR RL-ENABLED(LS-RULE-ORDER) NOT = "Y"
         EXIT PARAGRAPH
     END-IF
     MOVE SPACES TO LS-MESSAGE
@@ -1180,6 +1219,40 @@ CHECK-ORDER-UPDATE.
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE-ORDER LS-UPDATE-AT LS-MESSAGE.
+
+*> Word LS-TEXT at LS-T, at the top level of the query: LS-WHY when it
+*> makes the result table read-only.
+NOTE-READ-ONLY.
+    EVALUATE TRUE
+        WHEN LS-TEXT = "SELECT"
+            ADD 1 TO LS-SELECTS
+            IF LS-SELECTS = 1
+                MOVE "Y" TO LS-IN-SELECT
+            END-IF
+        WHEN LS-TEXT = "FROM"
+            MOVE "N" TO LS-IN-SELECT
+        WHEN LS-WHY NOT = SPACES
+            CONTINUE
+        WHEN LS-TEXT = "DISTINCT" AND LS-IN-SELECT = "Y"
+            MOVE "its SELECT has DISTINCT" TO LS-WHY
+        WHEN (LS-TEXT = "AVG" OR LS-TEXT = "COUNT" OR LS-TEXT = "MAX"
+              OR LS-TEXT = "MIN" OR LS-TEXT = "SUM")
+             AND LS-IN-SELECT = "Y" AND LS-T + 1 < QS-END(LS-S)
+            IF TK-IS-LPAREN(LS-T + 1)
+                STRING "its SELECT has the function " DELIMITED BY SIZE
+                       LS-TEXT DELIMITED BY SPACE
+                    INTO LS-WHY
+            END-IF
+        WHEN LS-TEXT = "GROUP"
+            MOVE "it has GROUP BY" TO LS-WHY
+        WHEN LS-TEXT = "HAVING"
+            MOVE "it has HAVING" TO LS-WHY
+        WHEN LS-TEXT = "UNION" OR LS-TEXT = "EXCEPT"
+             OR LS-TEXT = "INTERSECT"
+            STRING "it has " DELIMITED BY SIZE
+                   LS-TEXT DELIMITED BY SPACE
+                INTO LS-WHY
+    END-EVALUATE.
 
 *> LS-NAME without its qualifier: the part after its last dot.
 SHORT-NAME.
