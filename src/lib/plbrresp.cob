@@ -19,6 +19,10 @@
 *> reads or sets as a halfword binary value (two bytes, PIC S9(4)
 *> COMP), and FLENGTH, a fullword. A fullword in LENGTH is read by its
 *> first two bytes, which hold 0 for any length below 65536.
+*>
+*> PLB-K012 abstime-not-packed: ABSTIME (of ASKTIME, FORMATTIME, and
+*> others), the milliseconds since 1900, which CICS gives and takes as
+*> eight bytes of packed decimal, PIC S9(15) COMP-3.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-K010.
@@ -30,6 +34,7 @@ WORKING-STORAGE SECTION.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-RULE-LENGTH          PIC 9(4) COMP-5.
+01  LS-RULE-ABSTIME         PIC 9(4) COMP-5.
 *> The size the option needs: 4 for RESP, RESP2, FLENGTH; 2 for LENGTH.
 01  LS-NEEDS                PIC 9(4) COMP-5.
 01  LS-NEEDS-TEXT           PIC X(40).
@@ -62,8 +67,10 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         PLB-REFS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K010" LS-RULE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K011" LS-RULE-LENGTH
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K012" LS-RULE-ABSTIME
     IF (RL-ENABLED(LS-RULE) NOT = "Y"
-        AND RL-ENABLED(LS-RULE-LENGTH) NOT = "Y") OR AS-COUNT = 0
+        AND RL-ENABLED(LS-RULE-LENGTH) NOT = "Y"
+        AND RL-ENABLED(LS-RULE-ABSTIME) NOT = "Y") OR AS-COUNT = 0
         GOBACK
     END-IF
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
@@ -101,6 +108,9 @@ CHECK-COMMAND.
                 WHEN LS-OPTION = "LENGTH"
                      AND RL-ENABLED(LS-RULE-LENGTH) = "Y"
                     MOVE 2 TO LS-NEEDS
+                WHEN LS-OPTION = "ABSTIME"
+                     AND RL-ENABLED(LS-RULE-ABSTIME) = "Y"
+                    MOVE 8 TO LS-NEEDS
             END-EVALUATE
             IF LS-NEEDS > 0
                 COMPUTE LS-K = LS-T + 1
@@ -122,6 +132,10 @@ CHECK-ITEM.
         EXIT PARAGRAPH
     END-IF
     MOVE RF-SYMBOL(LS-R) TO LS-S
+    IF LS-NEEDS = 8
+        PERFORM CHECK-ABSTIME
+        EXIT PARAGRAPH
+    END-IF
     MOVE "N" TO LS-BINARY
     IF SY-CATEGORY(LS-S) = "9" AND SY-SCALE(LS-S) = 0
         EVALUATE SY-USAGE(LS-S)
@@ -165,4 +179,20 @@ CHECK-ITEM.
             PLB-RULES PLB-FINDINGS LS-RULE-LENGTH RF-TOKEN(LS-R)
             LS-MESSAGE
     END-IF.
+*> ABSTIME item LS-S: packed decimal of 8 bytes, without decimals.
+CHECK-ABSTIME.
+    IF SY-CATEGORY(LS-S) = "9" AND SY-SCALE(LS-S) = 0
+       AND SY-SIZE(LS-S) = 8
+       AND (SY-USAGE(LS-S) = "COMP-3" OR "COMPUTATIONAL-3"
+            OR "PACKED-DECIMAL")
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    STRING "ABSTIME needs a packed decimal item of 8 bytes (PIC S9(15)"
+           " COMP-3), but " DELIMITED BY SIZE
+           SY-NAME(LS-S) DELIMITED BY SPACE
+           " is not one" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-ABSTIME RF-TOKEN(LS-R) LS-MESSAGE.
 END PROGRAM PLB-RULE-K010.

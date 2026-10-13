@@ -276,6 +276,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-Q028 order-by-for-update.
 - Rule PLB-K010 resp-not-fullword.
 - Rule PLB-K011 length-not-halfword.
+- Rule PLB-K012 abstime-not-packed.
 - Rule PLB-Q025 insert-not-null-missing; `plumbline dump sql` shows a
   column with a default as `default`.
 - Rule PLB-J018 gdg-generation-not-created.
