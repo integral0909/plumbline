@@ -547,6 +547,7 @@ uses [Semantic Versioning](https://semver.org/).
 - PLB-J020 jcl-name-invalid also checks the program of `EXEC PGM=` and
   the procedure of `EXEC PROC=`.
 - PLB-Q024 column-undeclared also reads the columns of a `WHERE`.
+- PLB-K011 length-not-halfword also checks `ITEM` and `NUMITEMS`.
 - PLB-C072 unreachable-statement also reports a statement after `EXEC
   CICS RETURN` or `XCTL` without `RESP`, `RESP2`, or `NOHANDLE`.
 - PLB-Q015 insert-count-mismatch also counts the values of an `INSERT`
