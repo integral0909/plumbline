@@ -560,6 +560,9 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- PLB-Q001 sql-table-undeclared took the word after a cursor's `FOR
+  UPDATE` without `OF` (often `END-EXEC`) for a table an `UPDATE` names.
+
 - PLB-C068 odo-count-out-of-range judges the value the count stores:
   `MOVE -3` to a count without a sign stores 3, and `MOVE 1005` to a
   `PIC 999` count stores 5, both of which it reported as out of range.
