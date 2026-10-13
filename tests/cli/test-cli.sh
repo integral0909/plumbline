@@ -330,6 +330,10 @@ check_absent "(0,LT) has codes it fails"  'cond.jcl:9:.*PLB-J021' \
     -- check --no-config $jx/cond.jcl
 check_absent "(10,LE) is not (0,LE)"      'cond.jcl:10:.*PLB-J021' \
     -- check --no-config $jx/cond.jcl
+check "COND=(0,GT) is never true"         1 'cond.jcl:14:3: warning: COND test (0,GT) is true for no return code.*\[PLB-J022\]' \
+    -- check --no-config $jx/cond.jcl
+check "(4095,LT) of a named step"         1 'cond.jcl:15:3: warning: COND test (4095,LT) is true for no return code.*\[PLB-J022\]' \
+    -- check --no-config $jx/cond.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \

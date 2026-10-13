@@ -282,6 +282,7 @@ uses [Semantic Versioning](https://semver.org/).
   column with a default as `default`.
 - Rule PLB-J018 gdg-generation-not-created.
 - Rule PLB-J021 cond-always-bypasses.
+- Rule PLB-J022 cond-never-true.
 - Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
   the name field.
 - Rule PLB-J019 parm-too-long; the JCL reader counts the characters of

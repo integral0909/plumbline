@@ -534,6 +534,10 @@ END PROGRAM PLB-RULE-J020.
 *> for every one, and the step never runs once a step before it has.
 *> Usually (0,LT) or (4,LT) was meant. Steps of procedures, and the
 *> first step of a job, which has no step before it, are not read.
+*>
+*> PLB-J022 cond-never-true: a test true for no return code, (0,GT)
+*> (0 > RC) or (4095,LT) (4095 < RC): it never bypasses the step, and
+*> was written the wrong way round, (0,LT) for (0,GT), as a rule.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-J021.
@@ -542,6 +546,7 @@ WORKING-STORAGE SECTION.
 COPY "plbjclc.cpy".
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-RULE-NEVER           PIC 9(4) COMP-5.
 01  LS-S                    PIC 9(9) COMP-5.
 01  LS-E                    PIC 9(9) COMP-5.
 01  LS-I                    PIC 9(4) COMP-5.
@@ -560,7 +565,8 @@ COPY "plbfind.cpy".
 COPY "plbjcl.cpy".
 PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J021" LS-RULE
-    IF RL-ENABLED(LS-RULE) NOT = "Y"
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J022" LS-RULE-NEVER
+    IF RL-ENABLED(LS-RULE) NOT = "Y" AND RL-ENABLED(LS-RULE-NEVER) NOT = "Y"
         GOBACK
     END-IF
     PERFORM VARYING LS-S FROM 2 BY 1 UNTIL LS-S > JS-COUNT
@@ -614,8 +620,25 @@ READ-TEST.
     IF LS-AFTER NOT = ")" AND LS-AFTER NOT = ","
         EXIT PARAGRAPH
     END-IF
-    IF (LS-CODE = 0 AND LS-OP = "LE")
-       OR (LS-CODE = 4095 AND LS-OP = "GE")
+    IF ((LS-CODE = 0 AND LS-OP = "GT")
+        OR (LS-CODE = 4095 AND LS-OP = "LT"))
+       AND RL-ENABLED(LS-RULE-NEVER) = "Y"
+        MOVE SPACES TO LS-TEST
+        STRING JS-COND(LS-S)(LS-I + 1:LS-J + 2 - LS-I) DELIMITED BY SIZE
+            INTO LS-TEST
+        MOVE SPACES TO LS-MESSAGE
+        STRING "COND test (" DELIMITED BY SIZE
+               LS-TEST DELIMITED BY SPACE
+               ") is true for no return code: it never bypasses step "
+               DELIMITED BY SIZE
+               JS-NAME(LS-S) DELIMITED BY SPACE
+            INTO LS-MESSAGE
+        CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE-NEVER
+            JS-FILE-ID(LS-S) JS-LINE(LS-S) LS-COLUMN LS-ZERO LS-MESSAGE
+    END-IF
+    IF ((LS-CODE = 0 AND LS-OP = "LE")
+        OR (LS-CODE = 4095 AND LS-OP = "GE"))
+       AND RL-ENABLED(LS-RULE) = "Y"
         MOVE SPACES TO LS-TEST
         STRING JS-COND(LS-S)(LS-I + 1:LS-J + 2 - LS-I) DELIMITED BY SIZE
             INTO LS-TEST
