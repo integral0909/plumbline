@@ -258,6 +258,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C103 chain-exhausted.
 - Rule PLB-C104 count-too-small.
 - Rule PLB-Q018 null-compared.
+- Rule PLB-Q019 between-reversed.
 - Rule PLB-J018 gdg-generation-not-created.
 - Rule PLB-J019 parm-too-long; the JCL reader counts the characters of
   each `PARM`, and `plumbline dump jcl` shows them.
