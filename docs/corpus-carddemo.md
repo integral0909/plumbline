@@ -542,6 +542,9 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J046 vol-ser-invalid.** None: CardDemo codes no `VOL=SER`. In a
+  copy of `DUSRSECJ` whose `SYSUT2` DD is given `VOL=SER=CARDVOL1`, it
+  reports the eight-character serial.
 - **PLB-J045 unit-aff-invalid.** None: its 131 `UNIT` values name
   devices (`3390`, `SYSDA`, `SYSAD`, `VIO`), none an affinity. In a copy
   of `DUSRSECJ` whose `UNIT=SYSAD` is made `UNIT=AFF=SYSUT3`, a DD the

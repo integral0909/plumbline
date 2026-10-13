@@ -600,6 +600,16 @@ check "UNIT=AFF with STORCLAS"            1 'unitaff.jcl:12:3: warning: DD TAPE6
     -- check --no-config $jx/unitaff.jcl
 check_absent "UNIT=AFF to an earlier DD"  'unitaff.jcl:7:.*PLB-J045' \
     -- check --no-config $jx/unitaff.jcl
+check "a volume serial of 7 characters"  1 'volser.jcl:5:3: error: DD LONG codes volume serial PAYVOL1, longer.*\[PLB-J046\]' \
+    -- check --no-config $jx/volser.jcl
+check "volume serial SCRTCH"              1 'volser.jcl:6:3: error: DD SCRATCH codes volume serial SCRTCH, a name the system uses.*\[PLB-J046\]' \
+    -- check --no-config $jx/volser.jcl
+check "volume serial L00042"              1 'volser.jcl:7:3: error: DD NOLABEL codes volume serial L00042,.*\[PLB-J046\]' \
+    -- check --no-config $jx/volser.jcl
+check "a volume serial named twice"       1 'volser.jcl:8:3: error: DD TWICE codes volume serial T00001, named twice.*\[PLB-J046\]' \
+    -- check --no-config $jx/volser.jcl
+check_absent "volume serials allowed"     'volser.jcl:1[0-2]:.*PLB-J046' \
+    -- check --no-config $jx/volser.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
