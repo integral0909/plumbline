@@ -117,6 +117,10 @@
         10  PF-OUTPUT           PIC X.
         10  PF-I-O              PIC X.
         10  PF-EXTEND           PIC X.
+        *> A file of the program on the same DD that an OPEN opens
+        *> together with this one, one of the two for writing (OUTPUT,
+        *> I-O, or EXTEND); 0 when there is none.
+        10  PF-SAME-OPEN        PIC 9(9) COMP-5.
         *> The largest record of the file's FD (or SD), in bytes; 0
         *> when unknown. PF-VARIABLE is "Y" when its records differ in
         *> length: records of several sizes, one with OCCURS DEPENDING

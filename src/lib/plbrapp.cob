@@ -6,6 +6,8 @@
 *>                              runs, starts, or names
 *>   PLB-C053  exit-program-in-main  EXIT PROGRAM in a program a job
 *>                              step runs (PLB-RULE-C053, below)
+*>   PLB-C110  file-dd-shared   two files of a program on one DD
+*>                              (PLB-RULE-C110, below)
 *>
 *> A program is in use when another program of the run calls it
 *> (CALL, or EXEC CICS XCTL, LINK, or LOAD with a constant name), a JCL
@@ -266,3 +268,67 @@ CHECK-PROGRAM.
         CP-EXIT-FILE-ID(LS-P) CP-EXIT-LINE(LS-P) CP-EXIT-COLUMN(LS-P)
         CP-EXIT-SRC-LINE(LS-P) LS-MESSAGE.
 END PROGRAM PLB-RULE-C053.
+
+*> ---------------------------------------------------------------
+*> PLB-C110 file-dd-shared: two files of one program assigned to the
+*> same DD name, opened by one OPEN statement, at least one of them
+*> for writing:
+*>
+*>     SELECT OLD-MASTER ASSIGN TO MASTER.
+*>     SELECT NEW-MASTER ASSIGN TO UT-S-MASTER.
+*>         OPEN INPUT OLD-MASTER OUTPUT NEW-MASTER
+*>
+*> Both files are then the one data set the DD names (on z/OS,
+*> UT-S-MASTER is DD MASTER), and each OPEN and WRITE works on it as if
+*> the other were not there. With GnuCOBOL 3.2, an OPEN OUTPUT of one
+*> empties the data set the other is reading, whose next READ is at
+*> end of file, and two files opened OUTPUT both write from its start,
+*> so the records of the first are lost. A new file usually needs a DD
+*> of its own. Files opened by separate OPEN statements are not
+*> compared: a file written, closed, and read back through another FD
+*> on its DD is common and fine. Files assigned to a data item, a
+*> path, or a device have no DD name and are not compared either.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-C110.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbcallc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-F                    PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbcall.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C110" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-F FROM 1 BY 1 UNTIL LS-F > PF-COUNT
+        IF PF-SAME-OPEN(LS-F) > 0
+            MOVE PF-SAME-OPEN(LS-F) TO LS-E
+            PERFORM REPORT-SHARED
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> File LS-F, opened with file LS-E on the same DD.
+REPORT-SHARED.
+    MOVE SPACES TO LS-MESSAGE
+    STRING "file " DELIMITED BY SIZE
+           PF-NAME(LS-F) DELIMITED BY SPACE
+           " is assigned to DD " DELIMITED BY SIZE
+           PF-DDNAME(LS-F) DELIMITED BY SPACE
+           ", as file " DELIMITED BY SIZE
+           PF-NAME(LS-E) DELIMITED BY SPACE
+           " is, and an OPEN opens both, one to write: they share one"
+           " data set" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        PF-FILE-ID(LS-F) PF-LINE(LS-F) PF-COLUMN(LS-F)
+        PF-SRC-LINE(LS-F) LS-MESSAGE.
+END PROGRAM PLB-RULE-C110.
