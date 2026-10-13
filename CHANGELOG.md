@@ -315,6 +315,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-J033 cond-invalid.
 - Rule PLB-J034 lrecl-invalid; the JCL reader notes whether a DD codes
   `LRECL` and `RECORG`.
+- Rule PLB-J035 retention-invalid; the JCL reader checks `EXPDT=` and
+  `RETPD=`.
 - Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
   the name field.
 - Rule PLB-J019 parm-too-long; the JCL reader counts the characters of

@@ -533,6 +533,9 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J035 retention-invalid.** None: no DD of CardDemo codes `EXPDT`
+  or `RETPD`. In a copy of `DUSRSECJ` whose `SYSUT2` DD is given
+  `RETPD=99999`, it reports that DD.
 - **PLB-J034 lrecl-invalid.** None among its 44 `LRECL` values, the
   longest 27990 (`DBPAUTP0`). In a copy of `DBPAUTP0` with
   `LRECL=37990`, it reports that DD.

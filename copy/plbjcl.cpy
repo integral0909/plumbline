@@ -130,6 +130,12 @@
         *> and when the DD codes RECORG= (a VSAM data set).
         10  JD-LRECL-CODED      PIC X.
         10  JD-RECORG           PIC X.
+        *> What is wrong with EXPDT= or RETPD=: E an EXPDT that is not
+        *> yyddd or yyyy/ddd of a real day, R a RETPD that is not 0
+        *> through 93000, B both coded, T either on a temporary data set;
+        *> space when nothing is. JD-RETAIN-VALUE: the value, as written.
+        10  JD-RETAIN-PROBLEM   PIC X.
+        10  JD-RETAIN-VALUE     PIC X(20).
         *> The class of SYSOUT= when the JCL Reference does not allow it
         *> (not one character, A through Z or 0 through 9, or *).
         10  JD-CLASS-BAD        PIC X(10).
