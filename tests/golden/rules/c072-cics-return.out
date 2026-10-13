@@ -1,0 +1,5 @@
+tests/golden/rules/c072-cics-return.cob:14:9: warning: MOVE never runs: it comes after the EXEC CICS RETURN on line 13 [PLB-C072]
+tests/golden/rules/c072-cics-return.cob:17:44: warning: the response of EXEC CICS XCTL in WS-RESP is not tested before the next CICS command [PLB-C019]
+tests/golden/rules/c072-cics-return.cob:17:44: note: WS-RESP is given a value but never read [PLB-M005]
+tests/golden/rules/c072-cics-return.cob:21:5: warning: control can run off the end of the procedure division after MAIN-PARA [PLB-C003]
+tests/golden/rules/c072-cics-return.cob:21:5: warning: MOVE never runs: it comes after the EXEC CICS XCTL on line 20 [PLB-C072]
