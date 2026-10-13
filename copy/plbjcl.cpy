@@ -124,6 +124,8 @@
         *> OUTLIM), when it does not; spaces when there is none.
         10  JD-SYSOUT           PIC X.
         10  JD-SYSOUT-CLASH     PIC X(8).
+        *> "Y" when SYSOUT= names the internal reader, (class,INTRDR).
+        10  JD-INTRDR           PIC X.
         *> "Y" when the DD codes DLM=.
         10  JD-DLM              PIC X.
         *> "Y" when LRECL is coded as a number (JD-LRECL, 0 included),

@@ -574,7 +574,8 @@ Some findings that were read and are true:
   `DLM=@@`, it reports it.
 - **PLB-J024 sysout-parameter-conflict.** None among its 210 `SYSOUT`
   DDs. In a copy of `INTRDRJ1` whose `SYSPRINT` DDs are given
-  `DISP=SHR`, it reports both.
+  `DISP=SHR`, it reports both; in one whose `SYSOUT=(A,INTRDR)` DD is
+  given `OUTPUT=*.LASER`, that DD.
 - **PLB-J023 copy-onto-itself.** None among its 17 `IEBGENER` steps
   in 10 files. In a copy of `INTRDRJ1` whose `SYSUT2` is made the
   member its `SYSUT1` reads, `AWS.M2.CARDDEMO.JCL(INTRDRJ2)`, it

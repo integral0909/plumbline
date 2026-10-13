@@ -350,7 +350,13 @@ check "HOLD without SYSOUT"               1 'sysout.jcl:8:3: warning: DD LOG cod
     -- check --no-config $jx/sysout.jcl
 check_absent "DEST, HOLD, OUTLIM with SYSOUT" 'sysout.jcl:10:.*PLB-J024' \
     -- check --no-config $jx/sysout.jcl
-check_absent "a procedure DD override"    'sysout.jcl:15:.*PLB-J024' \
+check "OUTPUT without SYSOUT"             1 'sysout.jcl:14:3: warning: DD RPTCOPY codes OUTPUT without SYSOUT or SUBSYS.*\[PLB-J024\]' \
+    -- check --no-config $jx/sysout.jcl
+check "OUTPUT with the internal reader"   1 'sysout.jcl:15:3: warning: DD SUBMIT codes OUTPUT with SYSOUT=(...,INTRDR).*\[PLB-J024\]' \
+    -- check --no-config $jx/sysout.jcl
+check_absent "OUTPUT with SYSOUT"         'sysout.jcl:17:.*PLB-J024' \
+    -- check --no-config $jx/sysout.jcl
+check_absent "a procedure DD override"    'sysout.jcl:20:.*PLB-J024' \
     -- check --no-config $jx/sysout.jcl
 check "DLM on a data set DD"              1 'dlm.jcl:4:3: error: DD CARDS codes DLM but is not DD \* or DD DATA.*\[PLB-J025\]' \
     -- check --no-config $jx/dlm.jcl
