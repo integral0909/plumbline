@@ -422,6 +422,9 @@ Some findings that were read and are true:
 - **PLB-C098 group-value-into-packed** and **PLB-C099
   value-overridden.** None.
 - **PLB-Q029 cursor-unused.** None: its cursors are all opened.
+- **PLB-Q031 set-to-itself.** None: its `UPDATE` statements set columns
+  from host variables. In a copy of `COTRTUPC` whose `SET TR_DESCRIPTION
+  = :DCL-TR-DESCRIPTION` loses its colon, it reports it.
 - **PLB-Q030 for-update-read-only.** None: no cursor of CardDemo is
   declared `FOR UPDATE`. In a copy of `COTRTLIC` whose
   `C-TR-TYPE-FORWARD` cursor selects `DISTINCT TR_TYPE`, with its `ORDER

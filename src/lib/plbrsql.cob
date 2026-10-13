@@ -11,6 +11,7 @@
 *>   PLB-Q019  between-reversed
 *>   PLB-Q020  column-repeated
 *>   PLB-Q022  aggregate-in-where
+*>   PLB-Q031  set-to-itself
 *>   PLB-Q005  into-count-mismatch (PLB-RULE-Q005, below)
 *>   PLB-K003  commarea-without-length (PLB-RULE-K003, below)
 *>   PLB-K004  commarea-length-too-long (PLB-RULE-K004, below)
@@ -37,6 +38,10 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE-NULL            PIC 9(4) COMP-5.
 01  LS-RULE-BETWEEN         PIC 9(4) COMP-5.
 01  LS-RULE-REPEATED        PIC 9(4) COMP-5.
+01  LS-RULE-SELF            PIC 9(4) COMP-5.
+01  LS-RHS                  PIC 9(9) COMP-5.
+01  LS-AFTER-RHS            PIC 9(9) COMP-5.
+01  LS-RHS-TEXT             PIC X(31).
 01  LS-RULE-AGGREGATE       PIC 9(4) COMP-5.
 *> PLB-Q022: the depth of parentheses, whether each depth is in a
 *> WHERE, and the depth of a HAVING (99: none).
@@ -117,6 +122,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q018" LS-RULE-NULL
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q019" LS-RULE-BETWEEN
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q020" LS-RULE-REPEATED
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q031" LS-RULE-SELF
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q022" LS-RULE-AGGREGATE
     IF RL-ENABLED(LS-RULE-STAR) = "Y"
         PERFORM CHECK-SELECT-STAR
@@ -482,7 +488,8 @@ SQL-STATEMENT.
         PERFORM CHECK-WHERE
     END-IF
     IF (LS-COMMAND = "INSERT" OR LS-COMMAND = "UPDATE")
-       AND RL-ENABLED(LS-RULE-REPEATED) = "Y"
+       AND (RL-ENABLED(LS-RULE-REPEATED) = "Y"
+            OR RL-ENABLED(LS-RULE-SELF) = "Y")
         PERFORM CHECK-REPEATED-COLUMNS
     END-IF
     IF LS-COMMAND = "SELECT" AND RL-ENABLED(LS-RULE-SELECT-ALL) = "Y"
@@ -622,13 +629,50 @@ CHECK-REPEATED-COLUMNS.
                                 CALL "PLB-TOK-TEXT" USING PLB-TOKENS
                                     LS-K LS-OP-TEXT LS-OP-LEN
                                 IF LS-OP-TEXT = "="
-                                    PERFORM NOTE-COLUMN
+                                    IF RL-ENABLED(LS-RULE-REPEATED)
+                                       = "Y"
+                                        PERFORM NOTE-COLUMN
+                                    END-IF
+                                    IF RL-ENABLED(LS-RULE-SELF) = "Y"
+                                        PERFORM CHECK-SET-SELF
+                                    END-IF
                                 END-IF
                             END-IF
                         END-IF
                 END-EVALUATE
         END-EVALUATE
     END-PERFORM.
+
+*> PLB-Q031 set-to-itself: SET column = column, the same column alone,
+*> at LS-T; the = is at LS-K. The value after = must be a word (not a
+*> host variable, which has a colon) that no operator, parenthesis, or
+*> qualifier follows.
+CHECK-SET-SELF.
+    COMPUTE LS-RHS = LS-K + 1
+    IF LS-RHS > ND-TOK-LAST(LS-STMT)
+        EXIT PARAGRAPH
+    END-IF
+    IF NOT TK-IS-WORD(LS-RHS)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-RHS LS-RHS-TEXT LS-LEN
+    IF FUNCTION UPPER-CASE(LS-RHS-TEXT) NOT = LS-TEXT
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-AFTER-RHS = LS-RHS + 1
+    IF LS-AFTER-RHS <= ND-TOK-LAST(LS-STMT)
+        IF TK-IS-OPERATOR(LS-AFTER-RHS) OR TK-IS-LPAREN(LS-AFTER-RHS)
+           OR TK-IS-PERIOD(LS-AFTER-RHS)
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    STRING "UPDATE sets column " DELIMITED BY SIZE
+           LS-TEXT DELIMITED BY SPACE
+           " to itself, which changes nothing" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+        PLB-RULES PLB-FINDINGS LS-RULE-SELF LS-RHS LS-MESSAGE.
 
 *> Column LS-TEXT at LS-T: reported when named before.
 NOTE-COLUMN.
