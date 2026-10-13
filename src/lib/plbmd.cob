@@ -18,7 +18,7 @@ COPY "plbver.cpy".
 *> Findings per rule, for the summary.
 01  WS-RULE-COUNTS.
     *> One per rule of the catalog (RL-MAX in plbrules.cpy).
-    05  WS-RULE-FINDINGS    PIC 9(9) COMP-5 OCCURS 200 TIMES.
+    05  WS-RULE-FINDINGS    PIC 9(9) COMP-5 OCCURS 400 TIMES.
 LOCAL-STORAGE SECTION.
 01  LS-I                    PIC 9(9) COMP-5.
 01  LS-R                    PIC 9(4) COMP-5.

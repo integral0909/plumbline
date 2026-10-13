@@ -202,6 +202,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q021](#plb-q021-order-by-position) | order-by-position | error | SQL ORDER BY column number beyond the select list |
 | [PLB-Q014](#plb-q014-fetch-loop-end-only) | fetch-loop-end-only | warning | FETCH loop ends only on SQLCODE 100, and loops for ever on errors |
 | [PLB-Q022](#plb-q022-aggregate-in-where) | aggregate-in-where | error | SQL WHERE uses an aggregate function such as SUM or COUNT |
+| [PLB-Q023](#plb-q023-select-not-grouped) | select-not-grouped | error | SQL selects a column a grouped query does not group by |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -4752,6 +4753,31 @@ and SQLite 3 with "misuse of aggregate". The test belongs in `HAVING`.
 An aggregate is read at the `WHERE`'s own level of parentheses; one in
 a subquery of the `WHERE` (`WHERE AMOUNT > (SELECT AVG(AMOUNT) ...)`)
 is fine, and nothing after a `HAVING` is reported.
+
+## PLB-Q023 select-not-grouped
+
+A column in the select list of a query that groups, which its `GROUP
+BY` does not name:
+
+```cobol
+    EXEC SQL
+        SELECT OWNER, SUM(AMOUNT) INTO :WS-OWNER, :WS-TOTAL
+          FROM PAYMENT                       *> OWNER reported
+    END-EXEC
+```
+
+A grouped query returns one row per group, and a column that is not
+grouped has many values in a group. Db2 for z/OS rejects the statement
+with SQLCODE -122, "column or expression in the select list is not
+valid" ([Db2 codes](https://www.ibm.com/docs/en/db2-for-zos/12?topic=codes-122)).
+SQLite 3 runs it and takes the column from some row: for owners `A`
+and `B` it returns `A` and the sum of both.
+
+A query groups when it has `GROUP BY`, or an aggregate (`SUM`, `AVG`,
+`MIN`, `MAX`, `COUNT`) in its select list. Items of the statement's
+first select list that are one column name are read; expressions,
+qualified names, host variables, and special registers such as `USER`
+are not.
 
 ## PLB-S001 dynamic-sql
 
