@@ -533,6 +533,9 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J039 dd-value-invalid.** None: no DD of CardDemo codes `HOLD`,
+  `FREE`, `SPIN`, `AVGREC`, or `RECORG`. In a copy of `DUSRSECJ` whose
+  first `SYSPRINT` DD is given `HOLD=YESS`, it reports that DD.
 - **PLB-J038 output-unresolved.** None: CardDemo has no `OUTPUT`
   statements or references. In a copy of `DUSRSECJ` whose `SYSPRINT`
   DD of `STEP01` is given `OUTPUT=*.LASER`, it reports that DD, and not

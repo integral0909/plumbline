@@ -2049,3 +2049,68 @@ CHECK-REFERENCE.
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
         JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
 END PROGRAM PLB-RULE-J038.
+
+*> ---------------------------------------------------------------
+*> PLB-J039 dd-value-invalid: a DD keyword whose value is not one of
+*> those the z/OS MVS JCL Reference lists for it:
+*>
+*>     //REPORT   DD SYSOUT=A,HOLD=YESS
+*>     //KSDS     DD DSN=PAY.KSDS,DISP=(NEW,CATLG),RECORG=KSDS
+*>
+*> HOLD is YES, Y, NO, or N; FREE is END or CLOSE; SPIN is NO or
+*> UNALLOC (with a time or a line count in parentheses); AVGREC is U,
+*> K, or M; and RECORG is KS, ES, RR, or LS. Values with symbols are
+*> not read.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J039.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-VALUES               PIC X(40).
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J039" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-VALUE-KEY(LS-D) NOT = SPACES
+            EVALUATE JD-VALUE-KEY(LS-D)
+                WHEN "HOLD"
+                    MOVE "YES, Y, NO, or N" TO LS-VALUES
+                WHEN "FREE"
+                    MOVE "END or CLOSE" TO LS-VALUES
+                WHEN "SPIN"
+                    MOVE "NO or UNALLOC" TO LS-VALUES
+                WHEN "AVGREC"
+                    MOVE "U, K, or M" TO LS-VALUES
+                WHEN OTHER
+                    MOVE "KS, ES, RR, or LS" TO LS-VALUES
+            END-EVALUATE
+            MOVE SPACES TO LS-MESSAGE
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " codes " DELIMITED BY SIZE
+                   JD-VALUE-KEY(LS-D) DELIMITED BY SPACE
+                   "=" DELIMITED BY SIZE
+                   JD-VALUE-BAD(LS-D) DELIMITED BY SPACE
+                   ", not " DELIMITED BY SIZE
+                   LS-VALUES DELIMITED BY "  "
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+        END-IF
+    END-PERFORM
+    GOBACK.
+END PROGRAM PLB-RULE-J039.
