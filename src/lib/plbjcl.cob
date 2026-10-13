@@ -96,6 +96,9 @@ LOCAL-STORAGE SECTION.
 01  LS-DCB-KEY              PIC X(8).
 01  LS-NOT-WITH-SYSOUT      PIC X(8).
 01  LS-TIME-OF              PIC X.
+01  LS-CLASS-TEXT           PIC X(40).
+01  LS-CLASS-OK             PIC X.
+01  LS-CLASS-QUOTED         PIC X(39).
 01  LS-TIME-BAD             PIC X(20).
 01  LS-TIME-MIN             PIC X(20).
 01  LS-TIME-SEC             PIC X(20).
@@ -539,7 +542,7 @@ ADD-JOB.
     MOVE LK-FILE-ID TO JJ-FILE-ID(LS-JOB)
     MOVE ST-LINE TO JJ-LINE(LS-JOB)
     MOVE SPACES TO JJ-TIME-BAD(LS-JOB) JJ-REGION-BAD(LS-JOB)
-        JJ-MSGLEVEL-BAD(LS-JOB)
+        JJ-MSGLEVEL-BAD(LS-JOB) JJ-CLASS-BAD(LS-JOB) JJ-CLASS-KEY(LS-JOB)
     MOVE 1 TO OP-START
     MOVE 0 TO OP-POSITION
     PERFORM NEXT-OPERAND
@@ -556,6 +559,19 @@ ADD-JOB.
         IF OP-KEY = "MSGLEVEL"
             PERFORM CHECK-MSGLEVEL
             MOVE LS-TIME-BAD TO JJ-MSGLEVEL-BAD(LS-JOB)
+        END-IF
+        IF (OP-KEY = "CLASS" OR OP-KEY = "MSGCLASS")
+           AND JJ-CLASS-BAD(LS-JOB) = SPACES
+            MOVE OP-VALUE TO LS-CLASS-TEXT
+            IF OP-KEY = "CLASS"
+                PERFORM CHECK-JOB-CLASS
+            ELSE
+                PERFORM CHECK-OUTPUT-CLASS
+            END-IF
+            IF LS-CLASS-OK = "N"
+                MOVE OP-VALUE TO JJ-CLASS-BAD(LS-JOB)
+                MOVE OP-KEY TO JJ-CLASS-KEY(LS-JOB)
+            END-IF
         END-IF
         PERFORM NEXT-OPERAND
     END-PERFORM.
@@ -654,6 +670,69 @@ CHECK-MSGLEVEL.
        AND LS-TIME-SEC NOT = "1"
         MOVE OP-VALUE TO LS-TIME-BAD
     END-IF.
+
+*> LS-CLASS-OK: "N" when LS-CLASS-TEXT, a MSGCLASS= or SYSOUT= class,
+*> is not what the z/OS MVS JCL Reference allows: "one character: A
+*> through Z or 0 through 9", which may be in quotation marks. Empty
+*> (the null class of SYSOUT=(,)), *, and symbols are left alone.
+CHECK-OUTPUT-CLASS.
+    MOVE "Y" TO LS-CLASS-OK
+    IF LS-CLASS-TEXT(1:1) = "'"
+        MOVE LS-CLASS-TEXT(2:) TO LS-CLASS-QUOTED
+        MOVE LS-CLASS-QUOTED TO LS-CLASS-TEXT
+        INSPECT LS-CLASS-TEXT REPLACING FIRST "'" BY SPACE
+    END-IF
+    IF LS-CLASS-TEXT = SPACES OR LS-CLASS-TEXT = "*"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-TIME-N
+    INSPECT LS-CLASS-TEXT TALLYING LS-TIME-N FOR ALL "&" ALL "%"
+    IF LS-TIME-N > 0
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-CLASS-TEXT(2:) NOT = SPACES
+        MOVE "N" TO LS-CLASS-OK
+        EXIT PARAGRAPH
+    END-IF
+    IF NOT ((LS-CLASS-TEXT(1:1) >= "A" AND LS-CLASS-TEXT(1:1) <= "Z")
+            OR (LS-CLASS-TEXT(1:1) >= "0" AND LS-CLASS-TEXT(1:1) <= "9"))
+        MOVE "N" TO LS-CLASS-OK
+    END-IF.
+
+*> The same for CLASS= of a JOB statement: "1-8 characters", the first
+*> "a member of the 36-character set A-Z and 0-9", the others
+*> alphabetic, national, or numeric.
+CHECK-JOB-CLASS.
+    MOVE "Y" TO LS-CLASS-OK
+    MOVE 0 TO LS-TIME-N
+    INSPECT LS-CLASS-TEXT TALLYING LS-TIME-N FOR ALL "&" ALL "%"
+    IF LS-TIME-N > 0 OR LS-CLASS-TEXT = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-CLASS-TEXT(9:) NOT = SPACES
+        MOVE "N" TO LS-CLASS-OK
+        EXIT PARAGRAPH
+    END-IF
+    IF NOT ((LS-CLASS-TEXT(1:1) >= "A" AND LS-CLASS-TEXT(1:1) <= "Z")
+            OR (LS-CLASS-TEXT(1:1) >= "0" AND LS-CLASS-TEXT(1:1) <= "9"))
+        MOVE "N" TO LS-CLASS-OK
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-TIME-N FROM 2 BY 1 UNTIL LS-TIME-N > 8
+        IF LS-CLASS-TEXT(LS-TIME-N:1) = SPACE
+            EXIT PERFORM
+        END-IF
+        IF NOT ((LS-CLASS-TEXT(LS-TIME-N:1) >= "A"
+                 AND LS-CLASS-TEXT(LS-TIME-N:1) <= "Z")
+                OR (LS-CLASS-TEXT(LS-TIME-N:1) >= "0"
+                    AND LS-CLASS-TEXT(LS-TIME-N:1) <= "9")
+                OR LS-CLASS-TEXT(LS-TIME-N:1) = "#"
+                OR LS-CLASS-TEXT(LS-TIME-N:1) = "@"
+                OR LS-CLASS-TEXT(LS-TIME-N:1) = "$")
+            MOVE "N" TO LS-CLASS-OK
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
 
 *> A part of TIME= or REGION=: empty, or 1 to 7 digits no more than
 *> LS-TIME-MAX.
@@ -871,6 +950,7 @@ ADD-DD.
     MOVE 0 TO JD-LRECL(LS-D) JD-BLKSIZE(LS-D) JD-DSN-AT(LS-D)
     MOVE SPACES TO JD-RECFM(LS-D) JD-DSN-PROBLEM(LS-D) JD-DSN-GEN(LS-D)
     MOVE "N" TO JD-SYSOUT(LS-D) JD-DLM(LS-D)
+    MOVE SPACES TO JD-CLASS-BAD(LS-D)
     MOVE SPACES TO JD-SYSOUT-CLASH(LS-D) LS-NOT-WITH-SYSOUT
         LS-ONLY-WITH-SYSOUT
     MOVE 0 TO LS-DOT
@@ -913,6 +993,17 @@ ADD-DD.
             WHEN OP-KEY = "SYSOUT"
                 MOVE "S" TO JD-KIND(LS-D)
                 MOVE "Y" TO JD-SYSOUT(LS-D)
+                MOVE SPACES TO LS-CLASS-TEXT
+                IF OP-VALUE(1:1) = "("
+                    UNSTRING OP-VALUE(2:) DELIMITED BY "," OR ")"
+                        INTO LS-CLASS-TEXT
+                ELSE
+                    MOVE OP-VALUE TO LS-CLASS-TEXT
+                END-IF
+                PERFORM CHECK-OUTPUT-CLASS
+                IF LS-CLASS-OK = "N"
+                    MOVE LS-CLASS-TEXT TO JD-CLASS-BAD(LS-D)
+                END-IF
             WHEN OP-KEY = "DLM"
                 MOVE "Y" TO JD-DLM(LS-D)
             WHEN OP-KEY = "DISP"
