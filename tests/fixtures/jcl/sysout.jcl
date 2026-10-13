@@ -1,0 +1,15 @@
+//SYSOJOB  JOB (ACCT),'SYSOUT',CLASS=A
+//PRINT    EXEC PGM=PAYRPT
+//* Reported: DISP with SYSOUT.
+//REPORT   DD SYSOUT=A,DISP=(NEW,CATLG)
+//* Reported: VOL with SYSOUT.
+//AUDIT    DD SYSOUT=*,VOL=SER=PAY001
+//* Reported: HOLD without SYSOUT.
+//LOG      DD DSN=PAY.LOG,DISP=SHR,HOLD=YES
+//* Not reported: SYSOUT with DEST, HOLD, and OUTLIM.
+//LIST     DD SYSOUT=A,DEST=RMT1,HOLD=YES,OUTLIM=5000
+//* Not reported: a data set with DISP and VOL.
+//MASTER   DD DSN=PAY.MASTER,DISP=OLD,VOL=SER=PAY002,UNIT=3390
+//* Not reported: an override of a procedure's DD.
+//RUN      EXEC PAYPROC
+//UPD.LOG  DD HOLD=YES

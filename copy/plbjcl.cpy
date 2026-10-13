@@ -91,6 +91,13 @@
         *> from 1, for E, Q, F, and C).
         10  JD-DSN-PROBLEM      PIC X.
         10  JD-DSN-AT           PIC 9(4) COMP-5.
+        *> "Y" when the DD codes SYSOUT=. JD-SYSOUT-CLASH: the first
+        *> keyword it codes that the JCL Reference says not to code with
+        *> SYSOUT (DISP, VOLUME, LABEL, ...), when it codes SYSOUT, or
+        *> the first that it says to code only with SYSOUT (DEST, HOLD,
+        *> OUTLIM), when it does not; spaces when there is none.
+        10  JD-SYSOUT           PIC X.
+        10  JD-SYSOUT-CLASH     PIC X(8).
         10  JD-FILE-ID          PIC 9(4) COMP-5.
         10  JD-LINE             PIC 9(9) COMP-5.
     *> The steps that IF statements test (IF STEP.RC > 4 THEN, ...):
