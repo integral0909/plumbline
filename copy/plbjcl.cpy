@@ -145,6 +145,11 @@
         *> and when the DD codes RECORG= (a VSAM data set).
         10  JD-LRECL-CODED      PIC X.
         10  JD-RECORG           PIC X.
+        *> KEYLEN, as a keyword or in DCB=( ), when coded as a number
+        *> (JD-KEYLEN-CODED "Y"), and whether RECORG is KS.
+        10  JD-KEYLEN           PIC 9(9) COMP-5.
+        10  JD-KEYLEN-CODED     PIC X.
+        10  JD-RECORG-KS        PIC X.
         *> What is wrong with EXPDT= or RETPD=: E an EXPDT that is not
         *> yyddd or yyyy/ddd of a real day, R a RETPD that is not 0
         *> through 93000, B both coded, T either on a temporary data set;

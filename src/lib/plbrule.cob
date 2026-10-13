@@ -795,6 +795,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J046"
         "vol-ser-invalid" "E"
         "VOL=SER serial longer than 6, reserved (SCRTCH, PRIVAT, ...), or twice"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J047"
+        "keylen-invalid" "E"
+        "KEYLEN above 255, 0 for a KS data set, or longer than the record"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

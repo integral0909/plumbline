@@ -300,6 +300,8 @@ uses [Semantic Versioning](https://semver.org/).
   `FREE=CLOSE` of each DD.
 - Rule PLB-J046 vol-ser-invalid; the JCL reader checks each `VOL=SER`
   serial.
+- Rule PLB-J047 keylen-invalid; the JCL reader keeps `KEYLEN`, as a
+  keyword or in `DCB=( )`.
 - Rule PLB-Q025 insert-not-null-missing; `plumbline dump sql` shows a
   column with a default as `default`.
 - Rule PLB-J018 gdg-generation-not-created.

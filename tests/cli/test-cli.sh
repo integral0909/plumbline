@@ -610,6 +610,16 @@ check "a volume serial named twice"       1 'volser.jcl:8:3: error: DD TWICE cod
     -- check --no-config $jx/volser.jcl
 check_absent "volume serials allowed"     'volser.jcl:1[0-2]:.*PLB-J046' \
     -- check --no-config $jx/volser.jcl
+check "KEYLEN above 255"                  1 'keylen.jcl:6:3: error: DD BIGKEY codes KEYLEN=300: above 255.*\[PLB-J047\]' \
+    -- check --no-config $jx/keylen.jcl
+check "KEYLEN=0 for a KS data set"        1 'keylen.jcl:7:3: error: DD NOKEY codes KEYLEN=0: a key-sequenced.*\[PLB-J047\]' \
+    -- check --no-config $jx/keylen.jcl
+check "a KS key as long as the record"    1 'keylen.jcl:8:3: error: DD FULL codes KEYLEN=80: not less than.*\[PLB-J047\]' \
+    -- check --no-config $jx/keylen.jcl
+check "a DCB key longer than the record"  1 'keylen.jcl:10:3: error: DD OVER codes KEYLEN=90: longer than.*\[PLB-J047\]' \
+    -- check --no-config $jx/keylen.jcl
+check_absent "keys the Reference allows"  'keylen.jcl:1[2-5]:.*PLB-J047' \
+    -- check --no-config $jx/keylen.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
