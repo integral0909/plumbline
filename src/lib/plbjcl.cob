@@ -126,6 +126,8 @@ LOCAL-STORAGE SECTION.
 01  LS-GEN                  PIC X(10).
 01  LS-GEN-LEN              PIC 9(4) COMP-5.
 01  LS-ONLY-WITH-SYSOUT     PIC X(8).
+01  LS-OUTPUT-CODED         PIC X.
+01  LS-SUBSYS-CODED         PIC X.
 01  LS-DCB-VALUE            PIC X(40).
 01  LS-DCB-LEN              PIC 9(9) COMP-5.
 01  LS-DOT                  PIC 9(4) COMP-5.
@@ -1196,7 +1198,7 @@ ADD-DD.
     MOVE 0 TO JD-LRECL(LS-D) JD-BLKSIZE(LS-D) JD-DSN-AT(LS-D)
     MOVE SPACES TO JD-RECFM(LS-D) JD-DSN-PROBLEM(LS-D) JD-DSN-GEN(LS-D)
     MOVE "N" TO JD-SYSOUT(LS-D) JD-DLM(LS-D) JD-LRECL-CODED(LS-D)
-        JD-RECORG(LS-D)
+        JD-RECORG(LS-D) JD-INTRDR(LS-D) LS-OUTPUT-CODED LS-SUBSYS-CODED
     MOVE SPACES TO JD-RETAIN-PROBLEM(LS-D) JD-RETAIN-VALUE(LS-D)
         LS-EXPDT LS-RETPD JD-SPACE-BAD(LS-D) JD-SPACE-PART(LS-D)
         JD-DISP-BAD(LS-D) JD-DISP-PART(LS-D)
@@ -1254,6 +1256,11 @@ ADD-DD.
                 IF LS-CLASS-OK = "N"
                     MOVE LS-CLASS-TEXT TO JD-CLASS-BAD(LS-D)
                 END-IF
+                MOVE 0 TO LS-TIME-N
+                INSPECT OP-VALUE TALLYING LS-TIME-N FOR ALL ",INTRDR"
+                IF LS-TIME-N > 0
+                    MOVE "Y" TO JD-INTRDR(LS-D)
+                END-IF
             WHEN OP-KEY = "DLM"
                 MOVE "Y" TO JD-DLM(LS-D)
             WHEN OP-KEY = "RECORG"
@@ -1283,10 +1290,20 @@ ADD-DD.
         PERFORM NOTE-SYSOUT-KEY
         PERFORM NEXT-OPERAND
     END-PERFORM
+    *> OUTPUT goes on a DD with SYSOUT or SUBSYS, and not with a SYSOUT
+    *> that names the JES2 internal reader.
     IF JD-SYSOUT(LS-D) = "Y"
         MOVE LS-NOT-WITH-SYSOUT TO JD-SYSOUT-CLASH(LS-D)
+        IF LS-NOT-WITH-SYSOUT = SPACES AND LS-OUTPUT-CODED = "Y"
+           AND JD-INTRDR(LS-D) = "Y"
+            MOVE "OUTPUT" TO JD-SYSOUT-CLASH(LS-D)
+        END-IF
     ELSE
         MOVE LS-ONLY-WITH-SYSOUT TO JD-SYSOUT-CLASH(LS-D)
+        IF LS-ONLY-WITH-SYSOUT = SPACES AND LS-OUTPUT-CODED = "Y"
+           AND LS-SUBSYS-CODED = "N"
+            MOVE "OUTPUT" TO JD-SYSOUT-CLASH(LS-D)
+        END-IF
     END-IF
     IF LS-EXPDT NOT = SPACES OR LS-RETPD NOT = SPACES
         PERFORM CHECK-RETENTION
@@ -1297,6 +1314,12 @@ ADD-DD.
 *> to code only with it (z/OS MVS JCL Reference, "Relationship to other
 *> parameters" of SYSOUT, DEST, HOLD, and OUTLIM).
 NOTE-SYSOUT-KEY.
+    IF OP-KEY = "OUTPUT"
+        MOVE "Y" TO LS-OUTPUT-CODED
+    END-IF
+    IF OP-KEY = "SUBSYS"
+        MOVE "Y" TO LS-SUBSYS-CODED
+    END-IF
     IF LS-NOT-WITH-SYSOUT = SPACES
         EVALUATE OP-KEY
             WHEN "AMP" WHEN "CHKPT" WHEN "DATACLAS" WHEN "DDNAME"

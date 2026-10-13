@@ -320,6 +320,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-J036 space-invalid; the JCL reader checks `SPACE=`.
 - Rule PLB-J037 disp-invalid; the JCL reader checks each `DISP=`
   subparameter.
+- PLB-J024 sysout-parameter-conflict also reports `OUTPUT=` on a DD
+  without `SYSOUT` or `SUBSYS`, or with the internal reader.
 - Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
   the name field.
 - Rule PLB-J019 parm-too-long; the JCL reader counts the characters of
