@@ -762,6 +762,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J038"
         "output-unresolved" "E"
         "DD OUTPUT=*.name names no OUTPUT JCL statement before it"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J039"
+        "dd-value-invalid" "E"
+        "HOLD, FREE, SPIN, AVGREC, or RECORG value the JCL Reference does not list"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

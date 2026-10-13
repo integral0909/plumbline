@@ -756,6 +756,58 @@ CHECK-RETENTION.
             END-IF
     END-EVALUATE.
 
+*> HOLD=, FREE=, SPIN=, AVGREC=, and RECORG= of DD LS-D: the values
+*> the z/OS MVS JCL Reference lists for each. HOLD YES, Y, NO, or N;
+*> FREE END or CLOSE; SPIN NO or UNALLOC (first, in parentheses);
+*> AVGREC U, K, or M; RECORG KS, ES, RR, or LS. Values with symbols are
+*> not read.
+CHECK-DD-VALUE.
+    IF OP-KEY NOT = "HOLD" AND OP-KEY NOT = "FREE" AND OP-KEY NOT = "SPIN"
+       AND OP-KEY NOT = "AVGREC" AND OP-KEY NOT = "RECORG"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-TIME-N
+    INSPECT OP-VALUE TALLYING LS-TIME-N FOR ALL "&" ALL "%"
+    IF LS-TIME-N > 0 OR OP-VALUE = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-SP-Q1
+    IF OP-VALUE(1:1) = "("
+        UNSTRING OP-VALUE(2:) DELIMITED BY "," OR ")" INTO LS-SP-Q1
+    ELSE
+        MOVE OP-VALUE TO LS-SP-Q1
+    END-IF
+    MOVE "Y" TO LS-CLASS-OK
+    EVALUATE OP-KEY
+        WHEN "HOLD"
+            IF LS-SP-Q1 NOT = "YES" AND LS-SP-Q1 NOT = "Y"
+               AND LS-SP-Q1 NOT = "NO" AND LS-SP-Q1 NOT = "N"
+                MOVE "N" TO LS-CLASS-OK
+            END-IF
+        WHEN "FREE"
+            IF LS-SP-Q1 NOT = "END" AND LS-SP-Q1 NOT = "CLOSE"
+                MOVE "N" TO LS-CLASS-OK
+            END-IF
+        WHEN "SPIN"
+            IF LS-SP-Q1 NOT = "NO" AND LS-SP-Q1 NOT = "UNALLOC"
+                MOVE "N" TO LS-CLASS-OK
+            END-IF
+        WHEN "AVGREC"
+            IF LS-SP-Q1 NOT = "U" AND LS-SP-Q1 NOT = "K"
+               AND LS-SP-Q1 NOT = "M"
+                MOVE "N" TO LS-CLASS-OK
+            END-IF
+        WHEN OTHER
+            IF LS-SP-Q1 NOT = "KS" AND LS-SP-Q1 NOT = "ES"
+               AND LS-SP-Q1 NOT = "RR" AND LS-SP-Q1 NOT = "LS"
+                MOVE "N" TO LS-CLASS-OK
+            END-IF
+    END-EVALUATE
+    IF LS-CLASS-OK = "N"
+        MOVE OP-KEY TO JD-VALUE-KEY(LS-D)
+        MOVE OP-VALUE TO JD-VALUE-BAD(LS-D)
+    END-IF.
+
 *> DISP= of DD LS-D, OP-VALUE: the status NEW, OLD, SHR, or MOD; the
 *> normal termination disposition DELETE, KEEP, PASS, CATLG, or UNCATLG;
 *> the abnormal one DELETE, KEEP, CATLG, or UNCATLG; each may be left
@@ -1221,7 +1273,8 @@ ADD-DD.
     MOVE SPACES TO JD-OUTPUT(LS-D)
     MOVE SPACES TO JD-RETAIN-PROBLEM(LS-D) JD-RETAIN-VALUE(LS-D)
         LS-EXPDT LS-RETPD JD-SPACE-BAD(LS-D) JD-SPACE-PART(LS-D)
-        JD-DISP-BAD(LS-D) JD-DISP-PART(LS-D)
+        JD-DISP-BAD(LS-D) JD-DISP-PART(LS-D) JD-VALUE-KEY(LS-D)
+        JD-VALUE-BAD(LS-D)
     MOVE SPACES TO JD-CLASS-BAD(LS-D)
     MOVE SPACES TO JD-SYSOUT-CLASH(LS-D) LS-NOT-WITH-SYSOUT
         LS-ONLY-WITH-SYSOUT
@@ -1308,6 +1361,9 @@ ADD-DD.
                 MOVE "I" TO JD-KIND(LS-D)
         END-EVALUATE
         PERFORM NOTE-SYSOUT-KEY
+        IF JD-VALUE-KEY(LS-D) = SPACES
+            PERFORM CHECK-DD-VALUE
+        END-IF
         PERFORM NEXT-OPERAND
     END-PERFORM
     *> OUTPUT goes on a DD with SYSOUT or SUBSYS, and not with a SYSOUT
