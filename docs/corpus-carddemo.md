@@ -545,7 +545,8 @@ Some findings that were read and are true:
   `DUSRSECJ` whose first `SYSPRINT` DD is given `HOLD=YESS`, it reports
   that DD, and in one whose `SYSUT2` DD is given `DSNTYPE=PDSE`, that DD.
   Its five `DCB=(DSORG=)` values are `PS`; in a copy of `DUSRSECJ` with
-  `DSORG=IS`, it reports that DD.
+  `DSORG=IS`, it reports that DD. It codes no `LABEL`; in a copy of
+  `DUSRSECJ` whose `SYSUT2` DD is given `LABEL=(1,STD)`, it reports it.
 - **PLB-J038 output-unresolved.** None: CardDemo has no `OUTPUT`
   statements or references. In a copy of `DUSRSECJ` whose `SYSPRINT`
   DD of `STEP01` is given `OUTPUT=*.LASER`, it reports that DD, and not

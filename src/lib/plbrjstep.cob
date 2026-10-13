@@ -2062,7 +2062,10 @@ END PROGRAM PLB-RULE-J038.
 *> K, or M; RECORG is KS, ES, RR, or LS; and DSNTYPE is LIBRARY, HFS,
 *> PDS, PIPE, EXTREQ, EXTPREF, LARGE, or BASIC (LIBRARY, EXTREQ, and
 *> EXTPREF may take a version, 1 or 2). DCB=(DSORG=) is PS, PSU, DA,
-*> DAU, PO, POU, CX, or GS. Values with symbols are not read.
+*> DAU, PO, POU, CX, or GS. LABEL=(sequence,label,...) takes a sequence
+*> number up to 65535, a label of AL, AUL, BLP, LTM, NL, NSL, SL, or
+*> SUL, then PASSWORD or NOPWREAD, then IN or OUT. Values with symbols
+*> are not read.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-J039.
@@ -2101,19 +2104,32 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
                         TO LS-VALUES
                 WHEN "DSORG"
                     MOVE "PS, PSU, DA, DAU, PO, POU, CX, or GS" TO LS-VALUES
+                WHEN "LABEL"
+                    MOVE SPACES TO LS-VALUES
                 WHEN OTHER
                     MOVE "KS, ES, RR, or LS" TO LS-VALUES
             END-EVALUATE
             MOVE SPACES TO LS-MESSAGE
-            STRING "DD " DELIMITED BY SIZE
-                   JD-NAME(LS-D) DELIMITED BY SPACE
-                   " codes " DELIMITED BY SIZE
-                   JD-VALUE-KEY(LS-D) DELIMITED BY SPACE
-                   "=" DELIMITED BY SIZE
-                   JD-VALUE-BAD(LS-D) DELIMITED BY SPACE
-                   ", not " DELIMITED BY SIZE
-                   LS-VALUES DELIMITED BY "  "
-                INTO LS-MESSAGE
+            IF JD-VALUE-KEY(LS-D) = "LABEL"
+                STRING "DD " DELIMITED BY SIZE
+                       JD-NAME(LS-D) DELIMITED BY SPACE
+                       " codes " DELIMITED BY SIZE
+                       JD-VALUE-BAD(LS-D) DELIMITED BY SPACE
+                       " in LABEL, which takes a sequence number, a label"
+                       " (SL, NL, AL, ...), PASSWORD or NOPWREAD, and IN"
+                       " or OUT" DELIMITED BY SIZE
+                    INTO LS-MESSAGE
+            ELSE
+                STRING "DD " DELIMITED BY SIZE
+                       JD-NAME(LS-D) DELIMITED BY SPACE
+                       " codes " DELIMITED BY SIZE
+                       JD-VALUE-KEY(LS-D) DELIMITED BY SPACE
+                       "=" DELIMITED BY SIZE
+                       JD-VALUE-BAD(LS-D) DELIMITED BY SPACE
+                       ", not " DELIMITED BY SIZE
+                       LS-VALUES DELIMITED BY "  "
+                    INTO LS-MESSAGE
+            END-IF
             CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
                 JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO
                 LS-MESSAGE
