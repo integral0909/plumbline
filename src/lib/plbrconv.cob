@@ -11,12 +11,26 @@
 *> typed twice and another left out. Read are both strings written as
 *> literals without a prefix; a character repeated with the same
 *> character for it changes nothing, and is not reported.
+*>
+*> PLB-C115 inspect-no-change: an INSPECT that replaces a literal by
+*> the same literal, or converts a string to itself:
+*>
+*>     INSPECT WS-TEXT REPLACING ALL "," BY ","
+*>     INSPECT WS-TEXT CONVERTING ";," TO ";,"
+*>
+*> The replacement, or the conversion, changes nothing (GnuCOBOL 3.2
+*> leaves the item as it was); usually one of the two was meant to be
+*> another character, as in REPLACING ALL "," BY ".". Literals without
+*> a prefix are read.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-C096.
 DATA DIVISION.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-RULE-SAME            PIC 9(4) COMP-5.
+01  LS-A                    PIC 9(9) COMP-5.
+01  LS-B                    PIC 9(9) COMP-5.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-T                    PIC 9(9) COMP-5.
 01  LS-FROM                 PIC 9(9) COMP-5.
@@ -46,15 +60,64 @@ COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-RULES
         PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C096" LS-RULE
-    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C115" LS-RULE-SAME
+    IF (RL-ENABLED(LS-RULE) NOT = "Y" AND RL-ENABLED(LS-RULE-SAME) NOT = "Y")
+       OR AS-COUNT = 0
         GOBACK
     END-IF
     PERFORM VARYING LS-NODE FROM 1 BY 1 UNTIL LS-NODE > AS-COUNT
         IF ND-KIND(LS-NODE) = "STMT" AND ND-DETAIL(LS-NODE) = "INSPECT"
-            PERFORM CHECK-INSPECT
+            IF RL-ENABLED(LS-RULE-SAME) = "Y"
+                PERFORM CHECK-NO-CHANGE
+            END-IF
+            IF RL-ENABLED(LS-RULE) = "Y"
+                PERFORM CHECK-INSPECT
+            END-IF
         END-IF
     END-PERFORM
     GOBACK.
+
+*> C115: literal BY the same literal, or literal TO the same literal
+*> after CONVERTING.
+CHECK-NO-CHANGE.
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
+            UNTIL LS-T >= ND-TOK-LAST(LS-NODE)
+        IF TK-IS-WORD(LS-T) AND LS-T > ND-TOK-FIRST(LS-NODE)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD
+            IF LS-WORD = "BY" OR LS-WORD = "TO"
+                COMPUTE LS-A = LS-T - 1
+                COMPUTE LS-B = LS-T + 1
+                IF TK-IS-ALNUM(LS-A) AND TK-IS-ALNUM(LS-B)
+                   AND TK-PREFIX(LS-A) = SPACES
+                   AND TK-PREFIX(LS-B) = SPACES
+                   AND TK-TEXT-LEN(LS-A) = TK-TEXT-LEN(LS-B)
+                   AND TK-TEXT-LEN(LS-A) > 0
+                    IF TK-TEXT(TK-TEXT-OFF(LS-A):TK-TEXT-LEN(LS-A))
+                       = TK-TEXT(TK-TEXT-OFF(LS-B):TK-TEXT-LEN(LS-B))
+                        PERFORM REPORT-SAME
+                    END-IF
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
+
+REPORT-SAME.
+    MOVE SPACES TO LS-MESSAGE
+    IF LS-WORD = "BY"
+        STRING 'INSPECT replaces "' DELIMITED BY SIZE
+               TK-TEXT(TK-TEXT-OFF(LS-A):TK-TEXT-LEN(LS-A))
+               DELIMITED BY SIZE
+               '" by itself: that replacement changes nothing'
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    ELSE
+        STRING "INSPECT converts a string to the same string: the"
+               " statement changes nothing" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    END-IF
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-SAME LS-B LS-MESSAGE.
 
 *> CONVERTING literal TO literal.
 CHECK-INSPECT.

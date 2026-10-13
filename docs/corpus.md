@@ -336,6 +336,7 @@ The findings were checked by rule:
   `SQ-FS4` in `ST139A`, named only in `SAME SORT-MERGE AREA`. One in
   GnuCOBOL's tests, of `ASSIGN` parsing.
 
+- **PLB-C115 inspect-no-change.** None in NIST or GnuCOBOL's tests.
 - **PLB-C114 sign-test-not-numeric.** None in NIST or GnuCOBOL's tests.
 - **PLB-C113 class-test-invalid.** None in NIST or GnuCOBOL's tests.
 - **PLB-C112 varying-step-zero.** None. NIST's `BY` items start
