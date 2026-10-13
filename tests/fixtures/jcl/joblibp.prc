@@ -1,0 +1,4 @@
+//JOBLIBP  PROC
+//RUN      EXEC PGM=PAYRUN
+//* Reported: a JOBLIB in a procedure.
+//JOBLIB   DD DSN=PAY.LOADLIB,DISP=SHR

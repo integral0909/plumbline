@@ -40,6 +40,10 @@
         *> Reference does not list: the keyword and the value.
         10  JJ-VALUE-KEY        PIC X(8).
         10  JJ-VALUE-BAD        PIC X(20).
+        *> A JOBLIB DD after another DD before the first EXEC: that DD's
+        *> name, and the JOBLIB's line; spaces and 0 when there is none.
+        10  JJ-JOBLIB-AFTER     PIC X(8).
+        10  JJ-JOBLIB-LINE      PIC 9(9) COMP-5.
     *> Procedure definitions: PROC statements.
     05  JP-COUNT                PIC 9(9) COMP-5.
     05  JP-ENTRY                OCCURS JP-MAX TIMES.

@@ -576,6 +576,14 @@ check "JESLOG=SPUN"                       1 'execval.jcl:15:3: error: job LOGJOB
     -- check --no-config $jx/execval.jcl
 check_absent "TYPRUN, PRTY, JESLOG listed" 'execval.jcl:17:.*PLB-J042' \
     -- check --no-config $jx/execval.jcl
+check "a JOBLIB after another DD"        1 'joblib.jcl:10:3: error: JOBLIB DD after DD JOBCAT:.*\[PLB-J043\]' \
+    -- check --no-config $jx/joblib.jcl
+check "a JOBLIB after an EXEC"            1 'joblib.jcl:15:3: error: JOBLIB DD after EXEC STEP1:.*\[PLB-J043\]' \
+    -- check --no-config $jx/joblib.jcl
+check "a JOBLIB in a procedure"           1 'joblibp.prc:4:3: error: JOBLIB DD in a procedure.*\[PLB-J043\]' \
+    -- check --no-config $jx/joblibp.prc
+check_absent "a JOBLIB right after the JOB statement" 'joblib.jcl:4:.*PLB-J043' \
+    -- check --no-config $jx/joblib.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \

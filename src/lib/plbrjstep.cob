@@ -2338,3 +2338,82 @@ VALUES-OF-KEY.
                 TO LS-VALUES
     END-EVALUATE.
 END PROGRAM PLB-RULE-J042.
+
+*> ---------------------------------------------------------------
+*> PLB-J043 joblib-misplaced: a JOBLIB DD that is not right after the
+*> JOB statement, or that is in a procedure:
+*>
+*>     //PAYJOB   JOB (ACCT),'PAY'
+*>     //SYSOUT   DD SYSOUT=*
+*>     //JOBLIB   DD DSN=PAY.LOADLIB,DISP=SHR
+*>
+*> The z/OS MVS JCL Reference ("JOBLIB DD statement", Location in the
+*> JCL): "The JOBLIB DD statement must immediately follow the JOB
+*> statement and any JES statements. There must be no intervening EXEC
+*> or other DD statements", and "Do not include a JOBLIB DD statement in
+*> an in-stream or cataloged procedure". A JOBLIB after an EXEC is a DD
+*> of that step, so the job's programs are not looked for in the
+*> library. Concatenated DDs right after the JOBLIB are part of it.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J043.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-J                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J043" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-NAME(LS-D) = "JOBLIB" AND JD-CONCAT(LS-D) = "N"
+           AND JD-QUALIFIER(LS-D) = SPACES
+            PERFORM CHECK-JOBLIB
+        END-IF
+    END-PERFORM
+    *> Before the first EXEC, after another DD (the JCL reader notes it).
+    PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J > JJ-COUNT
+        IF JJ-JOBLIB-AFTER(LS-J) NOT = SPACES
+            MOVE SPACES TO LS-MESSAGE
+            STRING "JOBLIB DD after DD " DELIMITED BY SIZE
+                   JJ-JOBLIB-AFTER(LS-J) DELIMITED BY SPACE
+                   ": it must come right after the JOB statement"
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JJ-FILE-ID(LS-J) JJ-JOBLIB-LINE(LS-J) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+CHECK-JOBLIB.
+    MOVE SPACES TO LS-MESSAGE
+    EVALUATE TRUE
+        WHEN JD-STEP(LS-D) > 0 AND JS-PROC(JD-STEP(LS-D)) > 0
+            MOVE "JOBLIB DD in a procedure: a procedure may not have one"
+                TO LS-MESSAGE
+        WHEN JD-STEP(LS-D) > 0
+            STRING "JOBLIB DD after EXEC " DELIMITED BY SIZE
+                   JS-NAME(JD-STEP(LS-D)) DELIMITED BY SPACE
+                   ": it must come right after the JOB statement, and"
+                   " here is a DD of that step" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+    END-EVALUATE
+    IF LS-MESSAGE NOT = SPACES
+        CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+            JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE
+    END-IF.
+
+END PROGRAM PLB-RULE-J043.
