@@ -96,6 +96,11 @@ LOCAL-STORAGE SECTION.
 01  LS-DCB-KEY              PIC X(8).
 01  LS-NOT-WITH-SYSOUT      PIC X(8).
 01  LS-TIME-OF              PIC X.
+01  LS-EXPDT                PIC X(20).
+01  LS-RETPD                PIC X(20).
+01  LS-YEAR                 PIC 9(4) COMP-5.
+01  LS-DAY                  PIC 9(4) COMP-5.
+01  LS-YEAR-DAYS            PIC 9(4) COMP-5.
 01  LS-CLASS-TEXT           PIC X(40).
 01  LS-CLASS-OK             PIC X.
 01  LS-CLASS-QUOTED         PIC X(39).
@@ -675,6 +680,75 @@ CHECK-MSGLEVEL.
         MOVE OP-VALUE TO LS-TIME-BAD
     END-IF.
 
+*> EXPDT= (LS-EXPDT) and RETPD= (LS-RETPD) of DD LS-D, as the z/OS MVS
+*> JCL Reference describes them: EXPDT yyddd (year 1900 + yy) or
+*> yyyy/ddd (year 1900 through 2155), with ddd from 001 through 365, or
+*> 366 in a leap year (1999's 365 and 366 are "never-scratch" dates);
+*> RETPD 1 to 5 digits from 0 through 93000; not both ("Do not code the
+*> following DD parameters with the EXPDT parameter": RETPD); and
+*> neither for a temporary data set (&&NAME). Symbols are not read.
+CHECK-RETENTION.
+    MOVE 0 TO LS-TIME-N
+    INSPECT LS-EXPDT TALLYING LS-TIME-N FOR ALL "&" ALL "%"
+    INSPECT LS-RETPD TALLYING LS-TIME-N FOR ALL "&" ALL "%"
+    IF LS-TIME-N > 0
+        EXIT PARAGRAPH
+    END-IF
+    EVALUATE TRUE
+        WHEN JD-DSN(LS-D)(1:2) = "&&"
+            MOVE "T" TO JD-RETAIN-PROBLEM(LS-D)
+            IF LS-EXPDT NOT = SPACES
+                MOVE LS-EXPDT TO JD-RETAIN-VALUE(LS-D)
+            ELSE
+                MOVE LS-RETPD TO JD-RETAIN-VALUE(LS-D)
+            END-IF
+        WHEN LS-EXPDT NOT = SPACES AND LS-RETPD NOT = SPACES
+            MOVE "B" TO JD-RETAIN-PROBLEM(LS-D)
+        WHEN LS-EXPDT NOT = SPACES
+            PERFORM CHECK-EXPDT
+        WHEN OTHER
+            MOVE 0 TO LS-TIME-N
+            INSPECT LS-RETPD TALLYING LS-TIME-N
+                FOR CHARACTERS BEFORE INITIAL " "
+            IF LS-TIME-N > 5
+                MOVE "R" TO JD-RETAIN-PROBLEM(LS-D)
+            ELSE
+                IF LS-RETPD(1:LS-TIME-N) IS NOT NUMERIC
+                    MOVE "R" TO JD-RETAIN-PROBLEM(LS-D)
+                ELSE
+                    IF FUNCTION NUMVAL(LS-RETPD(1:LS-TIME-N)) > 93000
+                        MOVE "R" TO JD-RETAIN-PROBLEM(LS-D)
+                    END-IF
+                END-IF
+            END-IF
+            IF JD-RETAIN-PROBLEM(LS-D) = "R"
+                MOVE LS-RETPD TO JD-RETAIN-VALUE(LS-D)
+            END-IF
+    END-EVALUATE.
+
+*> LS-EXPDT: yyddd or yyyy/ddd of a day there is.
+CHECK-EXPDT.
+    MOVE 0 TO LS-YEAR LS-DAY
+    EVALUATE TRUE
+        WHEN LS-EXPDT(6:) = SPACES AND LS-EXPDT(1:5) IS NUMERIC
+            COMPUTE LS-YEAR = 1900 + FUNCTION NUMVAL(LS-EXPDT(1:2))
+            COMPUTE LS-DAY = FUNCTION NUMVAL(LS-EXPDT(3:3))
+        WHEN LS-EXPDT(9:) = SPACES AND LS-EXPDT(5:1) = "/"
+             AND LS-EXPDT(1:4) IS NUMERIC AND LS-EXPDT(6:3) IS NUMERIC
+            COMPUTE LS-YEAR = FUNCTION NUMVAL(LS-EXPDT(1:4))
+            COMPUTE LS-DAY = FUNCTION NUMVAL(LS-EXPDT(6:3))
+    END-EVALUATE
+    MOVE 365 TO LS-YEAR-DAYS
+    IF (FUNCTION MOD(LS-YEAR, 4) = 0 AND FUNCTION MOD(LS-YEAR, 100) > 0)
+       OR FUNCTION MOD(LS-YEAR, 400) = 0 OR LS-YEAR = 1999
+        MOVE 366 TO LS-YEAR-DAYS
+    END-IF
+    IF LS-YEAR < 1900 OR LS-YEAR > 2155 OR LS-DAY < 1
+       OR LS-DAY > LS-YEAR-DAYS
+        MOVE "E" TO JD-RETAIN-PROBLEM(LS-D)
+        MOVE LS-EXPDT TO JD-RETAIN-VALUE(LS-D)
+    END-IF.
+
 *> LS-CLASS-OK: "N" when LS-CLASS-TEXT, a MSGCLASS= or SYSOUT= class,
 *> is not what the z/OS MVS JCL Reference allows: "one character: A
 *> through Z or 0 through 9", which may be in quotation marks. Empty
@@ -955,6 +1029,8 @@ ADD-DD.
     MOVE SPACES TO JD-RECFM(LS-D) JD-DSN-PROBLEM(LS-D) JD-DSN-GEN(LS-D)
     MOVE "N" TO JD-SYSOUT(LS-D) JD-DLM(LS-D) JD-LRECL-CODED(LS-D)
         JD-RECORG(LS-D)
+    MOVE SPACES TO JD-RETAIN-PROBLEM(LS-D) JD-RETAIN-VALUE(LS-D)
+        LS-EXPDT LS-RETPD
     MOVE SPACES TO JD-CLASS-BAD(LS-D)
     MOVE SPACES TO JD-SYSOUT-CLASH(LS-D) LS-NOT-WITH-SYSOUT
         LS-ONLY-WITH-SYSOUT
@@ -1013,6 +1089,10 @@ ADD-DD.
                 MOVE "Y" TO JD-DLM(LS-D)
             WHEN OP-KEY = "RECORG"
                 MOVE "Y" TO JD-RECORG(LS-D)
+            WHEN OP-KEY = "EXPDT"
+                MOVE OP-VALUE TO LS-EXPDT
+            WHEN OP-KEY = "RETPD"
+                MOVE OP-VALUE TO LS-RETPD
             WHEN OP-KEY = "DISP"
                 PERFORM READ-DISP
             WHEN OP-KEY = "LRECL" OR OP-KEY = "RECFM"
@@ -1035,6 +1115,9 @@ ADD-DD.
         MOVE LS-NOT-WITH-SYSOUT TO JD-SYSOUT-CLASH(LS-D)
     ELSE
         MOVE LS-ONLY-WITH-SYSOUT TO JD-SYSOUT-CLASH(LS-D)
+    END-IF
+    IF LS-EXPDT NOT = SPACES OR LS-RETPD NOT = SPACES
+        PERFORM CHECK-RETENTION
     END-IF
     PERFORM SCAN-DD-DATA.
 
