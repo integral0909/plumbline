@@ -38,6 +38,12 @@ The reader follows the rules of z/OS JCL:
   step runs a program (`EXEC PGM=name`) or a procedure (`EXEC
   PROC=name`, or `EXEC name`). A `DD` named `STEP.DDNAME` in a job
   overrides or adds to step `STEP` of the procedure the job step runs.
+- A cataloged procedure, a file of its own, is called by its member
+  name (z/OS MVS JCL Reference, "Cataloging a procedure"), so it is
+  named by the file's name up to its first period: `TRANREPT.prc` is
+  `TRANREPT`, whatever its `PROC` statement says. When the file's name
+  is not 1 to 8 characters starting with a letter or `#`, `@`, `$`, the
+  `PROC` statement's name is used.
 - A `DD` without a name concatenates its data set to the one before it:
   it gets that `DD`'s name, and `dump jcl` marks it `concatenated`, so
   the data set graph and impact see every data set of the
