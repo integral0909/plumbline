@@ -1,0 +1,3 @@
+tests/golden/rules/c111-sort-wrong-phase.cob:25:5: error: RETURN in the INPUT PROCEDURE LOAD-RECORDS of the SORT on line 17: records are returned only in its OUTPUT PROCEDURE [PLB-C111]
+tests/golden/rules/c111-sort-wrong-phase.cob:25:41: note: WS-EOF is given a value but never read [PLB-M005]
+tests/golden/rules/c111-sort-wrong-phase.cob:34:5: error: RELEASE in the OUTPUT PROCEDURE WRITE-RECORDS of the SORT on line 17: records are released only in an INPUT PROCEDURE [PLB-C111]

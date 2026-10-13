@@ -374,6 +374,8 @@ Some findings that were read and are true:
   statements send alphanumeric items `DELIMITED BY SPACE`. In a copy
   of `COBIL00C` that sends a `PIC Z(15)9` copy of the transaction ID
   in place of `TRAN-ID`, it reports that item.
+- **PLB-C111 sort-statement-wrong-phase.** None: CardDemo's programs
+  have no `SORT` procedures.
 - **PLB-C110 file-dd-shared.** None. In a copy of `CBSTM03A` whose
   `HTML-FILE` is assigned to `STMTFILE`, the DD of `STMT-FILE`, it
   reports `HTML-FILE`: one `OPEN OUTPUT` opens both.

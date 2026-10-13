@@ -1175,6 +1175,13 @@ END PROGRAM PLB-RULE-FILES.
 *> paragraph and section that range performs or goes to, and those
 *> they perform or go to in turn. A procedure with a GO TO or PERFORM
 *> the analysis could not resolve is not reported.
+*>
+*> PLB-C111 sort-statement-wrong-phase: a RETURN in the INPUT
+*> PROCEDURE of a SORT, or a RELEASE in the OUTPUT PROCEDURE of a SORT
+*> or MERGE. The sort file takes records with RELEASE only while the
+*> input procedure runs, and gives them with RETURN only while the
+*> output procedure does: GnuCOBOL 3.2 ends the run with a permanent
+*> file error (status 30) at a RELEASE in an output procedure.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-C048.
 DATA DIVISION.
@@ -1189,6 +1196,11 @@ WORKING-STORAGE SECTION.
 01  WS-SET                  PIC 9(9) COMP-5 OCCURS 20000 TIMES.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-RULE-PHASE           PIC 9(4) COMP-5.
+01  LS-INNER                PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
 01  LS-N                    PIC 9(9) COMP-5.
 01  LS-U                    PIC 9(9) COMP-5.
 01  LS-V                    PIC 9(9) COMP-5.
@@ -1220,7 +1232,10 @@ COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
         PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C048" LS-RULE
-    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0 OR FU-COUNT = 0
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C111" LS-RULE-PHASE
+    IF (RL-ENABLED(LS-RULE) NOT = "Y"
+        AND RL-ENABLED(LS-RULE-PHASE) NOT = "Y")
+       OR AS-COUNT = 0 OR FU-COUNT = 0
         GOBACK
     END-IF
     PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > FU-COUNT
@@ -1299,17 +1314,81 @@ CHECK-PROCEDURE.
     MOVE FE-THRU(LS-E) TO LS-TO
     PERFORM ADD-RANGE
     MOVE 1 TO LS-SET-NEXT
-    PERFORM UNTIL LS-SET-NEXT > LS-SET-COUNT OR LS-FOUND = "Y"
+    *> The whole procedure for PLB-C111; PLB-C048 alone stops at the
+    *> first statement it looks for.
+    PERFORM UNTIL LS-SET-NEXT > LS-SET-COUNT
+               OR (LS-FOUND = "Y" AND RL-ENABLED(LS-RULE-PHASE) NOT = "Y")
         MOVE WS-SET(LS-SET-NEXT) TO LS-U
         PERFORM VISIT-UNIT
         ADD 1 TO LS-SET-NEXT
     END-PERFORM
+    IF RL-ENABLED(LS-RULE-PHASE) = "Y"
+        PERFORM CHECK-WRONG-PHASE
+    END-IF
     PERFORM VARYING LS-V FROM 1 BY 1 UNTIL LS-V > LS-SET-COUNT
         MOVE "N" TO WS-IN-SET(WS-SET(LS-V))
     END-PERFORM
     IF LS-FOUND = "N" AND LS-UNRESOLVED = "N"
+       AND RL-ENABLED(LS-RULE) = "Y"
         PERFORM REPORT-PROCEDURE
     END-IF.
+
+*> PLB-C111: each RETURN of the input procedure, or RELEASE of the
+*> output procedure, whose paragraph is in the procedure's set.
+CHECK-WRONG-PHASE.
+    PERFORM VARYING LS-N FROM 1 BY 1 UNTIL LS-N > AS-COUNT
+        IF ND-KIND(LS-N) = "STMT"
+           AND ((LS-PHASE = "INPUT" AND ND-DETAIL(LS-N) = "RETURN")
+                OR (LS-PHASE = "OUTPUT"
+                    AND ND-DETAIL(LS-N) = "RELEASE"))
+            PERFORM INNER-UNIT
+            IF LS-INNER > 0
+                IF WS-IN-SET(LS-INNER) = "Y"
+                    PERFORM REPORT-WRONG-PHASE
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> LS-INNER: the innermost unit (a paragraph before its section) that
+*> holds statement LS-N; 0 when there is none.
+INNER-UNIT.
+    MOVE 0 TO LS-INNER
+    PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > FU-COUNT
+        IF FU-KIND(LS-U) NOT = "D"
+           AND ND-TOK-FIRST(FU-NODE(LS-U)) <= ND-TOK-FIRST(LS-N)
+           AND ND-TOK-LAST(FU-NODE(LS-U)) >= ND-TOK-FIRST(LS-N)
+            MOVE LS-U TO LS-INNER
+        END-IF
+    END-PERFORM.
+
+REPORT-WRONG-PHASE.
+    MOVE SPACES TO LS-MESSAGE
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-NAME-TOKEN LS-WORD LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD
+    MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-FIRST(LS-STMT))) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    IF LS-PHASE = "INPUT"
+        STRING "RETURN in the INPUT PROCEDURE " DELIMITED BY SIZE
+               LS-WORD DELIMITED BY SPACE
+               " of the SORT on line " DELIMITED BY SIZE
+               LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+               ": records are returned only in its OUTPUT PROCEDURE"
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    ELSE
+        STRING "RELEASE in the OUTPUT PROCEDURE " DELIMITED BY SIZE
+               LS-WORD DELIMITED BY SPACE
+               " of the " DELIMITED BY SIZE
+               ND-DETAIL(LS-STMT) DELIMITED BY SPACE
+               " on line " DELIMITED BY SIZE
+               LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+               ": records are released only in an INPUT PROCEDURE"
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    END-IF
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-PHASE ND-TOK-FIRST(LS-N) LS-MESSAGE.
 
 *> Units LS-FROM through LS-TO (LS-FROM alone when LS-TO is 0), in
 *> source order, onto the work list.
@@ -1334,7 +1413,9 @@ VISIT-UNIT.
     IF (LS-PHASE = "INPUT" AND WS-HAS-RELEASE(LS-U) = "Y")
        OR (LS-PHASE = "OUTPUT" AND WS-HAS-RETURN(LS-U) = "Y")
         MOVE "Y" TO LS-FOUND
-        EXIT PARAGRAPH
+        IF RL-ENABLED(LS-RULE-PHASE) NOT = "Y"
+            EXIT PARAGRAPH
+        END-IF
     END-IF
     IF FU-KIND(LS-U) = "S"
         PERFORM VARYING LS-V FROM 1 BY 1 UNTIL LS-V > FU-COUNT

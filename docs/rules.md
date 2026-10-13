@@ -122,6 +122,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C108](#plb-c108-number-compared-to-text) | number-compared-to-text | warning | Numeric item compared with digits in quotes of another length |
 | [PLB-C109](#plb-c109-pointer-past-end) | pointer-past-end | warning | STRING or UNSTRING POINTER set past the end of its item just before |
 | [PLB-C110](#plb-c110-file-dd-shared) | file-dd-shared | warning | Two files of a program, one of them written, assigned to one DD |
+| [PLB-C111](#plb-c111-sort-statement-wrong-phase) | sort-statement-wrong-phase | error | RETURN in a SORT's INPUT PROCEDURE, or RELEASE in an OUTPUT PROCEDURE |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -3231,6 +3232,33 @@ and read back through another `FD` on its DD, as NIST's `RL111A` does,
 is common and fine. Two `OPEN` statements that leave both files open
 are not followed. Files assigned to a data item, a path, or a device
 are not compared.
+
+## PLB-C111 sort-statement-wrong-phase
+
+A `RETURN` in the `INPUT PROCEDURE` of a `SORT`, or a `RELEASE` in the
+`OUTPUT PROCEDURE` of a `SORT` or `MERGE`:
+
+```cobol
+    SORT SORT-FILE ON ASCENDING KEY SORT-REC
+        INPUT PROCEDURE IS LOAD-RECORDS
+        OUTPUT PROCEDURE IS WRITE-RECORDS
+    ...
+WRITE-RECORDS.
+    RETURN SORT-FILE AT END MOVE "Y" TO WS-EOF END-RETURN
+    MOVE "ZZZ" TO SORT-REC
+    RELEASE SORT-REC                         *> reported
+```
+
+The sort file takes records with `RELEASE` only while the input
+procedure runs, and gives them with `RETURN` only while the output
+procedure runs. With GnuCOBOL 3.2, a `RELEASE` in the output procedure
+ends the run with a permanent file error (status 30); a `RETURN` in the
+input procedure goes on, but the record released before it never
+reaches the output procedure, whose first `RETURN` is at end.
+
+The procedures are read as for
+[PLB-C048](#plb-c048-sort-procedure-no-record): the range they name,
+and the paragraphs and sections they perform or go to.
 
 ## PLB-I001 pcb-dbd-unknown
 
