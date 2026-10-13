@@ -575,7 +575,8 @@ END PROGRAM PLB-RULE-Q024.
 *> constraint failed". A column WITH DEFAULT, with DEFAULT value, or
 *> GENERATED gets a value of its own. An INSERT without a column list
 *> gives every column, and is not read. An UPDATE that sets a NOT NULL
-*> column = NULL is reported too, for the same SQLCODE.
+*> column = NULL, and an INSERT whose VALUES give one NULL, are
+*> reported too, for the same SQLCODE.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-Q025.
@@ -598,6 +599,12 @@ LOCAL-STORAGE SECTION.
 01  LS-LEN                  PIC 9(9) COMP-5.
 01  LS-AT                   PIC 9(9) COMP-5.
 01  LS-MESSAGE              PIC X(200).
+*> CHECK-VALUES-NULL: the value being read, its first token and its
+*> length, the token before, and whether a comma is between.
+01  LS-ITEM-AT              PIC 9(9) COMP-5.
+01  LS-ITEM-TOKENS          PIC 9(4) COMP-5.
+01  LS-PREV                 PIC 9(9) COMP-5.
+01  LS-COMMA                PIC X.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -679,6 +686,84 @@ CHECK-INSERT.
             IF LS-I > LS-NAME-COUNT
                 PERFORM REPORT-MISSING
             END-IF
+        END-IF
+    END-PERFORM
+    PERFORM CHECK-VALUES-NULL.
+
+*> The VALUES after the column list, which ends at LS-T: a NULL alone
+*> as the value of a NOT NULL column of the list.
+CHECK-VALUES-NULL.
+    ADD 1 TO LS-T
+    IF LS-T >= QS-END(LS-S)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+    IF FUNCTION UPPER-CASE(LS-TEXT) NOT = "VALUES"
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-T
+    IF LS-T >= QS-END(LS-S) OR NOT TK-IS-LPAREN(LS-T)
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 1 TO LS-I
+    MOVE 0 TO LS-DEPTH LS-ITEM-TOKENS
+    MOVE 0 TO LS-ITEM-AT
+    PERFORM VARYING LS-T FROM LS-T BY 1 UNTIL LS-T >= QS-END(LS-S)
+        IF LS-DEPTH = 1 AND LS-ITEM-TOKENS > 0
+            COMPUTE LS-PREV = LS-T - 1
+            CALL "PLB-SQL-COMMA-BETWEEN" USING PLB-SOURCE-SET PLB-TOKENS
+                LS-PREV LS-T LS-COMMA
+            IF LS-COMMA = "Y"
+                PERFORM END-VALUE
+                ADD 1 TO LS-I
+                MOVE 0 TO LS-ITEM-TOKENS LS-ITEM-AT
+            END-IF
+        END-IF
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-T)
+                ADD 1 TO LS-DEPTH
+                IF LS-DEPTH > 1
+                    ADD 1 TO LS-ITEM-TOKENS
+                END-IF
+            WHEN TK-IS-RPAREN(LS-T)
+                SUBTRACT 1 FROM LS-DEPTH
+                IF LS-DEPTH = 0
+                    PERFORM END-VALUE
+                    EXIT PERFORM
+                END-IF
+                ADD 1 TO LS-ITEM-TOKENS
+            WHEN OTHER
+                IF LS-ITEM-TOKENS = 0
+                    MOVE LS-T TO LS-ITEM-AT
+                END-IF
+                ADD 1 TO LS-ITEM-TOKENS
+        END-EVALUATE
+    END-PERFORM.
+
+*> Value LS-I of the VALUES list, LS-ITEM-TOKENS long from LS-ITEM-AT:
+*> NULL alone, for a NOT NULL column.
+END-VALUE.
+    IF LS-ITEM-TOKENS NOT = 1 OR LS-I > LS-NAME-COUNT
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-ITEM-AT LS-TEXT LS-LEN
+    IF FUNCTION UPPER-CASE(LS-TEXT) NOT = "NULL"
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-C FROM QT-COL-FIRST(LS-TABLE) BY 1
+            UNTIL LS-C >= QT-COL-FIRST(LS-TABLE) + QT-COL-COUNT(LS-TABLE)
+        IF QL-NAME(LS-C) = LS-NAME(LS-I) AND QL-NULLS(LS-C) = "N"
+            MOVE SPACES TO LS-MESSAGE
+            STRING "INSERT gives NULL to " DELIMITED BY SIZE
+                   QL-NAME(LS-C) DELIMITED BY SPACE
+                   " of " DELIMITED BY SIZE
+                   QT-NAME(LS-TABLE) DELIMITED BY SPACE
+                   ", which is NOT NULL: Db2 rejects it (SQLCODE -407)"
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-RULES PLB-FINDINGS LS-RULE LS-ITEM-AT LS-MESSAGE
+            EXIT PERFORM
         END-IF
     END-PERFORM.
 

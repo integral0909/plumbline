@@ -4867,9 +4867,10 @@ with `DEFAULT value`, or `GENERATED` gets a value of its own, and
 Only an `INSERT` with a column list, into one table with a `DECLARE
 TABLE` in the file, is read.
 
-An `UPDATE` that sets a `NOT NULL` column to `NULL` is reported too:
-the same SQLCODE -407, and in SQLite 3 the same "NOT NULL constraint
-failed".
+An `UPDATE` that sets a `NOT NULL` column to `NULL`, and an `INSERT`
+whose `VALUES` give one `NULL` (the value alone, at the place of the
+column in its column list), are reported too: the same SQLCODE -407,
+and in SQLite 3 the same "NOT NULL constraint failed".
 
 ```cobol
     EXEC SQL
