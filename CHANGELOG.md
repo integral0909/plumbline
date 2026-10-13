@@ -266,6 +266,7 @@ uses [Semantic Versioning](https://semver.org/).
   `OPEN` opens together on a DD.
 - Rule PLB-C111 sort-statement-wrong-phase.
 - Rule PLB-C112 varying-step-zero.
+- Rule PLB-C113 class-test-invalid.
 - Rule PLB-M023 file-unused.
 - Rule PLB-Q018 null-compared.
 - Rule PLB-Q019 between-reversed.
