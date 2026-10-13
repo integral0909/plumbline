@@ -304,6 +304,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-J029 time-invalid; the JCL reader checks `TIME=` on `JOB`
   and `EXEC` statements.
 - Rule PLB-J030 region-invalid; the JCL reader checks `REGION=` too.
+- Rule PLB-J031 msglevel-invalid.
 - Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
   the name field.
 - Rule PLB-J019 parm-too-long; the JCL reader counts the characters of
