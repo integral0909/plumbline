@@ -1,0 +1,4 @@
+tests/golden/rules/c108-number-compared-to-text.cob:14:19: warning: WS-COUNT has 2 digits and is compared with the text "5", which it never equals; compare with the number 5 [PLB-C108]
+tests/golden/rules/c108-number-compared-to-text.cob:17:18: warning: WS-YEAR has 4 digits and is compared with the text "026", which it never equals; compare with the number 026 [PLB-C108]
+tests/golden/rules/c108-number-compared-to-text.cob:17:38: warning: WS-COUNT has 2 digits and is compared with the text "0005", which it never equals; compare with the number 0005 [PLB-C108]
+tests/golden/rules/c108-number-compared-to-text.cob:21:14: warning: WS-COUNT has 2 digits and is compared with the text "7", which it never equals; compare with the number 7 [PLB-C108]

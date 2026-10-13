@@ -329,6 +329,9 @@ The findings were checked by rule:
 - **PLB-C105 string-edited-leading-space.** None in NIST or in
   GnuCOBOL's tests.
 
+- **PLB-C108 number-compared-to-text.** None in NIST or in GnuCOBOL's
+  tests.
+
 - **PLB-C104 count-too-small.** None in NIST's 6 programs with
   `TALLYING`, or in GnuCOBOL's tests.
 

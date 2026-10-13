@@ -60,6 +60,7 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-RULE-COMPARE         PIC 9(4) COMP-5.
 01  LS-RULE-ALNUM           PIC 9(4) COMP-5.
+01  LS-RULE-NUMTEXT         PIC 9(4) COMP-5.
 01  LS-RULE-STEP            PIC 9(4) COMP-5.
 01  LS-RULE-START           PIC 9(4) COMP-5.
 *> PLB-C081: the UNTIL limit, the FROM and BY values, and their tokens.
@@ -123,6 +124,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C026" LS-RULE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C028" LS-RULE-COMPARE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C045" LS-RULE-ALNUM
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C108" LS-RULE-NUMTEXT
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C081" LS-RULE-STEP
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C089" LS-RULE-START
     IF AS-COUNT = 0
@@ -141,6 +143,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         END-PERFORM
     END-IF
     IF RL-ENABLED(LS-RULE-COMPARE) = "Y" OR RL-ENABLED(LS-RULE-ALNUM) = "Y"
+       OR RL-ENABLED(LS-RULE-NUMTEXT) = "Y"
         PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
             MOVE LS-R TO WS-TOKEN-REF(RF-TOKEN(LS-R))
         END-PERFORM
@@ -157,6 +160,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         END-PERFORM
     END-IF
     IF RL-ENABLED(LS-RULE-COMPARE) = "Y" OR RL-ENABLED(LS-RULE-ALNUM) = "Y"
+       OR RL-ENABLED(LS-RULE-NUMTEXT) = "Y"
         PERFORM CHECK-EVALUATES
     END-IF
     GOBACK.
@@ -267,6 +271,9 @@ CHECK-WHEN-PARTS.
                     IF RL-ENABLED(LS-RULE-COMPARE) = "Y"
                         PERFORM CHECK-LONG-LITERAL
                     END-IF
+                    IF RL-ENABLED(LS-RULE-NUMTEXT) = "Y"
+                        PERFORM CHECK-NUMBER-TEXT
+                    END-IF
                 WHEN TK-IS-NUMBER(LS-T)
                     PERFORM WHEN-NUMBER
             END-EVALUATE
@@ -364,6 +371,10 @@ CHECK-COMPARISON.
             MOVE RF-SYMBOL(LS-R) TO LS-S
             PERFORM CHECK-LONG-LITERAL
         END-IF
+        IF LS-OP = "E" AND RL-ENABLED(LS-RULE-NUMTEXT) = "Y"
+            MOVE RF-SYMBOL(LS-R) TO LS-S
+            PERFORM CHECK-NUMBER-TEXT
+        END-IF
         EXIT PARAGRAPH
     END-IF
     IF SY-CATEGORY(RF-SYMBOL(LS-R)) = "E" AND LS-T <= LS-LIMIT
@@ -458,6 +469,62 @@ CHECK-LONG-LITERAL.
         INTO LS-MESSAGE WITH POINTER LS-PTR
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE-COMPARE LS-T LS-MESSAGE.
+
+*> PLB-C108 number-compared-to-text: an unsigned integer item of
+*> decimal digits compared for equality with an alphanumeric literal
+*> of digits, written with fewer or more digits than the item has
+*> (IF WS-COUNT = "5" for a PIC 99). The comparison is of characters:
+*> the item's "05" against "5" and a space, never equal, though the
+*> number 5 is. The literal at LS-T, item LS-S.
+CHECK-NUMBER-TEXT.
+    IF TK-PREFIX(LS-T) NOT = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    IF SY-CATEGORY(LS-S) NOT = "9" OR SY-SCALE(LS-S) NOT = 0
+       OR SY-SIGNED(LS-S) = "Y" OR SY-DIGITS(LS-S) = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF SY-USAGE(LS-S) NOT = SPACES AND SY-USAGE(LS-S) NOT = "DISPLAY"
+        EXIT PARAGRAPH
+    END-IF
+    *> Not the concatenation of several literals.
+    COMPUTE LS-NEXT = LS-T + 1
+    IF LS-NEXT <= LS-LIMIT AND TK-IS-OPERATOR(LS-NEXT)
+        EXIT PARAGRAPH
+    END-IF
+    MOVE TK-TEXT-LEN(LS-T) TO LS-LEN
+    IF LS-LEN = 0 OR LS-LEN > 30
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-WORD
+    MOVE TK-TEXT(TK-TEXT-OFF(LS-T):LS-LEN) TO LS-WORD
+    *> Trailing spaces pad as the comparison pads.
+    PERFORM UNTIL LS-LEN = 0
+        IF LS-WORD(LS-LEN:1) NOT = SPACE
+            EXIT PERFORM
+        END-IF
+        SUBTRACT 1 FROM LS-LEN
+    END-PERFORM
+    IF LS-LEN = 0 OR LS-LEN = SY-DIGITS(LS-S)
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-WORD(1:LS-LEN) IS NOT NUMERIC
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    MOVE SY-DIGITS(LS-S) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    STRING SY-NAME(LS-S) DELIMITED BY SPACE
+           " has " LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           " digits and is compared with the text " DELIMITED BY SIZE
+           '"' LS-WORD(1:LS-LEN) '"' DELIMITED BY SIZE
+           ", which it never equals; compare with the number "
+           DELIMITED BY SIZE
+           LS-WORD(1:LS-LEN) DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-NUMTEXT LS-T LS-MESSAGE.
 
 *> PLB-C045 alnum-compared-to-number: an alphanumeric item (or group)
 *> compared with a numeric literal that has fewer digits than the item

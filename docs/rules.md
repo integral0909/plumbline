@@ -119,6 +119,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C105](#plb-c105-string-edited-leading-space) | string-edited-leading-space | warning | STRING DELIMITED BY SPACE sends an edited item that can start blank |
 | [PLB-C106](#plb-c106-unstring-space-not-all) | unstring-space-not-all | warning | UNSTRING into several items DELIMITED BY SPACE without ALL |
 | [PLB-C107](#plb-c107-times-count-changed) | times-count-changed | warning | Statement in a PERFORM TIMES loop changes its count, read only once |
+| [PLB-C108](#plb-c108-number-compared-to-text) | number-compared-to-text | warning | Numeric item compared with digits in quotes of another length |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -3126,6 +3127,29 @@ performed through its `THRU`, as for
 [PLB-C044](#plb-c044-varying-control-changed); a statement counts when
 it stores into the count or into a group that holds it. `PERFORM
 LENGTH OF item TIMES` counts the item's length, and is not read.
+
+## PLB-C108 number-compared-to-text
+
+An unsigned integer item of decimal digits compared for equality with
+digits in quotes, when there are fewer or more of them than the item
+has:
+
+```cobol
+01  WS-COUNT    PIC 99.
+    ...
+    IF WS-COUNT = "5"                       *> reported
+```
+
+The literal is alphanumeric, so the comparison is of characters: the
+item's `"05"` against `"5"` padded with a space, never equal, even
+when `WS-COUNT` holds 5. With GnuCOBOL 3.2, `IF WS-COUNT = "5"` and
+`EVALUATE WS-COUNT WHEN "5"` are false for 5, and `WS-COUNT = "05"` is
+true. Compare with the number, `IF WS-COUNT = 5`.
+
+`=` and the `WHEN` of an `EVALUATE` of the item are read; trailing
+spaces in the literal count as the padding they are. Signed items,
+items with decimal places or of other usages, and text that is not all
+digits are not reported.
 
 ## PLB-I001 pcb-dbd-unknown
 
