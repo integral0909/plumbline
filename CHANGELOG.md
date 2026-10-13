@@ -628,6 +628,11 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- `make coverage` could hang: when a run's trace reader had read to the
+  end and closed the pipe but had not finished folding within half a
+  second, `tools/cov_run.py` opened the pipe for writing and waited for
+  a reader that never came. It now opens it without blocking.
+
 - The JCL reader named a cataloged procedure by its `PROC` statement;
   z/OS calls it by its member name, which is now taken from the file's
   name. CardDemo's `TRANREPT.prc` begins `//REPROC PROC`, and was taken
