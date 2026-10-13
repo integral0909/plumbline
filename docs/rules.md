@@ -206,6 +206,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q024](#plb-q024-column-undeclared) | column-undeclared | error | SQL names a column that the DECLARE TABLE of its table lacks |
 | [PLB-Q025](#plb-q025-insert-not-null-missing) | insert-not-null-missing | error | SQL INSERT leaves out, or UPDATE sets to NULL, a NOT NULL column |
 | [PLB-Q026](#plb-q026-cursor-table-mismatch) | cursor-table-mismatch | error | UPDATE or DELETE WHERE CURRENT OF a cursor on another table |
+| [PLB-Q027](#plb-q027-update-not-for-update) | update-not-for-update | error | Positioned UPDATE sets a column the cursor's FOR UPDATE OF leaves out |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -4909,6 +4910,34 @@ Usually the statement was copied from the loop of another cursor.
 Cursors are matched by name with their `DECLARE` in the file, and
 tables are compared without their qualifiers (`BANK.ACCOUNT` is
 `ACCOUNT`). A cursor on more than one table is not read.
+
+## PLB-Q027 update-not-for-update
+
+An `UPDATE ... WHERE CURRENT OF` a cursor that sets a column the
+cursor's `FOR UPDATE OF` list leaves out:
+
+```cobol
+    EXEC SQL DECLARE ACCT-CUR CURSOR FOR
+        SELECT ACCT_ID, OWNER, BALANCE FROM ACCOUNT
+           FOR UPDATE OF BALANCE END-EXEC.
+    ...
+    EXEC SQL
+        UPDATE ACCOUNT SET BALANCE = :WS-BALANCE,
+                           OWNER = :WS-NAME     *> reported: OWNER
+         WHERE CURRENT OF ACCT-CUR
+    END-EXEC
+```
+
+Db2 for z/OS rejects the statement with SQLCODE -503, "a column cannot
+be updated because it is not identified in the update clause of the
+select statement of the cursor"
+([Db2 codes](https://www.ibm.com/docs/en/db2-for-zos/12?topic=codes-503)).
+Add the column to the list.
+
+The columns set are the names before `=` in the `SET`; a cursor `FOR
+UPDATE` without `OF` lets every column be updated, and is not read.
+A cursor declared on another table is
+[PLB-Q026](#plb-q026-cursor-table-mismatch)'s.
 
 ## PLB-S001 dynamic-sql
 
