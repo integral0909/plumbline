@@ -2417,3 +2417,56 @@ CHECK-JOBLIB.
     END-IF.
 
 END PROGRAM PLB-RULE-J043.
+
+*> ---------------------------------------------------------------
+*> PLB-J044 jcllib-misplaced: a JCLLIB statement after the first EXEC
+*> of its job, a second JCLLIB in a job, or one in a procedure:
+*>
+*>     //PAYJOB   JOB (ACCT),'PAY'
+*>     //STEP1    EXEC PAYPROC
+*>     //LIBS     JCLLIB ORDER=PAY.PROCLIB
+*>
+*> The z/OS MVS JCL Reference ("JCLLIB statement"): a JCLLIB "must
+*> appear after the JOB statement and before the first EXEC statement
+*> in the job", and "you can code only one JCLLIB statement per job".
+*> The libraries it names are where the job's procedures are found.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J044.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-L                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J044" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-L FROM 1 BY 1 UNTIL LS-L > JL-COUNT
+        EVALUATE JL-PROBLEM(LS-L)
+            WHEN "A"
+                MOVE SPACES TO LS-MESSAGE
+                STRING "JCLLIB after the first EXEC of its job: it must"
+                       " come before the first EXEC" DELIMITED BY SIZE
+                    INTO LS-MESSAGE
+            WHEN "T"
+                MOVE "a second JCLLIB in the job: a job has only one"
+                    TO LS-MESSAGE
+            WHEN OTHER
+                MOVE "JCLLIB in a procedure: it belongs to the job"
+                    TO LS-MESSAGE
+        END-EVALUATE
+        CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+            JL-FILE-ID(LS-L) JL-LINE(LS-L) LS-COLUMN LS-ZERO LS-MESSAGE
+    END-PERFORM
+    GOBACK.
+END PROGRAM PLB-RULE-J044.

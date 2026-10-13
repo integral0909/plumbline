@@ -7,3 +7,4 @@
 78  JR-MAX                      VALUE 5000.
 78  JN-MAX                      VALUE 5000.
 78  JO-MAX                      VALUE 5000.
+78  JL-MAX                      VALUE 1000.

@@ -786,6 +786,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J043"
         "joblib-misplaced" "E"
         "JOBLIB DD not right after the JOB statement, or in a procedure"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J044"
+        "jcllib-misplaced" "E"
+        "JCLLIB after the job's first EXEC, a second in a job, or in a procedure"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

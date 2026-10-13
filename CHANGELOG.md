@@ -294,6 +294,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-K017 tsq-option-invalid.
 - Rule PLB-J043 joblib-misplaced; the JCL reader notes a `JOBLIB` DD
   after another DD before a job's first step.
+- Rule PLB-J044 jcllib-misplaced; the JCL reader notes `JCLLIB`
+  statements out of their place.
 - Rule PLB-Q025 insert-not-null-missing; `plumbline dump sql` shows a
   column with a default as `default`.
 - Rule PLB-J018 gdg-generation-not-created.
