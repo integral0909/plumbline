@@ -445,7 +445,9 @@ Some findings that were read and are true:
   with `VARCHAR` host variables, a function, and `CURRENT DATE`. A first
   version took a `VARCHAR` for a host structure and did not count that
   list. In a copy of `COPAUS2C` with one column taken out of the list,
-  it reports 25 columns and 26 values.
+  it reports 25 columns and 26 values, and in a copy of `COBTUPDT`
+  whose `INSERT` into `TRANSACTION_TYPE` has no column list and one
+  value, it reports the table's two columns.
 - **PLB-M021 empty-branch-statement.** None.
 - **PLB-C092 swap-lost.** None. In a copy of `COSGN00C` with `MOVE
   WS-MESSAGE TO CCDA-MSG-THANK-YOU` put after its `MOVE

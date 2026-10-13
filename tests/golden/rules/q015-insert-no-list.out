@@ -1,0 +1,8 @@
+tests/golden/rules/q015-insert-no-list.cob:17:5: warning: the result of EXEC SQL INSERT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q015-insert-no-list.cob:18:29: error: the INSERT gives 2 values and no column list, but the DECLARE TABLE of ACCOUNT has 3 columns: DB2 rejects it (SQLCODE -117) [PLB-Q015]
+tests/golden/rules/q015-insert-no-list.cob:18:38: warning: WS-ID is read but never given a value [PLB-C011]
+tests/golden/rules/q015-insert-no-list.cob:18:46: warning: WS-NAME is read but never given a value [PLB-C011]
+tests/golden/rules/q015-insert-no-list.cob:21:5: warning: the result of EXEC SQL INSERT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q015-insert-no-list.cob:22:56: warning: WS-BALANCE is read but never given a value [PLB-C011]
+tests/golden/rules/q015-insert-no-list.cob:24:5: warning: the result of EXEC SQL INSERT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q015-insert-no-list.cob:25:21: note: table HISTORY is not declared in INSNOLST (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]

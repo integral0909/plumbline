@@ -540,6 +540,9 @@ uses [Semantic Versioning](https://semver.org/).
   fix turns that range round as well.
 - PLB-J020 jcl-name-invalid also checks the program of `EXEC PGM=` and
   the procedure of `EXEC PROC=`.
+- PLB-Q015 insert-count-mismatch also counts the values of an `INSERT`
+  without a column list against the columns of its table's `DECLARE
+  TABLE`.
 - PLB-Q025 insert-not-null-missing also reports an `UPDATE` that sets
   a `NOT NULL` column to `NULL`.
 - PLB-Q023 select-not-grouped also reports a column of a `HAVING`,
