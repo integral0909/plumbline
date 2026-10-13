@@ -17,7 +17,8 @@
 *>
 *> PLB-K011 length-not-halfword: the same for LENGTH, whose item CICS
 *> reads or sets as a halfword binary value (two bytes, PIC S9(4)
-*> COMP), and FLENGTH, a fullword. A fullword in LENGTH is read by its
+*> COMP), as it does ITEM and NUMITEMS of the temporary storage
+*> commands, and FLENGTH, a fullword. A fullword in LENGTH is read by its
 *> first two bytes, which hold 0 for any length below 65536.
 *>
 *> PLB-K012 abstime-not-packed: ABSTIME (of ASKTIME, FORMATTIME, and
@@ -105,7 +106,8 @@ CHECK-COMMAND.
                 WHEN LS-OPTION = "FLENGTH"
                      AND RL-ENABLED(LS-RULE-LENGTH) = "Y"
                     MOVE 4 TO LS-NEEDS
-                WHEN LS-OPTION = "LENGTH"
+                WHEN (LS-OPTION = "LENGTH" OR LS-OPTION = "ITEM"
+                      OR LS-OPTION = "NUMITEMS")
                      AND RL-ENABLED(LS-RULE-LENGTH) = "Y"
                     MOVE 2 TO LS-NEEDS
                 WHEN LS-OPTION = "ABSTIME"

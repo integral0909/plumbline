@@ -157,7 +157,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-K008](#plb-k008-cics-name-too-long) | cics-name-too-long | error | EXEC CICS names a transaction, program, file, or map too long |
 | [PLB-K009](#plb-k009-browse-not-active) | browse-not-active | error | CICS browse command with no browse of the file active, or two |
 | [PLB-K010](#plb-k010-resp-not-fullword) | resp-not-fullword | error | CICS RESP or RESP2 names an item that is not fullword binary |
-| [PLB-K011](#plb-k011-length-not-halfword) | length-not-halfword | error | CICS LENGTH not a halfword binary item, or FLENGTH not a fullword |
+| [PLB-K011](#plb-k011-length-not-halfword) | length-not-halfword | error | CICS LENGTH, ITEM, or NUMITEMS not halfword binary, or FLENGTH not fullword |
 | [PLB-K012](#plb-k012-abstime-not-packed) | abstime-not-packed | error | CICS ABSTIME names an item that is not PIC S9(15) COMP-3 |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
@@ -3962,6 +3962,10 @@ given a length of 0.
 A halfword is an integer of usage `BINARY`, `COMP`, `COMP-4`, or
 `COMP-5` two bytes long, `PIC S9(1)` to `S9(4)`. `LENGTH(LENGTH OF
 item)`, a number, and a function are not items, and are not read.
+
+`ITEM` and `NUMITEMS` of `READQ TS` and `WRITEQ TS` are halfword binary
+values too ("un campo binario halfword", CICS TS 5.5, `WRITEQ TS`), and
+are checked the same way.
 
 ## PLB-K012 abstime-not-packed
 
