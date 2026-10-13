@@ -1,0 +1,2 @@
+tests/golden/rules/c111-outside-sort.cob:29:41: note: WS-EOF is given a value but never read [PLB-M005]
+tests/golden/rules/c111-outside-sort.cob:32:5: error: RETURN outside every SORT or MERGE procedure: there is no sort for it to work on [PLB-C111]
