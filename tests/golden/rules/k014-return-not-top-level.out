@@ -1,0 +1,3 @@
+tests/golden/rules/k014-return-not-top-level.cob:24:42: warning: RETURN with COMMAREA in ACCTCHK, which ACCTMENU links to on line 9: below the top level, CICS raises INVREQ [PLB-K014]
+tests/golden/rules/k014-return-not-top-level.cob:27:15: warning: EXEC CICS RETURN TRANSID passes no COMMAREA, but the program receives one (DFHCOMMAREA): the next task starts with EIBCALEN = 0, as if new [PLB-K006]
+tests/golden/rules/k014-return-not-top-level.cob:43:47: warning: the program uses DFHCOMMAREA but never tests EIBCALEN; started without a COMMAREA, it abends here [PLB-K003]

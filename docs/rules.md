@@ -164,6 +164,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-K011](#plb-k011-length-not-halfword) | length-not-halfword | error | CICS LENGTH, ITEM, or NUMITEMS not halfword binary, or FLENGTH not fullword |
 | [PLB-K012](#plb-k012-abstime-not-packed) | abstime-not-packed | error | CICS ABSTIME names an item that is not PIC S9(15) COMP-3 |
 | [PLB-K013](#plb-k013-interval-invalid) | interval-invalid | error | CICS INTERVAL or TIME not PIC S9(7) COMP-3, or not hhmmss |
+| [PLB-K014](#plb-k014-return-not-top-level) | return-not-top-level | warning | RETURN with COMMAREA, CHANNEL, or IMMEDIATE in a linked program |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -4099,6 +4100,29 @@ and seconds from 00 through 59 (CICS API reference, `DELAY`). `90` is
 read as hhmmss, 00:00:90, which is no time; ninety seconds is `130`.
 An item of another usage does not hold the packed number CICS reads.
 `TIME` of `FORMATTIME` gives the time as characters, and is not read.
+
+## PLB-K014 return-not-top-level
+
+An `EXEC CICS RETURN` with `COMMAREA`, `CHANNEL`, or `IMMEDIATE` in a
+program that an `EXEC CICS LINK` of the run names:
+
+```cobol
+    EXEC CICS LINK PROGRAM('ACCTCHK') COMMAREA(WS-AREA) END-EXEC
+
+    PROGRAM-ID. ACCTCHK.
+        EXEC CICS RETURN TRANSID('ACCT') COMMAREA(WS-AREA)
+        END-EXEC                                      reported
+```
+
+A linked program runs below the highest logical level: its `RETURN`
+goes back to the program that linked to it, not to CICS. The CICS API
+reference (`RETURN`) raises `INVREQ`, RESP2 2, when "a RETURN command
+with the CHANNEL, COMMAREA, or IMMEDIATE option is issued by a program
+that is not at the highest logical level". `TRANSID` alone is not
+reported, since CICS accepts it there. The program is named by a
+literal or a constant item. It may also run at the top level, started
+by its own transaction, where the `RETURN` is right, so the rule warns,
+once per program, at its first such `RETURN`.
 
 ## PLB-M001 go-to
 
