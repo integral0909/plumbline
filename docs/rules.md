@@ -3630,7 +3630,12 @@ national characters, and hyphens. `2024JAN` starts with a digit and
 any step runs. The rule reports the first problem of each name.
 
 A member or generation in parentheses (`LIB(PAYROLL)`, `TOTALS(+1)`) is
-not part of the name. Names the system resolves or substitutes are not
+not part of the name. A relative generation is checked as the DSNAME
+parameter describes it: it starts with `+`, `-`, or `0`, the rest is
+digits, its number has 1 to 3 of them, and "a relative generation
+number cannot exceed 255". `TOTALS(+300)`, `TOTALS(+0001)`, and
+`TOTALS(1)` are reported; what starts with a letter or national
+character is a member name. Names the system resolves or substitutes are not
 checked: temporary data sets (`&&WORK`), symbols (`&HLQ..MASTER`, and
 the `%%` variables of job schedulers), backward references (`*.DD`),
 quoted names, and `NULLFILE`.
