@@ -1366,6 +1366,11 @@ LOCAL-STORAGE SECTION.
 01  LS-NUM-2-LEN            PIC 9(9) COMP-5.
 01  LS-PTR                  PIC 9(4) COMP-5.
 01  LS-MESSAGE              PIC X(200).
+01  LS-RULE-ORDER           PIC 9(4) COMP-5.
+*> PLB-Q021: in the ORDER BY, and the position a number there names.
+01  LS-IN-ORDER             PIC X.
+01  LS-COMMAND-WORD         PIC X(31).
+01  LS-POSITION             PIC S9(18) COMP-5.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -1378,7 +1383,9 @@ COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-SYMBOLS PLB-REFS
         PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q005" LS-RULE
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q021" LS-RULE-ORDER
     IF RL-ENABLED(LS-RULE) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-ORDER) NOT = "Y"
         GOBACK
     END-IF
     MOVE 0 TO WS-QK-COUNT
@@ -1413,14 +1420,109 @@ SQL-BLOCK.
     COMPUTE LS-K = LS-T + 2
     CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
     MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
-    EVALUATE TRUE
-        WHEN LS-PASS = 1 AND LS-TEXT = "DECLARE"
-            PERFORM DECLARATION
-        WHEN LS-PASS = 2 AND LS-TEXT = "FETCH"
-            PERFORM CHECK-FETCH
-        WHEN LS-PASS = 2 AND LS-TEXT = "SELECT"
-            PERFORM CHECK-SELECT-INTO
-    END-EVALUATE.
+    MOVE LS-TEXT TO LS-COMMAND-WORD
+    IF RL-ENABLED(LS-RULE) = "Y"
+        EVALUATE TRUE
+            WHEN LS-PASS = 1 AND LS-TEXT = "DECLARE"
+                PERFORM DECLARATION
+            WHEN LS-PASS = 2 AND LS-TEXT = "FETCH"
+                PERFORM CHECK-FETCH
+            WHEN LS-PASS = 2 AND LS-TEXT = "SELECT"
+                PERFORM CHECK-SELECT-INTO
+        END-EVALUATE
+    END-IF
+    *> After PLB-Q005's checks, whose items it uses too.
+    IF LS-PASS = 2 AND RL-ENABLED(LS-RULE-ORDER) = "Y"
+       AND (LS-COMMAND-WORD = "DECLARE" OR LS-COMMAND-WORD = "SELECT")
+        PERFORM CHECK-ORDER-BY
+    END-IF.
+
+*> PLB-Q021 order-by-position: ORDER BY with a column number above the
+*> number of items of the select list (ORDER BY 3 after SELECT A, B).
+*> Db2 rejects the statement with SQLCODE -125; SQLite 3 fails it too.
+*> The select list is the first one in the statement, counted as for
+*> PLB-Q005; numbers are read at the top level of the ORDER BY, each
+*> after BY or a comma, up to FETCH, FOR, OPTIMIZE, WITH, or the end.
+CHECK-ORDER-BY.
+    MOVE 0 TO LS-FROM
+    COMPUTE LS-C = LS-T + 2
+    PERFORM UNTIL LS-C >= LS-END
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C LS-TEXT LS-LEN
+        IF FUNCTION UPPER-CASE(LS-TEXT) = "SELECT"
+            MOVE LS-C TO LS-FROM
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-C
+    END-PERFORM
+    IF LS-FROM = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM SELECT-LIST
+    IF LS-COLUMNS = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-DEPTH
+    MOVE "N" TO LS-IN-ORDER
+    PERFORM VARYING LS-B FROM LS-TO BY 1 UNTIL LS-B >= LS-END
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-B)
+                ADD 1 TO LS-DEPTH
+            WHEN TK-IS-RPAREN(LS-B)
+                SUBTRACT 1 FROM LS-DEPTH
+            WHEN LS-DEPTH > 0
+                CONTINUE
+            WHEN TK-IS-WORD(LS-B)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-B LS-TEXT LS-LEN
+                MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+                EVALUATE LS-TEXT
+                    WHEN "ORDER"
+                        MOVE "Y" TO LS-IN-ORDER
+                    WHEN "FETCH" WHEN "FOR" WHEN "OPTIMIZE" WHEN "WITH"
+                        MOVE "N" TO LS-IN-ORDER
+                END-EVALUATE
+            WHEN TK-IS-NUMBER(LS-B) AND LS-IN-ORDER = "Y"
+                PERFORM CHECK-POSITION
+        END-EVALUATE
+    END-PERFORM.
+
+*> The number at LS-B in an ORDER BY: a position when BY or a comma is
+*> before it and nothing of an expression after it.
+CHECK-POSITION.
+    COMPUTE LS-I = LS-B - 1
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-I LS-TEXT LS-LEN
+    IF FUNCTION UPPER-CASE(LS-TEXT) NOT = "BY"
+        MOVE LS-I TO LS-SCAN-FROM
+        MOVE LS-B TO LS-SCAN-TO
+        PERFORM COMMA-BETWEEN
+        IF LS-COMMA = "N"
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    COMPUTE LS-I = LS-B + 1
+    IF LS-I < LS-END AND TK-IS-OPERATOR(LS-I)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-B LS-TEXT LS-LEN
+    IF LS-LEN > 9 OR LS-TEXT(1:LS-LEN) IS NOT NUMERIC
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-POSITION = FUNCTION NUMVAL(LS-TEXT(1:LS-LEN))
+    IF LS-POSITION <= LS-COLUMNS AND LS-POSITION >= 1
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-POSITION TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-1 LS-NUM-1-LEN
+    MOVE LS-COLUMNS TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-2 LS-NUM-2-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING "ORDER BY " DELIMITED BY SIZE
+           LS-NUM-1(1:LS-NUM-1-LEN) DELIMITED BY SIZE
+           " names no column: the select list has " DELIMITED BY SIZE
+           LS-NUM-2(1:LS-NUM-2-LEN) DELIMITED BY SIZE
+           "; Db2 rejects it (SQLCODE -125)" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+        PLB-RULES PLB-FINDINGS LS-RULE-ORDER LS-B LS-MESSAGE.
 
 *> DECLARE name ... CURSOR ... FOR SELECT list FROM: the cursor and
 *> the columns of its list (0 for FOR a statement name).

@@ -1,0 +1,6 @@
+tests/golden/rules/q021-order-by-position.cob:12:40: note: table ACCOUNT is not declared in ORDERPOS (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]
+tests/golden/rules/q021-order-by-position.cob:13:23: error: ORDER BY 3 names no column: the select list has 2; Db2 rejects it (SQLCODE -125) [PLB-Q021]
+tests/golden/rules/q021-order-by-position.cob:25:5: warning: the result of EXEC SQL SELECT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q021-order-by-position.cob:26:37: note: WS-ID is given a value but never read [PLB-M005]
+tests/golden/rules/q021-order-by-position.cob:26:45: note: WS-NAME is given a value but never read [PLB-M005]
+tests/golden/rules/q021-order-by-position.cob:27:40: error: ORDER BY 5 names no column: the select list has 2; Db2 rejects it (SQLCODE -125) [PLB-Q021]
