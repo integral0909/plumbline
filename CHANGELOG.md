@@ -587,6 +587,11 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The JCL reader named a cataloged procedure by its `PROC` statement;
+  z/OS calls it by its member name, which is now taken from the file's
+  name. CardDemo's `TRANREPT.prc` begins `//REPROC PROC`, and was taken
+  for a second `REPROC`.
+
 - PLB-Q001 sql-table-undeclared took the word after a cursor's `FOR
   UPDATE` without `OF` (often `END-EXEC`) for a table an `UPDATE` names.
 

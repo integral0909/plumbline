@@ -249,6 +249,8 @@ check "deep-nesting allows 5 levels by default" 0 '^$' \
     -- check --no-config --enable deep-nesting tests/fixtures/rules/nesting.cob
 check "dump jcl lists steps and DDs"       0 'statements.jcl:6:     dd INFILE dsn PROD.PAYROLL.MASTER disp OLD' \
     -- dump jcl tests/golden/jcl/statements.jcl
+check "a cataloged procedure takes its member name" 0 'payrept.prc:3: proc PAYREPT' \
+    -- dump jcl tests/fixtures/jcl/payrept.prc
 check "dump jcl of a missing file"         2 'cannot read tests/golden/jcl/missing.jcl' \
     -- dump jcl tests/golden/jcl/missing.jcl
 jx=tests/fixtures/jcl
