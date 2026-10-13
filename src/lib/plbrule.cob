@@ -548,7 +548,7 @@ PROCEDURE DIVISION USING PLB-RULES.
         "SQL names a column that the DECLARE TABLE of its table lacks"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-Q025"
         "insert-not-null-missing" "E"
-        "SQL INSERT leaves out a NOT NULL column that has no default"
+        "SQL INSERT leaves out, or UPDATE sets to NULL, a NOT NULL column"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-Q017"
         "fetch-after-close" "E"
         "FETCH or CLOSE of an SQL cursor after its CLOSE, with no OPEN"

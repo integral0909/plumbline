@@ -540,6 +540,8 @@ uses [Semantic Versioning](https://semver.org/).
   fix turns that range round as well.
 - PLB-J020 jcl-name-invalid also checks the program of `EXEC PGM=` and
   the procedure of `EXEC PROC=`.
+- PLB-Q025 insert-not-null-missing also reports an `UPDATE` that sets
+  a `NOT NULL` column to `NULL`.
 - PLB-Q023 select-not-grouped also reports a column of a `HAVING`,
   outside an aggregate, that the `GROUP BY` does not name.
 - PLB-C103 chain-exhausted also reads the `WHEN` phrases of an
