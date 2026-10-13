@@ -3598,6 +3598,16 @@ Reference, "Name field"). In a `STEP.DDNAME` override, each part is
 such a name. A name that breaks this ends the job with a JCL error
 before any step runs. Names with a symbol (`&`) are not checked.
 
+The program of `EXEC PGM=` and the procedure of `EXEC PROC=` (or `EXEC
+name`) are checked the same way, as member names, without a dot:
+
+```jcl
+//EXTRACT  EXEC PGM=PAYEXTRACT1       reported: 11 characters
+```
+
+`PGM=*.STEP.DD`, a backward reference to a DD that names the program,
+is not checked.
+
 ## PLB-K001 cics-resource-undefined
 
 An `EXEC CICS` command that names a file, transaction, program, mapset,

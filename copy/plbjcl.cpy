@@ -123,9 +123,12 @@
     *> that is wrong (1 or 2), and JN-PROBLEM what is wrong with it: L
     *> longer than 8 characters, F a first character that is not a
     *> letter or national character, C another character, E empty.
-    *> Names with a symbol (&) are not checked.
+    *> Names with a symbol (&) are not checked. JN-KIND says which name
+    *> it is: N the name field, P the program of EXEC PGM=, R the
+    *> procedure of EXEC PROC= (or EXEC name); these two have no dot.
     05  JN-COUNT                PIC 9(9) COMP-5.
     05  JN-ENTRY                OCCURS JN-MAX TIMES.
+        10  JN-KIND             PIC X.
         10  JN-NAME             PIC X(17).
         10  JN-LEN              PIC 9(9) COMP-5.
         10  JN-PART             PIC 9(4) COMP-5.

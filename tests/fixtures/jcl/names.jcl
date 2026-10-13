@@ -17,3 +17,9 @@
 //RUN2     EXEC PAYPROC
 //STEP1.INPUT DD DSN=PAY.INPUT,DISP=SHR
 //&STEPX   EXEC PGM=IEFBR14
+//* Reported: a program name of 11 characters, and a procedure name
+//* with a hyphen.
+//BIGPGM   EXEC PGM=PAYEXTRACT1
+//BADPROC  EXEC PROC=PAY-PROC
+//* Not reported: a program found by a backward reference.
+//LINKED   EXEC PGM=*.LKED.SYSLMOD

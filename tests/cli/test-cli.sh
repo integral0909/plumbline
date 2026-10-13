@@ -316,6 +316,12 @@ check "an override's DD part too long"    1 'names.jcl:11:3: error: name STEP1.I
     -- check --no-config $jx/names.jcl
 check_absent "valid names are fine"       'names.jcl:1[4-9]:.*PLB-J020' \
     -- check --no-config $jx/names.jcl
+check "a program name of 11 characters"   1 'names.jcl:22:3: error: program name PAYEXTRACT1 is longer than 8.*\[PLB-J020\]' \
+    -- check --no-config $jx/names.jcl
+check "a procedure name with a hyphen"    1 'names.jcl:23:3: error: procedure name PAY-PROC has a character.*\[PLB-J020\]' \
+    -- check --no-config $jx/names.jcl
+check_absent "PGM=*.STEP.DD is not a name" 'names.jcl:25:.*PLB-J020' \
+    -- check --no-config $jx/names.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
