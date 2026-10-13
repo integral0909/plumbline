@@ -1468,6 +1468,10 @@ LOCAL-STORAGE SECTION.
 01  LS-ITEM-FIRST           PIC 9(9) COMP-5.
 01  LS-ITEM-TOKENS          PIC 9(4) COMP-5.
 01  LS-IN-GROUP             PIC X.
+01  LS-IN-HAVING            PIC X.
+01  LS-OP-WORD              PIC X(31).
+*> S a select list item, H a column of the HAVING.
+01  LS-PLAIN-WHERE          PIC X OCCURS 100 TIMES.
 01  LS-G                    PIC 9(4) COMP-5.
 01  LS-P                    PIC 9(4) COMP-5.
 01  LS-POSITION             PIC S9(18) COMP-5.
@@ -1550,6 +1554,8 @@ SQL-BLOCK.
 *> Db2 rejects the statement with SQLCODE -122. The first select list
 *> of the statement is read, at its top level; items of more than one
 *> token (expressions, qualified names) and host variables are not.
+*> A column at the top level of the HAVING, outside an aggregate,
+*> that the GROUP BY does not name is reported too (SQLCODE -119).
 CHECK-GROUPED.
     MOVE 0 TO LS-FROM
     COMPUTE LS-C = LS-T + 2
@@ -1595,9 +1601,10 @@ CHECK-GROUPED.
             ADD 1 TO LS-ITEM-TOKENS
         END-IF
     END-PERFORM
-    *> GROUP BY names, at the top level after the select list.
+    *> GROUP BY names, at the top level after the select list, and the
+    *> column names of the HAVING, as more plain items.
     MOVE 0 TO LS-DEPTH
-    MOVE "N" TO LS-IN-GROUP
+    MOVE "N" TO LS-IN-GROUP LS-IN-HAVING
     PERFORM VARYING LS-B FROM LS-TO BY 1 UNTIL LS-B >= LS-END
         EVALUATE TRUE
             WHEN TK-IS-LPAREN(LS-B)
@@ -1612,14 +1619,21 @@ CHECK-GROUPED.
                 EVALUATE TRUE
                     WHEN LS-TEXT = "GROUP"
                         MOVE "Y" TO LS-HAS-GROUP LS-IN-GROUP
-                    WHEN LS-TEXT = "HAVING" OR "ORDER" OR "FETCH" OR "FOR"
-                         OR "UNION" OR "WITH" OR "OPTIMIZE"
+                        MOVE "N" TO LS-IN-HAVING
+                    WHEN LS-TEXT = "HAVING"
                         MOVE "N" TO LS-IN-GROUP
+                        *> HAVING alone groups the whole result.
+                        MOVE "Y" TO LS-IN-HAVING LS-HAS-AGGREGATE
+                    WHEN LS-TEXT = "ORDER" OR "FETCH" OR "FOR"
+                         OR "UNION" OR "WITH" OR "OPTIMIZE"
+                        MOVE "N" TO LS-IN-GROUP LS-IN-HAVING
                     WHEN LS-TEXT = "BY"
                         CONTINUE
                     WHEN LS-IN-GROUP = "Y" AND LS-GROUP-COUNT < 100
                         ADD 1 TO LS-GROUP-COUNT
                         MOVE LS-TEXT TO LS-GROUP-NAME(LS-GROUP-COUNT)
+                    WHEN LS-IN-HAVING = "Y"
+                        PERFORM HAVING-WORD
                 END-EVALUATE
         END-EVALUATE
     END-PERFORM
@@ -1634,17 +1648,57 @@ CHECK-GROUPED.
         END-PERFORM
         IF LS-G > LS-GROUP-COUNT
             MOVE SPACES TO LS-MESSAGE
-            STRING "column " DELIMITED BY SIZE
-                   LS-PLAIN-NAME(LS-P) DELIMITED BY SPACE
-                   " is selected in a grouped query but not in its"
-                   " GROUP BY: Db2 rejects it (SQLCODE -122)"
-                   DELIMITED BY SIZE
-                INTO LS-MESSAGE
+            IF LS-PLAIN-WHERE(LS-P) = "H"
+                STRING "column " DELIMITED BY SIZE
+                       LS-PLAIN-NAME(LS-P) DELIMITED BY SPACE
+                       " is tested in HAVING outside an aggregate but is"
+                       " not in the GROUP BY: Db2 rejects it (SQLCODE"
+                       " -119)" DELIMITED BY SIZE
+                    INTO LS-MESSAGE
+            ELSE
+                STRING "column " DELIMITED BY SIZE
+                       LS-PLAIN-NAME(LS-P) DELIMITED BY SPACE
+                       " is selected in a grouped query but not in its"
+                       " GROUP BY: Db2 rejects it (SQLCODE -122)"
+                       DELIMITED BY SIZE
+                    INTO LS-MESSAGE
+            END-IF
             CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
                 PLB-RULES PLB-FINDINGS LS-RULE-GROUPED
                 LS-PLAIN-TOKEN(LS-P) LS-MESSAGE
         END-IF
     END-PERFORM.
+
+*> The word LS-TEXT at LS-B, at the top level of the HAVING: a column
+*> name when it is not a word of SQL, a function (a name before a
+*> parenthesis), or a host variable.
+HAVING-WORD.
+    COMPUTE LS-I = LS-B + 1
+    IF LS-I < LS-END AND TK-IS-LPAREN(LS-I)
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-B > 1
+        COMPUTE LS-I = LS-B - 1
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-I LS-OP-WORD LS-LEN
+        IF LS-OP-WORD(1:1) = ":"
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    IF LS-TEXT = "AND" OR "OR" OR "NOT" OR "IS" OR "NULL" OR "BETWEEN"
+       OR "LIKE" OR "IN" OR "EXISTS" OR "ESCAPE" OR "ALL" OR "ANY"
+       OR "SOME" OR "CASE" OR "WHEN" OR "THEN" OR "ELSE" OR "END"
+       OR "USER" OR "CURRENT"
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-TEXT(1:1) = ":"
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-PLAIN-COUNT < 100
+        ADD 1 TO LS-PLAIN-COUNT
+        MOVE LS-TEXT TO LS-PLAIN-NAME(LS-PLAIN-COUNT)
+        MOVE LS-B TO LS-PLAIN-TOKEN(LS-PLAIN-COUNT)
+        MOVE "H" TO LS-PLAIN-WHERE(LS-PLAIN-COUNT)
+    END-IF.
 
 *> The select list item from LS-ITEM-FIRST, LS-ITEM-TOKENS long: one
 *> column name, or one that starts with an aggregate.
@@ -1683,6 +1737,7 @@ END-ITEM.
         ADD 1 TO LS-PLAIN-COUNT
         MOVE LS-TEXT TO LS-PLAIN-NAME(LS-PLAIN-COUNT)
         MOVE LS-ITEM-FIRST TO LS-PLAIN-TOKEN(LS-PLAIN-COUNT)
+        MOVE "S" TO LS-PLAIN-WHERE(LS-PLAIN-COUNT)
     END-IF.
 
 *> PLB-Q021 order-by-position: ORDER BY with a column number above the
