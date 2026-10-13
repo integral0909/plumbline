@@ -520,3 +520,114 @@ REPORT-NAME.
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
         JN-FILE-ID(LS-N) JN-LINE(LS-N) LS-COLUMN LS-ZERO LS-MESSAGE.
 END PROGRAM PLB-RULE-J020.
+
+*> ---------------------------------------------------------------
+*> PLB-J021 cond-always-bypasses: a step whose COND has a test that is
+*> true for every return code:
+*>
+*>     //REPORT   EXEC PGM=PAYRPT,COND=(0,LE)
+*>
+*> COND=(code,op) bypasses the step when code op RC is true for the
+*> return code of a step before it (APAR OA44770 corrects the summary
+*> table): (code,LE) when code <= RC, (code,GE) when code >= RC.
+*> Return codes run from 0 to 4095, so (0,LE) and (4095,GE) are true
+*> for every one, and the step never runs once a step before it has.
+*> Usually (0,LT) or (4,LT) was meant. Steps of procedures, and the
+*> first step of a job, which has no step before it, are not read.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J021.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-I                    PIC 9(4) COMP-5.
+01  LS-J                    PIC 9(4) COMP-5.
+01  LS-CODE                 PIC 9(9) COMP-5.
+01  LS-OP                   PIC XX.
+01  LS-AFTER                PIC X.
+01  LS-FOUND                PIC X.
+01  LS-TEST                 PIC X(10).
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J021" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-S FROM 2 BY 1 UNTIL LS-S > JS-COUNT
+        IF JS-PROC(LS-S) = 0 AND JS-JOB(LS-S) > 0
+           AND JS-COND(LS-S) NOT = SPACES
+            PERFORM CHECK-STEP
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> Step LS-S: a step of its job before it, then each test of its COND.
+CHECK-STEP.
+    MOVE "N" TO LS-FOUND
+    PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E >= LS-S
+        IF JS-JOB(LS-E) = JS-JOB(LS-S) AND JS-PROC(LS-E) = 0
+            MOVE "Y" TO LS-FOUND
+        END-IF
+    END-PERFORM
+    IF LS-FOUND = "N"
+        EXIT PARAGRAPH
+    END-IF
+    *> Each test: a parenthesis, a number, a comma, an operator.
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > 75
+        IF JS-COND(LS-S)(LS-I:1) = "("
+            PERFORM READ-TEST
+        END-IF
+    END-PERFORM.
+
+*> The test after the parenthesis at LS-I.
+READ-TEST.
+    MOVE 0 TO LS-CODE
+    COMPUTE LS-J = LS-I + 1
+    PERFORM UNTIL LS-J > 76
+        IF JS-COND(LS-S)(LS-J:1) < "0" OR JS-COND(LS-S)(LS-J:1) > "9"
+            EXIT PERFORM
+        END-IF
+        IF LS-CODE < 100000
+            COMPUTE LS-CODE = LS-CODE * 10
+                + FUNCTION NUMVAL(JS-COND(LS-S)(LS-J:1))
+        END-IF
+        ADD 1 TO LS-J
+    END-PERFORM
+    IF LS-J = LS-I + 1 OR LS-J > 76
+        EXIT PARAGRAPH
+    END-IF
+    IF JS-COND(LS-S)(LS-J:1) NOT = ","
+        EXIT PARAGRAPH
+    END-IF
+    MOVE JS-COND(LS-S)(LS-J + 1:2) TO LS-OP
+    MOVE JS-COND(LS-S)(LS-J + 3:1) TO LS-AFTER
+    IF LS-AFTER NOT = ")" AND LS-AFTER NOT = ","
+        EXIT PARAGRAPH
+    END-IF
+    IF (LS-CODE = 0 AND LS-OP = "LE")
+       OR (LS-CODE = 4095 AND LS-OP = "GE")
+        MOVE SPACES TO LS-TEST
+        STRING JS-COND(LS-S)(LS-I + 1:LS-J + 2 - LS-I) DELIMITED BY SIZE
+            INTO LS-TEST
+        MOVE SPACES TO LS-MESSAGE
+        STRING "COND test (" DELIMITED BY SIZE
+               LS-TEST DELIMITED BY SPACE
+               ") is true for every return code: step " DELIMITED BY SIZE
+               JS-NAME(LS-S) DELIMITED BY SPACE
+               " is bypassed whenever a step before it has run"
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE
+        CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+            JS-FILE-ID(LS-S) JS-LINE(LS-S) LS-COLUMN LS-ZERO LS-MESSAGE
+    END-IF.
+END PROGRAM PLB-RULE-J021.

@@ -148,6 +148,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J018](#plb-j018-gdg-generation-not-created) | gdg-generation-not-created | error | Step reads generation (+1) that no earlier step of the job creates |
 | [PLB-J019](#plb-j019-parm-too-long) | parm-too-long | error | EXEC PARM passes more than the 100 characters z/OS takes |
 | [PLB-J020](#plb-j020-jcl-name-invalid) | jcl-name-invalid | error | JCL statement name is not 1 to 8 letters, digits, or $ # @ |
+| [PLB-J021](#plb-j021-cond-always-bypasses) | cond-always-bypasses | warning | COND test true for every return code, so the step never runs |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -3745,6 +3746,28 @@ name`) are checked the same way, as member names, without a dot:
 
 `PGM=*.STEP.DD`, a backward reference to a DD that names the program,
 is not checked.
+
+## PLB-J021 cond-always-bypasses
+
+A step whose `COND` has a test that is true for every return code:
+
+```jcl
+//EXTRACT  EXEC PGM=PAYEXT
+//REPORT   EXEC PGM=PAYRPT,COND=(0,LE)       reported
+```
+
+`COND=(code,op)` bypasses the step when `code op RC` is true for the
+return code of a step before it: `(code,LE)` when the code is less than
+or equal to the return code, `(code,GE)` when it is greater than or
+equal ([APAR OA44770](https://www.ibm.com/support/pages/apar/OA44770),
+which corrects the summary table of z/OS 2.1). Return codes run from 0
+to 4095, so `(0,LE)` and `(4095,GE)` hold for every one, and the step
+is bypassed whenever a step before it has run. `(0,LT)`, bypass after
+any return code above 0, or `(4,LT)` was usually meant.
+
+Tests in a list (`COND=((8,LT),(0,LE))`) and tests of a named step are
+read. The first step of a job, with no step before it, and the steps
+of procedures are not.
 
 ## PLB-K001 cics-resource-undefined
 
