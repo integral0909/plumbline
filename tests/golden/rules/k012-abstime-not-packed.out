@@ -1,0 +1,7 @@
+tests/golden/rules/k012-abstime-not-packed.cob:14:31: note: WS-TIME-BINARY is given a value but never read [PLB-M005]
+tests/golden/rules/k012-abstime-not-packed.cob:14:31: error: ABSTIME needs a packed decimal item of 8 bytes (PIC S9(15) COMP-3), but WS-TIME-BINARY is not one [PLB-K012]
+tests/golden/rules/k012-abstime-not-packed.cob:15:31: note: WS-TIME-SHORT is given a value but never read [PLB-M005]
+tests/golden/rules/k012-abstime-not-packed.cob:15:31: error: ABSTIME needs a packed decimal item of 8 bytes (PIC S9(15) COMP-3), but WS-TIME-SHORT is not one [PLB-K012]
+tests/golden/rules/k012-abstime-not-packed.cob:16:34: warning: WS-TIME-DISPLAY is read but never given a value [PLB-C011]
+tests/golden/rules/k012-abstime-not-packed.cob:16:34: error: ABSTIME needs a packed decimal item of 8 bytes (PIC S9(15) COMP-3), but WS-TIME-DISPLAY is not one [PLB-K012]
+tests/golden/rules/k012-abstime-not-packed.cob:16:60: note: WS-DATE is given a value but never read [PLB-M005]

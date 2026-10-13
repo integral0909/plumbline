@@ -481,6 +481,9 @@ Some findings that were read and are true:
 - **PLB-C089 loop-never-runs.** None. In a copy of `CBACT01C` with
   `MOVE 'Y' TO END-OF-FILE.` put before its `PERFORM UNTIL END-OF-FILE
   = 'Y'`, it reports that loop.
+- **PLB-K012 abstime-not-packed.** None: its `WS-ABS-TIME` items are
+  `PIC S9(15) COMP-3`. In a copy of `COBIL00C` whose `WS-ABS-TIME` is
+  made `PIC S9(15) COMP`, it reports its `ASKTIME` and `FORMATTIME`.
 - **PLB-K011 length-not-halfword.** None: its `LENGTH` options are
   `LENGTH OF` an item or a `FUNCTION`, never an item. In a copy of
   `COSGN00C` whose `RETURN` has `LENGTH(WS-RESP-CD)`, a `PIC S9(09)
