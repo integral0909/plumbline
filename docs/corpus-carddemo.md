@@ -400,6 +400,9 @@ Some findings that were read and are true:
   and 4200 swapped, it reports entry 4 after entry 3.
 - **PLB-C098 group-value-into-packed** and **PLB-C099
   value-overridden.** None.
+- **PLB-Q023 select-not-grouped.** None: its one aggregate, `SELECT
+  COUNT(1)` in `COTRTLIC`, is alone in its list. In a copy that selects
+  `COUNT(1), TR_TYPE`, it reports `TR_TYPE`.
 - **PLB-Q022 aggregate-in-where.** None. In a copy of `COTRTLIC` whose
   cursor's `WHERE TR_TYPE >= :WS-START-KEY` is made `WHERE
   MAX(TR_TYPE) >= ...`, it reports the `MAX`.

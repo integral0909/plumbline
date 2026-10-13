@@ -1455,6 +1455,21 @@ LOCAL-STORAGE SECTION.
 *> PLB-Q021: in the ORDER BY, and the position a number there names.
 01  LS-IN-ORDER             PIC X.
 01  LS-COMMAND-WORD         PIC X(31).
+01  LS-RULE-GROUPED         PIC 9(4) COMP-5.
+*> PLB-Q023: the select list's items that are one column name, with
+*> their tokens; whether it has an aggregate; the GROUP BY's names.
+01  LS-PLAIN-COUNT          PIC 9(4) COMP-5.
+01  LS-PLAIN-NAME           PIC X(31) OCCURS 100 TIMES.
+01  LS-PLAIN-TOKEN          PIC 9(9) COMP-5 OCCURS 100 TIMES.
+01  LS-HAS-AGGREGATE        PIC X.
+01  LS-HAS-GROUP            PIC X.
+01  LS-GROUP-COUNT          PIC 9(4) COMP-5.
+01  LS-GROUP-NAME           PIC X(31) OCCURS 100 TIMES.
+01  LS-ITEM-FIRST           PIC 9(9) COMP-5.
+01  LS-ITEM-TOKENS          PIC 9(4) COMP-5.
+01  LS-IN-GROUP             PIC X.
+01  LS-G                    PIC 9(4) COMP-5.
+01  LS-P                    PIC 9(4) COMP-5.
 01  LS-POSITION             PIC S9(18) COMP-5.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
@@ -1469,8 +1484,10 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-SYMBOLS PLB-REFS
         PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q005" LS-RULE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q021" LS-RULE-ORDER
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q023" LS-RULE-GROUPED
     IF RL-ENABLED(LS-RULE) NOT = "Y"
        AND RL-ENABLED(LS-RULE-ORDER) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-GROUPED) NOT = "Y"
         GOBACK
     END-IF
     MOVE 0 TO WS-QK-COUNT
@@ -1520,6 +1537,152 @@ SQL-BLOCK.
     IF LS-PASS = 2 AND RL-ENABLED(LS-RULE-ORDER) = "Y"
        AND (LS-COMMAND-WORD = "DECLARE" OR LS-COMMAND-WORD = "SELECT")
         PERFORM CHECK-ORDER-BY
+    END-IF
+    IF LS-PASS = 2 AND RL-ENABLED(LS-RULE-GROUPED) = "Y"
+       AND (LS-COMMAND-WORD = "DECLARE" OR LS-COMMAND-WORD = "SELECT")
+        PERFORM CHECK-GROUPED
+    END-IF.
+
+*> PLB-Q023 select-not-grouped: a select list item that is one column
+*> name, in a query that groups (it has GROUP BY, or an aggregate in
+*> its select list) and does not group by that column:
+*>     SELECT OWNER, SUM(AMOUNT) FROM PAYMENT
+*> Db2 rejects the statement with SQLCODE -122. The first select list
+*> of the statement is read, at its top level; items of more than one
+*> token (expressions, qualified names) and host variables are not.
+CHECK-GROUPED.
+    MOVE 0 TO LS-FROM
+    COMPUTE LS-C = LS-T + 2
+    PERFORM UNTIL LS-C >= LS-END
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C LS-TEXT LS-LEN
+        IF FUNCTION UPPER-CASE(LS-TEXT) = "SELECT"
+            MOVE LS-C TO LS-FROM
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-C
+    END-PERFORM
+    IF LS-FROM = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM SELECT-LIST
+    IF LS-TO = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-PLAIN-COUNT LS-GROUP-COUNT LS-DEPTH
+    MOVE "N" TO LS-HAS-AGGREGATE LS-HAS-GROUP
+    *> The items: from after SELECT (and DISTINCT) to LS-TO.
+    COMPUTE LS-ITEM-FIRST = LS-FROM + 1
+    MOVE 0 TO LS-ITEM-TOKENS
+    PERFORM VARYING LS-B FROM LS-ITEM-FIRST BY 1 UNTIL LS-B > LS-TO
+        IF LS-B > LS-ITEM-FIRST AND LS-DEPTH = 0
+            COMPUTE LS-I = LS-B - 1
+            MOVE LS-I TO LS-SCAN-FROM
+            MOVE LS-B TO LS-SCAN-TO
+            PERFORM COMMA-BETWEEN
+            IF LS-COMMA = "Y" OR LS-B = LS-TO
+                PERFORM END-ITEM
+                MOVE LS-B TO LS-ITEM-FIRST
+                MOVE 0 TO LS-ITEM-TOKENS
+            END-IF
+        END-IF
+        IF LS-B < LS-TO
+            EVALUATE TRUE
+                WHEN TK-IS-LPAREN(LS-B)
+                    ADD 1 TO LS-DEPTH
+                WHEN TK-IS-RPAREN(LS-B)
+                    SUBTRACT 1 FROM LS-DEPTH
+            END-EVALUATE
+            ADD 1 TO LS-ITEM-TOKENS
+        END-IF
+    END-PERFORM
+    *> GROUP BY names, at the top level after the select list.
+    MOVE 0 TO LS-DEPTH
+    MOVE "N" TO LS-IN-GROUP
+    PERFORM VARYING LS-B FROM LS-TO BY 1 UNTIL LS-B >= LS-END
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-B)
+                ADD 1 TO LS-DEPTH
+            WHEN TK-IS-RPAREN(LS-B)
+                SUBTRACT 1 FROM LS-DEPTH
+            WHEN LS-DEPTH > 0
+                CONTINUE
+            WHEN TK-IS-WORD(LS-B)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-B LS-TEXT LS-LEN
+                MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+                EVALUATE TRUE
+                    WHEN LS-TEXT = "GROUP"
+                        MOVE "Y" TO LS-HAS-GROUP LS-IN-GROUP
+                    WHEN LS-TEXT = "HAVING" OR "ORDER" OR "FETCH" OR "FOR"
+                         OR "UNION" OR "WITH" OR "OPTIMIZE"
+                        MOVE "N" TO LS-IN-GROUP
+                    WHEN LS-TEXT = "BY"
+                        CONTINUE
+                    WHEN LS-IN-GROUP = "Y" AND LS-GROUP-COUNT < 100
+                        ADD 1 TO LS-GROUP-COUNT
+                        MOVE LS-TEXT TO LS-GROUP-NAME(LS-GROUP-COUNT)
+                END-EVALUATE
+        END-EVALUATE
+    END-PERFORM
+    IF LS-HAS-GROUP = "N" AND LS-HAS-AGGREGATE = "N"
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > LS-PLAIN-COUNT
+        PERFORM VARYING LS-G FROM 1 BY 1 UNTIL LS-G > LS-GROUP-COUNT
+            IF LS-GROUP-NAME(LS-G) = LS-PLAIN-NAME(LS-P)
+                EXIT PERFORM
+            END-IF
+        END-PERFORM
+        IF LS-G > LS-GROUP-COUNT
+            MOVE SPACES TO LS-MESSAGE
+            STRING "column " DELIMITED BY SIZE
+                   LS-PLAIN-NAME(LS-P) DELIMITED BY SPACE
+                   " is selected in a grouped query but not in its"
+                   " GROUP BY: Db2 rejects it (SQLCODE -122)"
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-RULES PLB-FINDINGS LS-RULE-GROUPED
+                LS-PLAIN-TOKEN(LS-P) LS-MESSAGE
+        END-IF
+    END-PERFORM.
+
+*> The select list item from LS-ITEM-FIRST, LS-ITEM-TOKENS long: one
+*> column name, or one that starts with an aggregate.
+END-ITEM.
+    IF LS-ITEM-TOKENS = 0
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-ITEM-FIRST LS-TEXT LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+    IF LS-TEXT = "DISTINCT" OR LS-TEXT = "ALL"
+        ADD 1 TO LS-ITEM-FIRST
+        SUBTRACT 1 FROM LS-ITEM-TOKENS
+        IF LS-ITEM-TOKENS = 0
+            EXIT PARAGRAPH
+        END-IF
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-ITEM-FIRST LS-TEXT
+            LS-LEN
+        MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+    END-IF
+    IF (LS-TEXT = "SUM" OR "AVG" OR "MIN" OR "MAX" OR "COUNT")
+       AND LS-ITEM-TOKENS > 1
+        COMPUTE LS-I = LS-ITEM-FIRST + 1
+        IF TK-IS-LPAREN(LS-I)
+            MOVE "Y" TO LS-HAS-AGGREGATE
+        END-IF
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-ITEM-TOKENS NOT = 1 OR NOT TK-IS-WORD(LS-ITEM-FIRST)
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-TEXT = "USER" OR "NULL" OR "CURRENT_DATE" OR "CURRENT_TIME"
+       OR "CURRENT_TIMESTAMP"
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-PLAIN-COUNT < 100
+        ADD 1 TO LS-PLAIN-COUNT
+        MOVE LS-TEXT TO LS-PLAIN-NAME(LS-PLAIN-COUNT)
+        MOVE LS-ITEM-FIRST TO LS-PLAIN-TOKEN(LS-PLAIN-COUNT)
     END-IF.
 
 *> PLB-Q021 order-by-position: ORDER BY with a column number above the

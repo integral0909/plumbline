@@ -8,7 +8,7 @@
 *> A rule's default severity can be changed, and the rule disabled,
 *> with command-line options. Rules that measure something against a
 *> threshold keep it in RL-LIMIT, which configuration can change.
-78  RL-MAX                      VALUE 200.
+78  RL-MAX                      VALUE 400.
 01  PLB-RULES.
     05  RL-COUNT                PIC 9(4) COMP-5.
     05  RL-ENTRY                OCCURS RL-MAX TIMES.
