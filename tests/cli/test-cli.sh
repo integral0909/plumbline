@@ -526,6 +526,16 @@ check_absent "RECFM=FBA and VBS"          'recfm.jcl:[89]:.*PLB-J040' \
     -- check --no-config $jx/recfm.jcl
 check_absent "RECFM=DBA, U, and VBSTM"    'recfm.jcl:1[0-2]:.*PLB-J040' \
     -- check --no-config $jx/recfm.jcl
+check "RECORG with RECFM"                 1 'ddpair.jcl:5:3: warning: DD KSDS codes RECORG with RECFM,.*\[PLB-J041\]' \
+    -- check --no-config $jx/ddpair.jcl
+check "AVGREC with SPACE in tracks"       1 'ddpair.jcl:6:3: warning: DD RECS codes AVGREC with SPACE in TRK,.*\[PLB-J041\]' \
+    -- check --no-config $jx/ddpair.jcl
+check "LRECL and DCB=LRECL"               1 'ddpair.jcl:8:3: warning: DD TWICE codes LRECL with DCB=LRECL,.*\[PLB-J041\]' \
+    -- check --no-config $jx/ddpair.jcl
+check "RECORG with DCB=DSORG"             1 'ddpair.jcl:10:3: warning: DD ESDS codes RECORG with DCB=DSORG,.*\[PLB-J041\]' \
+    -- check --no-config $jx/ddpair.jcl
+check_absent "parameters that go together" 'ddpair.jcl:1[2-4]:.*PLB-J041' \
+    -- check --no-config $jx/ddpair.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
