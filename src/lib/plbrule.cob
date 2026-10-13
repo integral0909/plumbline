@@ -765,6 +765,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J039"
         "dd-value-invalid" "E"
         "HOLD, FREE, SPIN, AVGREC, or RECORG value the JCL Reference does not list"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J040"
+        "recfm-invalid" "E"
+        "RECFM is none of the record formats the JCL Reference lists"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

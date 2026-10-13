@@ -516,6 +516,16 @@ check "RECORG=KSDS"                       1 'ddvalue.jcl:9:3: error: DD KSDS cod
     -- check --no-config $jx/ddvalue.jcl
 check_absent "values the Reference lists" 'ddvalue.jcl:1[1-4]:.*PLB-J039' \
     -- check --no-config $jx/ddvalue.jcl
+check "RECFM letters out of order"       1 'recfm.jcl:4:3: error: DD OUTBF codes RECFM=BF,.*\[PLB-J040\]' \
+    -- check --no-config $jx/recfm.jcl
+check "RECFM in DCB with a doubled letter" 1 'recfm.jcl:5:3: error: DD OUTFBB codes RECFM=FBB,.*\[PLB-J040\]' \
+    -- check --no-config $jx/recfm.jcl
+check "RECFM with both A and M"           1 'recfm.jcl:6:3: error: DD OUTAM codes RECFM=FBAM,.*\[PLB-J040\]' \
+    -- check --no-config $jx/recfm.jcl
+check_absent "RECFM=FBA and VBS"          'recfm.jcl:[89]:.*PLB-J040' \
+    -- check --no-config $jx/recfm.jcl
+check_absent "RECFM=DBA, U, and VBSTM"    'recfm.jcl:1[0-2]:.*PLB-J040' \
+    -- check --no-config $jx/recfm.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
