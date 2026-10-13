@@ -329,6 +329,13 @@ The findings were checked by rule:
 - **PLB-C105 string-edited-leading-space.** None in NIST or in
   GnuCOBOL's tests.
 
+- **PLB-M023 file-unused.** 29 in NIST: files that appear only in their
+  `SELECT` and `FD`, such as the `PRINT-FILE` of the CCVS template in 12
+  programs that print nothing, `TFIL` in the `DB` debugging tests,
+  `RL-FS2` in `RL213A`, whose comments say it will not be present, and
+  `SQ-FS4` in `ST139A`, named only in `SAME SORT-MERGE AREA`. One in
+  GnuCOBOL's tests, of `ASSIGN` parsing.
+
 - **PLB-C111 sort-statement-wrong-phase.** None in NIST's 29 programs
   with a `SORT` procedure, or in GnuCOBOL's tests. In a copy of NIST's
   `ST101A` with a `RELEASE` put first in its output procedure, it

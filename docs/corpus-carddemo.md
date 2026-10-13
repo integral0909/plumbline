@@ -374,6 +374,8 @@ Some findings that were read and are true:
   statements send alphanumeric items `DELIMITED BY SPACE`. In a copy
   of `COBIL00C` that sends a `PIC Z(15)9` copy of the transaction ID
   in place of `TRAN-ID`, it reports that item.
+- **PLB-M023 file-unused.** None. In a copy of `CBACT01C` with a
+  `SELECT HIST-FILE` and its `FD` added, it reports `HIST-FILE`.
 - **PLB-C111 sort-statement-wrong-phase.** None: CardDemo's programs
   have no `SORT` procedures.
 - **PLB-C110 file-dd-shared.** None. In a copy of `CBSTM03A` whose
