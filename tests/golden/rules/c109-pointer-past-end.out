@@ -1,0 +1,2 @@
+tests/golden/rules/c109-pointer-past-end.cob:15:62: warning: WS-PTR is 21 here, from the MOVE on line 14, past the end of the item it counts in: STRING overflows at once, moving nothing [PLB-C109]
+tests/golden/rules/c109-pointer-past-end.cob:18:22: warning: WS-PTR is 11 here, from the COMPUTE on line 16, past the end of the item it counts in: UNSTRING overflows at once, moving nothing [PLB-C109]

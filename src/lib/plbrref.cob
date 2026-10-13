@@ -826,6 +826,12 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-RULE-POINTER         PIC 9(4) COMP-5.
 01  LS-RULE-POINTER-START   PIC 9(4) COMP-5.
+01  LS-RULE-POINTER-END     PIC 9(4) COMP-5.
+*> PLB-C109: the size of the item the pointer counts in (the STRING's
+*> receiver, the UNSTRING's sender; 0 when unknown), and which rule a
+*> start value breaks: B below 1, A past the end.
+01  LS-POINTER-SIZE         PIC 9(9) COMP-5.
+01  LS-POINTER-WRONG        PIC X.
 *> PLB-C082: the last statement before that stores into the pointer,
 *> the value it stores, and the statements between.
 01  LS-W                    PIC 9(9) COMP-5.
@@ -875,9 +881,12 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C043" LS-RULE-POINTER
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C082"
         LS-RULE-POINTER-START
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C109"
+        LS-RULE-POINTER-END
     IF (RL-ENABLED(LS-RULE) NOT = "Y"
         AND RL-ENABLED(LS-RULE-POINTER) NOT = "Y"
-        AND RL-ENABLED(LS-RULE-POINTER-START) NOT = "Y")
+        AND RL-ENABLED(LS-RULE-POINTER-START) NOT = "Y"
+        AND RL-ENABLED(LS-RULE-POINTER-END) NOT = "Y")
        OR AS-COUNT = 0
         GOBACK
     END-IF
@@ -907,6 +916,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
 CHECK-POINTER.
     IF RL-ENABLED(LS-RULE-POINTER) NOT = "Y"
        AND RL-ENABLED(LS-RULE-POINTER-START) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-POINTER-END) NOT = "Y"
         EXIT PARAGRAPH
     END-IF
     MOVE 0 TO LS-LEVEL
@@ -934,6 +944,7 @@ CHECK-POINTER.
                                 END-IF
                             END-IF
                             IF RL-ENABLED(LS-RULE-POINTER-START) = "Y"
+                               OR RL-ENABLED(LS-RULE-POINTER-END) = "Y"
                                 PERFORM CHECK-POINTER-START
                             END-IF
                         END-IF
@@ -950,6 +961,10 @@ CHECK-POINTER.
 *> TO, CALL, or EXEC. A pointer below 1 makes the statement overflow at
 *> once: it moves nothing. The MOVE must be in a list of statements
 *> that holds the STRING, or directly in a sentence of the paragraph.
+*>
+*> PLB-C109 pointer-past-end: the same, for a number above the size
+*> of the item the pointer counts in: the receiver of STRING, or the
+*> item UNSTRING splits. The statement overflows at once just as well.
 CHECK-POINTER-START.
     PERFORM PARAGRAPH-START
     MOVE 0 TO LS-W
@@ -995,7 +1010,23 @@ CHECK-POINTER-START.
                 END-IF
             END-PERFORM
     END-EVALUATE
-    IF LS-VALUE-OK = "N" OR LS-START-VALUE >= 1
+    IF LS-VALUE-OK = "N"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACE TO LS-POINTER-WRONG
+    IF LS-START-VALUE < 1
+        IF RL-ENABLED(LS-RULE-POINTER-START) = "Y"
+            MOVE "B" TO LS-POINTER-WRONG
+        END-IF
+    ELSE
+        IF RL-ENABLED(LS-RULE-POINTER-END) = "Y"
+            PERFORM POINTER-ITEM-SIZE
+            IF LS-POINTER-SIZE > 0 AND LS-START-VALUE > LS-POINTER-SIZE
+                MOVE "A" TO LS-POINTER-WRONG
+            END-IF
+        END-IF
+    END-IF
+    IF LS-POINTER-WRONG = SPACE
         EXIT PARAGRAPH
     END-IF
     *> Nothing between that may change the pointer.
@@ -1045,13 +1076,59 @@ CHECK-POINTER-START.
         INTO LS-MESSAGE WITH POINTER LS-K2
     MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-FIRST(LS-WSTMT))) TO LS-NUM
     CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    IF LS-POINTER-WRONG = "B"
+        STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+               ": a pointer below 1 makes " DELIMITED BY SIZE
+               ND-DETAIL(LS-NODE) DELIMITED BY SPACE
+               " overflow at once, moving nothing" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-K2
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE-POINTER-START LS-T LS-MESSAGE
+        EXIT PARAGRAPH
+    END-IF
     STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
-           ": a pointer below 1 makes " DELIMITED BY SIZE
+           ", past the end of the item it counts in: " DELIMITED BY SIZE
            ND-DETAIL(LS-NODE) DELIMITED BY SPACE
-           " overflow at once, moving nothing" DELIMITED BY SIZE
+           " overflows at once, moving nothing" DELIMITED BY SIZE
         INTO LS-MESSAGE WITH POINTER LS-K2
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
-        PLB-FINDINGS LS-RULE-POINTER-START LS-T LS-MESSAGE.
+        PLB-FINDINGS LS-RULE-POINTER-END LS-T LS-MESSAGE.
+
+*> LS-POINTER-SIZE: the size of the receiver of STRING LS-NODE (the
+*> item after INTO), or of the item UNSTRING LS-NODE splits (the
+*> first after UNSTRING); 0 when it has no fixed size, or has
+*> reference modification.
+POINTER-ITEM-SIZE.
+    MOVE 0 TO LS-POINTER-SIZE
+    MOVE 0 TO LS-K2
+    IF ND-DETAIL(LS-NODE) = "UNSTRING"
+        COMPUTE LS-K2 = ND-TOK-FIRST(LS-NODE) + 1
+    ELSE
+        PERFORM VARYING LS-UP FROM ND-TOK-FIRST(LS-NODE) BY 1
+                UNTIL LS-UP >= ND-TOK-LAST(LS-NODE)
+            IF TK-IS-WORD(LS-UP) AND WS-TOKEN-REF(LS-UP) = 0
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-UP LS-WORD LS-LEN
+                IF FUNCTION UPPER-CASE(LS-WORD) = "INTO"
+                    COMPUTE LS-K2 = LS-UP + 1
+                    EXIT PERFORM
+                END-IF
+            END-IF
+        END-PERFORM
+    END-IF
+    IF LS-K2 = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF WS-TOKEN-REF(LS-K2) = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE WS-TOKEN-REF(LS-K2) TO LS-Q
+    IF RF-KIND(LS-Q) NOT = "D" OR RF-REFMOD(LS-Q) = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    IF SY-VARIABLE(RF-SYMBOL(LS-Q)) = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SY-SIZE(RF-SYMBOL(LS-Q)) TO LS-POINTER-SIZE.
 
 *> LS-START-VALUE from the integer literal, or ZERO, at LS-K2.
 START-VALUE-AT.
