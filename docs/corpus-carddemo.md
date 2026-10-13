@@ -364,6 +364,8 @@ Some findings that were read and are true:
   send unsigned whole numbers (`ACCT-ID`, `WS-TRANID-SUFFIX`). In a copy
   of `CBACT04C` with `WS-TRANID-SUFFIX` made `PIC S9(06)`, it reports
   that item.
+- **PLB-C106 unstring-space-not-all.** None: CardDemo has no
+  `UNSTRING`.
 - **PLB-C105 string-edited-leading-space.** None: its `STRING`
   statements send alphanumeric items `DELIMITED BY SPACE`. In a copy
   of `COBIL00C` that sends a `PIC Z(15)9` copy of the transaction ID

@@ -1,0 +1,3 @@
+tests/golden/rules/c106-unstring-space-not-all.cob:14:35: warning: UNSTRING DELIMITED BY SPACE without ALL: two spaces in a row give an empty field, and the words after go one field on [PLB-C106]
+tests/golden/rules/c106-unstring-space-not-all.cob:15:32: warning: UNSTRING DELIMITED BY SPACE without ALL: two spaces in a row give an empty field, and the words after go one field on [PLB-C106]
+tests/golden/rules/c106-unstring-space-not-all.cob:18:42: warning: UNSTRING DELIMITED BY SPACE without ALL: two spaces in a row give an empty field, and the words after go one field on [PLB-C106]
