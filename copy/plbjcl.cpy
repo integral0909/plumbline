@@ -88,9 +88,13 @@
         *> qualifier; Q a qualifier longer than 8 characters; F one that
         *> does not start with a letter or national character; C one
         *> with another character (JD-DSN-AT: the qualifier's number,
-        *> from 1, for E, Q, F, and C).
+        *> from 1, for E, Q, F, and C). For a relative generation in
+        *> parentheses: G one above 255, H one that is not +, -, or 0
+        *> and digits, 1 to 3 of them after a sign (JD-DSN-GEN: what is
+        *> in the parentheses).
         10  JD-DSN-PROBLEM      PIC X.
         10  JD-DSN-AT           PIC 9(4) COMP-5.
+        10  JD-DSN-GEN          PIC X(10).
         *> "Y" when the DD codes SYSOUT=. JD-SYSOUT-CLASH: the first
         *> keyword it codes that the JCL Reference says not to code with
         *> SYSOUT (DISP, VOLUME, LABEL, ...), when it codes SYSOUT, or

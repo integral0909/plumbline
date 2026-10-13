@@ -251,6 +251,8 @@ Some findings that were read and are true:
 - **PLB-J010 dsn-invalid.** None, among the 90 distinct names without
   symbols in the jobs' `DSN=` parameters. In a copy of `ACCTFILE` with
   `ACCTDATA` made `ACCTDATA1`, it reports the nine-character qualifier.
+  Its 25 relative generations are `(+1)` and `(0)`; in a copy of
+  `PRTCATBL` with a `(+1)` made `(+256)`, it reports that one.
 - **PLB-J009 referback-unresolved.** None: CardDemo's jobs have no
   backward references. In a copy of `TRANEXTR` with two `DSN=` changed
   to `*.STEP10.SYSUT1` and `*.STEP10.SYSUT9`, the first takes the data
