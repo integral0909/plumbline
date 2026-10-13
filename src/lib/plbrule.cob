@@ -693,6 +693,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J022"
         "cond-never-true" "W"
         "COND test true for no return code, so it never bypasses the step"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J023"
+        "copy-onto-itself" "E"
+        "IEBGENER step whose SYSUT2 is a data set its SYSUT1 reads"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

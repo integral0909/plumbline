@@ -334,6 +334,12 @@ check "COND=(0,GT) is never true"         1 'cond.jcl:14:3: warning: COND test (
     -- check --no-config $jx/cond.jcl
 check "(4095,LT) of a named step"         1 'cond.jcl:15:3: warning: COND test (4095,LT) is true for no return code.*\[PLB-J022\]' \
     -- check --no-config $jx/cond.jcl
+check "IEBGENER copies a data set onto itself" 1 'copyself.jcl:7:3: error: SYSUT2 names PAY.MASTER, which SYSUT1 reads.*\[PLB-J023\]' \
+    -- check --no-config $jx/copyself.jcl
+check "SYSUT2 among SYSUT1's concatenation" 1 'copyself.jcl:14:3: error: SYSUT2 names PAY.ALL.*\[PLB-J023\]' \
+    -- check --no-config $jx/copyself.jcl
+check_absent "a copy to another data set"  'copyself.jcl:20:.*PLB-J023' \
+    -- check --no-config $jx/copyself.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \

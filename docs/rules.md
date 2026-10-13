@@ -150,6 +150,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J020](#plb-j020-jcl-name-invalid) | jcl-name-invalid | error | JCL statement name is not 1 to 8 letters, digits, or $ # @ |
 | [PLB-J021](#plb-j021-cond-always-bypasses) | cond-always-bypasses | warning | COND test true for every return code, so the step never runs |
 | [PLB-J022](#plb-j022-cond-never-true) | cond-never-true | warning | COND test true for no return code, so it never bypasses the step |
+| [PLB-J023](#plb-j023-copy-onto-itself) | copy-onto-itself | error | IEBGENER step whose SYSUT2 is a data set its SYSUT1 reads |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -3787,6 +3788,28 @@ By the same reading as [PLB-J021](#plb-j021-cond-always-bypasses),
 4095 makes true: the test never bypasses the step, and the step runs
 whatever the steps before it returned. The operator was usually turned
 round: `(0,LT)` bypasses the step after any return code above 0.
+
+## PLB-J023 copy-onto-itself
+
+An `IEBGENER` step whose `SYSUT2`, the output, names a data set that
+`SYSUT1`, the input, names too, or one of the data sets concatenated to
+it:
+
+```jcl
+//COPY     EXEC PGM=IEBGENER
+//SYSUT1   DD DSN=PAY.DAY1,DISP=SHR
+//         DD DSN=PAY.ALL,DISP=SHR
+//SYSUT2   DD DSN=PAY.ALL,DISP=MOD             reported
+```
+
+IEBGENER would read the data set and write it at once. IBM support
+says that the results of doing so "will always be unpredictable" for
+any program that uses BSAM or QSAM, IEBGENER among them, and that
+IEBGENER documents that one data set must not be both its `SYSUT1` and
+its `SYSUT2` ("Incorrect results with IDCAMS REPRO using input DD
+concatenation where one DD is also the output DD"). The names are
+compared as written, member and all, so two names that the same
+symbol gives are taken to be one data set.
 
 ## PLB-K001 cics-resource-undefined
 
