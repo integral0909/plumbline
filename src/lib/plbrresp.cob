@@ -30,6 +30,13 @@
 *> naming an item that is not PIC S9(7) COMP-3, four bytes of packed
 *> decimal, or a number that is not hhmmss: minutes or seconds above
 *> 59, as in INTERVAL(90), which is not ninety seconds.
+*>
+*> PLB-K015 time-option-out-of-range: HOURS, MINUTES, SECONDS, or
+*> MILLISECS of DELAY (FOR, UNTIL) or START (AFTER, AT) given a number
+*> outside its range, for which CICS raises INVREQ (RESP2 4, 5, 6, or
+*> 22): HOURS 0-99; MINUTES 0-59 with another of them, or 0-5999 alone;
+*> SECONDS 0-59, or 0-359999 alone; MILLISECS (of DELAY) 0-999, or
+*> 0-359999999 alone (CICS API reference, DELAY and START).
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-K010.
@@ -43,6 +50,13 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE-LENGTH          PIC 9(4) COMP-5.
 01  LS-RULE-ABSTIME         PIC 9(4) COMP-5.
 01  LS-RULE-INTERVAL        PIC 9(4) COMP-5.
+01  LS-RULE-UNITS           PIC 9(4) COMP-5.
+*> K015: how many of HOURS, MINUTES, SECONDS, MILLISECS the command
+*> has, and the range of the one being read.
+01  LS-UNITS                PIC 9(4) COMP-5.
+01  LS-MOST                 PIC 9(9) COMP-5.
+01  LS-RESP2                PIC X(2).
+01  LS-VALUE                PIC 9(18).
 *> K013: the number of an INTERVAL or TIME, as hhmmss.
 01  LS-HHMMSS               PIC 9(6).
 01  LS-DIGITS               PIC X(31).
@@ -82,10 +96,12 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K011" LS-RULE-LENGTH
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K012" LS-RULE-ABSTIME
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K013" LS-RULE-INTERVAL
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K015" LS-RULE-UNITS
     IF (RL-ENABLED(LS-RULE) NOT = "Y"
         AND RL-ENABLED(LS-RULE-LENGTH) NOT = "Y"
         AND RL-ENABLED(LS-RULE-ABSTIME) NOT = "Y"
-        AND RL-ENABLED(LS-RULE-INTERVAL) NOT = "Y") OR AS-COUNT = 0
+        AND RL-ENABLED(LS-RULE-INTERVAL) NOT = "Y"
+        AND RL-ENABLED(LS-RULE-UNITS) NOT = "Y") OR AS-COUNT = 0
         GOBACK
     END-IF
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
@@ -110,6 +126,10 @@ CHECK-COMMAND.
     COMPUTE LS-K = ND-TOK-FIRST(LS-NODE) + 2
     CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-COMMAND LS-LEN
     MOVE FUNCTION UPPER-CASE(LS-COMMAND) TO LS-COMMAND
+    IF (LS-COMMAND = "DELAY" OR LS-COMMAND = "START")
+       AND RL-ENABLED(LS-RULE-UNITS) = "Y"
+        PERFORM CHECK-UNITS
+    END-IF
     PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
             UNTIL LS-T >= ND-TOK-LAST(LS-NODE)
         IF TK-IS-WORD(LS-T)
@@ -243,6 +263,93 @@ CHECK-INTERVAL.
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE-INTERVAL RF-TOKEN(LS-R) LS-MESSAGE.
+
+*> K015: HOURS, MINUTES, SECONDS, and MILLISECS of the command, counted,
+*> then each given as a number checked against its range.
+CHECK-UNITS.
+    MOVE 0 TO LS-UNITS
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
+            UNTIL LS-T >= ND-TOK-LAST(LS-NODE)
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-OPTION LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-OPTION) TO LS-OPTION
+            IF LS-OPTION = "HOURS" OR LS-OPTION = "MINUTES"
+               OR LS-OPTION = "SECONDS" OR LS-OPTION = "MILLISECS"
+                ADD 1 TO LS-UNITS
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-UNITS = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
+            UNTIL LS-T + 2 > ND-TOK-LAST(LS-NODE)
+        IF TK-IS-WORD(LS-T) AND TK-IS-LPAREN(LS-T + 1)
+           AND TK-IS-NUMBER(LS-T + 2)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-OPTION LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-OPTION) TO LS-OPTION
+            MOVE 0 TO LS-MOST
+            EVALUATE TRUE
+                WHEN LS-OPTION = "HOURS"
+                    MOVE 99 TO LS-MOST
+                    MOVE "4" TO LS-RESP2
+                WHEN LS-OPTION = "MINUTES"
+                    MOVE 5999 TO LS-MOST
+                    MOVE "5" TO LS-RESP2
+                WHEN LS-OPTION = "SECONDS"
+                    MOVE 359999 TO LS-MOST
+                    MOVE "6" TO LS-RESP2
+                WHEN LS-OPTION = "MILLISECS" AND LS-COMMAND = "DELAY"
+                    MOVE 359999999 TO LS-MOST
+                    MOVE "22" TO LS-RESP2
+            END-EVALUATE
+            IF LS-MOST > 0
+                IF LS-UNITS > 1 AND LS-OPTION NOT = "HOURS"
+                    IF LS-OPTION = "MILLISECS"
+                        MOVE 999 TO LS-MOST
+                    ELSE
+                        MOVE 59 TO LS-MOST
+                    END-IF
+                END-IF
+                COMPUTE LS-K = LS-T + 2
+                PERFORM CHECK-UNIT-VALUE
+            END-IF
+        END-IF
+    END-PERFORM.
+
+*> The number at LS-K, for option LS-OPTION, against LS-MOST.
+CHECK-UNIT-VALUE.
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-DIGITS LS-LEN
+    IF LS-LEN = 0 OR LS-LEN > 18
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-DIGITS(1:LS-LEN) IS NOT NUMERIC
+        EXIT PARAGRAPH
+    END-IF
+    MOVE FUNCTION NUMVAL(LS-DIGITS(1:LS-LEN)) TO LS-VALUE
+    IF LS-VALUE <= LS-MOST
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-MOST TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    STRING LS-OPTION DELIMITED BY SPACE
+           "(" LS-DIGITS(1:LS-LEN) ") of " DELIMITED BY SIZE
+           LS-COMMAND DELIMITED BY SPACE
+           " is above " DELIMITED BY SIZE
+           LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    IF LS-UNITS > 1 AND LS-OPTION NOT = "HOURS"
+        STRING ", its most with another time option" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    STRING ": CICS raises INVREQ (RESP2 " DELIMITED BY SIZE
+           LS-RESP2 DELIMITED BY SPACE
+           ")" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-UNITS LS-K LS-MESSAGE.
 
 *> The number of INTERVAL or TIME at LS-K, as hhmmss: minutes and
 *> seconds from 00 to 59.

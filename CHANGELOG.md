@@ -287,6 +287,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-K013 interval-invalid.
 - Rule PLB-K014 return-not-top-level; the call graph keeps the first
   `RETURN` of each program with `COMMAREA`, `CHANNEL`, or `IMMEDIATE`.
+- Rule PLB-K015 time-option-out-of-range.
 - Rule PLB-Q025 insert-not-null-missing; `plumbline dump sql` shows a
   column with a default as `default`.
 - Rule PLB-J018 gdg-generation-not-created.
