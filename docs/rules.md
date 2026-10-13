@@ -203,6 +203,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q014](#plb-q014-fetch-loop-end-only) | fetch-loop-end-only | warning | FETCH loop ends only on SQLCODE 100, and loops for ever on errors |
 | [PLB-Q022](#plb-q022-aggregate-in-where) | aggregate-in-where | error | SQL WHERE uses an aggregate function such as SUM or COUNT |
 | [PLB-Q023](#plb-q023-select-not-grouped) | select-not-grouped | error | SQL grouped query selects or tests a column it does not group by |
+| [PLB-Q024](#plb-q024-column-undeclared) | column-undeclared | error | SQL names a column that the DECLARE TABLE of its table lacks |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -4790,6 +4791,37 @@ there outside an aggregate is reported.
              GROUP BY OWNER
             HAVING SUM(AMOUNT) > 100 AND PAY_TYPE = 'CR'   *> PAY_TYPE
 ```
+
+## PLB-Q024 column-undeclared
+
+A column that a `SELECT`, a cursor, an `INSERT`, or an `UPDATE` pairs
+with a host variable, which the `DECLARE TABLE` of the table it names
+does not have:
+
+```cobol
+    EXEC SQL DECLARE ACCOUNT TABLE
+        ( ACCT_ID INTEGER NOT NULL, OWNER CHAR(30) ) END-EXEC.
+    ...
+    EXEC SQL
+        SELECT OWNR INTO :WS-NAME             *> reported
+          FROM ACCOUNT WHERE ACCT_ID = 1
+    END-EXEC
+```
+
+Db2 for z/OS warns with SQLCODE +206 when it binds such a statement,
+"column-name is not a column of an inserted table, updated table,
+merged table, or any table identified in a FROM clause"
+([Db2 codes](https://www.ibm.com/docs/en/db2-for-zos/12?topic=codes-206)),
+and fails it with SQLCODE -206 (SQLSTATE 42703) when it runs; SQLite 3
+fails it with "no such column". Usually the name is misspelled, or the
+table's DCLGEN copybook is older than the table.
+
+The pairs come from the SQL model that PLB-Q006 and PLB-Q007 use: the
+select list with its `INTO` list or the cursor's `FETCH`, an `INSERT`'s
+column list, and an `UPDATE`'s `SET`. A column qualified by a
+correlation name (`A.OWNER`) is looked for by its name. Only statements
+whose tables all have a `DECLARE TABLE` in the file are checked;
+columns of expressions and of the `WHERE` are not paired, and not read.
 
 ## PLB-S001 dynamic-sql
 

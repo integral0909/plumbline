@@ -439,3 +439,124 @@ REPORT-PAIR.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE QP-HOST-TOKEN(LS-P) LS-MESSAGE.
 END PROGRAM PLB-RULE-SQL-TYPES.
+
+*> ---------------------------------------------------------------
+*> PLB-Q024 column-undeclared: a column that a SELECT, a cursor, an
+*> INSERT, or an UPDATE pairs with a host variable, which none of the
+*> tables it names has, when DECLARE TABLE statements describe all of
+*> them:
+*>
+*>     EXEC SQL DECLARE ACCOUNT TABLE (ACCT_ID INTEGER, OWNER CHAR(30))
+*>     EXEC SQL SELECT OWNR INTO :WS-NAME FROM ACCOUNT ...
+*>
+*> Db2 rejects the statement with SQLCODE -206 (the name is not a
+*> column of a table the statement names), at bind or when it runs;
+*> usually the name is misspelled, or the table's DCLGEN copybook is
+*> older than the table. Statements that name a table without a DECLARE
+*> TABLE, or more tables than the model keeps, are left alone, as are
+*> columns in expressions and in the WHERE, which the model does not
+*> pair.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-Q024.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbsqlm.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-P                    PIC 9(9) COMP-5.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-J                    PIC 9(9) COMP-5.
+01  LS-C                    PIC 9(9) COMP-5.
+01  LS-ALL-DECLARED         PIC X.
+01  LS-FOUND                PIC X.
+01  LS-MESSAGE              PIC X(200).
+01  LS-PTR                  PIC 9(9) COMP-5.
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q024" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    CALL "PLB-SQL-MODEL-BUILD" USING PLB-SOURCE-SET PLB-TOKENS
+        PLB-SQL-MODEL
+    IF QT-COUNT = 0 OR QP-COUNT = 0
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > QS-COUNT
+        IF QS-KIND(LS-S) = "S" OR "C" OR "I" OR "U"
+            PERFORM CHECK-STATEMENT
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> Statement LS-S: its tables, all declared, then each column it
+*> pairs.
+CHECK-STATEMENT.
+    IF QS-TABLE-COUNT(LS-S) = 0 OR QS-TABLE-COUNT(LS-S) > 4
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > QS-TABLE-COUNT(LS-S)
+        MOVE "N" TO LS-ALL-DECLARED
+        PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J > QT-COUNT
+            IF QT-NAME(LS-J) = QS-TABLE(LS-S, LS-I)
+               OR QT-SHORT(LS-J) = QS-TABLE(LS-S, LS-I)
+                MOVE "Y" TO LS-ALL-DECLARED
+                EXIT PERFORM
+            END-IF
+        END-PERFORM
+        IF LS-ALL-DECLARED = "N"
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    PERFORM VARYING LS-P FROM QS-PAIR-FIRST(LS-S) BY 1
+            UNTIL LS-P >= QS-PAIR-FIRST(LS-S) + QS-PAIR-COUNT(LS-S)
+        IF QP-COLUMN-TOKEN(LS-P) > 0 AND QP-COLUMN(LS-P) NOT = SPACES
+            PERFORM CHECK-COLUMN
+        END-IF
+    END-PERFORM.
+
+*> Column of pair LS-P in one of the statement's tables.
+CHECK-COLUMN.
+    MOVE "N" TO LS-FOUND
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > QS-TABLE-COUNT(LS-S)
+        PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J > QT-COUNT
+            IF QT-NAME(LS-J) = QS-TABLE(LS-S, LS-I)
+               OR QT-SHORT(LS-J) = QS-TABLE(LS-S, LS-I)
+                PERFORM VARYING LS-C FROM QT-COL-FIRST(LS-J) BY 1
+                        UNTIL LS-C >= QT-COL-FIRST(LS-J)
+                                      + QT-COL-COUNT(LS-J)
+                    IF QL-NAME(LS-C) = QP-COLUMN(LS-P)
+                        MOVE "Y" TO LS-FOUND
+                    END-IF
+                END-PERFORM
+            END-IF
+        END-PERFORM
+    END-PERFORM
+    IF LS-FOUND = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    STRING "column " DELIMITED BY SIZE
+           QP-COLUMN(LS-P) DELIMITED BY SPACE
+           " is not in the DECLARE TABLE of " DELIMITED BY SIZE
+           QS-TABLE(LS-S, 1) DELIMITED BY SPACE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    IF QS-TABLE-COUNT(LS-S) > 1
+        STRING " or the other tables it names" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF
+    STRING ": Db2 rejects it (SQLCODE -206)" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE QP-COLUMN-TOKEN(LS-P) LS-MESSAGE.
+END PROGRAM PLB-RULE-Q024.

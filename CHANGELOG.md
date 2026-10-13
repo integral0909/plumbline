@@ -270,6 +270,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-Q021 order-by-position.
 - Rule PLB-Q022 aggregate-in-where.
 - Rule PLB-Q023 select-not-grouped.
+- Rule PLB-Q024 column-undeclared.
 - Rule PLB-J018 gdg-generation-not-created.
 - Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
   the name field.
