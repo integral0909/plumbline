@@ -36,6 +36,10 @@
         *> The COND operand of the JOB statement, in upper case, or
         *> spaces.
         10  JJ-COND             PIC X(80).
+        *> The first of ADDRSPC=, RD=, and MEMLIMIT= whose value the JCL
+        *> Reference does not list: the keyword and the value.
+        10  JJ-VALUE-KEY        PIC X(8).
+        10  JJ-VALUE-BAD        PIC X(20).
     *> Procedure definitions: PROC statements.
     05  JP-COUNT                PIC 9(9) COMP-5.
     05  JP-ENTRY                OCCURS JP-MAX TIMES.
@@ -73,6 +77,8 @@
         *> The same as JJ-TIME-BAD, for TIME= of the EXEC statement.
         10  JS-TIME-BAD         PIC X(20).
         10  JS-REGION-BAD       PIC X(20).
+        10  JS-VALUE-KEY        PIC X(8).
+        10  JS-VALUE-BAD        PIC X(20).
         10  JS-FILE-ID          PIC 9(4) COMP-5.
         10  JS-LINE             PIC 9(9) COMP-5.
         *> The step's DD statements: JS-DD-COUNT entries from

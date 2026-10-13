@@ -2243,3 +2243,90 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
     END-PERFORM
     GOBACK.
 END PROGRAM PLB-RULE-J041.
+
+*> ---------------------------------------------------------------
+*> PLB-J042 exec-value-invalid: an ADDRSPC=, RD=, or MEMLIMIT= on a JOB
+*> or EXEC statement whose value the z/OS MVS JCL Reference does not
+*> list:
+*>
+*>     //LOAD     EXEC PGM=PAYLOAD,ADDRSPC=VIRTUAL
+*>     //SORT     EXEC PGM=SORT,MEMLIMIT=10GB
+*>
+*> ADDRSPC is VIRT or REAL; RD is R, RNC, NR, or NC; MEMLIMIT is NOLIMIT
+*> or nnnnnM, nnnnnG, nnnnnT, or nnnnnP, "nnnnn may be a value from 0 to
+*> 99999, with a maximum value of 16384P". Values with symbols are not
+*> read.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J042.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-KEY                  PIC X(8).
+01  LS-VALUES               PIC X(60).
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J042" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > JJ-COUNT
+        IF JJ-VALUE-KEY(LS-I) NOT = SPACES
+            MOVE JJ-VALUE-KEY(LS-I) TO LS-KEY
+            PERFORM VALUES-OF-KEY
+            MOVE SPACES TO LS-MESSAGE
+            STRING "job " DELIMITED BY SIZE
+                   JJ-NAME(LS-I) DELIMITED BY SPACE
+                   " codes " DELIMITED BY SIZE
+                   JJ-VALUE-KEY(LS-I) DELIMITED BY SPACE
+                   "=" DELIMITED BY SIZE
+                   JJ-VALUE-BAD(LS-I) DELIMITED BY SPACE
+                   ", not " DELIMITED BY SIZE
+                   LS-VALUES DELIMITED BY "  "
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JJ-FILE-ID(LS-I) JJ-LINE(LS-I) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+        END-IF
+    END-PERFORM
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > JS-COUNT
+        IF JS-VALUE-KEY(LS-I) NOT = SPACES
+            MOVE JS-VALUE-KEY(LS-I) TO LS-KEY
+            PERFORM VALUES-OF-KEY
+            MOVE SPACES TO LS-MESSAGE
+            STRING "step " DELIMITED BY SIZE
+                   JS-NAME(LS-I) DELIMITED BY SPACE
+                   " codes " DELIMITED BY SIZE
+                   JS-VALUE-KEY(LS-I) DELIMITED BY SPACE
+                   "=" DELIMITED BY SIZE
+                   JS-VALUE-BAD(LS-I) DELIMITED BY SPACE
+                   ", not " DELIMITED BY SIZE
+                   LS-VALUES DELIMITED BY "  "
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JS-FILE-ID(LS-I) JS-LINE(LS-I) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+VALUES-OF-KEY.
+    EVALUATE TRUE
+        WHEN LS-KEY(1:7) = "ADDRSPC"
+            MOVE "VIRT or REAL" TO LS-VALUES
+        WHEN LS-KEY(1:2) = "RD"
+            MOVE "R, RNC, NR, or NC" TO LS-VALUES
+        WHEN OTHER
+            MOVE "NOLIMIT or 0 to 99999 with M, G, T, or P (up to 16384P)"
+                TO LS-VALUES
+    END-EVALUATE.
+END PROGRAM PLB-RULE-J042.

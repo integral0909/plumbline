@@ -588,7 +588,7 @@ ADD-JOB.
     MOVE ST-LINE TO JJ-LINE(LS-JOB)
     MOVE SPACES TO JJ-TIME-BAD(LS-JOB) JJ-REGION-BAD(LS-JOB)
         JJ-MSGLEVEL-BAD(LS-JOB) JJ-CLASS-BAD(LS-JOB) JJ-CLASS-KEY(LS-JOB)
-        JJ-COND(LS-JOB)
+        JJ-COND(LS-JOB) JJ-VALUE-KEY(LS-JOB) JJ-VALUE-BAD(LS-JOB)
     MOVE 1 TO OP-START
     MOVE 0 TO OP-POSITION
     PERFORM NEXT-OPERAND
@@ -604,6 +604,13 @@ ADD-JOB.
         END-IF
         IF OP-KEY = "COND"
             MOVE OP-VALUE TO JJ-COND(LS-JOB)
+        END-IF
+        IF JJ-VALUE-KEY(LS-JOB) = SPACES
+            PERFORM CHECK-EXEC-VALUE
+            IF LS-TIME-BAD NOT = SPACES
+                MOVE OP-KEY TO JJ-VALUE-KEY(LS-JOB)
+                MOVE LS-TIME-BAD TO JJ-VALUE-BAD(LS-JOB)
+            END-IF
         END-IF
         IF OP-KEY = "MSGLEVEL"
             PERFORM CHECK-MSGLEVEL
@@ -693,6 +700,61 @@ CHECK-REGION.
     END-EVALUATE
     MOVE OP-VALUE(1:LS-TIME-N - 1) TO LS-TIME-PART
     PERFORM CHECK-TIME-PART.
+
+*> LS-TIME-BAD: OP-VALUE when OP-KEY is ADDRSPC, RD, or MEMLIMIT (or
+*> KEY.procstep) and the z/OS MVS JCL Reference does not list it: ADDRSPC
+*> VIRT or REAL; RD R, RNC, NR, or NC; MEMLIMIT NOLIMIT or nnnnn (0 to
+*> 99999) with M, G, T, or P, at most 16384P. Values with symbols are
+*> not read.
+CHECK-EXEC-VALUE.
+    MOVE SPACES TO LS-TIME-BAD
+    MOVE SPACES TO LS-SP-Q1
+    UNSTRING OP-KEY DELIMITED BY "." INTO LS-SP-Q1
+    IF LS-SP-Q1 NOT = "ADDRSPC" AND LS-SP-Q1 NOT = "RD"
+       AND LS-SP-Q1 NOT = "MEMLIMIT"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-TIME-N
+    INSPECT OP-VALUE TALLYING LS-TIME-N FOR ALL "&" ALL "%"
+    IF LS-TIME-N > 0 OR OP-VALUE = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    EVALUATE LS-SP-Q1
+        WHEN "ADDRSPC"
+            IF OP-VALUE NOT = "VIRT" AND OP-VALUE NOT = "REAL"
+                MOVE OP-VALUE TO LS-TIME-BAD
+            END-IF
+        WHEN "RD"
+            IF OP-VALUE NOT = "R" AND OP-VALUE NOT = "RNC"
+               AND OP-VALUE NOT = "NR" AND OP-VALUE NOT = "NC"
+                MOVE OP-VALUE TO LS-TIME-BAD
+            END-IF
+        WHEN OTHER
+            IF OP-VALUE = "NOLIMIT"
+                EXIT PARAGRAPH
+            END-IF
+            MOVE 0 TO LS-TIME-N
+            INSPECT OP-VALUE TALLYING LS-TIME-N
+                FOR CHARACTERS BEFORE INITIAL " "
+            IF LS-TIME-N < 2 OR LS-TIME-N > 6
+                MOVE OP-VALUE TO LS-TIME-BAD
+                EXIT PARAGRAPH
+            END-IF
+            IF OP-VALUE(1:LS-TIME-N - 1) IS NOT NUMERIC
+                MOVE OP-VALUE TO LS-TIME-BAD
+                EXIT PARAGRAPH
+            END-IF
+            EVALUATE OP-VALUE(LS-TIME-N:1)
+                WHEN "M" WHEN "G" WHEN "T"
+                    CONTINUE
+                WHEN "P"
+                    IF FUNCTION NUMVAL(OP-VALUE(1:LS-TIME-N - 1)) > 16384
+                        MOVE OP-VALUE TO LS-TIME-BAD
+                    END-IF
+                WHEN OTHER
+                    MOVE OP-VALUE TO LS-TIME-BAD
+            END-EVALUATE
+    END-EVALUATE.
 
 *> LS-TIME-BAD: OP-VALUE, a MSGLEVEL= value, when the z/OS MVS JCL
 *> Reference does not allow it ("MSGLEVEL parameter"): statements, 0,
@@ -1302,6 +1364,7 @@ ADD-STEP.
     MOVE 0 TO JS-DD-FIRST(LS-STEP) JS-DD-COUNT(LS-STEP)
     MOVE 0 TO JS-PARM-LEN(LS-STEP)
     MOVE SPACES TO JS-TIME-BAD(LS-STEP) JS-REGION-BAD(LS-STEP)
+        JS-VALUE-KEY(LS-STEP) JS-VALUE-BAD(LS-STEP)
     MOVE 1 TO OP-START
     MOVE 0 TO OP-POSITION
     PERFORM NEXT-OPERAND
@@ -1337,6 +1400,12 @@ ADD-STEP.
                 PERFORM CHECK-REGION
                 IF JS-REGION-BAD(LS-STEP) = SPACES
                     MOVE LS-TIME-BAD TO JS-REGION-BAD(LS-STEP)
+                END-IF
+            WHEN JS-VALUE-KEY(LS-STEP) = SPACES
+                PERFORM CHECK-EXEC-VALUE
+                IF LS-TIME-BAD NOT = SPACES
+                    MOVE OP-KEY TO JS-VALUE-KEY(LS-STEP)
+                    MOVE LS-TIME-BAD TO JS-VALUE-BAD(LS-STEP)
                 END-IF
         END-EVALUATE
         PERFORM NEXT-OPERAND
