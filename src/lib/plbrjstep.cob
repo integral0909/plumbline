@@ -729,3 +729,75 @@ CHECK-STEP.
         END-IF
     END-PERFORM.
 END PROGRAM PLB-RULE-J023.
+
+*> ---------------------------------------------------------------
+*> PLB-J024 sysout-parameter-conflict: a DD that codes SYSOUT with a
+*> parameter the z/OS MVS JCL Reference says not to code with it, or
+*> DEST, HOLD, or OUTLIM without SYSOUT:
+*>
+*>     //REPORT   DD SYSOUT=A,DISP=(NEW,CATLG)
+*>     //LOG      DD DSN=PAY.LOG,DISP=SHR,HOLD=YES
+*>
+*> JES allocates a sysout data set: it has no disposition, volume, or
+*> label of its own, and DEST, HOLD, and OUTLIM say how JES is to print
+*> it. "Do not code the following DD parameters with the SYSOUT
+*> parameter": *, AMP, CHKPT, DATA, DATACLAS, DDNAME, DISP, DYNAM,
+*> EXPDT, LABEL, LIKE, PROTECT, QNAME, RETPD, ROACCESS, SUBSYS, and
+*> VOLUME; and "Code the DEST [HOLD, OUTLIM] parameter only on a DD
+*> statement with the SYSOUT parameter". The keywords are checked, not
+*> * and DATA. The DDs of a step that calls a
+*> procedure, and DDs named STEP.DD, are left out: they may override a
+*> DD of the procedure that has, or lacks, SYSOUT.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J024.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J024" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-SYSOUT-CLASH(LS-D) NOT = SPACES
+           AND JD-QUALIFIER(LS-D) = SPACES AND JD-STEP(LS-D) > 0
+            IF JS-KIND(JD-STEP(LS-D)) = "P"
+                PERFORM REPORT-CLASH
+            END-IF
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+REPORT-CLASH.
+    MOVE SPACES TO LS-MESSAGE
+    IF JD-SYSOUT(LS-D) = "Y"
+        STRING "DD " DELIMITED BY SIZE
+               JD-NAME(LS-D) DELIMITED BY SPACE
+               " codes " DELIMITED BY SIZE
+               JD-SYSOUT-CLASH(LS-D) DELIMITED BY SPACE
+               " with SYSOUT, which the JCL Reference says not to: JES"
+               " allocates a sysout data set" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    ELSE
+        STRING "DD " DELIMITED BY SIZE
+               JD-NAME(LS-D) DELIMITED BY SPACE
+               " codes " DELIMITED BY SIZE
+               JD-SYSOUT-CLASH(LS-D) DELIMITED BY SPACE
+               " without SYSOUT; the JCL Reference says to code it only"
+               " on a DD with SYSOUT" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    END-IF
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
+END PROGRAM PLB-RULE-J024.
