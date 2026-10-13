@@ -114,6 +114,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C100](#plb-c100-table-keys-unsorted) | table-keys-unsorted | warning | SEARCH ALL table whose VALUE keys are out of their KEY order |
 | [PLB-C101](#plb-c101-string-numeric-sender) | string-numeric-sender | warning | STRING sends a number with decimal places or a sign as stored |
 | [PLB-C102](#plb-c102-nested-if-decided) | nested-if-decided | warning | IF first in a THEN branch or PERFORM body whose test is already decided |
+| [PLB-C104](#plb-c104-count-too-small) | count-too-small | warning | INSPECT TALLYING or UNSTRING COUNT IN item too small for the count |
 | [PLB-C103](#plb-c103-chain-exhausted) | chain-exhausted | warning | IF, ELSE, WHEN, or WHEN OTHER that the tests before it leave no value for |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
@@ -3023,6 +3024,35 @@ order; a `WHEN` that one earlier `WHEN` covers is
             ...
         WHEN OTHER                          *> reported
 ```
+
+## PLB-C104 count-too-small
+
+A count that `INSPECT` or `UNSTRING` stores in an item with too few
+digits to hold it:
+
+```cobol
+01  WS-TEXT     PIC X(50).
+01  WS-COUNT    PIC 9.
+    ...
+    INSPECT WS-TEXT TALLYING WS-COUNT FOR ALL "A"      *> reported
+    UNSTRING WS-TEXT DELIMITED BY "," INTO WS-PART
+        COUNT IN WS-COUNT                              *> reported
+```
+
+The count is stored like the result of an `ADD` without `ON SIZE
+ERROR`: its high-order digits are lost. With GnuCOBOL 3.2, 50 `A`s
+counted into a `PIC 9` item leave 0, in `DISPLAY`, `COMP-3`, and
+`COMP` alike, and 25 pairs `AB` leave 5.
+
+The largest count is the length of the item inspected divided by the
+length of the shortest string counted for that item (`CHARACTERS`
+counts one character at a time), or, for `COUNT IN`, the length of the
+item unstrung. A string that is neither a literal, a figurative
+constant, nor an item of fixed size, an item inspected with reference
+modification or of variable size, and a count of native binary usage
+(`COMP-5`) are not read. A count that `INSPECT` adds to without
+setting it first can grow larger still; that is
+[PLB-C042](#plb-c042-inspect-count-not-reset).
 
 ## PLB-I001 pcb-dbd-unknown
 

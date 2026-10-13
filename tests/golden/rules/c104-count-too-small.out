@@ -1,0 +1,5 @@
+tests/golden/rules/c104-count-too-small.cob:18:30: warning: WS-ONE holds counts up to 9, but this count can reach 50; its high-order digits are lost [PLB-C104]
+tests/golden/rules/c104-count-too-small.cob:19:30: warning: WS-PACKED holds counts up to 9, but this count can reach 50; its high-order digits are lost [PLB-C104]
+tests/golden/rules/c104-count-too-small.cob:22:30: warning: WS-ONE holds counts up to 9, but this count can reach 25; its high-order digits are lost [PLB-C104]
+tests/golden/rules/c104-count-too-small.cob:26:30: warning: WS-ONE holds counts up to 9, but this count can reach 50; its high-order digits are lost [PLB-C104]
+tests/golden/rules/c104-count-too-small.cob:28:61: warning: WS-ONE holds counts up to 9, but this count can reach 50; its high-order digits are lost [PLB-C104]

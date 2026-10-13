@@ -364,6 +364,10 @@ Some findings that were read and are true:
   send unsigned whole numbers (`ACCT-ID`, `WS-TRANID-SUFFIX`). In a copy
   of `CBACT04C` with `WS-TRANID-SUFFIX` made `PIC S9(06)`, it reports
   that item.
+- **PLB-C104 count-too-small.** None: its one `INSPECT ... TALLYING`,
+  in `COCRDLIC`, counts 7 flags into `I`, a `PIC S9(4) COMP`. In a
+  copy with the flags made `PIC X(10)` and `I` `PIC S9 COMP`, it
+  reports that count.
 - **PLB-C103 chain-exhausted.** None. In a copy of `COCRDSLC` whose
   `IF CDEMO-ACCT-ID = 0` is made `NOT > 0`, with `IF CDEMO-ACCT-ID > 0
   ... ELSE ...` in its `ELSE`, that last `ELSE` is reported. In a copy
