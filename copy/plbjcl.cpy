@@ -98,6 +98,8 @@
         *> OUTLIM), when it does not; spaces when there is none.
         10  JD-SYSOUT           PIC X.
         10  JD-SYSOUT-CLASH     PIC X(8).
+        *> "Y" when the DD codes DLM=.
+        10  JD-DLM              PIC X.
         10  JD-FILE-ID          PIC 9(4) COMP-5.
         10  JD-LINE             PIC 9(9) COMP-5.
     *> The steps that IF statements test (IF STEP.RC > 4 THEN, ...):

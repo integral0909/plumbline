@@ -801,3 +801,53 @@ REPORT-CLASH.
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
         JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
 END PROGRAM PLB-RULE-J024.
+
+*> ---------------------------------------------------------------
+*> PLB-J025 dlm-not-instream: a DD that codes DLM= but is not DD * or
+*> DD DATA:
+*>
+*>     //SYSIN    DD DSN=PAY.CARDS,DISP=SHR,DLM=@@
+*>
+*> DLM names the delimiter that ends in-stream data. The z/OS MVS JCL
+*> Reference (DLM, "Relationship to other parameters") says it has
+*> meaning only on DD * and DD DATA statements: "If DLM is specified on
+*> any other statement, a JCL error message is issued." Usually the
+*> data was meant to follow in the stream, or the DD was changed to a
+*> data set and DLM was left. DDs named STEP.DD are left out.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J025.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J025" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-DLM(LS-D) = "Y" AND JD-KIND(LS-D) NOT = "I"
+           AND JD-QUALIFIER(LS-D) = SPACES
+            MOVE SPACES TO LS-MESSAGE
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " codes DLM but is not DD * or DD DATA: a JCL error"
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+        END-IF
+    END-PERFORM
+    GOBACK.
+END PROGRAM PLB-RULE-J025.

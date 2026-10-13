@@ -155,6 +155,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J022](#plb-j022-cond-never-true) | cond-never-true | warning | COND test true for no return code, so it never bypasses the step |
 | [PLB-J023](#plb-j023-copy-onto-itself) | copy-onto-itself | error | IEBGENER step whose SYSUT2 is a data set its SYSUT1 reads |
 | [PLB-J024](#plb-j024-sysout-parameter-conflict) | sysout-parameter-conflict | warning | DD codes SYSOUT with DISP, VOL, LABEL, ..., or DEST, HOLD, OUTLIM without it |
+| [PLB-J025](#plb-j025-dlm-not-instream) | dlm-not-instream | error | DD codes DLM but is not DD * or DD DATA |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -3910,6 +3911,22 @@ keywords among them. Of `DEST`, `HOLD`, and `OUTLIM` it says "Code the
 The DDs of a step that calls a procedure, and DDs named `STEP.DD`, are
 not checked: they may override a DD of the procedure, which has, or
 lacks, `SYSOUT` itself.
+
+## PLB-J025 dlm-not-instream
+
+A DD that codes `DLM=` but is not `DD *` or `DD DATA`:
+
+```jcl
+//SYSIN    DD DSN=PAY.CARDS,DISP=SHR,DLM=@@     reported
+```
+
+`DLM` names the delimiter that ends in-stream data. The z/OS MVS JCL
+Reference (`DLM`, "Relationship to other parameters") says it "has
+meaning only on statements defining data in the input stream, that is,
+DD * and DD DATA statements. If DLM is specified on any other
+statement, a JCL error message is issued." Usually the data was meant
+to follow in the stream, or the DD was changed to name a data set and
+`DLM` was left behind. DDs named `STEP.DD` are not checked.
 
 ## PLB-K001 cics-resource-undefined
 

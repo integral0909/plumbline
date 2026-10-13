@@ -350,6 +350,12 @@ check_absent "DEST, HOLD, OUTLIM with SYSOUT" 'sysout.jcl:10:.*PLB-J024' \
     -- check --no-config $jx/sysout.jcl
 check_absent "a procedure DD override"    'sysout.jcl:15:.*PLB-J024' \
     -- check --no-config $jx/sysout.jcl
+check "DLM on a data set DD"              1 'dlm.jcl:4:3: error: DD CARDS codes DLM but is not DD \* or DD DATA.*\[PLB-J025\]' \
+    -- check --no-config $jx/dlm.jcl
+check_absent "DLM on DD DATA"            'dlm.jcl:6:.*PLB-J025' \
+    -- check --no-config $jx/dlm.jcl
+check_absent "DLM on DD *"                'dlm.jcl:9:.*PLB-J025' \
+    -- check --no-config $jx/dlm.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
