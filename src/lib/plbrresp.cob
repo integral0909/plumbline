@@ -24,6 +24,12 @@
 *> PLB-K012 abstime-not-packed: ABSTIME (of ASKTIME, FORMATTIME, and
 *> others), the milliseconds since 1900, which CICS gives and takes as
 *> eight bytes of packed decimal, PIC S9(15) COMP-3.
+*>
+*> PLB-K013 interval-invalid: INTERVAL or TIME (of DELAY, START, POST,
+*> ROUTE; FORMATTIME's TIME gives six characters, and is not read)
+*> naming an item that is not PIC S9(7) COMP-3, four bytes of packed
+*> decimal, or a number that is not hhmmss: minutes or seconds above
+*> 59, as in INTERVAL(90), which is not ninety seconds.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-K010.
@@ -36,6 +42,12 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-RULE-LENGTH          PIC 9(4) COMP-5.
 01  LS-RULE-ABSTIME         PIC 9(4) COMP-5.
+01  LS-RULE-INTERVAL        PIC 9(4) COMP-5.
+*> K013: the number of an INTERVAL or TIME, as hhmmss.
+01  LS-HHMMSS               PIC 9(6).
+01  LS-DIGITS               PIC X(31).
+*> The command: DELAY, START, ... (FORMATTIME's TIME is characters).
+01  LS-COMMAND              PIC X(31).
 *> The size the option needs: 4 for RESP, RESP2, FLENGTH; 2 for LENGTH.
 01  LS-NEEDS                PIC 9(4) COMP-5.
 01  LS-NEEDS-TEXT           PIC X(40).
@@ -69,9 +81,11 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K010" LS-RULE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K011" LS-RULE-LENGTH
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K012" LS-RULE-ABSTIME
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K013" LS-RULE-INTERVAL
     IF (RL-ENABLED(LS-RULE) NOT = "Y"
         AND RL-ENABLED(LS-RULE-LENGTH) NOT = "Y"
-        AND RL-ENABLED(LS-RULE-ABSTIME) NOT = "Y") OR AS-COUNT = 0
+        AND RL-ENABLED(LS-RULE-ABSTIME) NOT = "Y"
+        AND RL-ENABLED(LS-RULE-INTERVAL) NOT = "Y") OR AS-COUNT = 0
         GOBACK
     END-IF
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
@@ -93,6 +107,9 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
 
 *> Each RESP( or RESP2( of the command, and the item in it.
 CHECK-COMMAND.
+    COMPUTE LS-K = ND-TOK-FIRST(LS-NODE) + 2
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-COMMAND LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-COMMAND) TO LS-COMMAND
     PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
             UNTIL LS-T >= ND-TOK-LAST(LS-NODE)
         IF TK-IS-WORD(LS-T)
@@ -113,11 +130,19 @@ CHECK-COMMAND.
                 WHEN LS-OPTION = "ABSTIME"
                      AND RL-ENABLED(LS-RULE-ABSTIME) = "Y"
                     MOVE 8 TO LS-NEEDS
+                WHEN (LS-OPTION = "INTERVAL" OR LS-OPTION = "TIME")
+                     AND RL-ENABLED(LS-RULE-INTERVAL) = "Y"
+                     AND (LS-COMMAND = "DELAY" OR LS-COMMAND = "START"
+                          OR LS-COMMAND = "POST" OR LS-COMMAND = "ROUTE")
+                    MOVE 7 TO LS-NEEDS
             END-EVALUATE
             IF LS-NEEDS > 0
                 COMPUTE LS-K = LS-T + 1
                 IF TK-IS-LPAREN(LS-K)
                     ADD 1 TO LS-K
+                    IF LS-NEEDS = 7 AND TK-IS-NUMBER(LS-K)
+                        PERFORM CHECK-HHMMSS
+                    END-IF
                     IF WS-TOKEN-REF(LS-K) > 0
                         MOVE WS-TOKEN-REF(LS-K) TO LS-R
                         PERFORM CHECK-ITEM
@@ -136,6 +161,10 @@ CHECK-ITEM.
     MOVE RF-SYMBOL(LS-R) TO LS-S
     IF LS-NEEDS = 8
         PERFORM CHECK-ABSTIME
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-NEEDS = 7
+        PERFORM CHECK-INTERVAL
         EXIT PARAGRAPH
     END-IF
     MOVE "N" TO LS-BINARY
@@ -197,4 +226,46 @@ CHECK-ABSTIME.
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE-ABSTIME RF-TOKEN(LS-R) LS-MESSAGE.
+*> INTERVAL or TIME item LS-S: PIC S9(7) COMP-3, four bytes packed.
+CHECK-INTERVAL.
+    IF SY-CATEGORY(LS-S) = "9" AND SY-SCALE(LS-S) = 0
+       AND SY-SIZE(LS-S) = 4
+       AND (SY-USAGE(LS-S) = "COMP-3" OR "COMPUTATIONAL-3"
+            OR "PACKED-DECIMAL")
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    STRING LS-OPTION DELIMITED BY SPACE
+           " needs a packed decimal item of 4 bytes (PIC S9(7) COMP-3)"
+           ", but " DELIMITED BY SIZE
+           SY-NAME(LS-S) DELIMITED BY SPACE
+           " is not one" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-INTERVAL RF-TOKEN(LS-R) LS-MESSAGE.
+
+*> The number of INTERVAL or TIME at LS-K, as hhmmss: minutes and
+*> seconds from 00 to 59.
+CHECK-HHMMSS.
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-DIGITS LS-LEN
+    IF LS-LEN = 0 OR LS-LEN > 6
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-DIGITS(1:LS-LEN) IS NOT NUMERIC
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-HHMMSS = FUNCTION NUMVAL(LS-DIGITS(1:LS-LEN))
+    IF LS-HHMMSS(3:2) <= "59" AND LS-HHMMSS(5:2) <= "59"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    STRING LS-OPTION DELIMITED BY SPACE
+           "(" LS-DIGITS(1:LS-LEN) ") is read as hhmmss, "
+           DELIMITED BY SIZE
+           LS-HHMMSS(1:2) ":" LS-HHMMSS(3:2) ":" LS-HHMMSS(5:2)
+           DELIMITED BY SIZE
+           ", whose minutes or seconds are above 59" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-INTERVAL LS-K LS-MESSAGE.
 END PROGRAM PLB-RULE-K010.
