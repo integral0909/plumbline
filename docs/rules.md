@@ -207,6 +207,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q025](#plb-q025-insert-not-null-missing) | insert-not-null-missing | error | SQL INSERT leaves out, or UPDATE sets to NULL, a NOT NULL column |
 | [PLB-Q026](#plb-q026-cursor-table-mismatch) | cursor-table-mismatch | error | UPDATE or DELETE WHERE CURRENT OF a cursor on another table |
 | [PLB-Q027](#plb-q027-update-not-for-update) | update-not-for-update | error | Positioned UPDATE sets a column the cursor's FOR UPDATE OF leaves out |
+| [PLB-Q028](#plb-q028-order-by-for-update) | order-by-for-update | error | SQL cursor declared with both ORDER BY and FOR UPDATE |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -4938,6 +4939,30 @@ The columns set are the names before `=` in the `SET`; a cursor `FOR
 UPDATE` without `OF` lets every column be updated, and is not read.
 A cursor declared on another table is
 [PLB-Q026](#plb-q026-cursor-table-mismatch)'s.
+
+## PLB-Q028 order-by-for-update
+
+A cursor declared with both `ORDER BY` and `FOR UPDATE`:
+
+```cobol
+    EXEC SQL
+        DECLARE ACCT-CUR CURSOR FOR
+            SELECT ACCT_ID, BALANCE FROM ACCOUNT
+             ORDER BY ACCT_ID
+               FOR UPDATE OF BALANCE              *> reported
+    END-EXEC
+```
+
+Db2 for z/OS rejects the declaration with SQLCODE -126, "the select
+statement contains both an update clause and an ORDER BY clause",
+unless the cursor is a static sensitive scrollable one
+([Db2 codes](https://www.ibm.com/docs/en/db2-for-zos/12?topic=codes-126)).
+Update the rows by their key in another statement, or drop the `ORDER
+BY`.
+
+Both clauses are read at the top level of the query, so an `ORDER BY`
+in a subquery does not count, and a declaration with `SENSITIVE` is
+not read.
 
 ## PLB-S001 dynamic-sql
 

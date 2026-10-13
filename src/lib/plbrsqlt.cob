@@ -942,6 +942,11 @@ COPY "plbsqlm.cpy".
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-RULE-COLUMN          PIC 9(4) COMP-5.
+01  LS-RULE-ORDER           PIC 9(4) COMP-5.
+*> PLB-Q028: where the cursor has ORDER BY, FOR UPDATE, SENSITIVE.
+01  LS-ORDER-AT             PIC 9(9) COMP-5.
+01  LS-UPDATE-AT            PIC 9(9) COMP-5.
+01  LS-SENSITIVE            PIC X.
 *> PLB-Q027: the columns of the cursor's FOR UPDATE OF, and the walk.
 01  LS-OF-COUNT             PIC 9(4) COMP-5.
 01  LS-OF-NAME              PIC X(31) OCCURS 100 TIMES.
@@ -975,8 +980,10 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q026" LS-RULE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q027" LS-RULE-COLUMN
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q028" LS-RULE-ORDER
     IF RL-ENABLED(LS-RULE) NOT = "Y"
        AND RL-ENABLED(LS-RULE-COLUMN) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-ORDER) NOT = "Y"
         GOBACK
     END-IF
     CALL "PLB-SQL-MODEL-BUILD" USING PLB-SOURCE-SET PLB-TOKENS
@@ -984,7 +991,12 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > QS-COUNT
         IF (QS-KIND(LS-S) = "U" OR QS-KIND(LS-S) = "D")
            AND QS-TABLE-COUNT(LS-S) = 1
+           AND (RL-ENABLED(LS-RULE) = "Y"
+                OR RL-ENABLED(LS-RULE-COLUMN) = "Y")
             PERFORM CHECK-POSITIONED
+        END-IF
+        IF QS-KIND(LS-S) = "C" AND RL-ENABLED(LS-RULE-ORDER) = "Y"
+            PERFORM CHECK-ORDER-UPDATE
         END-IF
     END-PERFORM
     GOBACK.
@@ -1121,6 +1133,53 @@ SET-COLUMN.
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE-COLUMN LS-T LS-MESSAGE.
+
+*> PLB-Q028 order-by-for-update: a cursor declared with both ORDER BY
+*> and FOR UPDATE, at the top level of its query. Db2 rejects it with
+*> SQLCODE -126 unless the cursor is static sensitive scrollable (a
+*> declaration with SENSITIVE is not read).
+CHECK-ORDER-UPDATE.
+    MOVE 0 TO LS-ORDER-AT LS-UPDATE-AT LS-DEPTH
+    MOVE "N" TO LS-SENSITIVE
+    PERFORM VARYING LS-T FROM QS-TOKEN(LS-S) BY 1
+            UNTIL LS-T >= QS-END(LS-S)
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-T)
+                ADD 1 TO LS-DEPTH
+            WHEN TK-IS-RPAREN(LS-T)
+                SUBTRACT 1 FROM LS-DEPTH
+            WHEN LS-DEPTH > 0
+                CONTINUE
+            WHEN TK-IS-WORD(LS-T)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+                MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+                EVALUATE TRUE
+                    WHEN LS-TEXT = "SENSITIVE"
+                        MOVE "Y" TO LS-SENSITIVE
+                    WHEN LS-TEXT = "ORDER" AND LS-ORDER-AT = 0
+                        MOVE LS-T TO LS-ORDER-AT
+                    WHEN LS-TEXT = "UPDATE" AND LS-UPDATE-AT = 0
+                        COMPUTE LS-K = LS-T - 1
+                        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-OP
+                            LS-LEN
+                        IF FUNCTION UPPER-CASE(LS-OP) = "FOR"
+                            MOVE LS-K TO LS-UPDATE-AT
+                        END-IF
+                END-EVALUATE
+        END-EVALUATE
+    END-PERFORM
+    IF LS-ORDER-AT = 0 OR LS-UPDATE-AT = 0 OR LS-SENSITIVE = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    STRING "cursor " DELIMITED BY SIZE
+           QS-CURSOR(LS-S) DELIMITED BY SPACE
+           " has both ORDER BY and FOR UPDATE: Db2 rejects it"
+           " (SQLCODE -126); update by key, or drop the ORDER BY"
+           DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-ORDER LS-UPDATE-AT LS-MESSAGE.
 
 *> LS-NAME without its qualifier: the part after its last dot.
 SHORT-NAME.
