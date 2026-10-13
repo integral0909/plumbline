@@ -26,6 +26,9 @@
         *> 2096128 or valueM from 0 through 2047), as written; spaces
         *> when there is none.
         10  JJ-REGION-BAD       PIC X(20).
+        *> A MSGLEVEL= value it does not allow (statements other than
+        *> 0, 1, or 2, or messages other than 0 or 1), as written.
+        10  JJ-MSGLEVEL-BAD     PIC X(20).
     *> Procedure definitions: PROC statements.
     05  JP-COUNT                PIC 9(9) COMP-5.
     05  JP-ENTRY                OCCURS JP-MAX TIMES.

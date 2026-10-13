@@ -161,6 +161,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J028](#plb-j028-instream-procs-too-many) | instream-procs-too-many | error | Job has more than 15 in-stream procedures |
 | [PLB-J029](#plb-j029-time-invalid) | time-invalid | error | TIME= minutes above 357912, seconds above 59, or 0 on a JOB statement |
 | [PLB-J030](#plb-j030-region-invalid) | region-invalid | error | REGION= not 0K to 2096128K or 0M to 2047M |
+| [PLB-J031](#plb-j031-msglevel-invalid) | msglevel-invalid | error | MSGLEVEL= statements not 0, 1, or 2, or messages not 0 or 1 |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -4026,6 +4027,21 @@ Reference does not allow:
 `EXEC` and of `JOB`). `0K` and `0M` give the step all the storage there
 is. A number without `K` or `M`, or another unit, is neither. Values
 with symbols are not read.
+
+## PLB-J031 msglevel-invalid
+
+A `MSGLEVEL=` on a `JOB` statement that the z/OS MVS JCL Reference does
+not allow:
+
+```jcl
+//PAYJOB   JOB (ACCT),'PAY',MSGLEVEL=(1,2)      reported
+```
+
+`MSGLEVEL=(statements,messages)` says what JCL output the job lists. Of
+each subparameter the Reference ("MSGLEVEL parameter") says it "is one
+of the following numbers": 0, 1, or 2 for statements, and 0 or 1 for
+messages. `(1,2)` usually meant `(2,1)` or `(1,1)`. Values with symbols
+are not read.
 
 ## PLB-K001 cics-resource-undefined
 

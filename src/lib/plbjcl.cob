@@ -539,6 +539,7 @@ ADD-JOB.
     MOVE LK-FILE-ID TO JJ-FILE-ID(LS-JOB)
     MOVE ST-LINE TO JJ-LINE(LS-JOB)
     MOVE SPACES TO JJ-TIME-BAD(LS-JOB) JJ-REGION-BAD(LS-JOB)
+        JJ-MSGLEVEL-BAD(LS-JOB)
     MOVE 1 TO OP-START
     MOVE 0 TO OP-POSITION
     PERFORM NEXT-OPERAND
@@ -551,6 +552,10 @@ ADD-JOB.
         IF OP-KEY = "REGION"
             PERFORM CHECK-REGION
             MOVE LS-TIME-BAD TO JJ-REGION-BAD(LS-JOB)
+        END-IF
+        IF OP-KEY = "MSGLEVEL"
+            PERFORM CHECK-MSGLEVEL
+            MOVE LS-TIME-BAD TO JJ-MSGLEVEL-BAD(LS-JOB)
         END-IF
         PERFORM NEXT-OPERAND
     END-PERFORM.
@@ -623,6 +628,32 @@ CHECK-REGION.
     END-EVALUATE
     MOVE OP-VALUE(1:LS-TIME-N - 1) TO LS-TIME-PART
     PERFORM CHECK-TIME-PART.
+
+*> LS-TIME-BAD: OP-VALUE, a MSGLEVEL= value, when the z/OS MVS JCL
+*> Reference does not allow it ("MSGLEVEL parameter"): statements, 0,
+*> 1, or 2, and messages, 0 or 1, as statements, (statements,messages),
+*> or (,messages). Values with symbols are not read.
+CHECK-MSGLEVEL.
+    MOVE SPACES TO LS-TIME-BAD LS-TIME-MIN LS-TIME-SEC
+    MOVE 0 TO LS-TIME-N
+    INSPECT OP-VALUE TALLYING LS-TIME-N FOR ALL "&" ALL "%"
+    IF LS-TIME-N > 0 OR OP-VALUE = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    IF OP-VALUE(1:1) = "("
+        UNSTRING OP-VALUE(2:) DELIMITED BY "," OR ")"
+            INTO LS-TIME-MIN LS-TIME-SEC
+    ELSE
+        MOVE OP-VALUE TO LS-TIME-MIN
+    END-IF
+    IF LS-TIME-MIN NOT = SPACES AND LS-TIME-MIN NOT = "0"
+       AND LS-TIME-MIN NOT = "1" AND LS-TIME-MIN NOT = "2"
+        MOVE OP-VALUE TO LS-TIME-BAD
+    END-IF
+    IF LS-TIME-SEC NOT = SPACES AND LS-TIME-SEC NOT = "0"
+       AND LS-TIME-SEC NOT = "1"
+        MOVE OP-VALUE TO LS-TIME-BAD
+    END-IF.
 
 *> A part of TIME= or REGION=: empty, or 1 to 7 digits no more than
 *> LS-TIME-MAX.
