@@ -322,6 +322,14 @@ check "a procedure name with a hyphen"    1 'names.jcl:23:3: error: procedure na
     -- check --no-config $jx/names.jcl
 check_absent "PGM=*.STEP.DD is not a name" 'names.jcl:25:.*PLB-J020' \
     -- check --no-config $jx/names.jcl
+check "COND=(0,LE) is always true"        1 'cond.jcl:4:3: warning: COND test (0,LE) is true for every return code.*\[PLB-J021\]' \
+    -- check --no-config $jx/cond.jcl
+check "(4095,GE) among other tests"       1 'cond.jcl:6:3: warning: COND test (4095,GE) is true.*\[PLB-J021\]' \
+    -- check --no-config $jx/cond.jcl
+check_absent "(0,LT) has codes it fails"  'cond.jcl:9:.*PLB-J021' \
+    -- check --no-config $jx/cond.jcl
+check_absent "(10,LE) is not (0,LE)"      'cond.jcl:10:.*PLB-J021' \
+    -- check --no-config $jx/cond.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
