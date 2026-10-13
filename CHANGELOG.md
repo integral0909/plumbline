@@ -309,6 +309,7 @@ uses [Semantic Versioning](https://semver.org/).
   `MSGCLASS=` on `JOB` statements and the class of `SYSOUT=`.
 - PLB-J021 cond-always-bypasses and PLB-J022 cond-never-true read the
   `COND` of `JOB` statements too.
+- Rule PLB-J033 cond-invalid.
 - Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
   the name field.
 - Rule PLB-J019 parm-too-long; the JCL reader counts the characters of

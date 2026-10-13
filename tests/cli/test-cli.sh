@@ -438,6 +438,16 @@ check "JOB COND test (4095,LT)"           1 'jobcond.jcl:7:3: warning: COND test
     -- check --no-config $jx/jobcond.jcl
 check_absent "JOB COND=(4,LT)"            'jobcond.jcl:10:' \
     -- check --no-config $jx/jobcond.jcl
+check "a COND code above 4095"           1 'condbad.jcl:2:3: error: COND test (5000,LT) of PAYJOB has a code above 4095.*\[PLB-J033\]' \
+    -- check --no-config $jx/condbad.jcl
+check "a COND operator GTE"               1 'condbad.jcl:4:3: error: COND test (4,GTE) of EXTRACT has operator GTE,.*\[PLB-J033\]' \
+    -- check --no-config $jx/condbad.jcl
+check "nine COND tests"                   1 'condbad.jcl:7:3: error: COND of REPORT has 9 return code tests.*\[PLB-J033\]' \
+    -- check --no-config $jx/condbad.jcl
+check "eight COND tests and EVEN"         1 'condbad.jcl:10:3: error: COND of SUMMARY has 8 return code tests.*\[PLB-J033\]' \
+    -- check --no-config $jx/condbad.jcl
+check_absent "eight tests, or seven with ONLY" 'condbad.jcl:1[35]:.*PLB-J033' \
+    -- check --no-config $jx/condbad.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \

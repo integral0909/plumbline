@@ -735,6 +735,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J032"
         "class-invalid" "E"
         "Job class not 1-8 letters and digits, or output class not one A-Z, 0-9"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J033"
+        "cond-invalid" "E"
+        "COND test code above 4095, operator unknown, or more than 8 tests"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
