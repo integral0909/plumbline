@@ -538,6 +538,12 @@ END PROGRAM PLB-RULE-J020.
 *> PLB-J022 cond-never-true: a test true for no return code, (0,GT)
 *> (0 > RC) or (4095,LT) (4095 < RC): it never bypasses the step, and
 *> was written the wrong way round, (0,LT) for (0,GT), as a rule.
+*>
+*> Both read the COND of a JOB statement too, whose tests are made
+*> against the return code of each step; when one is true, "the system
+*> bypasses all remaining job steps and terminates the job" (JOB
+*> statement, COND parameter). (0,LE) there ends the job after its
+*> first step, and (0,GT) never ends it.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-J021.
@@ -556,6 +562,13 @@ LOCAL-STORAGE SECTION.
 01  LS-AFTER                PIC X.
 01  LS-FOUND                PIC X.
 01  LS-TEST                 PIC X(10).
+01  LS-J-NO                 PIC 9(9) COMP-5.
+*> The COND being read, and its statement: S a step, J a job.
+01  LS-COND                 PIC X(80).
+01  LS-OF                   PIC X.
+01  LS-OF-NAME              PIC X(8).
+01  LS-OF-FILE-ID           PIC 9(4) COMP-5.
+01  LS-OF-LINE              PIC 9(9) COMP-5.
 01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
 01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
 01  LS-MESSAGE              PIC X(200).
@@ -575,6 +588,16 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
             PERFORM CHECK-STEP
         END-IF
     END-PERFORM
+    PERFORM VARYING LS-J-NO FROM 1 BY 1 UNTIL LS-J-NO > JJ-COUNT
+        IF JJ-COND(LS-J-NO) NOT = SPACES
+            MOVE JJ-COND(LS-J-NO) TO LS-COND
+            MOVE "J" TO LS-OF
+            MOVE JJ-NAME(LS-J-NO) TO LS-OF-NAME
+            MOVE JJ-FILE-ID(LS-J-NO) TO LS-OF-FILE-ID
+            MOVE JJ-LINE(LS-J-NO) TO LS-OF-LINE
+            PERFORM READ-TESTS
+        END-IF
+    END-PERFORM
     GOBACK.
 
 *> Step LS-S: a step of its job before it, then each test of its COND.
@@ -588,9 +611,17 @@ CHECK-STEP.
     IF LS-FOUND = "N"
         EXIT PARAGRAPH
     END-IF
-    *> Each test: a parenthesis, a number, a comma, an operator.
+    MOVE JS-COND(LS-S) TO LS-COND
+    MOVE "S" TO LS-OF
+    MOVE JS-NAME(LS-S) TO LS-OF-NAME
+    MOVE JS-FILE-ID(LS-S) TO LS-OF-FILE-ID
+    MOVE JS-LINE(LS-S) TO LS-OF-LINE
+    PERFORM READ-TESTS.
+
+*> Each test of LS-COND: a parenthesis, a number, a comma, an operator.
+READ-TESTS.
     PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > 75
-        IF JS-COND(LS-S)(LS-I:1) = "("
+        IF LS-COND(LS-I:1) = "("
             PERFORM READ-TEST
         END-IF
     END-PERFORM.
@@ -600,23 +631,23 @@ READ-TEST.
     MOVE 0 TO LS-CODE
     COMPUTE LS-J = LS-I + 1
     PERFORM UNTIL LS-J > 76
-        IF JS-COND(LS-S)(LS-J:1) < "0" OR JS-COND(LS-S)(LS-J:1) > "9"
+        IF LS-COND(LS-J:1) < "0" OR LS-COND(LS-J:1) > "9"
             EXIT PERFORM
         END-IF
         IF LS-CODE < 100000
             COMPUTE LS-CODE = LS-CODE * 10
-                + FUNCTION NUMVAL(JS-COND(LS-S)(LS-J:1))
+                + FUNCTION NUMVAL(LS-COND(LS-J:1))
         END-IF
         ADD 1 TO LS-J
     END-PERFORM
     IF LS-J = LS-I + 1 OR LS-J > 76
         EXIT PARAGRAPH
     END-IF
-    IF JS-COND(LS-S)(LS-J:1) NOT = ","
+    IF LS-COND(LS-J:1) NOT = ","
         EXIT PARAGRAPH
     END-IF
-    MOVE JS-COND(LS-S)(LS-J + 1:2) TO LS-OP
-    MOVE JS-COND(LS-S)(LS-J + 3:1) TO LS-AFTER
+    MOVE LS-COND(LS-J + 1:2) TO LS-OP
+    MOVE LS-COND(LS-J + 3:1) TO LS-AFTER
     IF LS-AFTER NOT = ")" AND LS-AFTER NOT = ","
         EXIT PARAGRAPH
     END-IF
@@ -624,34 +655,54 @@ READ-TEST.
         OR (LS-CODE = 4095 AND LS-OP = "LT"))
        AND RL-ENABLED(LS-RULE-NEVER) = "Y"
         MOVE SPACES TO LS-TEST
-        STRING JS-COND(LS-S)(LS-I + 1:LS-J + 2 - LS-I) DELIMITED BY SIZE
+        STRING LS-COND(LS-I + 1:LS-J + 2 - LS-I) DELIMITED BY SIZE
             INTO LS-TEST
         MOVE SPACES TO LS-MESSAGE
-        STRING "COND test (" DELIMITED BY SIZE
-               LS-TEST DELIMITED BY SPACE
-               ") is true for no return code: it never bypasses step "
-               DELIMITED BY SIZE
-               JS-NAME(LS-S) DELIMITED BY SPACE
-            INTO LS-MESSAGE
+        IF LS-OF = "J"
+            STRING "COND test (" DELIMITED BY SIZE
+                   LS-TEST DELIMITED BY SPACE
+                   ") is true for no return code: it never ends job "
+                   DELIMITED BY SIZE
+                   LS-OF-NAME DELIMITED BY SPACE
+                INTO LS-MESSAGE
+        ELSE
+            STRING "COND test (" DELIMITED BY SIZE
+                   LS-TEST DELIMITED BY SPACE
+                   ") is true for no return code: it never bypasses"
+                   " step " DELIMITED BY SIZE
+                   LS-OF-NAME DELIMITED BY SPACE
+                INTO LS-MESSAGE
+        END-IF
         CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE-NEVER
-            JS-FILE-ID(LS-S) JS-LINE(LS-S) LS-COLUMN LS-ZERO LS-MESSAGE
+            LS-OF-FILE-ID LS-OF-LINE LS-COLUMN LS-ZERO LS-MESSAGE
     END-IF
     IF ((LS-CODE = 0 AND LS-OP = "LE")
         OR (LS-CODE = 4095 AND LS-OP = "GE"))
        AND RL-ENABLED(LS-RULE) = "Y"
         MOVE SPACES TO LS-TEST
-        STRING JS-COND(LS-S)(LS-I + 1:LS-J + 2 - LS-I) DELIMITED BY SIZE
+        STRING LS-COND(LS-I + 1:LS-J + 2 - LS-I) DELIMITED BY SIZE
             INTO LS-TEST
         MOVE SPACES TO LS-MESSAGE
-        STRING "COND test (" DELIMITED BY SIZE
-               LS-TEST DELIMITED BY SPACE
-               ") is true for every return code: step " DELIMITED BY SIZE
-               JS-NAME(LS-S) DELIMITED BY SPACE
-               " is bypassed whenever a step before it has run"
-               DELIMITED BY SIZE
-            INTO LS-MESSAGE
+        IF LS-OF = "J"
+            STRING "COND test (" DELIMITED BY SIZE
+                   LS-TEST DELIMITED BY SPACE
+                   ") is true for every return code: job "
+                   DELIMITED BY SIZE
+                   LS-OF-NAME DELIMITED BY SPACE
+                   " ends after its first step" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+        ELSE
+            STRING "COND test (" DELIMITED BY SIZE
+                   LS-TEST DELIMITED BY SPACE
+                   ") is true for every return code: step "
+                   DELIMITED BY SIZE
+                   LS-OF-NAME DELIMITED BY SPACE
+                   " is bypassed whenever a step before it has run"
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE
+        END-IF
         CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
-            JS-FILE-ID(LS-S) JS-LINE(LS-S) LS-COLUMN LS-ZERO LS-MESSAGE
+            LS-OF-FILE-ID LS-OF-LINE LS-COLUMN LS-ZERO LS-MESSAGE
     END-IF.
 END PROGRAM PLB-RULE-J021.
 

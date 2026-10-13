@@ -33,6 +33,9 @@
         *> with its keyword in JJ-CLASS-KEY.
         10  JJ-CLASS-BAD        PIC X(20).
         10  JJ-CLASS-KEY        PIC X(8).
+        *> The COND operand of the JOB statement, in upper case, or
+        *> spaces.
+        10  JJ-COND             PIC X(80).
     *> Procedure definitions: PROC statements.
     05  JP-COUNT                PIC 9(9) COMP-5.
     05  JP-ENTRY                OCCURS JP-MAX TIMES.
