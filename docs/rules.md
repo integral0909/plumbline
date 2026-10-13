@@ -246,6 +246,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q028](#plb-q028-order-by-for-update) | order-by-for-update | error | SQL cursor declared with both ORDER BY and FOR UPDATE |
 | [PLB-Q029](#plb-q029-cursor-unused) | cursor-unused | note | SQL cursor is declared but never opened, fetched, or closed |
 | [PLB-Q030](#plb-q030-for-update-read-only) | for-update-read-only | error | SQL cursor FOR UPDATE whose result table is read-only (join, DISTINCT, ...) |
+| [PLB-Q031](#plb-q031-set-to-itself) | set-to-itself | warning | SQL UPDATE sets a column to itself |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -5792,6 +5793,21 @@ a column function (`AVG`, `COUNT`, `MAX`, `MIN`, `SUM`) in the first
 is [PLB-Q028](#plb-q028-order-by-for-update); what subqueries hold
 does not count. Update the rows through a cursor on the one table, by
 key.
+
+## PLB-Q031 set-to-itself
+
+An SQL `UPDATE` that sets a column to itself:
+
+```cobol
+    EXEC SQL UPDATE ACCOUNT SET BALANCE = BALANCE      *> reported
+        WHERE ACCT_ID = :WS-ID END-EXEC
+```
+
+The column keeps its value (SQLite 3 runs the statement and leaves the
+row as it was). A host variable whose colon is left out reads this
+way: `BALANCE = :BALANCE` sets the column from the item of that name.
+Reported is a column alone after `=`; one in an expression (`BALANCE =
+BALANCE + 1`) or qualified is not.
 
 ## PLB-S001 dynamic-sql
 
