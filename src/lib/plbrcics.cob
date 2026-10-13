@@ -181,3 +181,73 @@ APPEND-NUM.
     STRING LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
         INTO LS-MESSAGE WITH POINTER LS-PTR.
 END PROGRAM PLB-RULE-K007.
+
+*> PLB-K014 return-not-top-level: an EXEC CICS RETURN with COMMAREA,
+*> CHANNEL, or IMMEDIATE in a program that an EXEC CICS LINK of the
+*> run names:
+*>
+*>     EXEC CICS LINK PROGRAM('ACCTCHK') COMMAREA(WS-AREA) END-EXEC
+*>
+*>     PROGRAM-ID. ACCTCHK.
+*>         EXEC CICS RETURN TRANSID('ACCT') COMMAREA(WS-AREA) END-EXEC
+*>
+*> A linked program runs below the highest logical level, and CICS
+*> raises INVREQ (RESP2 2) for a RETURN with any of these options there:
+*> they are only for a program that returns control to CICS. The
+*> program may also be started at the top level, by its transaction,
+*> where the RETURN is right; the rule reports it once, at its first
+*> such RETURN.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-K014.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbcallc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-U                    PIC 9(9) COMP-5.
+01  LS-P                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-LINE-TEXT            PIC X(20).
+01  LS-LINE-LEN             PIC 9(9) COMP-5.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbcall.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-CALL-GRAPH.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K014" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > CP-COUNT
+        IF CP-KIND(LS-P) = "P" AND CP-RETURN-LINE(LS-P) > 0
+            PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > PU-COUNT
+                IF PU-KIND(LS-U) = "P" AND PU-COMMAND(LS-U) = "LINK"
+                   AND PU-NAME(LS-U) = CP-NAME(LS-P)
+                    PERFORM REPORT-RETURN
+                    EXIT PERFORM
+                END-IF
+            END-PERFORM
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+REPORT-RETURN.
+    MOVE PU-LINE(LS-U) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-LINE-TEXT LS-LINE-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING "RETURN with " DELIMITED BY SIZE
+           CP-RETURN-OPTION(LS-P) DELIMITED BY SPACE
+           " in " DELIMITED BY SIZE
+           CP-NAME(LS-P) DELIMITED BY SPACE
+           ", which " DELIMITED BY SIZE
+           CP-NAME(PU-PROGRAM(LS-U)) DELIMITED BY SPACE
+           " links to on line " DELIMITED BY SIZE
+           LS-LINE-TEXT(1:LS-LINE-LEN) DELIMITED BY SIZE
+           ": below the top level, CICS raises INVREQ" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        CP-RETURN-FILE-ID(LS-P) CP-RETURN-LINE(LS-P)
+        CP-RETURN-COLUMN(LS-P) LS-ZERO LS-MESSAGE.
+END PROGRAM PLB-RULE-K014.
