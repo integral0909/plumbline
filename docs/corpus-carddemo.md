@@ -400,6 +400,10 @@ Some findings that were read and are true:
   and 4200 swapped, it reports entry 4 after entry 3.
 - **PLB-C098 group-value-into-packed** and **PLB-C099
   value-overridden.** None.
+- **PLB-Q027 update-not-for-update.** None: CardDemo has no `WHERE
+  CURRENT OF`. In a copy of `COTRTLIC` whose cursor is made `FOR UPDATE
+  OF TR_TYPE`, with an `UPDATE ... SET TR_DESCRIPTION = ... WHERE
+  CURRENT OF` it after a fetch, it reports `TR_DESCRIPTION`.
 - **PLB-Q026 cursor-table-mismatch.** None: CardDemo has no `WHERE
   CURRENT OF`. In a copy of `COTRTLIC` with a `DELETE FROM
   CARDDEMO.AUTHFRDS WHERE CURRENT OF C-TR-TYPE-FORWARD` after a fetch of

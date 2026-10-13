@@ -1,0 +1,33 @@
+*> PLB-Q027 update-not-for-update: a positioned UPDATE of a column the
+*> FOR UPDATE OF list of its cursor leaves out.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. FORUPD.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-ID               PIC S9(9) COMP.
+01  WS-NAME             PIC X(30).
+01  WS-BALANCE          PIC S9(7)V99 COMP-3.
+    EXEC SQL
+        DECLARE ACCT-CUR CURSOR FOR
+            SELECT ACCT_ID, OWNER, BALANCE FROM ACCOUNT
+               FOR UPDATE OF BALANCE
+    END-EXEC.
+    EXEC SQL
+        DECLARE ANY-CUR CURSOR FOR
+            SELECT ACCT_ID FROM ACCOUNT FOR UPDATE
+    END-EXEC.
+PROCEDURE DIVISION.
+    *> Reported: OWNER, which FOR UPDATE OF does not name.
+    EXEC SQL
+        UPDATE ACCOUNT SET BALANCE = :WS-BALANCE, OWNER = :WS-NAME
+         WHERE CURRENT OF ACCT-CUR
+    END-EXEC
+    *> Not reported: a column the list names, and a cursor FOR UPDATE
+    *> without a list.
+    EXEC SQL
+        UPDATE ACCOUNT SET BALANCE = 0 WHERE CURRENT OF ACCT-CUR
+    END-EXEC
+    EXEC SQL
+        UPDATE ACCOUNT SET OWNER = :WS-NAME WHERE CURRENT OF ANY-CUR
+    END-EXEC
+    STOP RUN.
