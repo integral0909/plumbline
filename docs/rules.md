@@ -117,6 +117,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C103](#plb-c103-chain-exhausted) | chain-exhausted | warning | IF, ELSE, WHEN, or WHEN OTHER that the tests before it leave no value for |
 | [PLB-C104](#plb-c104-count-too-small) | count-too-small | warning | INSPECT TALLYING or UNSTRING COUNT IN item too small for the count |
 | [PLB-C105](#plb-c105-string-edited-leading-space) | string-edited-leading-space | warning | STRING DELIMITED BY SPACE sends an edited item that can start blank |
+| [PLB-C106](#plb-c106-unstring-space-not-all) | unstring-space-not-all | warning | UNSTRING into several items DELIMITED BY SPACE without ALL |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -3081,6 +3082,25 @@ The symbols read are `Z` and `B` at the start, a leading `-` (a space
 for a value that is not negative), and a floating `+` or `$` (`++9`,
 `$(3)9`). Send the item `DELIMITED BY SIZE`, or take its spaces off
 first, for example with `FUNCTION TRIM`.
+
+## PLB-C106 unstring-space-not-all
+
+An `UNSTRING` into more than one item `DELIMITED BY SPACE`, without
+`ALL`:
+
+```cobol
+    UNSTRING WS-NAME DELIMITED BY SPACE              *> reported
+        INTO WS-FIRST WS-MIDDLE WS-LAST
+```
+
+Each space ends a field, so two spaces in a row give an empty field
+between them, and the words after it go one field on. With GnuCOBOL
+3.2, `"JOHN  SMITH JR"` gives `JOHN`, spaces, and `SMITH`, and `JR` is
+lost; `DELIMITED BY ALL SPACE` gives `JOHN`, `SMITH`, and `JR`.
+
+`SPACE`, `SPACES`, and `" "` are read, alone or among other delimiters
+joined by `OR`. A delimiter of more than one character, and an
+`UNSTRING` into one item, are not reported.
 
 ## PLB-I001 pcb-dbd-unknown
 
