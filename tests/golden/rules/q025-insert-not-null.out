@@ -5,3 +5,5 @@ tests/golden/rules/q025-insert-not-null.cob:20:62: warning: WS-NOTE is read but 
 tests/golden/rules/q025-insert-not-null.cob:24:5: warning: the result of EXEC SQL INSERT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
 tests/golden/rules/q025-insert-not-null.cob:27:5: warning: the result of EXEC SQL INSERT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
 tests/golden/rules/q025-insert-not-null.cob:28:46: warning: WS-NAME is read but never given a value [PLB-C011]
+tests/golden/rules/q025-insert-not-null.cob:33:5: warning: the result of EXEC SQL UPDATE is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q025-insert-not-null.cob:34:49: error: UPDATE sets OWNER of ACCOUNT to NULL, but it is NOT NULL: Db2 rejects it (SQLCODE -407) [PLB-Q025]
