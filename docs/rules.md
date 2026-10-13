@@ -4281,13 +4281,13 @@ code together:
 Each parameter's "Relationship to other parameters" lists those not to
 code with it. The rule reads these pairs: `RECORG` with `RECFM`,
 `DCB=RECFM`, `DSNTYPE`, `DCB=DSORG`, or `FREE=CLOSE`; `AVGREC` with a
-`SPACE` in
-`TRK`, `CYL`, or `ABSTR` ("When specifying the TRK, CYL, or ABSTR
-subparameters of the SPACE parameter, do not code the AVGREC
+`SPACE` in `TRK`, `CYL`, or `ABSTR` ("When specifying the TRK, CYL, or
+ABSTR subparameters of the SPACE parameter, do not code the AVGREC
 parameter"), since `AVGREC` makes the quantities records; `LRECL` with
-`DCB=LRECL`; and `RECFM` with `DCB=RECFM`. Parameters that conflict with
-`SYSOUT` are [PLB-J024](#plb-j024-sysout-parameter-conflict), and
-`EXPDT` with `RETPD` is [PLB-J035](#plb-j035-retention-invalid).
+`DCB=LRECL`; `RECFM` with `DCB=RECFM`; and `KEYLEN` with `DCB=KEYLEN`.
+Parameters that conflict with `SYSOUT` are
+[PLB-J024](#plb-j024-sysout-parameter-conflict), and `EXPDT` with
+`RETPD` is [PLB-J035](#plb-j035-retention-invalid).
 
 ## PLB-J042 exec-value-invalid
 

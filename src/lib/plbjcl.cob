@@ -132,6 +132,8 @@ LOCAL-STORAGE SECTION.
 01  LS-JL-PROBLEM           PIC X.
 01  LS-IN-DCB               PIC X VALUE "N".
 01  LS-LRECL-KW             PIC X.
+01  LS-KEYLEN-KW            PIC X.
+01  LS-KEYLEN-DCB           PIC X.
 01  LS-LRECL-DCB            PIC X.
 01  LS-RECFM-KW             PIC X.
 01  LS-RECFM-DCB            PIC X.
@@ -900,6 +902,8 @@ NOTE-PAIR-KEY.
             MOVE "Y" TO LS-LRECL-KW
         WHEN OP-KEY = "RECFM"
             MOVE "Y" TO LS-RECFM-KW
+        WHEN OP-KEY = "KEYLEN"
+            MOVE "Y" TO LS-KEYLEN-KW
         WHEN OP-KEY = "DSNTYPE"
             MOVE "Y" TO LS-DSNTYPE-CODED
         WHEN OP-KEY = "FREE" AND OP-VALUE = "CLOSE"
@@ -922,7 +926,7 @@ NOTE-PAIR-KEY.
 *> code together ("Relationship to other parameters" of each): RECORG
 *> with RECFM (or DCB=RECFM), DSNTYPE, DCB=DSORG, or FREE=CLOSE; AVGREC
 *> with a SPACE in TRK, CYL, or ABSTR; LRECL with DCB=LRECL; RECFM with
-*> DCB=RECFM.
+*> DCB=RECFM; KEYLEN with DCB=KEYLEN.
 CHECK-PAIRS.
     EVALUATE TRUE
         WHEN JD-RECORG(LS-D) = "Y"
@@ -947,6 +951,9 @@ CHECK-PAIRS.
         WHEN LS-RECFM-KW = "Y" AND LS-RECFM-DCB = "Y"
             MOVE "RECFM" TO JD-CONFLICT-1(LS-D)
             MOVE "DCB=RECFM" TO JD-CONFLICT-2(LS-D)
+        WHEN LS-KEYLEN-KW = "Y" AND LS-KEYLEN-DCB = "Y"
+            MOVE "KEYLEN" TO JD-CONFLICT-1(LS-D)
+            MOVE "DCB=KEYLEN" TO JD-CONFLICT-2(LS-D)
     END-EVALUATE.
 
 *> HOLD=, FREE=, SPIN=, AVGREC=, RECORG=, and DSNTYPE= of DD LS-D: the
@@ -1580,6 +1587,7 @@ ADD-DD.
         JD-CONFLICT-2(LS-D) JD-UNIT-AFF(LS-D) JD-AFF-WITH(LS-D)
         JD-VOLSER-BAD(LS-D) JD-VOLSER-WHY(LS-D)
     MOVE "N" TO JD-FREE-CLOSE(LS-D) LS-STORCLAS-CODED
+    MOVE "N" TO LS-KEYLEN-KW LS-KEYLEN-DCB
     MOVE "N" TO LS-LRECL-KW LS-LRECL-DCB LS-RECFM-KW LS-RECFM-DCB
         LS-DSORG-DCB LS-DSNTYPE-CODED LS-FREE-CLOSE LS-AVGREC-CODED
         LS-SPACE-UNIT LS-IN-DCB
@@ -2065,6 +2073,8 @@ DCB-PARAMETER.
                 MOVE "Y" TO LS-RECFM-DCB
             WHEN "DSORG"
                 MOVE "Y" TO LS-DSORG-DCB
+            WHEN "KEYLEN"
+                MOVE "Y" TO LS-KEYLEN-DCB
         END-EVALUATE
     END-IF
     *> DCB=(DSORG=...): one of the organizations of the DCB table of the
