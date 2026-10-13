@@ -373,8 +373,8 @@ The findings were checked by rule:
   None in NIST or in GnuCOBOL's tests.
 
 - **PLB-Q018 null-compared**, **PLB-Q019 between-reversed**,
-  **PLB-Q020 column-repeated**, and **PLB-Q021 order-by-position.** None
-  in NIST or in GnuCOBOL's tests.
+  **PLB-Q020 column-repeated**, **PLB-Q021 order-by-position**, and
+  **PLB-Q022 aggregate-in-where.** None in NIST or in GnuCOBOL's tests.
 
 - **PLB-C097 sort-file-open.** None in NIST or in GnuCOBOL's tests. In
   a copy of NIST's `ST110A` with `OPEN INPUT SORTIN-1J` put before its

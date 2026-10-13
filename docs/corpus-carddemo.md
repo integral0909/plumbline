@@ -400,6 +400,9 @@ Some findings that were read and are true:
   and 4200 swapped, it reports entry 4 after entry 3.
 - **PLB-C098 group-value-into-packed** and **PLB-C099
   value-overridden.** None.
+- **PLB-Q022 aggregate-in-where.** None. In a copy of `COTRTLIC` whose
+  cursor's `WHERE TR_TYPE >= :WS-START-KEY` is made `WHERE
+  MAX(TR_TYPE) >= ...`, it reports the `MAX`.
 - **PLB-Q021 order-by-position.** None: its two `ORDER BY` clauses, in
   `COTRTLIC`, name `TR_TYPE`. In a copy whose first is made `ORDER BY
   3`, after a select list of two, it reports it.
