@@ -308,6 +308,7 @@ COLUMN-DEFINITION.
     MOVE LS-K TO QL-TOKEN(QL-COUNT)
     MOVE 0 TO QL-LENGTH(QL-COUNT) QL-SCALE(QL-COUNT)
     MOVE "Y" TO QL-NULLS(QL-COUNT)
+    MOVE "N" TO QL-DEFAULT(QL-COUNT)
     ADD 1 TO LS-K
     PERFORM UPPER-WORD
     EVALUATE LS-WORD
@@ -333,6 +334,8 @@ COLUMN-DEFINITION.
                 MOVE "VARCHAR" TO QL-TYPE(QL-COUNT)
             WHEN LS-WORD = "NOT"
                 MOVE "N" TO QL-NULLS(QL-COUNT)
+            WHEN LS-WORD = "DEFAULT" OR LS-WORD = "GENERATED"
+                MOVE "Y" TO QL-DEFAULT(QL-COUNT)
             WHEN TK-IS-NUMBER(LS-K)
                 CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
                 IF LS-LEN > 0 AND LS-LEN < 10
@@ -766,6 +769,7 @@ END PROGRAM PLB-SQL-MODEL-BUILD.
 *> PLB-SQL-MODEL-PRINT: the model, for plumbline dump sql:
 *>     table CARDDEMO.ACCOUNT path:line
 *>       column ACCT_ID DECIMAL(11) not null
+*>       column OPENED DATE not null default
 *>     select path:line tables ACCOUNT
 *>       ACCT_ID <- :WS-ACCT-ID
 *>     cursor C1 path:line tables ACCOUNT
@@ -837,6 +841,10 @@ PRINT-TABLE.
         END-IF
         IF QL-NULLS(LS-J) = "N"
             STRING " not null" DELIMITED BY SIZE
+                INTO WS-LINE WITH POINTER LS-PTR
+        END-IF
+        IF QL-DEFAULT(LS-J) = "Y"
+            STRING " default" DELIMITED BY SIZE
                 INTO WS-LINE WITH POINTER LS-PTR
         END-IF
         DISPLAY WS-LINE(1:LS-PTR - 1)

@@ -2,7 +2,7 @@ table BANK.ACCOUNT tests/golden/sql/statements.cob:7
   column ACCT_ID DECIMAL(11) not null
   column ACCT_NAME VARCHAR(40) not null
   column BALANCE DECIMAL(9,2)
-  column OPENED DATE
+  column OPENED DATE not null default
   column BRANCH INTEGER not null
 table BANK.BRANCH tests/golden/sql/statements.cob:14
   column BRANCH_ID INTEGER not null

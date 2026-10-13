@@ -42,6 +42,9 @@
         10  QL-SCALE            PIC 9(9) COMP-5.
         *> "N" for NOT NULL.
         10  QL-NULLS            PIC X.
+        *> "Y" when the column has a value of its own for an INSERT
+        *> that leaves it out: WITH DEFAULT, DEFAULT value, GENERATED.
+        10  QL-DEFAULT          PIC X.
         10  QL-TOKEN            PIC 9(9) COMP-5.
     05  QS-COUNT                PIC 9(9) COMP-5.
     05  QS-ENTRY                OCCURS QS-MAX TIMES.
