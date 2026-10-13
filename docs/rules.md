@@ -164,6 +164,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J031](#plb-j031-msglevel-invalid) | msglevel-invalid | error | MSGLEVEL= statements not 0, 1, or 2, or messages not 0 or 1 |
 | [PLB-J032](#plb-j032-class-invalid) | class-invalid | error | Job class not 1-8 letters and digits, or output class not one A-Z, 0-9 |
 | [PLB-J033](#plb-j033-cond-invalid) | cond-invalid | error | COND test code above 4095, operator unknown, or more than 8 tests |
+| [PLB-J034](#plb-j034-lrecl-invalid) | lrecl-invalid | error | LRECL above 32760, 0 without RECFM=U, or below 5 for RECFM=V |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -4091,6 +4092,24 @@ return code tests. However, if you code EVEN or ONLY, specify up to
 seven"; a job, up to eight. Unlike
 [PLB-J021](#plb-j021-cond-always-bypasses), the rule reads the first
 step of a job and the steps of procedures too.
+
+## PLB-J034 lrecl-invalid
+
+A DD whose `LRECL` the z/OS MVS JCL Reference does not allow:
+
+```jcl
+//BIG      DD DSN=PAY.BIG,DISP=(NEW,CATLG),RECFM=FB,LRECL=40000  reported
+//TINY     DD DSN=PAY.TINY,DISP=(NEW,CATLG),RECFM=VB,LRECL=4     reported
+```
+
+`LRECL` ("LRECL parameter") is "1 to 32,760 for non-VSAM data sets",
+and 1 to 32,761 for VSAM ones (a DD that codes `RECORG`); longer
+variable spanned records are `LRECL=X`. "LRECL=0 is valid only for
+RECFM=U", and for `RECFM=D` or `V` "the length must be a minimum of 5",
+the 4-byte record descriptor word and a byte of data. `RECFM` is read
+only when the DD codes it, so `LRECL=0` without it, which may take the
+format from the data set's label or data class, is not reported. The
+length against `BLKSIZE` is [PLB-J017](#plb-j017-blksize-invalid).
 
 ## PLB-K001 cics-resource-undefined
 

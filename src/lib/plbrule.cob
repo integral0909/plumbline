@@ -747,6 +747,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J033"
         "cond-invalid" "E"
         "COND test code above 4095, operator unknown, or more than 8 tests"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J034"
+        "lrecl-invalid" "E"
+        "LRECL above 32760, 0 without RECFM=U, or below 5 for RECFM=V"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

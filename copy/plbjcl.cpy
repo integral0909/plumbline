@@ -126,6 +126,10 @@
         10  JD-SYSOUT-CLASH     PIC X(8).
         *> "Y" when the DD codes DLM=.
         10  JD-DLM              PIC X.
+        *> "Y" when LRECL is coded as a number (JD-LRECL, 0 included),
+        *> and when the DD codes RECORG= (a VSAM data set).
+        10  JD-LRECL-CODED      PIC X.
+        10  JD-RECORG           PIC X.
         *> The class of SYSOUT= when the JCL Reference does not allow it
         *> (not one character, A through Z or 0 through 9, or *).
         10  JD-CLASS-BAD        PIC X(10).
