@@ -3863,6 +3863,12 @@ Tests in a list (`COND=((8,LT),(0,LE))`) and tests of a named step are
 read. The first step of a job, with no step before it, and the steps
 of procedures are not.
 
+The `COND` of a `JOB` statement is read too. Its tests are made against
+the return code of each step, and when one is true, "the system
+bypasses all remaining job steps and terminates the job" (`JOB`
+statement, `COND` parameter): `//PAYJOB JOB ...,COND=(0,LE)` ends the
+job after its first step, whatever that step returns.
+
 ## PLB-J022 cond-never-true
 
 A step whose `COND` has a test that is true for no return code:
@@ -3876,7 +3882,8 @@ By the same reading as [PLB-J021](#plb-j021-cond-always-bypasses),
 `(4095,LT)` when 4095 is less than it, which no return code from 0 to
 4095 makes true: the test never bypasses the step, and the step runs
 whatever the steps before it returned. The operator was usually turned
-round: `(0,LT)` bypasses the step after any return code above 0.
+round: `(0,LT)` bypasses the step after any return code above 0. On a
+`JOB` statement, such a test never ends the job.
 
 ## PLB-J023 copy-onto-itself
 

@@ -432,6 +432,12 @@ check "a job class starting with a hyphen" 1 'class.jcl:14:3: error: job PAYJOB2
     -- check --no-config $jx/class.jcl
 check_absent "a job class of eight characters" 'class.jcl:17:.*PLB-J032' \
     -- check --no-config $jx/class.jcl
+check "JOB COND=(0,LE)"                   1 'jobcond.jcl:3:3: warning: COND test (0,LE) is true for every return code: job PAYJOB1 ends after its first step.*\[PLB-J021\]' \
+    -- check --no-config $jx/jobcond.jcl
+check "JOB COND test (4095,LT)"           1 'jobcond.jcl:7:3: warning: COND test (4095,LT) is true for no return code: it never ends job PAYJOB2.*\[PLB-J022\]' \
+    -- check --no-config $jx/jobcond.jcl
+check_absent "JOB COND=(4,LT)"            'jobcond.jcl:10:' \
+    -- check --no-config $jx/jobcond.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
