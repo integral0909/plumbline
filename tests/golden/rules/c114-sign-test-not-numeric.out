@@ -1,0 +1,4 @@
+tests/golden/rules/c114-sign-test-not-numeric.cob:15:19: warning: POSITIVE test of WS-CODE, an alphanumeric item: a sign condition needs a number, and IBM Enterprise COBOL does not accept it [PLB-C114]
+tests/golden/rules/c114-sign-test-not-numeric.cob:18:20: warning: NEGATIVE test of WS-NAME, an alphabetic item: a sign condition needs a number, and IBM Enterprise COBOL does not accept it [PLB-C114]
+tests/golden/rules/c114-sign-test-not-numeric.cob:21:20: warning: ZERO test of WS-SHOWN, an edited item: a sign condition needs a number, and IBM Enterprise COBOL does not accept it [PLB-C114]
+tests/golden/rules/c114-sign-test-not-numeric.cob:24:25: warning: ZERO test of WS-TOTALS, a group: a sign condition needs a number, and IBM Enterprise COBOL does not accept it [PLB-C114]
