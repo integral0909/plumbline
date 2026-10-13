@@ -376,8 +376,9 @@ The findings were checked by rule:
   **PLB-Q020 column-repeated**, **PLB-Q021 order-by-position**,
   **PLB-Q022 aggregate-in-where**, **PLB-Q023 select-not-grouped**,
   **PLB-Q024 column-undeclared**, **PLB-Q025 insert-not-null-missing**,
-  **PLB-Q026 cursor-table-mismatch**, and **PLB-Q027
-  update-not-for-update.** None in NIST or in GnuCOBOL's tests.
+  **PLB-Q026 cursor-table-mismatch**, **PLB-Q027
+  update-not-for-update**, and **PLB-Q028 order-by-for-update.** None
+  in NIST or in GnuCOBOL's tests.
 
 - **PLB-C097 sort-file-open.** None in NIST or in GnuCOBOL's tests. In
   a copy of NIST's `ST110A` with `OPEN INPUT SORTIN-1J` put before its
