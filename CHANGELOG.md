@@ -339,7 +339,8 @@ uses [Semantic Versioning](https://semver.org/).
   statements and the `OUTPUT=` of each DD.
 - Rule PLB-J039 dd-value-invalid.
 - Rule PLB-J040 recfm-invalid; the JCL reader checks each `RECFM`.
-- Rule PLB-J041 dd-parameter-conflict.
+- Rule PLB-J041 dd-parameter-conflict; it reads `KEYLEN` with
+  `DCB=KEYLEN` too.
 - Rule PLB-J042 exec-value-invalid; the JCL reader checks `ADDRSPC=`,
   `RD=`, and `MEMLIMIT=` on `JOB` and `EXEC` statements, and `TYPRUN=`,
   `PRTY=`, and `JESLOG=` on `JOB` statements.

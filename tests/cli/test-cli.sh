@@ -556,6 +556,8 @@ check "RECORG with DCB=DSORG"             1 'ddpair.jcl:10:3: warning: DD ESDS c
     -- check --no-config $jx/ddpair.jcl
 check_absent "parameters that go together" 'ddpair.jcl:1[2-4]:.*PLB-J041' \
     -- check --no-config $jx/ddpair.jcl
+check "KEYLEN and DCB=KEYLEN"             1 'ddpair.jcl:16:3: warning: DD KEYS codes KEYLEN with DCB=KEYLEN,.*\[PLB-J041\]' \
+    -- check --no-config $jx/ddpair.jcl
 check "RD=RESTART on a JOB statement"     1 'execval.jcl:2:3: error: job EXECJOB codes RD=RESTART,.*\[PLB-J042\]' \
     -- check --no-config $jx/execval.jcl
 check "ADDRSPC=VIRTUAL"                   1 'execval.jcl:4:3: error: step LOAD codes ADDRSPC=VIRTUAL,.*\[PLB-J042\]' \
