@@ -124,6 +124,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C110](#plb-c110-file-dd-shared) | file-dd-shared | warning | Two files of a program, one of them written, assigned to one DD |
 | [PLB-C111](#plb-c111-sort-statement-wrong-phase) | sort-statement-wrong-phase | error | RETURN in a SORT's INPUT PROCEDURE, or RELEASE in an OUTPUT PROCEDURE |
 | [PLB-C112](#plb-c112-varying-step-zero) | varying-step-zero | warning | PERFORM VARYING steps BY an item that is always 0 |
+| [PLB-C113](#plb-c113-class-test-invalid) | class-test-invalid | warning | NUMERIC of an alphabetic item or signed group, or ALPHABETIC of a number |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -3295,6 +3296,35 @@ and must not be subscripted. No statement may store into it or into a
 group it is in, or pass either to a `CALL` by reference, and no
 `REDEFINES` may share it. Items that are 0 only because a statement
 just before the loop sets them are not read.
+
+## PLB-C113 class-test-invalid
+
+A class condition that IBM Enterprise COBOL does not accept for the
+item it tests:
+
+```cobol
+01  WS-QTY              PIC 9(4).
+01  WS-NAME             PIC A(8).
+01  WS-AMOUNTS.
+    05  WS-AMT          PIC S9(3).
+    IF WS-QTY IS ALPHABETIC                      *> reported
+    IF WS-NAME IS NUMERIC                        *> reported
+    IF WS-AMOUNTS IS NUMERIC                     *> reported
+```
+
+The Language Reference ("Class condition") says the item "must not be
+of class alphabetic when NUMERIC is specified", "must not be of class
+numeric when ALPHABETIC, ALPHABETIC-UPPER, or ALPHABETIC-LOWER is
+specified", and that "the NUMERIC class condition cannot be used if the
+group contains one or more signed elementary items". GnuCOBOL 3.2
+compiles all three, so the program fails only when it moves to z/OS.
+
+The group test is wrong with GnuCOBOL as well. A group is tested as
+characters, and a negative `WS-AMT` keeps its sign in its last digit,
+which is then not a digit: with GnuCOBOL 3.2, `WS-AMOUNTS` holding -12
+is not `NUMERIC`, and holding +12 it is. Test the items one by one.
+
+A reference-modified item is alphanumeric, and is not reported.
 
 ## PLB-I001 pcb-dbd-unknown
 
