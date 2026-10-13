@@ -783,6 +783,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J042"
         "exec-value-invalid" "E"
         "JOB or EXEC value the JCL Reference does not list (RD, TYPRUN, PRTY, ...)"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J043"
+        "joblib-misplaced" "E"
+        "JOBLIB DD not right after the JOB statement, or in a procedure"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
