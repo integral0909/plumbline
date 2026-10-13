@@ -315,6 +315,13 @@ The findings were checked by rule:
 - **PLB-C101 string-numeric-sender.** None in NIST or in GnuCOBOL's
   tests.
 
+- **PLB-C107 times-count-changed.** Two in NIST, both meant: `NC102A`
+  and `DB105A` perform a paragraph `PERFORM5 TIMES` that adds 100 to
+  `PERFORM5`, and pass when it still runs 7 times, as the standard
+  says. None in GnuCOBOL's tests; a first version reported its
+  `PERFORM LENGTH OF L TIMES`, whose count is the length of `L`, and
+  `LENGTH OF` is now left out.
+
 - **PLB-C106 unstring-space-not-all.** None in NIST or in GnuCOBOL's
   tests. In a copy of NIST's `NC218A` whose `UNSTRING ... DELIMITED ZERO INTO
   ID4-XJ` is made `DELIMITED SPACE INTO ID4-XJ ID4-XXX`, it reports it.

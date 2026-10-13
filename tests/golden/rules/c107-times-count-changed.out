@@ -1,0 +1,4 @@
+tests/golden/rules/c107-times-count-changed.cob:17:24: warning: WS-ROWS is the count of the PERFORM TIMES on line 14, read once when it starts: changing it here does not change how many times the loop runs [PLB-C107]
+tests/golden/rules/c107-times-count-changed.cob:21:20: warning: INITIALIZE replaces the VALUE of WS-TRY-COUNT with spaces or zeros [PLB-C080]
+tests/golden/rules/c107-times-count-changed.cob:21:20: warning: WS-TRY-COUNT is the count of the PERFORM TIMES on line 20, read once when it starts: changing it here does not change how many times the loop runs [PLB-C107]
+tests/golden/rules/c107-times-count-changed.cob:35:21: warning: WS-LEFT is the count of the PERFORM TIMES on line 24, read once when it starts: changing it here does not change how many times the loop runs [PLB-C107]
