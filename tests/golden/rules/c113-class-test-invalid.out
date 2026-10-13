@@ -1,0 +1,5 @@
+tests/golden/rules/c113-class-test-invalid.cob:18:18: warning: ALPHABETIC test of WS-QTY, a numeric item: IBM Enterprise COBOL does not accept it [PLB-C113]
+tests/golden/rules/c113-class-test-invalid.cob:21:22: warning: ALPHABETIC-UPPER test of WS-QTY, a numeric item: IBM Enterprise COBOL does not accept it [PLB-C113]
+tests/golden/rules/c113-class-test-invalid.cob:24:16: warning: NUMERIC test of WS-NAME, an alphabetic item: IBM Enterprise COBOL does not accept it [PLB-C113]
+tests/golden/rules/c113-class-test-invalid.cob:27:22: warning: NUMERIC test of the group WS-AMOUNTS, which has the signed item WS-AMT: a negative sign is not a digit, and IBM Enterprise COBOL does not accept it [PLB-C113]
+tests/golden/rules/c113-class-test-invalid.cob:41:16: warning: INITIALIZE replaces the VALUE of WS-AMT and of 1 other item with spaces or zeros [PLB-C080]
