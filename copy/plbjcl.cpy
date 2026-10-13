@@ -29,6 +29,10 @@
         *> A MSGLEVEL= value it does not allow (statements other than
         *> 0, 1, or 2, or messages other than 0 or 1), as written.
         10  JJ-MSGLEVEL-BAD     PIC X(20).
+        *> A CLASS= or MSGCLASS= value it does not allow, as written,
+        *> with its keyword in JJ-CLASS-KEY.
+        10  JJ-CLASS-BAD        PIC X(20).
+        10  JJ-CLASS-KEY        PIC X(8).
     *> Procedure definitions: PROC statements.
     05  JP-COUNT                PIC 9(9) COMP-5.
     05  JP-ENTRY                OCCURS JP-MAX TIMES.
@@ -119,6 +123,9 @@
         10  JD-SYSOUT-CLASH     PIC X(8).
         *> "Y" when the DD codes DLM=.
         10  JD-DLM              PIC X.
+        *> The class of SYSOUT= when the JCL Reference does not allow it
+        *> (not one character, A through Z or 0 through 9, or *).
+        10  JD-CLASS-BAD        PIC X(10).
         10  JD-FILE-ID          PIC 9(4) COMP-5.
         10  JD-LINE             PIC 9(9) COMP-5.
     *> The steps that IF statements test (IF STEP.RC > 4 THEN, ...):

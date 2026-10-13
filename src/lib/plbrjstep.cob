@@ -1340,3 +1340,81 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
     END-PERFORM
     GOBACK.
 END PROGRAM PLB-RULE-J031.
+
+*> ---------------------------------------------------------------
+*> PLB-J032 class-invalid: a job class or output class that the z/OS
+*> MVS JCL Reference does not allow:
+*>
+*>     //PAYJOB   JOB (ACCT),'PAY',CLASS=-A,MSGCLASS=XY
+*>     //REPORT   DD SYSOUT=AB
+*>
+*> An output class, of MSGCLASS= on the JOB statement and of SYSOUT= on
+*> a DD, "is one character, A through Z or 0 through 9" (it may be
+*> quoted; SYSOUT also takes * and the null class of SYSOUT=(,)). A job
+*> class, CLASS= on the JOB statement, "is 1-8 characters", the first
+*> "a member of the 36-character set A-Z and 0-9", the others letters,
+*> digits, or national characters. Values with symbols are not read.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J032.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J032" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > JJ-COUNT
+        IF JJ-CLASS-BAD(LS-I) NOT = SPACES
+            MOVE SPACES TO LS-MESSAGE
+            IF JJ-CLASS-KEY(LS-I) = "CLASS"
+                STRING "job " DELIMITED BY SIZE
+                       JJ-NAME(LS-I) DELIMITED BY SPACE
+                       " codes CLASS=" DELIMITED BY SIZE
+                       JJ-CLASS-BAD(LS-I) DELIMITED BY SPACE
+                       "; a job class is 1 to 8 letters, digits, or #,"
+                       " @, $, starting with a letter or digit"
+                       DELIMITED BY SIZE
+                    INTO LS-MESSAGE
+            ELSE
+                STRING "job " DELIMITED BY SIZE
+                       JJ-NAME(LS-I) DELIMITED BY SPACE
+                       " codes MSGCLASS=" DELIMITED BY SIZE
+                       JJ-CLASS-BAD(LS-I) DELIMITED BY SPACE
+                       "; an output class is one character, A to Z or"
+                       " 0 to 9" DELIMITED BY SIZE
+                    INTO LS-MESSAGE
+            END-IF
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JJ-FILE-ID(LS-I) JJ-LINE(LS-I) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+        END-IF
+    END-PERFORM
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > JD-COUNT
+        IF JD-CLASS-BAD(LS-I) NOT = SPACES
+            MOVE SPACES TO LS-MESSAGE
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-I) DELIMITED BY SPACE
+                   " codes SYSOUT class " DELIMITED BY SIZE
+                   JD-CLASS-BAD(LS-I) DELIMITED BY SPACE
+                   "; an output class is one character, A to Z or 0 to"
+                   " 9, or *" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JD-FILE-ID(LS-I) JD-LINE(LS-I) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+        END-IF
+    END-PERFORM
+    GOBACK.
+END PROGRAM PLB-RULE-J032.
