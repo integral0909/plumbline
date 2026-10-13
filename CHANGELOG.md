@@ -296,6 +296,8 @@ uses [Semantic Versioning](https://semver.org/).
   after another DD before a job's first step.
 - Rule PLB-J044 jcllib-misplaced; the JCL reader notes `JCLLIB`
   statements out of their place.
+- Rule PLB-J045 unit-aff-invalid; the JCL reader keeps `UNIT=AFF=` and
+  `FREE=CLOSE` of each DD.
 - Rule PLB-Q025 insert-not-null-missing; `plumbline dump sql` shows a
   column with a default as `default`.
 - Rule PLB-J018 gdg-generation-not-created.

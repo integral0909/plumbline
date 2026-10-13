@@ -592,6 +592,14 @@ check "a JCLLIB in a procedure"           1 'jcllibp.prc:3:3: error: JCLLIB in a
     -- check --no-config $jx/jcllibp.prc
 check_absent "one JCLLIB before the first EXEC" 'jcllib.jcl:3:.*PLB-J044' \
     -- check --no-config $jx/jcllib.jcl
+check "UNIT=AFF to a later DD"            1 'unitaff.jcl:4:3: warning: DD TAPE1 codes UNIT=AFF=TAPE2, but no earlier DD.*\[PLB-J045\]' \
+    -- check --no-config $jx/unitaff.jcl
+check "UNIT=AFF to a DD with FREE=CLOSE"  1 'unitaff.jcl:11:3: warning: DD TAPE5 codes UNIT=AFF=TAPE4, a DD with FREE=CLOSE.*\[PLB-J045\]' \
+    -- check --no-config $jx/unitaff.jcl
+check "UNIT=AFF with STORCLAS"            1 'unitaff.jcl:12:3: warning: DD TAPE6 codes UNIT=AFF with STORCLAS.*\[PLB-J045\]' \
+    -- check --no-config $jx/unitaff.jcl
+check_absent "UNIT=AFF to an earlier DD"  'unitaff.jcl:7:.*PLB-J045' \
+    -- check --no-config $jx/unitaff.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
