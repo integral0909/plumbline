@@ -941,6 +941,15 @@ WORKING-STORAGE SECTION.
 COPY "plbsqlm.cpy".
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-RULE-COLUMN          PIC 9(4) COMP-5.
+*> PLB-Q027: the columns of the cursor's FOR UPDATE OF, and the walk.
+01  LS-OF-COUNT             PIC 9(4) COMP-5.
+01  LS-OF-NAME              PIC X(31) OCCURS 100 TIMES.
+01  LS-IN-OF                PIC X.
+01  LS-IN-SET               PIC X.
+01  LS-DEPTH                PIC S9(4) COMP-5.
+01  LS-NEXT                 PIC 9(9) COMP-5.
+01  LS-OP                   PIC X(31).
 01  LS-S                    PIC 9(9) COMP-5.
 01  LS-C                    PIC 9(9) COMP-5.
 01  LS-T                    PIC 9(9) COMP-5.
@@ -965,7 +974,9 @@ COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q026" LS-RULE
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q027" LS-RULE-COLUMN
     IF RL-ENABLED(LS-RULE) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-COLUMN) NOT = "Y"
         GOBACK
     END-IF
     CALL "PLB-SQL-MODEL-BUILD" USING PLB-SOURCE-SET PLB-TOKENS
@@ -1012,12 +1023,104 @@ CHECK-POSITIONED.
                 PERFORM SHORT-NAME
                 MOVE LS-NAME TO LS-SHORT-2
                 IF LS-SHORT-1 NOT = LS-SHORT-2
-                    PERFORM REPORT-MISMATCH
+                    IF RL-ENABLED(LS-RULE) = "Y"
+                        PERFORM REPORT-MISMATCH
+                    END-IF
+                ELSE
+                    IF QS-KIND(LS-S) = "U"
+                       AND RL-ENABLED(LS-RULE-COLUMN) = "Y"
+                        PERFORM CHECK-FOR-UPDATE-OF
+                    END-IF
                 END-IF
             END-IF
             EXIT PERFORM
         END-IF
     END-PERFORM.
+
+*> PLB-Q027 update-not-for-update: a positioned UPDATE (LS-S) that
+*> sets a column which the FOR UPDATE OF list of its cursor (LS-C)
+*> leaves out. Db2 rejects it with SQLCODE -503. A cursor with FOR
+*> UPDATE and no OF list lets every column be updated, and is not read.
+CHECK-FOR-UPDATE-OF.
+    MOVE 0 TO LS-OF-COUNT
+    MOVE "N" TO LS-IN-OF
+    PERFORM VARYING LS-T FROM QS-TOKEN(LS-C) BY 1
+            UNTIL LS-T >= QS-END(LS-C)
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+            EVALUATE TRUE
+                WHEN LS-TEXT = "UPDATE"
+                    COMPUTE LS-K = LS-T + 1
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT
+                        LS-LEN
+                    IF FUNCTION UPPER-CASE(LS-TEXT) = "OF"
+                        MOVE "Y" TO LS-IN-OF
+                    END-IF
+                WHEN LS-IN-OF = "Y" AND LS-OF-COUNT = 0
+                     AND LS-TEXT = "OF"
+                    CONTINUE
+                WHEN LS-IN-OF = "Y" AND LS-OF-COUNT < 100
+                    ADD 1 TO LS-OF-COUNT
+                    MOVE LS-TEXT TO LS-OF-NAME(LS-OF-COUNT)
+            END-EVALUATE
+        END-IF
+    END-PERFORM
+    IF LS-OF-COUNT = 0
+        EXIT PARAGRAPH
+    END-IF
+    *> The columns the UPDATE sets: names before = in its SET.
+    MOVE 0 TO LS-DEPTH
+    MOVE "N" TO LS-IN-SET
+    PERFORM VARYING LS-T FROM QS-TOKEN(LS-S) BY 1
+            UNTIL LS-T >= QS-END(LS-S)
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-T)
+                ADD 1 TO LS-DEPTH
+            WHEN TK-IS-RPAREN(LS-T)
+                SUBTRACT 1 FROM LS-DEPTH
+            WHEN LS-DEPTH > 0
+                CONTINUE
+            WHEN TK-IS-WORD(LS-T)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+                MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+                EVALUATE TRUE
+                    WHEN LS-TEXT = "SET"
+                        MOVE "Y" TO LS-IN-SET
+                    WHEN LS-TEXT = "WHERE"
+                        EXIT PERFORM
+                    WHEN LS-IN-SET = "Y"
+                        PERFORM SET-COLUMN
+                END-EVALUATE
+        END-EVALUATE
+    END-PERFORM.
+
+*> The word LS-TEXT at LS-T in a SET: a column when = follows; reported
+*> when the FOR UPDATE OF list does not name it.
+SET-COLUMN.
+    COMPUTE LS-NEXT = LS-T + 1
+    IF LS-NEXT >= QS-END(LS-S) OR NOT TK-IS-OPERATOR(LS-NEXT)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-NEXT LS-OP LS-LEN
+    IF LS-OP NOT = "="
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > LS-OF-COUNT
+        IF LS-OF-NAME(LS-I) = LS-TEXT
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    MOVE SPACES TO LS-MESSAGE
+    STRING "column " DELIMITED BY SIZE
+           LS-TEXT DELIMITED BY SPACE
+           " is not in the FOR UPDATE OF list of cursor "
+           DELIMITED BY SIZE
+           LS-CURSOR DELIMITED BY SPACE
+           ": Db2 rejects this UPDATE (SQLCODE -503)" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-COLUMN LS-T LS-MESSAGE.
 
 *> LS-NAME without its qualifier: the part after its last dot.
 SHORT-NAME.
