@@ -1756,6 +1756,20 @@ DCB-PARAMETER.
                 MOVE "Y" TO LS-DSORG-DCB
         END-EVALUATE
     END-IF
+    *> DCB=(DSORG=...): one of the organizations of the DCB table of the
+    *> JCL Reference, PS, PSU, DA, DAU, PO, POU, CX, or GS.
+    IF LS-DCB-KEY = "DSORG" AND JD-VALUE-KEY(LS-D) = SPACES
+        MOVE FUNCTION TRIM(LS-DCB-VALUE) TO LS-SP-Q1
+        MOVE 0 TO LS-TIME-N
+        INSPECT LS-SP-Q1 TALLYING LS-TIME-N FOR ALL "&" ALL "%"
+        IF LS-TIME-N = 0 AND LS-SP-Q1 NOT = "PS" AND LS-SP-Q1 NOT = "PSU"
+           AND LS-SP-Q1 NOT = "DA" AND LS-SP-Q1 NOT = "DAU"
+           AND LS-SP-Q1 NOT = "PO" AND LS-SP-Q1 NOT = "POU"
+           AND LS-SP-Q1 NOT = "CX" AND LS-SP-Q1 NOT = "GS"
+            MOVE "DSORG" TO JD-VALUE-KEY(LS-D)
+            MOVE LS-SP-Q1 TO JD-VALUE-BAD(LS-D)
+        END-IF
+    END-IF
     EVALUATE LS-DCB-KEY
         WHEN "LRECL" WHEN "BLKSIZE"
             MOVE FUNCTION TRIM(LS-DCB-VALUE) TO LS-DCB-VALUE

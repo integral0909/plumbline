@@ -169,7 +169,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J036](#plb-j036-space-invalid) | space-invalid | error | SPACE= unit, quantity, or option the JCL Reference does not allow |
 | [PLB-J037](#plb-j037-disp-invalid) | disp-invalid | error | DISP= status or disposition the JCL Reference does not allow |
 | [PLB-J038](#plb-j038-output-unresolved) | output-unresolved | error | DD OUTPUT=*.name names no OUTPUT JCL statement before it |
-| [PLB-J039](#plb-j039-dd-value-invalid) | dd-value-invalid | error | HOLD, FREE, SPIN, AVGREC, RECORG, or DSNTYPE value not in the JCL Reference |
+| [PLB-J039](#plb-j039-dd-value-invalid) | dd-value-invalid | error | HOLD, FREE, SPIN, AVGREC, RECORG, DSNTYPE, DSORG value not in JCL Reference |
 | [PLB-J040](#plb-j040-recfm-invalid) | recfm-invalid | error | RECFM is none of the record formats the JCL Reference lists |
 | [PLB-J041](#plb-j041-dd-parameter-conflict) | dd-parameter-conflict | warning | DD codes two parameters the JCL Reference says not to code together |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
@@ -4217,7 +4217,9 @@ may take a time or a line count in parentheses; `AVGREC` is `U`, `K`, or
 `HFS`, `PDS`, `PIPE`, `EXTREQ`, `EXTPREF`, `LARGE`, or `BASIC`, where
 `LIBRARY`, `EXTREQ`, and `EXTPREF` may take a version, 1 or 2
 (`DSNTYPE=(LIBRARY,2)`). `DSNTYPE=PDSE` is not one: a PDSE is
-`LIBRARY`. Values with symbols are not read.
+`LIBRARY`. The `DSORG` of `DCB=( )` is `PS`, `PSU`, `DA`, `DAU`, `PO`,
+`POU`, `CX`, or `GS`; indexed sequential data sets (`DSORG=IS`) are no
+longer defined. Values with symbols are not read.
 
 ## PLB-J040 recfm-invalid
 
