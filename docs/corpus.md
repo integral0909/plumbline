@@ -336,6 +336,10 @@ The findings were checked by rule:
   `SQ-FS4` in `ST139A`, named only in `SAME SORT-MERGE AREA`. One in
   GnuCOBOL's tests, of `ASSIGN` parsing.
 
+- **PLB-C112 varying-step-zero.** None. NIST's `BY` items start
+  nonzero (`PERFORM10` in `NC201A` has `VALUE -1`), except `BOX-C` in
+  `NC401M`, `VALUE ZERO`, which its `MULTIPLY` and `DIVIDE` statements
+  set. None in GnuCOBOL's tests.
 - **PLB-C111 sort-statement-wrong-phase.** None in NIST's 29 programs
   with a `SORT` procedure, or in GnuCOBOL's tests. In a copy of NIST's
   `ST101A` with a `RELEASE` put first in its output procedure, it

@@ -1,0 +1,2 @@
+tests/golden/rules/c112-varying-step-zero.cob:20:36: warning: WS-STEP is 0 by its VALUE and nothing changes it: each step adds 0, so the counter moves only if the loop itself changes it [PLB-C112]
+tests/golden/rules/c112-varying-step-zero.cob:24:34: warning: WS-INC is 0 by its VALUE and nothing changes it: each step adds 0, so the counter moves only if the loop itself changes it [PLB-C112]

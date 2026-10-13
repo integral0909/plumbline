@@ -123,6 +123,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C109](#plb-c109-pointer-past-end) | pointer-past-end | warning | STRING or UNSTRING POINTER set past the end of its item just before |
 | [PLB-C110](#plb-c110-file-dd-shared) | file-dd-shared | warning | Two files of a program, one of them written, assigned to one DD |
 | [PLB-C111](#plb-c111-sort-statement-wrong-phase) | sort-statement-wrong-phase | error | RETURN in a SORT's INPUT PROCEDURE, or RELEASE in an OUTPUT PROCEDURE |
+| [PLB-C112](#plb-c112-varying-step-zero) | varying-step-zero | warning | PERFORM VARYING steps BY an item that is always 0 |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -3271,6 +3272,29 @@ A `RELEASE` or `RETURN` that no procedure of any `SORT` or `MERGE`
 reaches is reported too: with GnuCOBOL 3.2 it ends the run with the
 same permanent file error. When a procedure has a `GO TO` or `PERFORM`
 the analysis could not resolve, these are not reported.
+
+## PLB-C112 varying-step-zero
+
+A `PERFORM VARYING` or `AFTER` whose `BY` is a data item that holds 0
+for the whole run:
+
+```cobol
+01  WS-STEP             PIC S9(4) VALUE ZERO.
+    PERFORM VARYING WS-I FROM 1 BY WS-STEP UNTIL WS-I > 10   *> reported
+```
+
+Each step adds 0 to the counter, so it stays at its `FROM` value, and
+the `UNTIL` condition changes only if the loop's own statements change
+the counter: the loop runs no times or does not end. With GnuCOBOL 3.2,
+the loop above is still at 1 after 100,000 passes. GnuCOBOL rejects a
+`BY 0` literal ("non-zero value expected"), but not an item.
+
+The item must be numeric, in `WORKING-STORAGE` or `LOCAL-STORAGE`, with
+a `VALUE` of zero (`ZERO`, `ZEROS`, `ZEROES`, or a number equal to 0),
+and must not be subscripted. No statement may store into it or into a
+group it is in, or pass either to a `CALL` by reference, and no
+`REDEFINES` may share it. Items that are 0 only because a statement
+just before the loop sets them are not read.
 
 ## PLB-I001 pcb-dbd-unknown
 

@@ -376,6 +376,10 @@ Some findings that were read and are true:
   in place of `TRAN-ID`, it reports that item.
 - **PLB-M023 file-unused.** None. In a copy of `CBACT01C` with a
   `SELECT HIST-FILE` and its `FD` added, it reports `HIST-FILE`.
+- **PLB-C112 varying-step-zero.** None: its loops step by 1. In a copy
+  of `COUSR00C` with a `WS-IDX-STEP` of `VALUE 0` added, and its first
+  `PERFORM VARYING WS-IDX FROM 1 BY 1` made `BY WS-IDX-STEP`, it reports
+  that loop.
 - **PLB-C111 sort-statement-wrong-phase.** None: CardDemo's programs
   have no `SORT` procedures.
 - **PLB-C110 file-dd-shared.** None. In a copy of `CBSTM03A` whose
