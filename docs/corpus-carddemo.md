@@ -521,6 +521,9 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J025 dlm-not-instream.** None: no DD of CardDemo codes `DLM`.
+  In a copy of `INTRDRJ1` whose `SYSUT1` DD, a data set, is given
+  `DLM=@@`, it reports it.
 - **PLB-J024 sysout-parameter-conflict.** None among its 210 `SYSOUT`
   DDs. In a copy of `INTRDRJ1` whose `SYSPRINT` DDs are given
   `DISP=SHR`, it reports both.

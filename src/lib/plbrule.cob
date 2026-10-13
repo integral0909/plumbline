@@ -711,6 +711,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J024"
         "sysout-parameter-conflict" "W"
         "DD codes SYSOUT with DISP, VOL, LABEL, ..., or DEST, HOLD, OUTLIM without it"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J025"
+        "dlm-not-instream" "E"
+        "DD codes DLM but is not DD * or DD DATA"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
