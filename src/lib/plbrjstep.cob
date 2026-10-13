@@ -851,3 +851,122 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
     END-PERFORM
     GOBACK.
 END PROGRAM PLB-RULE-J025.
+
+*> ---------------------------------------------------------------
+*> PLB-J026 job-too-many-steps: a job of more than 255 steps, counting
+*> the steps of the procedures it calls:
+*>
+*>     //PAYALL   JOB ...
+*>     //DAY01    EXEC PAYDAY          (PAYDAY has 16 steps)
+*>     ...
+*>     //DAY16    EXEC PAYDAY          256 steps
+*>
+*> The z/OS MVS JCL Reference ("Steps in a Job") says: "A job can
+*> consist of up to 255 job steps, including all steps in any procedures
+*> that the job calls. Specification of a greater number of steps
+*> produces a JCL error." The count is a lower bound: a procedure that
+*> is not among the inputs counts as one step, and of several with one
+*> name the one with fewest steps is taken.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J026.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+*> Steps of each procedure, procedures it calls included.
+01  WS-PROC-STEPS           PIC 9(9) COMP-5 OCCURS JP-MAX TIMES.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-J                    PIC 9(9) COMP-5.
+01  LS-P                    PIC 9(9) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-Q                    PIC 9(9) COMP-5.
+01  LS-PASS                 PIC 9(4) COMP-5.
+01  LS-COUNT                PIC 9(9) COMP-5.
+01  LS-STEPS                PIC 9(9) COMP-5.
+01  LS-CHANGED              PIC X.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J026" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y" OR JJ-COUNT = 0
+        GOBACK
+    END-IF
+    *> Each procedure's steps, with those of the procedures it calls,
+    *> pass by pass: procedures nest at most 15 deep.
+    PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > JP-COUNT
+        MOVE 0 TO WS-PROC-STEPS(LS-P)
+    END-PERFORM
+    PERFORM VARYING LS-PASS FROM 1 BY 1 UNTIL LS-PASS > 16
+        MOVE "N" TO LS-CHANGED
+        PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > JP-COUNT
+            MOVE 0 TO LS-COUNT
+            PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
+                IF JS-PROC(LS-S) = LS-P
+                    PERFORM STEP-COUNT
+                    ADD LS-STEPS TO LS-COUNT
+                END-IF
+            END-PERFORM
+            IF LS-COUNT NOT = WS-PROC-STEPS(LS-P)
+                MOVE LS-COUNT TO WS-PROC-STEPS(LS-P)
+                MOVE "Y" TO LS-CHANGED
+            END-IF
+        END-PERFORM
+        IF LS-CHANGED = "N"
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J > JJ-COUNT
+        MOVE 0 TO LS-COUNT
+        PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
+            IF JS-JOB(LS-S) = LS-J AND JS-PROC(LS-S) = 0
+                PERFORM STEP-COUNT
+                ADD LS-STEPS TO LS-COUNT
+            END-IF
+        END-PERFORM
+        IF LS-COUNT > 255
+            PERFORM REPORT-JOB
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> LS-STEPS: the steps step LS-S stands for.
+STEP-COUNT.
+    MOVE 1 TO LS-STEPS
+    IF JS-KIND(LS-S) NOT = "R"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-STEPS
+    PERFORM VARYING LS-Q FROM 1 BY 1 UNTIL LS-Q > JP-COUNT
+        IF JP-NAME(LS-Q) = JS-TARGET(LS-S) AND WS-PROC-STEPS(LS-Q) > 0
+            IF LS-STEPS = 0 OR WS-PROC-STEPS(LS-Q) < LS-STEPS
+                MOVE WS-PROC-STEPS(LS-Q) TO LS-STEPS
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-STEPS = 0
+        MOVE 1 TO LS-STEPS
+    END-IF.
+
+REPORT-JOB.
+    MOVE LS-COUNT TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING "job " DELIMITED BY SIZE
+           JJ-NAME(LS-J) DELIMITED BY SPACE
+           " has at least " DELIMITED BY SIZE
+           LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           " steps with those of its procedures; z/OS takes 255"
+           DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        JJ-FILE-ID(LS-J) JJ-LINE(LS-J) LS-COLUMN LS-ZERO LS-MESSAGE.
+END PROGRAM PLB-RULE-J026.

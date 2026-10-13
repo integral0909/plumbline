@@ -356,6 +356,12 @@ check_absent "DLM on DD DATA"            'dlm.jcl:6:.*PLB-J025' \
     -- check --no-config $jx/dlm.jcl
 check_absent "DLM on DD *"                'dlm.jcl:9:.*PLB-J025' \
     -- check --no-config $jx/dlm.jcl
+check "256 steps with a procedure's"     1 'manysteps.jcl:2:3: error: job PAYALL has at least 256 steps.*\[PLB-J026\]' \
+    -- check --no-config $jx/manysteps.jcl $jx/payday.prc
+check_absent "255 steps are allowed"      'job PAYMOST' \
+    -- check --no-config $jx/manysteps.jcl $jx/payday.prc
+check_absent "a procedure not in the run counts as one step" 'PLB-J026' \
+    -- check --no-config $jx/manysteps.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
