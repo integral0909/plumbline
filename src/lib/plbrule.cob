@@ -678,6 +678,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J020"
         "jcl-name-invalid" "E"
         "JCL statement name is not 1 to 8 letters, digits, or $ # @"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J021"
+        "cond-always-bypasses" "W"
+        "COND test true for every return code, so the step never runs"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
