@@ -111,6 +111,8 @@ LOCAL-STORAGE SECTION.
 01  LS-NM-PART              PIC 9(4) COMP-5.
 01  LS-NM-PART-LEN          PIC 9(9) COMP-5.
 01  LS-NM-PROBLEM           PIC X.
+01  LS-NM-TEXT              PIC X(80).
+01  LS-NM-KIND              PIC X.
 01  LS-FIELD-1              PIC X(100).
 01  LS-FIELD-2              PIC X(100).
 01  LS-FIELD-3              PIC X(100).
@@ -299,9 +301,7 @@ READ-CONDITION.
         MOVE "Y" TO ST-CONTINUES
     END-IF.
 
-*> The name from column 3 to the first blank: each part (STEP.DDNAME
-*> has two) 1 to 8 letters, digits, or national characters, not
-*> starting with a digit. A wrong one is added to JN-ENTRY.
+*> The name from column 3 to the first blank, as the name field.
 CHECK-NAME.
     MOVE 3 TO LS-NM-END
     PERFORM UNTIL LS-NM-END > 71
@@ -311,20 +311,44 @@ CHECK-NAME.
         ADD 1 TO LS-NM-END
     END-PERFORM
     COMPUTE LS-NM-LEN = LS-NM-END - 3
+    MOVE SPACES TO LS-NM-TEXT
+    MOVE LS-TEXT(3:LS-NM-LEN) TO LS-NM-TEXT
+    MOVE "N" TO LS-NM-KIND
+    PERFORM CHECK-NAME-TEXT.
+
+*> The program or procedure an EXEC names, OP-VALUE, unless it is a
+*> backward reference (PGM=*.STEP.DD).
+CHECK-TARGET-NAME.
+    IF OP-KEY = SPACES
+        MOVE OP-ITEM-LEN TO LS-NM-LEN
+    ELSE
+        COMPUTE LS-NM-LEN = OP-ITEM-LEN - OP-EQ
+    END-IF
+    IF LS-NM-LEN < 1 OR LS-NM-LEN > 80 OR OP-VALUE(1:1) = "*"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE OP-VALUE(1:LS-NM-LEN) TO LS-NM-TEXT
+    PERFORM CHECK-NAME-TEXT.
+
+*> LS-NM-TEXT(1:LS-NM-LEN), a name of kind LS-NM-KIND: each part (a
+*> STEP.DDNAME in the name field has two) 1 to 8 letters, digits, or
+*> national characters, not starting with a digit. A wrong one is
+*> added to JN-ENTRY.
+CHECK-NAME-TEXT.
     MOVE 0 TO LS-D
-    INSPECT LS-TEXT(3:LS-NM-LEN) TALLYING LS-D FOR ALL "&"
+    INSPECT LS-NM-TEXT(1:LS-NM-LEN) TALLYING LS-D FOR ALL "&"
     IF LS-D > 0 OR JN-COUNT >= JN-MAX
         EXIT PARAGRAPH
     END-IF
     MOVE SPACE TO LS-NM-PROBLEM
     MOVE 1 TO LS-NM-PART
     MOVE 0 TO LS-NM-PART-LEN
-    PERFORM VARYING LS-NM-AT FROM 3 BY 1
-            UNTIL LS-NM-AT >= LS-NM-END
+    PERFORM VARYING LS-NM-AT FROM 1 BY 1
+            UNTIL LS-NM-AT > LS-NM-LEN
             OR LS-NM-PROBLEM NOT = SPACE
-        MOVE FUNCTION UPPER-CASE(LS-TEXT(LS-NM-AT:1)) TO LS-NM-CH
+        MOVE FUNCTION UPPER-CASE(LS-NM-TEXT(LS-NM-AT:1)) TO LS-NM-CH
         EVALUATE TRUE
-            WHEN LS-NM-CH = "." AND LS-NM-PART = 1
+            WHEN LS-NM-CH = "." AND LS-NM-PART = 1 AND LS-NM-KIND = "N"
                 IF LS-NM-PART-LEN = 0
                     MOVE "E" TO LS-NM-PROBLEM
                 ELSE
@@ -357,7 +381,9 @@ CHECK-NAME.
         EXIT PARAGRAPH
     END-IF
     ADD 1 TO JN-COUNT
-    MOVE FUNCTION UPPER-CASE(LS-TEXT(3:LS-NM-LEN)) TO JN-NAME(JN-COUNT)
+    MOVE LS-NM-KIND TO JN-KIND(JN-COUNT)
+    MOVE FUNCTION UPPER-CASE(LS-NM-TEXT(1:LS-NM-LEN))
+        TO JN-NAME(JN-COUNT)
     MOVE LS-NM-LEN TO JN-LEN(JN-COUNT)
     MOVE LS-NM-PART TO JN-PART(JN-COUNT)
     MOVE LS-NM-PROBLEM TO JN-PROBLEM(JN-COUNT)
@@ -544,12 +570,18 @@ ADD-STEP.
             WHEN OP-KEY = "PGM"
                 MOVE "P" TO JS-KIND(LS-STEP)
                 MOVE OP-VALUE TO JS-TARGET(LS-STEP)
+                MOVE "P" TO LS-NM-KIND
+                PERFORM CHECK-TARGET-NAME
             WHEN OP-KEY = "PROC"
                 MOVE "R" TO JS-KIND(LS-STEP)
                 MOVE OP-VALUE TO JS-TARGET(LS-STEP)
+                MOVE "R" TO LS-NM-KIND
+                PERFORM CHECK-TARGET-NAME
             WHEN OP-KEY = SPACES AND OP-POSITION = 1
                 MOVE "R" TO JS-KIND(LS-STEP)
                 MOVE OP-VALUE TO JS-TARGET(LS-STEP)
+                MOVE "R" TO LS-NM-KIND
+                PERFORM CHECK-TARGET-NAME
             WHEN OP-KEY = "PARM"
                 MOVE OP-VALUE TO LS-PARM
                 PERFORM COUNT-PARM
