@@ -141,6 +141,12 @@ LOCAL-STORAGE SECTION.
 01  LS-AVGREC-CODED         PIC X.
 01  LS-SPACE-UNIT           PIC X.
 01  LS-STORCLAS-CODED       PIC X.
+01  LS-VS-LIST              PIC X(4000).
+01  LS-VS-ITEM              PIC X(20).
+01  LS-VS-PTR               PIC 9(4) COMP-5.
+01  LS-VS-I                 PIC 9(4) COMP-5.
+01  LS-VS-COUNT             PIC 9(4) COMP-5.
+01  LS-VS-SEEN              PIC X(20) OCCURS 255 TIMES.
 01  LS-SUBSYS-CODED         PIC X.
 01  LS-DCB-VALUE            PIC X(40).
 01  LS-DCB-LEN              PIC 9(9) COMP-5.
@@ -1570,6 +1576,7 @@ ADD-DD.
         JD-DISP-BAD(LS-D) JD-DISP-PART(LS-D) JD-VALUE-KEY(LS-D)
         JD-VALUE-BAD(LS-D) JD-RECFM-BAD(LS-D) JD-CONFLICT-1(LS-D)
         JD-CONFLICT-2(LS-D) JD-UNIT-AFF(LS-D) JD-AFF-WITH(LS-D)
+        JD-VOLSER-BAD(LS-D) JD-VOLSER-WHY(LS-D)
     MOVE "N" TO JD-FREE-CLOSE(LS-D) LS-STORCLAS-CODED
     MOVE "N" TO LS-LRECL-KW LS-LRECL-DCB LS-RECFM-KW LS-RECFM-DCB
         LS-DSORG-DCB LS-DSNTYPE-CODED LS-FREE-CLOSE LS-AVGREC-CODED
@@ -1614,6 +1621,7 @@ ADD-DD.
                 PERFORM NOTE-REFERENCE
             WHEN OP-KEY = "VOL" OR OP-KEY = "VOLUME"
                 PERFORM VOLUME-REFERENCE
+                PERFORM CHECK-VOL-SER
             WHEN OP-KEY = "SYSOUT"
                 MOVE "S" TO JD-KIND(LS-D)
                 MOVE "Y" TO JD-SYSOUT(LS-D)
@@ -1724,6 +1732,79 @@ NOTE-SYSOUT-KEY.
             WHEN "DEST" WHEN "HOLD" WHEN "OUTLIM"
                 MOVE OP-KEY TO LS-ONLY-WITH-SYSOUT
         END-EVALUATE
+    END-IF.
+
+*> VOL=SER=serial or SER=(serial,...): each "1 through 6 alphanumeric,
+*> national ($, #, @), or special characters", not SCRTCH, PRIVAT,
+*> MIGRAT, or Lnnnnn, which the system uses, and none twice (z/OS MVS
+*> JCL Reference, VOLUME parameter). Apostrophes around a serial are
+*> not counted; values with symbols are not read.
+CHECK-VOL-SER.
+    MOVE 0 TO LS-TIME-N
+    INSPECT OP-VALUE TALLYING LS-TIME-N FOR ALL "&" ALL "%"
+    IF LS-TIME-N > 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-E
+    INSPECT OP-VALUE TALLYING LS-E FOR CHARACTERS BEFORE "SER="
+    IF LS-E >= LENGTH OF OP-VALUE - 4
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-VS-LIST
+    IF OP-VALUE(LS-E + 5:1) = "("
+        UNSTRING OP-VALUE(LS-E + 6:) DELIMITED BY ")" INTO LS-VS-LIST
+    ELSE
+        UNSTRING OP-VALUE(LS-E + 5:) DELIMITED BY "," OR ")"
+            INTO LS-VS-LIST
+    END-IF
+    MOVE 0 TO LS-VS-COUNT
+    MOVE 1 TO LS-VS-PTR
+    PERFORM UNTIL LS-VS-PTR > LENGTH OF LS-VS-LIST
+        MOVE SPACES TO LS-VS-ITEM
+        UNSTRING LS-VS-LIST DELIMITED BY "," INTO LS-VS-ITEM
+            WITH POINTER LS-VS-PTR
+        END-UNSTRING
+        IF LS-VS-ITEM = SPACES
+            EXIT PERFORM
+        END-IF
+        INSPECT LS-VS-ITEM REPLACING ALL "'" BY SPACE
+        MOVE FUNCTION TRIM(LS-VS-ITEM) TO LS-VS-ITEM
+        PERFORM CHECK-SERIAL
+        IF JD-VOLSER-WHY(LS-D) NOT = SPACE
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+*> One serial, LS-VS-ITEM, against those before it and the rules.
+CHECK-SERIAL.
+    MOVE 0 TO LS-TIME-N
+    INSPECT LS-VS-ITEM TALLYING LS-TIME-N
+        FOR CHARACTERS BEFORE INITIAL " "
+    EVALUATE TRUE
+        WHEN LS-TIME-N > 6
+            MOVE "L" TO JD-VOLSER-WHY(LS-D)
+        WHEN LS-VS-ITEM = "SCRTCH" OR LS-VS-ITEM = "PRIVAT"
+             OR LS-VS-ITEM = "MIGRAT"
+            MOVE "R" TO JD-VOLSER-WHY(LS-D)
+        WHEN LS-TIME-N = 6 AND LS-VS-ITEM(1:1) = "L"
+             AND LS-VS-ITEM(2:5) IS NUMERIC
+            MOVE "R" TO JD-VOLSER-WHY(LS-D)
+        WHEN OTHER
+            PERFORM VARYING LS-VS-I FROM 1 BY 1
+                    UNTIL LS-VS-I > LS-VS-COUNT
+                IF LS-VS-SEEN(LS-VS-I) = LS-VS-ITEM
+                    MOVE "D" TO JD-VOLSER-WHY(LS-D)
+                    EXIT PERFORM
+                END-IF
+            END-PERFORM
+    END-EVALUATE
+    IF JD-VOLSER-WHY(LS-D) NOT = SPACE
+        MOVE LS-VS-ITEM TO JD-VOLSER-BAD(LS-D)
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-VS-COUNT < 255
+        ADD 1 TO LS-VS-COUNT
+        MOVE LS-VS-ITEM TO LS-VS-SEEN(LS-VS-COUNT)
     END-IF.
 
 *> VOL=REF=*.STEP.DD, also inside VOL=(,,,REF=*.STEP.DD).

@@ -792,6 +792,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J045"
         "unit-aff-invalid" "W"
         "UNIT=AFF names no earlier DD of the step, or is coded where it may not be"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J046"
+        "vol-ser-invalid" "E"
+        "VOL=SER serial longer than 6, reserved (SCRTCH, PRIVAT, ...), or twice"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

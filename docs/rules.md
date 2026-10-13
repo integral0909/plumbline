@@ -177,6 +177,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J043](#plb-j043-joblib-misplaced) | joblib-misplaced | error | JOBLIB DD not right after the JOB statement, or in a procedure |
 | [PLB-J044](#plb-j044-jcllib-misplaced) | jcllib-misplaced | error | JCLLIB after the job's first EXEC, a second in a job, or in a procedure |
 | [PLB-J045](#plb-j045-unit-aff-invalid) | unit-aff-invalid | warning | UNIT=AFF names no earlier DD of the step, or is coded where it may not be |
+| [PLB-J046](#plb-j046-vol-ser-invalid) | vol-ser-invalid | error | VOL=SER serial longer than 6, reserved (SCRTCH, PRIVAT, ...), or twice |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -4358,6 +4359,24 @@ UNIT=AFF=ddname" on a `DD *` or `DD DATA` statement or one with
 `SUBSYS` ("the system ignores the UNIT=AFF"), "when the DD statement
 referenced in the AFF subparameter contains FREE=CLOSE", or "with the
 STORCLAS parameter". DDs named `STEP.DD` are not read.
+
+## PLB-J046 vol-ser-invalid
+
+A `VOL=SER` serial number the z/OS MVS JCL Reference does not allow:
+
+```jcl
+//MASTER   DD DSN=PAY.MASTER,DISP=OLD,VOL=SER=PAYVOL1,UNIT=3390  reported
+//TAPES    DD DSN=PAY.TAPES,DISP=OLD,VOL=SER=(T00001,T00001)    reported
+```
+
+The `VOLUME` parameter: "A volume serial number is 1 through 6
+alphanumeric, national ($, #, @), or special characters"; "Do not code a
+volume serial number as SCRTCH, PRIVAT, or Lnnnnn (L with five
+numbers)", nor as `MIGRAT`, names the system uses when it asks for a
+volume, for an unlabeled tape, and for migrated data sets; and "Do not
+specify duplicate volume serial numbers in a SER subparameter".
+Apostrophes around a serial are not counted; values with symbols are
+not read.
 
 ## PLB-K001 cics-resource-undefined
 

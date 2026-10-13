@@ -2564,3 +2564,69 @@ CHECK-DD.
             JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE
     END-IF.
 END PROGRAM PLB-RULE-J045.
+
+*> ---------------------------------------------------------------
+*> PLB-J046 vol-ser-invalid: a VOL=SER serial number the z/OS MVS JCL
+*> Reference does not allow:
+*>
+*>     //MASTER   DD DSN=PAY.MASTER,DISP=OLD,VOL=SER=PAYVOL1,UNIT=3390
+*>     //TAPES    DD DSN=PAY.TAPES,DISP=OLD,VOL=SER=(T00001,T00001)
+*>
+*> "A volume serial number is 1 through 6 alphanumeric, national ($, #,
+*> @), or special characters"; "Do not code a volume serial number as
+*> SCRTCH, PRIVAT, or Lnnnnn (L with five numbers)", nor MIGRAT, names
+*> the system uses for volumes it asks the operator for, unlabeled
+*> tapes, and migrated data sets; and "Do not specify duplicate volume
+*> serial numbers in a SER subparameter" (VOLUME parameter). Values with
+*> symbols are not read.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J046.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-WHY                  PIC X(80).
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J046" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-VOLSER-WHY(LS-D) NOT = SPACE
+            EVALUATE JD-VOLSER-WHY(LS-D)
+                WHEN "L"
+                    MOVE "longer than the 6 characters of a volume serial"
+                        TO LS-WHY
+                WHEN "R"
+                    MOVE SPACES TO LS-WHY
+                    STRING "a name the system uses (SCRTCH, PRIVAT, MIGRAT,"
+                           " Lnnnnn)" DELIMITED BY SIZE
+                        INTO LS-WHY
+                WHEN OTHER
+                    MOVE "named twice in the list" TO LS-WHY
+            END-EVALUATE
+            MOVE SPACES TO LS-MESSAGE
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " codes volume serial " DELIMITED BY SIZE
+                   JD-VOLSER-BAD(LS-D) DELIMITED BY SPACE
+                   ", " DELIMITED BY SIZE
+                   LS-WHY DELIMITED BY "  "
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+        END-IF
+    END-PERFORM
+    GOBACK.
+END PROGRAM PLB-RULE-J046.

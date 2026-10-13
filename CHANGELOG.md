@@ -298,6 +298,8 @@ uses [Semantic Versioning](https://semver.org/).
   statements out of their place.
 - Rule PLB-J045 unit-aff-invalid; the JCL reader keeps `UNIT=AFF=` and
   `FREE=CLOSE` of each DD.
+- Rule PLB-J046 vol-ser-invalid; the JCL reader checks each `VOL=SER`
+  serial.
 - Rule PLB-Q025 insert-not-null-missing; `plumbline dump sql` shows a
   column with a default as `default`.
 - Rule PLB-J018 gdg-generation-not-created.

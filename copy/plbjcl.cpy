@@ -178,6 +178,11 @@
         *> UNIT=AFF=ddname: the ddname, or spaces. JD-AFF-WITH: S the DD
         *> codes STORCLAS, U SUBSYS, I it is in-stream data. JD-FREE-CLOSE:
         *> "Y" when the DD codes FREE=CLOSE.
+        *> The first VOL=SER serial the JCL Reference does not allow,
+        *> and why: L not 1 to 6 characters, R a name the system uses
+        *> (SCRTCH, PRIVAT, MIGRAT, Lnnnnn), D named twice.
+        10  JD-VOLSER-BAD       PIC X(20).
+        10  JD-VOLSER-WHY       PIC X.
         10  JD-UNIT-AFF         PIC X(8).
         10  JD-AFF-WITH         PIC X.
         10  JD-FREE-CLOSE       PIC X.
