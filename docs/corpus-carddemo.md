@@ -402,7 +402,8 @@ Some findings that were read and are true:
   value-overridden.** None.
 - **PLB-Q023 select-not-grouped.** None: its one aggregate, `SELECT
   COUNT(1)` in `COTRTLIC`, is alone in its list. In a copy that selects
-  `COUNT(1), TR_TYPE`, it reports `TR_TYPE`.
+  `COUNT(1), TR_TYPE`, it reports `TR_TYPE`, and in one with `HAVING
+  TR_TYPE > '00'` added to that query, the `TR_TYPE` of the `HAVING`.
 - **PLB-Q022 aggregate-in-where.** None. In a copy of `COTRTLIC` whose
   cursor's `WHERE TR_TYPE >= :WS-START-KEY` is made `WHERE
   MAX(TR_TYPE) >= ...`, it reports the `MAX`.

@@ -542,7 +542,7 @@ PROCEDURE DIVISION USING PLB-RULES.
         "SQL WHERE uses an aggregate function such as SUM or COUNT"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-Q023"
         "select-not-grouped" "E"
-        "SQL selects a column a grouped query does not group by"
+        "SQL grouped query selects or tests a column it does not group by"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-Q017"
         "fetch-after-close" "E"
         "FETCH or CLOSE of an SQL cursor after its CLOSE, with no OPEN"
