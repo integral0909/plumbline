@@ -158,6 +158,10 @@
         *> the value as written.
         10  JD-VALUE-KEY        PIC X(8).
         10  JD-VALUE-BAD        PIC X(20).
+        *> A RECFM, as a keyword or in DCB=( ), that is none of the
+        *> formats the JCL Reference lists, as written; spaces when
+        *> there is none.
+        10  JD-RECFM-BAD        PIC X(10).
         *> The class of SYSOUT= when the JCL Reference does not allow it
         *> (not one character, A through Z or 0 through 9, or *).
         10  JD-CLASS-BAD        PIC X(10).
