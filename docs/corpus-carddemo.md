@@ -400,6 +400,10 @@ Some findings that were read and are true:
   and 4200 swapped, it reports entry 4 after entry 3.
 - **PLB-C098 group-value-into-packed** and **PLB-C099
   value-overridden.** None.
+- **PLB-Q026 cursor-table-mismatch.** None: CardDemo has no `WHERE
+  CURRENT OF`. In a copy of `COTRTLIC` with a `DELETE FROM
+  CARDDEMO.AUTHFRDS WHERE CURRENT OF C-TR-TYPE-FORWARD` after a fetch of
+  that cursor, on `TRANSACTION_TYPE`, it reports it.
 - **PLB-Q025 insert-not-null-missing.** None: its `INSERT` statements
   give every `NOT NULL` column. In a copy of `COBTUPDT` whose `INSERT`
   into `TRANSACTION_TYPE` gives only `TR_TYPE`, it reports
