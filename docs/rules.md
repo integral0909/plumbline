@@ -172,7 +172,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J039](#plb-j039-dd-value-invalid) | dd-value-invalid | error | DD keyword value the JCL Reference does not list (HOLD, RECORG, LABEL, ...) |
 | [PLB-J040](#plb-j040-recfm-invalid) | recfm-invalid | error | RECFM is none of the record formats the JCL Reference lists |
 | [PLB-J041](#plb-j041-dd-parameter-conflict) | dd-parameter-conflict | warning | DD codes two parameters the JCL Reference says not to code together |
-| [PLB-J042](#plb-j042-exec-value-invalid) | exec-value-invalid | error | ADDRSPC, RD, or MEMLIMIT value the JCL Reference does not list |
+| [PLB-J042](#plb-j042-exec-value-invalid) | exec-value-invalid | error | JOB or EXEC value the JCL Reference does not list (RD, TYPRUN, PRTY, ...) |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -4278,8 +4278,10 @@ whose value the z/OS MVS JCL Reference does not list:
 `ADDRSPC` is `VIRT` or `REAL`; `RD` is `R`, `RNC`, `NR`, or `NC`; and
 `MEMLIMIT` is `NOLIMIT` or `nnnnnM`, `nnnnnG`, `nnnnnT`, or `nnnnnP`,
 where "nnnnn may be a value from 0 to 99999, with a maximum value of
-16384P". The same values hold on `JOB` and `EXEC` statements. Values with
-symbols are not read.
+16384P". The same values hold on `JOB` and `EXEC` statements. Of the
+`JOB` statement alone, `TYPRUN` is `COPY`, `HOLD`, `JCLHOLD`, or `SCAN`;
+`PRTY` is "a number from 0 through 15" (14 under JES3); and `JESLOG` is
+`SPIN`, `NOSPIN`, or `SUPPRESS`. Values with symbols are not read.
 
 ## PLB-K001 cics-resource-undefined
 

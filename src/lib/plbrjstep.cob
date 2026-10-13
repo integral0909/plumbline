@@ -2254,7 +2254,9 @@ END PROGRAM PLB-RULE-J041.
 *>
 *> ADDRSPC is VIRT or REAL; RD is R, RNC, NR, or NC; MEMLIMIT is NOLIMIT
 *> or nnnnnM, nnnnnG, nnnnnT, or nnnnnP, "nnnnn may be a value from 0 to
-*> 99999, with a maximum value of 16384P". Values with symbols are not
+*> 99999, with a maximum value of 16384P". Of the JOB statement alone,
+*> TYPRUN is COPY, HOLD, JCLHOLD, or SCAN; PRTY "a number from 0 through
+*> 15"; JESLOG SPIN, NOSPIN, or SUPPRESS. Values with symbols are not
 *> read.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
@@ -2323,6 +2325,12 @@ VALUES-OF-KEY.
     EVALUATE TRUE
         WHEN LS-KEY(1:7) = "ADDRSPC"
             MOVE "VIRT or REAL" TO LS-VALUES
+        WHEN LS-KEY = "TYPRUN"
+            MOVE "COPY, HOLD, JCLHOLD, or SCAN" TO LS-VALUES
+        WHEN LS-KEY = "PRTY"
+            MOVE "a priority from 0 through 15" TO LS-VALUES
+        WHEN LS-KEY = "JESLOG"
+            MOVE "SPIN, NOSPIN, or SUPPRESS" TO LS-VALUES
         WHEN LS-KEY(1:2) = "RD"
             MOVE "R, RNC, NR, or NC" TO LS-VALUES
         WHEN OTHER

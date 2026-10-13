@@ -534,8 +534,10 @@ Some findings that were read and are true:
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
 - **PLB-J042 exec-value-invalid.** None: CardDemo codes no `ADDRSPC`,
-  `RD`, or `MEMLIMIT`. In a copy of `DUSRSECJ` with `RD=RESTART` added
-  to its `JOB` statement, it reports the job.
+  `RD`, `MEMLIMIT`, `PRTY`, or `JESLOG`, and one `TYPRUN=SCAN`
+  (`CREADB21`). In a copy of `DUSRSECJ` with `RD=RESTART` added to its
+  `JOB` statement, it reports the job, and in one of `CREADB21` with
+  `TYPRUN=CHECK`, that job.
 - **PLB-J041 dd-parameter-conflict.** None. In a copy of `DUSRSECJ`
   whose `SYSUT2` DD, which has `DCB=(LRECL=80,...)`, is also given
   `LRECL=80`, it reports that DD.
