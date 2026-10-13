@@ -136,6 +136,13 @@
         *> space when nothing is. JD-RETAIN-VALUE: the value, as written.
         10  JD-RETAIN-PROBLEM   PIC X.
         10  JD-RETAIN-VALUE     PIC X(20).
+        *> The first part of SPACE= that the JCL Reference does not
+        *> allow, as written (a unit other than TRK, CYL, ABSTR, or a
+        *> length of 0 to 65535; a quantity above 16777215 or not a
+        *> number; an option other than RLSE, CONTIG, MXIG, ALX, ROUND),
+        *> with JD-SPACE-PART: U unit, Q quantity, O option.
+        10  JD-SPACE-BAD        PIC X(20).
+        10  JD-SPACE-PART       PIC X.
         *> The class of SYSOUT= when the JCL Reference does not allow it
         *> (not one character, A through Z or 0 through 9, or *).
         10  JD-CLASS-BAD        PIC X(10).

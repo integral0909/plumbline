@@ -468,6 +468,16 @@ check "RETPD of a temporary data set"     1 'retain.jcl:9:3: error: DD WORK give
     -- check --no-config $jx/retain.jcl
 check_absent "EXPDT and RETPD allowed"    'retain.jcl:1[2-5]:.*PLB-J035' \
     -- check --no-config $jx/retain.jcl
+check "a SPACE unit that is not one"     1 'spacebad.jcl:5:3: error: DD TRACKS codes SPACE with TRACKS,.*\[PLB-J036\]' \
+    -- check --no-config $jx/spacebad.jcl
+check "a SPACE quantity above 16777215"   1 'spacebad.jcl:6:3: error: DD HUGE codes SPACE with (20000000,5),.*\[PLB-J036\]' \
+    -- check --no-config $jx/spacebad.jcl
+check "a SPACE option that is not one"    1 'spacebad.jcl:7:3: error: DD FREE codes SPACE with RELEASE,.*\[PLB-J036\]' \
+    -- check --no-config $jx/spacebad.jcl
+check_absent "SPACE forms the Reference shows" 'spacebad.jcl:1[0-2]:.*PLB-J036' \
+    -- check --no-config $jx/spacebad.jcl
+check_absent "SPACE=(TRK,(20,,2))"        'spacebad.jcl:9:.*PLB-J036' \
+    -- check --no-config $jx/spacebad.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \

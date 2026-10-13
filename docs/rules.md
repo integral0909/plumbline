@@ -166,6 +166,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J033](#plb-j033-cond-invalid) | cond-invalid | error | COND test code above 4095, operator unknown, or more than 8 tests |
 | [PLB-J034](#plb-j034-lrecl-invalid) | lrecl-invalid | error | LRECL above 32760, 0 without RECFM=U, or below 5 for RECFM=V |
 | [PLB-J035](#plb-j035-retention-invalid) | retention-invalid | error | EXPDT or RETPD not a valid date or period, both coded, or on a temporary |
+| [PLB-J036](#plb-j036-space-invalid) | space-invalid | error | SPACE= unit, quantity, or option the JCL Reference does not allow |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -4130,6 +4131,23 @@ dates. `RETPD` is "one through five decimal digits (0-93000)". The two
 do the same thing, and the Reference lists `RETPD` among the parameters
 not to code with `EXPDT`; and it says "Do not specify EXPDT for a
 temporary data set", and the same of `RETPD`. Values with symbols are
+not read.
+
+## PLB-J036 space-invalid
+
+A DD whose `SPACE=` the z/OS MVS JCL Reference does not allow:
+
+```jcl
+//TRACKS   DD DSN=PAY.TRACKS,DISP=(NEW,CATLG),SPACE=(TRACKS,(10,5))  reported
+//FREE     DD DSN=PAY.FREE,DISP=(NEW,CATLG),SPACE=(CYL,(1,1),RELEASE) reported
+```
+
+`SPACE=(unit,(primary,secondary,directory),options)` ("SPACE
+parameter"): the unit is `TRK`, `CYL`, `ABSTR`, or a block or record
+length "from 0 through 65535"; of the quantities, "syntax allows for
+values of 0-16777215"; and the options are `RLSE`, `CONTIG`, `MXIG`,
+`ALX`, and `ROUND`, so the words spelled out, `TRACKS` or `RELEASE`, are
+not. The first part not allowed is reported; values with symbols are
 not read.
 
 ## PLB-K001 cics-resource-undefined

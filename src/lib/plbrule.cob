@@ -753,6 +753,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J035"
         "retention-invalid" "E"
         "EXPDT or RETPD not a valid date or period, both coded, or on a temporary"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J036"
+        "space-invalid" "E"
+        "SPACE= unit, quantity, or option the JCL Reference does not allow"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
