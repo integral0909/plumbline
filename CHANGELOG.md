@@ -296,6 +296,8 @@ uses [Semantic Versioning](https://semver.org/).
   parameters of each DD that conflict with `SYSOUT`, or need it.
 - Rule PLB-J025 dlm-not-instream.
 - Rule PLB-J026 job-too-many-steps.
+- PLB-J010 dsn-invalid also reports a relative generation number that
+  is above 255, or not a sign or 0 followed by 1 to 3 digits.
 - Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
   the name field.
 - Rule PLB-J019 parm-too-long; the JCL reader counts the characters of

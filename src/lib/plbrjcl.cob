@@ -1093,6 +1093,10 @@ END PROGRAM PLB-RULE-J009.
 *> characters, in qualifiers of 1 to 8 characters joined by periods;
 *> each starts with a letter or a national character (#, @, $) and
 *> goes on with letters, digits, national characters, and hyphens.
+*> A relative generation in parentheses, PAY.HIST(+1), is +, -, or 0
+*> followed by digits, 1 to 3 of them, and at most 255 (the z/OS MVS
+*> JCL Reference, DSNAME: "A relative generation number cannot exceed
+*> 255"); (+300) and (1) are reported too.
 *> The job ends with a JCL error before any step runs. PLB-JCL-READ
 *> checks the names (copy/plbjcl.cpy); temporary data sets, symbols,
 *> backward references, quoted names, and NULLFILE are not checked.
@@ -1132,6 +1136,12 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
 REPORT-NAME.
     MOVE SPACES TO LS-MESSAGE
     MOVE 1 TO LS-PTR
+    IF JD-DSN-PROBLEM(LS-D) = "G" OR JD-DSN-PROBLEM(LS-D) = "H"
+        PERFORM GENERATION-MESSAGE
+        CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+            JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE
+        EXIT PARAGRAPH
+    END-IF
     IF JD-DSN-PROBLEM(LS-D) = "L"
         MOVE JD-DSN-AT(LS-D) TO LS-NUM
         CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
@@ -1171,6 +1181,21 @@ REPORT-NAME.
     END-IF
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
         JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
+
+GENERATION-MESSAGE.
+    STRING "data set name " DELIMITED BY SIZE
+           JD-DSN(LS-D) DELIMITED BY "("
+           ": relative generation " DELIMITED BY SIZE
+           JD-DSN-GEN(LS-D) DELIMITED BY SPACE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    IF JD-DSN-PROBLEM(LS-D) = "G"
+        STRING " is more than 255 generations away" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    ELSE
+        STRING " is not a sign and 1 to 3 digits, or up to 3 digits"
+               " starting with 0" DELIMITED BY SIZE
+            INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-IF.
 
 *> LS-PART: qualifier number JD-DSN-AT(LS-D) of the name.
 FIND-QUALIFIER.

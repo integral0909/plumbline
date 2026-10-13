@@ -362,6 +362,22 @@ check_absent "255 steps are allowed"      'job PAYMOST' \
     -- check --no-config $jx/manysteps.jcl $jx/payday.prc
 check_absent "a procedure not in the run counts as one step" 'PLB-J026' \
     -- check --no-config $jx/manysteps.jcl
+check "a generation past 255"             1 'gener.jcl:5:3: error: data set name PAY.HIST: relative generation -300 is more than 255.*\[PLB-J010\]' \
+    -- check --no-config $jx/gener.jcl
+check "a generation without a sign"       1 'gener.jcl:6:3: error: .*relative generation 1 is not a sign.*\[PLB-J010\]' \
+    -- check --no-config $jx/gener.jcl
+check "a generation of four digits"       1 'gener.jcl:7:3: error: .*relative generation +0001 is not.*\[PLB-J010\]' \
+    -- check --no-config $jx/gener.jcl
+check "a generation with a letter"        1 'gener.jcl:8:3: error: .*relative generation +1A is not.*\[PLB-J010\]' \
+    -- check --no-config $jx/gener.jcl
+check_absent "generation 0"               'gener.jcl:10:' \
+    -- check --no-config $jx/gener.jcl
+check_absent "generation -255"            'gener.jcl:11:' \
+    -- check --no-config $jx/gener.jcl
+check_absent "generation +1"              'gener.jcl:12:' \
+    -- check --no-config $jx/gener.jcl
+check_absent "a member name"              'gener.jcl:13:' \
+    -- check --no-config $jx/gener.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \

@@ -95,6 +95,8 @@ LOCAL-STORAGE SECTION.
 01  LS-DCB-ITEM             PIC X(80).
 01  LS-DCB-KEY              PIC X(8).
 01  LS-NOT-WITH-SYSOUT      PIC X(8).
+01  LS-GEN                  PIC X(10).
+01  LS-GEN-LEN              PIC 9(4) COMP-5.
 01  LS-ONLY-WITH-SYSOUT     PIC X(8).
 01  LS-DCB-VALUE            PIC X(40).
 01  LS-DCB-LEN              PIC 9(9) COMP-5.
@@ -667,7 +669,7 @@ ADD-DD.
         JD-DISP(LS-D) JD-NORMAL(LS-D)
     MOVE "N" TO JD-CONCAT(LS-D)
     MOVE 0 TO JD-LRECL(LS-D) JD-BLKSIZE(LS-D) JD-DSN-AT(LS-D)
-    MOVE SPACES TO JD-RECFM(LS-D) JD-DSN-PROBLEM(LS-D)
+    MOVE SPACES TO JD-RECFM(LS-D) JD-DSN-PROBLEM(LS-D) JD-DSN-GEN(LS-D)
     MOVE "N" TO JD-SYSOUT(LS-D) JD-DLM(LS-D)
     MOVE SPACES TO JD-SYSOUT-CLASH(LS-D) LS-NOT-WITH-SYSOUT
         LS-ONLY-WITH-SYSOUT
@@ -844,6 +846,50 @@ CHECK-DSN-NAME.
     END-PERFORM
     IF JD-DSN-PROBLEM(LS-D) NOT = SPACE
         MOVE LS-QUAL-NO TO JD-DSN-AT(LS-D)
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM CHECK-DSN-GENERATION.
+
+*> A relative generation in the parentheses after the name: +, -, or 0
+*> first, then digits, at most 3 after a sign, and at most 255 (z/OS
+*> MVS JCL Reference, DSNAME). What starts with a letter or national
+*> character is a member name, and is not read here.
+CHECK-DSN-GENERATION.
+    IF LS-NAME-LEN >= LENGTH OF OP-VALUE
+        EXIT PARAGRAPH
+    END-IF
+    IF OP-VALUE(LS-NAME-LEN + 1:1) NOT = "("
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-GEN
+    UNSTRING OP-VALUE(LS-NAME-LEN + 2:) DELIMITED BY ")" INTO LS-GEN
+    MOVE 0 TO LS-GEN-LEN
+    INSPECT LS-GEN TALLYING LS-GEN-LEN FOR CHARACTERS BEFORE INITIAL " "
+    IF LS-GEN-LEN = 0
+        EXIT PARAGRAPH
+    END-IF
+    EVALUATE TRUE
+        WHEN LS-GEN(1:1) = "+" OR LS-GEN(1:1) = "-"
+            IF LS-GEN-LEN < 2 OR LS-GEN-LEN > 4
+                MOVE "H" TO JD-DSN-PROBLEM(LS-D)
+            ELSE
+                IF LS-GEN(2:LS-GEN-LEN - 1) IS NOT NUMERIC
+                    MOVE "H" TO JD-DSN-PROBLEM(LS-D)
+                ELSE
+                    IF FUNCTION NUMVAL(LS-GEN(2:LS-GEN-LEN - 1)) > 255
+                        MOVE "G" TO JD-DSN-PROBLEM(LS-D)
+                    END-IF
+                END-IF
+            END-IF
+        WHEN LS-GEN(1:1) = "0"
+            IF LS-GEN-LEN > 3 OR LS-GEN(1:LS-GEN-LEN) IS NOT NUMERIC
+                MOVE "H" TO JD-DSN-PROBLEM(LS-D)
+            END-IF
+        WHEN LS-GEN(1:1) >= "1" AND LS-GEN(1:1) <= "9"
+            MOVE "H" TO JD-DSN-PROBLEM(LS-D)
+    END-EVALUATE
+    IF JD-DSN-PROBLEM(LS-D) NOT = SPACE
+        MOVE LS-GEN TO JD-DSN-GEN(LS-D)
     END-IF.
 
 NOTE-REFERENCE.
