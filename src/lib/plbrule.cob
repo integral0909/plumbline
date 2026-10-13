@@ -726,6 +726,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J029"
         "time-invalid" "E"
         "TIME= minutes above 357912, seconds above 59, or 0 on a JOB statement"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J030"
+        "region-invalid" "E"
+        "REGION= not 0K to 2096128K or 0M to 2047M"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
