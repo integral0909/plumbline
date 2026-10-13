@@ -681,6 +681,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J021"
         "cond-always-bypasses" "W"
         "COND test true for every return code, so the step never runs"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J022"
+        "cond-never-true" "W"
+        "COND test true for no return code, so it never bypasses the step"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

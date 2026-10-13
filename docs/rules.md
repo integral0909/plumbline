@@ -149,6 +149,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J019](#plb-j019-parm-too-long) | parm-too-long | error | EXEC PARM passes more than the 100 characters z/OS takes |
 | [PLB-J020](#plb-j020-jcl-name-invalid) | jcl-name-invalid | error | JCL statement name is not 1 to 8 letters, digits, or $ # @ |
 | [PLB-J021](#plb-j021-cond-always-bypasses) | cond-always-bypasses | warning | COND test true for every return code, so the step never runs |
+| [PLB-J022](#plb-j022-cond-never-true) | cond-never-true | warning | COND test true for no return code, so it never bypasses the step |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -3768,6 +3769,21 @@ any return code above 0, or `(4,LT)` was usually meant.
 Tests in a list (`COND=((8,LT),(0,LE))`) and tests of a named step are
 read. The first step of a job, with no step before it, and the steps
 of procedures are not.
+
+## PLB-J022 cond-never-true
+
+A step whose `COND` has a test that is true for no return code:
+
+```jcl
+//BACKUP   EXEC PGM=PAYBKUP,COND=(0,GT)      reported
+```
+
+By the same reading as [PLB-J021](#plb-j021-cond-always-bypasses),
+`(0,GT)` bypasses the step when 0 is greater than the return code, and
+`(4095,LT)` when 4095 is less than it, which no return code from 0 to
+4095 makes true: the test never bypasses the step, and the step runs
+whatever the steps before it returned. The operator was usually turned
+round: `(0,LT)` bypasses the step after any return code above 0.
 
 ## PLB-K001 cics-resource-undefined
 
