@@ -204,6 +204,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q022](#plb-q022-aggregate-in-where) | aggregate-in-where | error | SQL WHERE uses an aggregate function such as SUM or COUNT |
 | [PLB-Q023](#plb-q023-select-not-grouped) | select-not-grouped | error | SQL grouped query selects or tests a column it does not group by |
 | [PLB-Q024](#plb-q024-column-undeclared) | column-undeclared | error | SQL names a column that the DECLARE TABLE of its table lacks |
+| [PLB-Q025](#plb-q025-insert-not-null-missing) | insert-not-null-missing | error | SQL INSERT leaves out a NOT NULL column that has no default |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -4822,6 +4823,33 @@ column list, and an `UPDATE`'s `SET`. A column qualified by a
 correlation name (`A.OWNER`) is looked for by its name. Only statements
 whose tables all have a `DECLARE TABLE` in the file are checked;
 columns of expressions and of the `WHERE` are not paired, and not read.
+
+## PLB-Q025 insert-not-null-missing
+
+An `INSERT` whose column list leaves out a column that the `DECLARE
+TABLE` of its table declares `NOT NULL` without a default:
+
+```cobol
+    EXEC SQL DECLARE ACCOUNT TABLE
+        ( ACCT_ID INTEGER NOT NULL, OWNER CHAR(30) NOT NULL ) END-EXEC.
+    ...
+    EXEC SQL
+        INSERT INTO ACCOUNT (ACCT_ID)       *> reported: OWNER
+               VALUES (:WS-ID)
+    END-EXEC
+```
+
+A column the list leaves out gets the null value, which the column
+cannot hold. Db2 for z/OS rejects the statement with SQLCODE -407,
+whose causes include "the column name list for the INSERT statement
+omits a column declared NOT NULL and without WITH DEFAULT"
+([Db2 codes](https://www.ibm.com/docs/en/db2-for-zos/12?topic=codes-407)),
+and SQLite 3 with "NOT NULL constraint failed". A column `WITH DEFAULT`,
+with `DEFAULT value`, or `GENERATED` gets a value of its own, and
+`plumbline dump sql` shows it as `default`.
+
+Only an `INSERT` with a column list, into one table with a `DECLARE
+TABLE` in the file, is read.
 
 ## PLB-S001 dynamic-sql
 

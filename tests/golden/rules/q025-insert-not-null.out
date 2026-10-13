@@ -1,0 +1,7 @@
+tests/golden/rules/q025-insert-not-null.cob:19:5: warning: the result of EXEC SQL INSERT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q025-insert-not-null.cob:20:9: error: INSERT into ACCOUNT leaves out column OWNER, NOT NULL without a default: Db2 rejects it (SQLCODE -407) [PLB-Q025]
+tests/golden/rules/q025-insert-not-null.cob:20:54: warning: WS-ID is read but never given a value [PLB-C011]
+tests/golden/rules/q025-insert-not-null.cob:20:62: warning: WS-NOTE is read but never given a value [PLB-C011]
+tests/golden/rules/q025-insert-not-null.cob:24:5: warning: the result of EXEC SQL INSERT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q025-insert-not-null.cob:27:5: warning: the result of EXEC SQL INSERT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q025-insert-not-null.cob:28:46: warning: WS-NAME is read but never given a value [PLB-C011]

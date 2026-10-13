@@ -8,7 +8,7 @@ WORKING-STORAGE SECTION.
     ( ACCT_ID                        DEC(11, 0) NOT NULL,
       ACCT_NAME                      CHARACTER VARYING(40) NOT NULL,
       BALANCE                        DECIMAL(9, 2),
-      OPENED                         DATE,
+      OPENED                         DATE NOT NULL WITH DEFAULT,
       BRANCH                         INT NOT NULL
     ) END-EXEC.
     EXEC SQL DECLARE BANK.BRANCH TABLE
