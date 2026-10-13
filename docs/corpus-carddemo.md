@@ -481,6 +481,10 @@ Some findings that were read and are true:
 - **PLB-C089 loop-never-runs.** None. In a copy of `CBACT01C` with
   `MOVE 'Y' TO END-OF-FILE.` put before its `PERFORM UNTIL END-OF-FILE
   = 'Y'`, it reports that loop.
+- **PLB-K010 resp-not-fullword.** None: its `RESP` items, such as
+  `WS-RESP-CD`, are `PIC S9(09) COMP`. In a copy of `COBIL00C` whose
+  `WS-RESP-CD` is made `PIC S9(04) COMP`, it reports each of its 7
+  commands with `RESP(WS-RESP-CD)`.
 - **PLB-K009 browse-not-active.** None: each browse command is in a
   paragraph of its own. In a copy of `COTRN00C` with a `READPREV` put
   after its `ENDBR`, it reports it.

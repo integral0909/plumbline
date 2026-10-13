@@ -156,6 +156,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-K007](#plb-k007-commarea-too-short) | commarea-too-short | warning | XCTL or LINK passes less COMMAREA than the program's DFHCOMMAREA |
 | [PLB-K008](#plb-k008-cics-name-too-long) | cics-name-too-long | error | EXEC CICS names a transaction, program, file, or map too long |
 | [PLB-K009](#plb-k009-browse-not-active) | browse-not-active | error | CICS browse command with no browse of the file active, or two |
+| [PLB-K010](#plb-k010-resp-not-fullword) | resp-not-fullword | error | CICS RESP or RESP2 names an item that is not fullword binary |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -3910,6 +3911,30 @@ as do a `PERFORM` of a procedure, `GO TO`, `CALL`, `GOBACK`, `STOP`,
 `EXIT`, and a statement holding other CICS commands. Files are compared
 by what `FILE` or `DATASET` names, as written; commands with a
 `REQID`, which runs several browses of one file at once, are not read.
+
+## PLB-K010 resp-not-fullword
+
+An `EXEC CICS` command whose `RESP` or `RESP2` names an item that is not
+a fullword binary item:
+
+```cobol
+01  WS-RESP     PIC S9(4) COMP.
+    ...
+    EXEC CICS READ FILE('ACCTDAT') INTO(WS-RECORD) RIDFLD(WS-KEY)
+         RESP(WS-RESP)                       *> reported
+    END-EXEC
+```
+
+The argument of `RESP` and of `RESP2` is "a user-defined fullword binary
+data area" ([How to use the RESP and RESP2
+options](https://www.ibm.com/docs/en/cics-ts/6.1?topic=code-how-use-resp-resp2-options)):
+CICS stores four bytes there. Into a halfword it overwrites the two
+bytes after the item; into a character or display item, the program
+reads a number that is not the response, and `IF WS-RESP =
+DFHRESP(NORMAL)` tests the wrong value.
+
+A fullword is an integer of usage `BINARY`, `COMP`, `COMP-4`, or
+`COMP-5` four bytes long, `PIC S9(5)` to `S9(9)`.
 
 ## PLB-M001 go-to
 
