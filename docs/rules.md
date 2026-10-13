@@ -158,6 +158,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-K009](#plb-k009-browse-not-active) | browse-not-active | error | CICS browse command with no browse of the file active, or two |
 | [PLB-K010](#plb-k010-resp-not-fullword) | resp-not-fullword | error | CICS RESP or RESP2 names an item that is not fullword binary |
 | [PLB-K011](#plb-k011-length-not-halfword) | length-not-halfword | error | CICS LENGTH not a halfword binary item, or FLENGTH not a fullword |
+| [PLB-K012](#plb-k012-abstime-not-packed) | abstime-not-packed | error | CICS ABSTIME names an item that is not PIC S9(15) COMP-3 |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -3961,6 +3962,24 @@ given a length of 0.
 A halfword is an integer of usage `BINARY`, `COMP`, `COMP-4`, or
 `COMP-5` two bytes long, `PIC S9(1)` to `S9(4)`. `LENGTH(LENGTH OF
 item)`, a number, and a function are not items, and are not read.
+
+## PLB-K012 abstime-not-packed
+
+An `EXEC CICS` command whose `ABSTIME` names an item that is not eight
+bytes of packed decimal:
+
+```cobol
+01  WS-NOW      PIC S9(18) COMP.
+    ...
+    EXEC CICS ASKTIME ABSTIME(WS-NOW) END-EXEC          *> reported
+```
+
+`ABSTIME` is the time in milliseconds since 1 January 1900, which
+`ASKTIME` returns and `FORMATTIME` reads "as a packed decimal of length
+8 bytes"; for COBOL the area is `PIC S9(15) COMP-3` (CICS API
+reference, `ASKTIME`). A binary or display item does not hold those
+eight bytes as the number they are, and the program reads it as
+another value.
 
 ## PLB-M001 go-to
 
