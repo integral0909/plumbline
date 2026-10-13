@@ -516,6 +516,14 @@ check "RECORG=KSDS"                       1 'ddvalue.jcl:9:3: error: DD KSDS cod
     -- check --no-config $jx/ddvalue.jcl
 check_absent "values the Reference lists" 'ddvalue.jcl:1[1-4]:.*PLB-J039' \
     -- check --no-config $jx/ddvalue.jcl
+check "DSNTYPE=PDSE"                      1 'ddvalue.jcl:16:3: error: DD PDSE codes DSNTYPE=PDSE,.*\[PLB-J039\]' \
+    -- check --no-config $jx/ddvalue.jcl
+check "DSNTYPE=(LIBRARY,3)"               1 'ddvalue.jcl:17:3: error: DD VER3 codes DSNTYPE=(LIBRARY,3),.*\[PLB-J039\]' \
+    -- check --no-config $jx/ddvalue.jcl
+check_absent "DSNTYPE=(LIBRARY,2)"        'ddvalue.jcl:19:.*PLB-J039' \
+    -- check --no-config $jx/ddvalue.jcl
+check_absent "DSNTYPE=LARGE"              'ddvalue.jcl:20:.*PLB-J039' \
+    -- check --no-config $jx/ddvalue.jcl
 check "RECFM letters out of order"       1 'recfm.jcl:4:3: error: DD OUTBF codes RECFM=BF,.*\[PLB-J040\]' \
     -- check --no-config $jx/recfm.jcl
 check "RECFM in DCB with a doubled letter" 1 'recfm.jcl:5:3: error: DD OUTFBB codes RECFM=FBB,.*\[PLB-J040\]' \

@@ -764,7 +764,7 @@ PROCEDURE DIVISION USING PLB-RULES.
         "DD OUTPUT=*.name names no OUTPUT JCL statement before it"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J039"
         "dd-value-invalid" "E"
-        "HOLD, FREE, SPIN, AVGREC, or RECORG value the JCL Reference does not list"
+        "HOLD, FREE, SPIN, AVGREC, RECORG, or DSNTYPE value not in the JCL Reference"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J040"
         "recfm-invalid" "E"
         "RECFM is none of the record formats the JCL Reference lists"
