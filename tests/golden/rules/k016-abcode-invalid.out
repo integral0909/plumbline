@@ -1,0 +1,3 @@
+tests/golden/rules/k016-abcode-invalid.cob:14:36: warning: abend code 'ACCT' starts with A, which CICS keeps for its own abend codes [PLB-K016]
+tests/golden/rules/k016-abcode-invalid.cob:16:36: warning: abend code 'PAYER' is longer than 4 characters [PLB-K016]
+tests/golden/rules/k016-abcode-invalid.cob:18:36: warning: abend code 'P Y1' has a blank in it: CICS raises INVREQ [PLB-K016]

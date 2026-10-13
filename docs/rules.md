@@ -179,6 +179,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-K013](#plb-k013-interval-invalid) | interval-invalid | error | CICS INTERVAL or TIME not PIC S9(7) COMP-3, or not hhmmss |
 | [PLB-K014](#plb-k014-return-not-top-level) | return-not-top-level | warning | RETURN with COMMAREA, CHANNEL, or IMMEDIATE in a linked program |
 | [PLB-K015](#plb-k015-time-option-out-of-range) | time-option-out-of-range | error | CICS DELAY or START HOURS, MINUTES, SECONDS, MILLISECS out of range |
+| [PLB-K016](#plb-k016-abcode-invalid) | abcode-invalid | warning | CICS ABEND ABCODE starting with A, longer than 4, or with a blank |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -4420,6 +4421,24 @@ or 0-359999999 alone. Out of range, CICS raises `INVREQ`, RESP2 4, 5,
 6, or 22, and does not do the command. `SECONDS(90)` alone is ninety
 seconds; with `MINUTES(1)`, write `MINUTES(2) SECONDS(30)`. Values in
 data items are not read.
+
+## PLB-K016 abcode-invalid
+
+An `EXEC CICS ABEND ABCODE` literal that CICS does not take as an
+abend code:
+
+```cobol
+    EXEC CICS ABEND ABCODE('ACCT') END-EXEC          *> reported
+```
+
+The CICS API reference (`ABEND`) says of the name: "Do not start the
+name with the letter A because this is reserved for CICS itself", and
+that it follows the rules of `DUMPCODE` (`DUMP TRANSACTION`): "a name
+(1-4 characters)", and "if the name contains any leading or imbedded
+blanks, the dump is produced but INVREQ is raised". A code that starts
+with `A` is read as one of CICS's own (`ASRA`, `AEIP`, ...) by whoever
+looks up the abend. Codes in data items are not read; trailing blanks
+do not count.
 
 ## PLB-M001 go-to
 

@@ -12,12 +12,22 @@
 *> FILENOTFOUND, or MAPFAIL, or abends the task. Usually a name was
 *> typed with a character too many, or taken from another system. Read
 *> are literals without a prefix; trailing spaces do not count.
+*>
+*> PLB-K016 abcode-invalid: an EXEC CICS ABEND ABCODE literal that CICS
+*> does not take as an abend code: one that starts with A ("Do not
+*> start the name with the letter A because this is reserved for CICS
+*> itself"), or that is not the "name (1-4 characters)" of DUMPCODE,
+*> whose rules it follows: longer, or with a leading or embedded blank,
+*> for which CICS raises INVREQ.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-K008.
 DATA DIVISION.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-RULE-ABCODE          PIC 9(4) COMP-5.
+01  LS-CODE                 PIC X(31).
+01  LS-I                    PIC 9(4) COMP-5.
 01  LS-T                    PIC 9(9) COMP-5.
 01  LS-K                    PIC 9(9) COMP-5.
 01  LS-END                  PIC 9(9) COMP-5.
@@ -44,7 +54,9 @@ COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K008" LS-RULE
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K016" LS-RULE-ABCODE
     IF RL-ENABLED(LS-RULE) NOT = "Y"
+       AND RL-ENABLED(LS-RULE-ABCODE) NOT = "Y"
         GOBACK
     END-IF
     PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T >= TK-COUNT
@@ -83,6 +95,16 @@ CHECK-COMMAND.
 CHECK-OPTION.
     CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-OPTION LS-LEN
     MOVE FUNCTION UPPER-CASE(LS-OPTION) TO LS-OPTION
+    IF LS-OPTION = "ABCODE"
+        IF RL-ENABLED(LS-RULE-ABCODE) = "Y"
+           AND TK-PREFIX(LS-LIT) = SPACES
+            PERFORM CHECK-ABCODE
+        END-IF
+        EXIT PARAGRAPH
+    END-IF
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
     EVALUATE LS-OPTION
         WHEN "TRANSID"
             MOVE 4 TO LS-LIMIT
@@ -134,4 +156,50 @@ CHECK-OPTION.
         INTO LS-MESSAGE
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-LIT LS-MESSAGE.
+
+*> The ABCODE literal LS-LIT: 1 to 4 characters, no blank before its
+*> last, and not starting with A.
+CHECK-ABCODE.
+    MOVE TK-TEXT-LEN(LS-LIT) TO LS-USED
+    PERFORM UNTIL LS-USED = 0
+        IF TK-TEXT(TK-TEXT-OFF(LS-LIT) + LS-USED - 1:1) NOT = SPACE
+            EXIT PERFORM
+        END-IF
+        SUBTRACT 1 FROM LS-USED
+    END-PERFORM
+    IF LS-USED = 0 OR LS-USED > 31
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-CODE
+    MOVE TK-TEXT(TK-TEXT-OFF(LS-LIT):LS-USED) TO LS-CODE
+    MOVE SPACES TO LS-MESSAGE
+    EVALUATE TRUE
+        WHEN LS-USED > 4
+            STRING "abend code '" DELIMITED BY SIZE
+                   LS-CODE(1:LS-USED) DELIMITED BY SIZE
+                   "' is longer than 4 characters" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+        WHEN LS-CODE(1:1) = "A"
+            STRING "abend code '" DELIMITED BY SIZE
+                   LS-CODE(1:LS-USED) DELIMITED BY SIZE
+                   "' starts with A, which CICS keeps for its own abend"
+                   " codes" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+        WHEN OTHER
+            PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I >= LS-USED
+                IF LS-CODE(LS-I:1) = SPACE
+                    STRING "abend code '" DELIMITED BY SIZE
+                           LS-CODE(1:LS-USED) DELIMITED BY SIZE
+                           "' has a blank in it: CICS raises INVREQ"
+                           DELIMITED BY SIZE
+                        INTO LS-MESSAGE
+                    EXIT PERFORM
+                END-IF
+            END-PERFORM
+    END-EVALUATE
+    IF LS-MESSAGE = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-ABCODE LS-LIT LS-MESSAGE.
 END PROGRAM PLB-RULE-K008.
