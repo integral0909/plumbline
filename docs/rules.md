@@ -2191,6 +2191,19 @@ when the value is out of range. A statement that is itself `GO TO`,
 way out, written for safety, does no harm), nor is an `ENTRY`, where a
 caller comes in, or GnuCOBOL's `ENTRY FOR GO TO`.
 
+`EXEC CICS RETURN` and `EXEC CICS XCTL` end the program as well, unless
+they have `RESP`, `RESP2`, or `NOHANDLE`. A program gets control back
+after a CICS command only with one of those; without, a condition the
+command raises goes to the label of an active `HANDLE CONDITION`, or
+CICS takes its default action, usually an abend (CICS Application
+Programming Reference, "RESP and NOHANDLE"). A file with `IGNORE
+CONDITION`, which lets a command go on, is not read for them.
+
+```cobol
+    EXEC CICS RETURN TRANSID('ABCD') COMMAREA(WS-AREA) END-EXEC
+    MOVE 'X' TO WS-AREA                 *> reported: never runs
+```
+
 ## PLB-C073 value-ignored
 
 A `VALUE` clause on an item of the `FILE SECTION` or the `LINKAGE

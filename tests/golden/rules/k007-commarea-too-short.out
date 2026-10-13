@@ -1,2 +1,3 @@
 tests/golden/rules/k007-commarea-too-short.cob:15:28: warning: XCTL passes 11 bytes of COMMAREA to ACCTUPD, whose DFHCOMMAREA has 200: it reads past what it is given [PLB-K007]
+tests/golden/rules/k007-commarea-too-short.cob:16:5: warning: EXEC never runs: it comes after the EXEC CICS XCTL on line 15 [PLB-C072]
 tests/golden/rules/k007-commarea-too-short.cob:16:28: warning: LINK passes 11 bytes of COMMAREA to ACCTUPD, whose DFHCOMMAREA has 200: it reads past what it is given [PLB-K007]
