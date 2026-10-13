@@ -1,0 +1,4 @@
+tests/golden/rules/c115-inspect-no-change.cob:12:42: warning: INSPECT replaces "," by itself: that replacement changes nothing [PLB-C115]
+tests/golden/rules/c115-inspect-no-change.cob:14:42: warning: INSPECT replaces "D" by itself: that replacement changes nothing [PLB-C115]
+tests/golden/rules/c115-inspect-no-change.cob:15:40: warning: INSPECT converts a string to the same string: the statement changes nothing [PLB-C115]
+tests/golden/rules/c115-inspect-no-change.cob:20:30: warning: INSPECT adds to WS-COUNT, which this paragraph does not set before it [PLB-C042]

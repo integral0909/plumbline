@@ -126,6 +126,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C112](#plb-c112-varying-step-zero) | varying-step-zero | warning | PERFORM VARYING steps BY an item that is always 0 |
 | [PLB-C113](#plb-c113-class-test-invalid) | class-test-invalid | warning | NUMERIC of an alphabetic item or signed group, or ALPHABETIC of a number |
 | [PLB-C114](#plb-c114-sign-test-not-numeric) | sign-test-not-numeric | warning | POSITIVE, NEGATIVE, or ZERO sign test of an item that is not numeric |
+| [PLB-C115](#plb-c115-inspect-no-change) | inspect-no-change | warning | INSPECT replaces a literal by itself, or converts a string to itself |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -3368,6 +3369,22 @@ not take an alphanumeric, alphabetic, or edited item, or a group, and
 GnuCOBOL 3.2 compiles all four. Usually a relation was meant: `IF
 WS-CODE = ZERO` compares the item with zeros, and is allowed for any
 item.
+
+## PLB-C115 inspect-no-change
+
+An `INSPECT` that replaces a literal by itself, or converts a string to
+itself:
+
+```cobol
+    INSPECT WS-TEXT REPLACING ALL "," BY ","         *> reported
+    INSPECT WS-TEXT CONVERTING ";," TO ";,"          *> reported
+```
+
+The replacement, or the conversion, leaves the item as it was: GnuCOBOL
+3.2 compiles both without a word, and the text is the same after them.
+Usually one of the two was meant to be another character, as in
+`REPLACING ALL "," BY "."`. Each `BY` of a `REPLACING` is read, so one
+clause of several is reported too. Literals without a prefix are read.
 
 ## PLB-I001 pcb-dbd-unknown
 

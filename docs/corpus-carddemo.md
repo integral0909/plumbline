@@ -378,6 +378,9 @@ Some findings that were read and are true:
   in place of `TRAN-ID`, it reports that item.
 - **PLB-M023 file-unused.** None. In a copy of `CBACT01C` with a
   `SELECT HIST-FILE` and its `FD` added, it reports `HIST-FILE`.
+- **PLB-C115 inspect-no-change.** None. In a copy of `COMEN01C` whose
+  `REPLACING ALL ' ' BY '0'` is made `REPLACING ALL '0' BY '0'`, it
+  reports it.
 - **PLB-C114 sign-test-not-numeric.** None: CardDemo has no sign
   conditions. In a copy of `COMEN01C` whose `WS-OPTION = ZEROS` is made
   `WS-OPTION IS ZERO`, it reports nothing while `WS-OPTION` is `PIC
