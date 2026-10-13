@@ -273,6 +273,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-Q024 column-undeclared.
 - Rule PLB-Q026 cursor-table-mismatch.
 - Rule PLB-Q027 update-not-for-update.
+- Rule PLB-Q028 order-by-for-update.
 - Rule PLB-Q025 insert-not-null-missing; `plumbline dump sql` shows a
   column with a default as `default`.
 - Rule PLB-J018 gdg-generation-not-created.
