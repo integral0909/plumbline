@@ -1,5 +1,6 @@
 *> ---------------------------------------------------------------
-*> plbrclass: PLB-C113 class-test-invalid.
+*> plbrclass: PLB-C113 class-test-invalid, PLB-C114
+*> sign-test-not-numeric.
 *>
 *> A class condition that IBM Enterprise COBOL does not accept for the
 *> item it tests (Language Reference, "Class condition"):
@@ -19,6 +20,13 @@
 *> NUMERIC while holding +12 it is. ALPHABETIC-LOWER and -UPPER count
 *> as ALPHABETIC. Reference-modified items are left out: a reference
 *> modification is alphanumeric, and may be tested either way.
+*>
+*> PLB-C114 is the same for a sign condition, IS [NOT] POSITIVE,
+*> NEGATIVE, or ZERO, whose item is not numeric: alphanumeric,
+*> alphabetic, edited, or a group. IBM Enterprise COBOL takes only a
+*> numeric item or an arithmetic expression there; GnuCOBOL 3.2
+*> compiles it. Usually the item was meant to be compared: IF WS-X =
+*> ZERO is a relation, and allowed.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-C113.
@@ -29,6 +37,7 @@ WORKING-STORAGE SECTION.
 01  WS-LAST-REF             PIC 9(9) COMP-5 OCCURS 500000 TIMES.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-RULE-SIGN            PIC 9(4) COMP-5.
 01  LS-R                    PIC 9(9) COMP-5.
 01  LS-T                    PIC 9(9) COMP-5.
 01  LS-K                    PIC 9(9) COMP-5.
@@ -55,7 +64,9 @@ COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         PLB-REFS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C113" LS-RULE
-    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C114" LS-RULE-SIGN
+    IF (RL-ENABLED(LS-RULE) NOT = "Y"
+        AND RL-ENABLED(LS-RULE-SIGN) NOT = "Y") OR AS-COUNT = 0
         GOBACK
     END-IF
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
@@ -66,7 +77,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
             MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-CLASS
             IF LS-CLASS = "NUMERIC" OR "ALPHABETIC" OR "ALPHABETIC-LOWER"
-               OR "ALPHABETIC-UPPER"
+               OR "ALPHABETIC-UPPER" OR "POSITIVE" OR "NEGATIVE" OR "ZERO"
                 PERFORM CHECK-CLASS
             END-IF
         END-IF
@@ -76,7 +87,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     END-PERFORM
     GOBACK.
 
-*> Class word at LS-T: the item before it, past NOT and IS.
+*> Class or sign word at LS-T: the item before it, past NOT and IS.
 CHECK-CLASS.
     *> Not INITIALIZE ... NUMERIC TO VALUE, or REPLACING NUMERIC DATA.
     IF LS-T < TK-COUNT
@@ -111,6 +122,13 @@ CHECK-CLASS.
     END-IF
     MOVE RF-SYMBOL(LS-R) TO LS-S
     MOVE SPACES TO LS-MESSAGE
+    IF LS-CLASS = "POSITIVE" OR "NEGATIVE" OR "ZERO"
+        PERFORM CHECK-SIGN
+        EXIT PARAGRAPH
+    END-IF
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
     EVALUATE TRUE
         WHEN LS-CLASS = "NUMERIC" AND SY-CATEGORY(LS-S) = "A"
             STRING "NUMERIC test of " DELIMITED BY SIZE
@@ -142,6 +160,34 @@ CHECK-CLASS.
     END-EVALUATE
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE LS-T LS-MESSAGE.
+
+*> Sign condition at LS-T on item LS-S.
+CHECK-SIGN.
+    IF RL-ENABLED(LS-RULE-SIGN) NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    EVALUATE SY-CATEGORY(LS-S)
+        WHEN "X"
+            MOVE "an alphanumeric item" TO LS-WORD
+        WHEN "A"
+            MOVE "an alphabetic item" TO LS-WORD
+        WHEN "E" WHEN "D"
+            MOVE "an edited item" TO LS-WORD
+        WHEN "G"
+            MOVE "a group" TO LS-WORD
+        WHEN OTHER
+            EXIT PARAGRAPH
+    END-EVALUATE
+    STRING LS-CLASS DELIMITED BY SPACE
+           " test of " DELIMITED BY SIZE
+           SY-NAME(LS-S) DELIMITED BY SPACE
+           ", " DELIMITED BY SIZE
+           LS-WORD DELIMITED BY "  "
+           ": a sign condition needs a number, and IBM Enterprise"
+           " COBOL does not accept it" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-SIGN LS-T LS-MESSAGE.
 
 *> LS-SIGNED: the first signed numeric item in group LS-S (0: none).
 *> The items of a group follow it, each with the group above it.

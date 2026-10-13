@@ -376,6 +376,10 @@ Some findings that were read and are true:
   in place of `TRAN-ID`, it reports that item.
 - **PLB-M023 file-unused.** None. In a copy of `CBACT01C` with a
   `SELECT HIST-FILE` and its `FD` added, it reports `HIST-FILE`.
+- **PLB-C114 sign-test-not-numeric.** None: CardDemo has no sign
+  conditions. In a copy of `COMEN01C` whose `WS-OPTION = ZEROS` is made
+  `WS-OPTION IS ZERO`, it reports nothing while `WS-OPTION` is `PIC
+  9(02)`, and reports it once `WS-OPTION` is made `PIC X(02)`.
 - **PLB-C113 class-test-invalid.** None. In a copy of `CBACT04C` whose
   `IO-STAT2` is made `PIC S9`, it reports `IF IO-STATUS NOT NUMERIC`.
 - **PLB-C112 varying-step-zero.** None: its loops step by 1. In a copy

@@ -125,6 +125,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C111](#plb-c111-sort-statement-wrong-phase) | sort-statement-wrong-phase | error | RETURN in a SORT's INPUT PROCEDURE, or RELEASE in an OUTPUT PROCEDURE |
 | [PLB-C112](#plb-c112-varying-step-zero) | varying-step-zero | warning | PERFORM VARYING steps BY an item that is always 0 |
 | [PLB-C113](#plb-c113-class-test-invalid) | class-test-invalid | warning | NUMERIC of an alphabetic item or signed group, or ALPHABETIC of a number |
+| [PLB-C114](#plb-c114-sign-test-not-numeric) | sign-test-not-numeric | warning | POSITIVE, NEGATIVE, or ZERO sign test of an item that is not numeric |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -3325,6 +3326,25 @@ which is then not a digit: with GnuCOBOL 3.2, `WS-AMOUNTS` holding -12
 is not `NUMERIC`, and holding +12 it is. Test the items one by one.
 
 A reference-modified item is alphanumeric, and is not reported.
+
+## PLB-C114 sign-test-not-numeric
+
+A sign condition, `IS [NOT] POSITIVE`, `NEGATIVE`, or `ZERO`, whose
+item is not numeric:
+
+```cobol
+01  WS-CODE             PIC X(4).
+    IF WS-CODE IS POSITIVE                       *> reported
+    IF WS-CODE = ZERO                            *> a relation: not reported
+```
+
+The Language Reference ("Sign condition") says the operand must be "a
+numeric identifier, or ... an arithmetic expression that contains at
+least one reference to a variable". IBM Enterprise COBOL therefore does
+not take an alphanumeric, alphabetic, or edited item, or a group, and
+GnuCOBOL 3.2 compiles all four. Usually a relation was meant: `IF
+WS-CODE = ZERO` compares the item with zeros, and is allowed for any
+item.
 
 ## PLB-I001 pcb-dbd-unknown
 
