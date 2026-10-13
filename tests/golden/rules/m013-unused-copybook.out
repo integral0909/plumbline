@@ -1,3 +1,4 @@
+tests/golden/rules/m013-unused-copybook.cob:11:12: note: file ORDER-FILE is declared but no statement opens or names it [PLB-M023]
 tests/golden/rules/m013-unused-copybook.cob:19:1: note: none of the items copybook orders.cpy declares is used [PLB-M013]
 tests/golden/rules/m013-unused-copybook.cob:22:13: warning: CUST-NAME is read but never given a value [PLB-C011]
 tests/golden/rules/m013-unused-copybook.cob:23:8: warning: STATUS-OK is read but never given a value [PLB-C011]

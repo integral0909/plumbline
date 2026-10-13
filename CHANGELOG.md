@@ -265,6 +265,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-C110 file-dd-shared; the call graph notes files that one
   `OPEN` opens together on a DD.
 - Rule PLB-C111 sort-statement-wrong-phase.
+- Rule PLB-M023 file-unused.
 - Rule PLB-Q018 null-compared.
 - Rule PLB-Q019 between-reversed.
 - Rule PLB-Q020 column-repeated.

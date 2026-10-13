@@ -184,6 +184,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-M020](#plb-m020-constant-condition) | constant-condition | note | Condition compares two constants |
 | [PLB-M021](#plb-m021-empty-branch-statement) | empty-branch-statement | note | IF or EVALUATE whose every branch is CONTINUE or empty |
 | [PLB-M022](#plb-m022-mixed-and-or) | mixed-and-or | note | Condition joins with AND and OR without parentheses |
+| [PLB-M023](#plb-m023-file-unused) | file-unused | note | File is declared but no statement opens or names it |
 | [PLB-P001](#plb-p001-vendor-routine) | vendor-routine | note, off | CALL of a compiler library routine |
 | [PLB-P002](#plb-p002-hard-coded-path) | hard-coded-path | warning | File is assigned to a path on one machine |
 | [PLB-Q001](#plb-q001-sql-table-undeclared) | sql-table-undeclared | note | Embedded SQL uses a table the program does not declare |
@@ -4416,6 +4417,24 @@ parentheses say which is meant, as C compilers ask with
 condition is reported once. The `OR` of `GREATER OR EQUAL` and `LESS
 OR EQUAL` is no join, and `ALSO` (in `EVALUATE`) and the `UNTIL`,
 `AFTER`, and `VARYING` phrases of a `PERFORM` start another condition.
+## PLB-M023 file-unused
+
+A file that a `SELECT` declares and no statement of the procedure
+division names:
+
+```cobol
+    SELECT HIST-FILE ASSIGN TO HISTFILE.    *> reported
+```
+
+Every use of a file names it: `OPEN`, `CLOSE`, `READ`, `START`,
+`DELETE`, `SORT`, `MERGE`, and `USE` in declaratives. A file that none
+of them names is never opened, and its `SELECT`, `FD`, and records are
+dead code. It still asks for a DD in the JCL that runs the program
+([PLB-J001](#plb-j001-dd-missing)), or keeps one there for nothing.
+`EXTERNAL` and `GLOBAL` files, which other programs can use, are not
+reported, nor is a file whose records a statement uses: a `WRITE` of
+one with no `OPEN` of the file is [PLB-C021](#plb-c021-file-not-opened)'s.
+
 ## PLB-P001 vendor-routine
 
 *Off by default.* A CALL of a library routine that comes with some
