@@ -817,14 +817,17 @@ CHECK-PAIRS.
             MOVE "DCB=RECFM" TO JD-CONFLICT-2(LS-D)
     END-EVALUATE.
 
-*> HOLD=, FREE=, SPIN=, AVGREC=, and RECORG= of DD LS-D: the values
-*> the z/OS MVS JCL Reference lists for each. HOLD YES, Y, NO, or N;
-*> FREE END or CLOSE; SPIN NO or UNALLOC (first, in parentheses);
-*> AVGREC U, K, or M; RECORG KS, ES, RR, or LS. Values with symbols are
-*> not read.
+*> HOLD=, FREE=, SPIN=, AVGREC=, RECORG=, and DSNTYPE= of DD LS-D: the
+*> values the z/OS MVS JCL Reference lists for each. HOLD YES, Y, NO,
+*> or N; FREE END or CLOSE; SPIN NO or UNALLOC (first, in
+*> parentheses); AVGREC U, K, or M; RECORG KS, ES, RR, or LS; DSNTYPE
+*> LIBRARY, HFS, PDS, PIPE, EXTREQ, EXTPREF, LARGE, or BASIC, with a
+*> version 1 or 2 after LIBRARY, EXTREQ, and EXTPREF. Values with
+*> symbols are not read.
 CHECK-DD-VALUE.
     IF OP-KEY NOT = "HOLD" AND OP-KEY NOT = "FREE" AND OP-KEY NOT = "SPIN"
        AND OP-KEY NOT = "AVGREC" AND OP-KEY NOT = "RECORG"
+       AND OP-KEY NOT = "DSNTYPE"
         EXIT PARAGRAPH
     END-IF
     MOVE 0 TO LS-TIME-N
@@ -832,9 +835,10 @@ CHECK-DD-VALUE.
     IF LS-TIME-N > 0 OR OP-VALUE = SPACES
         EXIT PARAGRAPH
     END-IF
-    MOVE SPACES TO LS-SP-Q1
+    MOVE SPACES TO LS-SP-Q1 LS-SP-Q2
     IF OP-VALUE(1:1) = "("
         UNSTRING OP-VALUE(2:) DELIMITED BY "," OR ")" INTO LS-SP-Q1
+            LS-SP-Q2
     ELSE
         MOVE OP-VALUE TO LS-SP-Q1
     END-IF
@@ -858,6 +862,21 @@ CHECK-DD-VALUE.
                AND LS-SP-Q1 NOT = "M"
                 MOVE "N" TO LS-CLASS-OK
             END-IF
+        WHEN "DSNTYPE"
+            EVALUATE TRUE
+                WHEN LS-SP-Q1 = "LIBRARY" OR LS-SP-Q1 = "EXTREQ"
+                     OR LS-SP-Q1 = "EXTPREF"
+                    IF LS-SP-Q2 NOT = SPACES AND LS-SP-Q2 NOT = "1"
+                       AND LS-SP-Q2 NOT = "2"
+                        MOVE "N" TO LS-CLASS-OK
+                    END-IF
+                WHEN LS-SP-Q1 = "HFS" OR LS-SP-Q1 = "PDS"
+                     OR LS-SP-Q1 = "PIPE" OR LS-SP-Q1 = "LARGE"
+                     OR LS-SP-Q1 = "BASIC"
+                    CONTINUE
+                WHEN OTHER
+                    MOVE "N" TO LS-CLASS-OK
+            END-EVALUATE
         WHEN OTHER
             IF LS-SP-Q1 NOT = "KS" AND LS-SP-Q1 NOT = "ES"
                AND LS-SP-Q1 NOT = "RR" AND LS-SP-Q1 NOT = "LS"

@@ -2059,8 +2059,10 @@ END PROGRAM PLB-RULE-J038.
 *>
 *> HOLD is YES, Y, NO, or N; FREE is END or CLOSE; SPIN is NO or
 *> UNALLOC (with a time or a line count in parentheses); AVGREC is U,
-*> K, or M; and RECORG is KS, ES, RR, or LS. Values with symbols are
-*> not read.
+*> K, or M; RECORG is KS, ES, RR, or LS; and DSNTYPE is LIBRARY, HFS,
+*> PDS, PIPE, EXTREQ, EXTPREF, LARGE, or BASIC (LIBRARY, EXTREQ, and
+*> EXTPREF may take a version, 1 or 2). Values with symbols are not
+*> read.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-J039.
@@ -2072,7 +2074,7 @@ LOCAL-STORAGE SECTION.
 01  LS-D                    PIC 9(9) COMP-5.
 01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
 01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
-01  LS-VALUES               PIC X(40).
+01  LS-VALUES               PIC X(60).
 01  LS-MESSAGE              PIC X(200).
 LINKAGE SECTION.
 COPY "plbrules.cpy".
@@ -2094,6 +2096,9 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
                     MOVE "NO or UNALLOC" TO LS-VALUES
                 WHEN "AVGREC"
                     MOVE "U, K, or M" TO LS-VALUES
+                WHEN "DSNTYPE"
+                    MOVE "LIBRARY, PDS, HFS, PIPE, EXTREQ, LARGE, ..."
+                        TO LS-VALUES
                 WHEN OTHER
                     MOVE "KS, ES, RR, or LS" TO LS-VALUES
             END-EVALUATE
