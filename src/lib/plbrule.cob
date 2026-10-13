@@ -771,6 +771,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J041"
         "dd-parameter-conflict" "W"
         "DD codes two parameters the JCL Reference says not to code together"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J042"
+        "exec-value-invalid" "E"
+        "ADDRSPC, RD, or MEMLIMIT value the JCL Reference does not list"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
