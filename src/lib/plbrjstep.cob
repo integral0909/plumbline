@@ -1793,3 +1793,73 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
     END-PERFORM
     GOBACK.
 END PROGRAM PLB-RULE-J036.
+
+*> ---------------------------------------------------------------
+*> PLB-J037 disp-invalid: a DD whose DISP= the z/OS MVS JCL Reference
+*> does not allow:
+*>
+*>     //OUTFILE  DD DSN=PAY.OUT,DISP=(NEW,CATLG,PASS)
+*>
+*> DISP=(status,normal-termination-disp,abnormal-termination-disp)
+*> ("DISP parameter"): the status is NEW, OLD, SHR, or MOD; after a
+*> normal end, DELETE, KEEP, PASS, CATLG, or UNCATLG; after an abnormal
+*> end, DELETE, KEEP, CATLG, or UNCATLG, not PASS. Values with symbols
+*> are not read.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J037.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-WHAT                 PIC X(80).
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J037" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-DISP-PART(LS-D) NOT = SPACE
+            EVALUATE JD-DISP-PART(LS-D)
+                WHEN "S"
+                    MOVE "a status other than NEW, OLD, SHR, or MOD"
+                        TO LS-WHAT
+                WHEN "N"
+                    MOVE SPACES TO LS-WHAT
+                    STRING "a disposition other than DELETE, KEEP, PASS,"
+                           " CATLG, or UNCATLG" DELIMITED BY SIZE
+                        INTO LS-WHAT
+                WHEN "A"
+                    MOVE SPACES TO LS-WHAT
+                    STRING "an abnormal-end disposition other than"
+                           " DELETE, KEEP, CATLG, or UNCATLG"
+                           DELIMITED BY SIZE
+                        INTO LS-WHAT
+                WHEN OTHER
+                    MOVE "a fourth subparameter; DISP takes three"
+                        TO LS-WHAT
+            END-EVALUATE
+            MOVE SPACES TO LS-MESSAGE
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " codes DISP with " DELIMITED BY SIZE
+                   JD-DISP-BAD(LS-D) DELIMITED BY SPACE
+                   ", " DELIMITED BY SIZE
+                   LS-WHAT DELIMITED BY "  "
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+        END-IF
+    END-PERFORM
+    GOBACK.
+END PROGRAM PLB-RULE-J037.

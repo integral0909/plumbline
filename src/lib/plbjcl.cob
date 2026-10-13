@@ -735,6 +735,45 @@ CHECK-RETENTION.
             END-IF
     END-EVALUATE.
 
+*> DISP= of DD LS-D, OP-VALUE: the status NEW, OLD, SHR, or MOD; the
+*> normal termination disposition DELETE, KEEP, PASS, CATLG, or UNCATLG;
+*> the abnormal one DELETE, KEEP, CATLG, or UNCATLG; each may be left
+*> out (z/OS MVS JCL Reference, "DISP parameter"). Values with symbols
+*> are not read.
+CHECK-DISP.
+    MOVE 0 TO LS-TIME-N
+    INSPECT OP-VALUE TALLYING LS-TIME-N FOR ALL "&" ALL "%"
+    IF LS-TIME-N > 0 OR OP-VALUE = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-SP-Q1 LS-SP-Q2 LS-SP-Q3 LS-SP-TEXT
+    IF OP-VALUE(1:1) = "("
+        UNSTRING OP-VALUE(2:) DELIMITED BY "," OR ")"
+            INTO LS-SP-Q1 LS-SP-Q2 LS-SP-Q3 LS-SP-TEXT
+    ELSE
+        MOVE OP-VALUE TO LS-SP-Q1
+    END-IF
+    EVALUATE TRUE
+        WHEN LS-SP-Q1 NOT = SPACES AND LS-SP-Q1 NOT = "NEW"
+             AND LS-SP-Q1 NOT = "OLD" AND LS-SP-Q1 NOT = "SHR"
+             AND LS-SP-Q1 NOT = "MOD"
+            MOVE "S" TO JD-DISP-PART(LS-D)
+            MOVE LS-SP-Q1 TO JD-DISP-BAD(LS-D)
+        WHEN LS-SP-Q2 NOT = SPACES AND LS-SP-Q2 NOT = "DELETE"
+             AND LS-SP-Q2 NOT = "KEEP" AND LS-SP-Q2 NOT = "PASS"
+             AND LS-SP-Q2 NOT = "CATLG" AND LS-SP-Q2 NOT = "UNCATLG"
+            MOVE "N" TO JD-DISP-PART(LS-D)
+            MOVE LS-SP-Q2 TO JD-DISP-BAD(LS-D)
+        WHEN LS-SP-Q3 NOT = SPACES AND LS-SP-Q3 NOT = "DELETE"
+             AND LS-SP-Q3 NOT = "KEEP" AND LS-SP-Q3 NOT = "CATLG"
+             AND LS-SP-Q3 NOT = "UNCATLG"
+            MOVE "A" TO JD-DISP-PART(LS-D)
+            MOVE LS-SP-Q3 TO JD-DISP-BAD(LS-D)
+        WHEN LS-SP-TEXT NOT = SPACES
+            MOVE "X" TO JD-DISP-PART(LS-D)
+            MOVE LS-SP-TEXT TO JD-DISP-BAD(LS-D)
+    END-EVALUATE.
+
 *> SPACE=(unit,quantities,options...) of DD LS-D, OP-VALUE, as the
 *> z/OS MVS JCL Reference describes it: the unit TRK, CYL, ABSTR, or a
 *> block or record length "from 0 through 65535"; quantities, in
@@ -1160,6 +1199,7 @@ ADD-DD.
         JD-RECORG(LS-D)
     MOVE SPACES TO JD-RETAIN-PROBLEM(LS-D) JD-RETAIN-VALUE(LS-D)
         LS-EXPDT LS-RETPD JD-SPACE-BAD(LS-D) JD-SPACE-PART(LS-D)
+        JD-DISP-BAD(LS-D) JD-DISP-PART(LS-D)
     MOVE SPACES TO JD-CLASS-BAD(LS-D)
     MOVE SPACES TO JD-SYSOUT-CLASH(LS-D) LS-NOT-WITH-SYSOUT
         LS-ONLY-WITH-SYSOUT
@@ -1226,6 +1266,7 @@ ADD-DD.
                 MOVE OP-VALUE TO LS-RETPD
             WHEN OP-KEY = "DISP"
                 PERFORM READ-DISP
+                PERFORM CHECK-DISP
             WHEN OP-KEY = "LRECL" OR OP-KEY = "RECFM"
                  OR OP-KEY = "BLKSIZE"
                 MOVE OP-KEY TO LS-DCB-KEY

@@ -167,6 +167,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J034](#plb-j034-lrecl-invalid) | lrecl-invalid | error | LRECL above 32760, 0 without RECFM=U, or below 5 for RECFM=V |
 | [PLB-J035](#plb-j035-retention-invalid) | retention-invalid | error | EXPDT or RETPD not a valid date or period, both coded, or on a temporary |
 | [PLB-J036](#plb-j036-space-invalid) | space-invalid | error | SPACE= unit, quantity, or option the JCL Reference does not allow |
+| [PLB-J037](#plb-j037-disp-invalid) | disp-invalid | error | DISP= status or disposition the JCL Reference does not allow |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -4149,6 +4150,23 @@ values of 0-16777215"; and the options are `RLSE`, `CONTIG`, `MXIG`,
 `ALX`, and `ROUND`, so the words spelled out, `TRACKS` or `RELEASE`, are
 not. The first part not allowed is reported; values with symbols are
 not read.
+
+## PLB-J037 disp-invalid
+
+A DD whose `DISP=` the z/OS MVS JCL Reference does not allow:
+
+```jcl
+//KEPT     DD DSN=PAY.KEPT,DISP=(OLD,KEEPP)              reported
+//PASSED   DD DSN=PAY.PASSED,DISP=(NEW,CATLG,PASS)       reported
+```
+
+`DISP=(status,normal-termination-disp,abnormal-termination-disp)`
+("DISP parameter"): the status is `NEW`, `OLD`, `SHR`, or `MOD`; the
+normal-termination disposition `DELETE`, `KEEP`, `PASS`, `CATLG`, or
+`UNCATLG`; and the abnormal-termination one `DELETE`, `KEEP`, `CATLG`,
+or `UNCATLG`, which leaves out `PASS`. Each may be left out, with a
+comma, and there are no more than three. Values with symbols are not
+read.
 
 ## PLB-K001 cics-resource-undefined
 

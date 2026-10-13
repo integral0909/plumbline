@@ -478,6 +478,16 @@ check_absent "SPACE forms the Reference shows" 'spacebad.jcl:1[0-2]:.*PLB-J036' 
     -- check --no-config $jx/spacebad.jcl
 check_absent "SPACE=(TRK,(20,,2))"        'spacebad.jcl:9:.*PLB-J036' \
     -- check --no-config $jx/spacebad.jcl
+check "a DISP status that is not one"    1 'dispbad.jcl:5:3: error: DD NEWER codes DISP with NEWW,.*\[PLB-J037\]' \
+    -- check --no-config $jx/dispbad.jcl
+check "a DISP disposition that is not one" 1 'dispbad.jcl:6:3: error: DD KEPT codes DISP with KEEPP,.*\[PLB-J037\]' \
+    -- check --no-config $jx/dispbad.jcl
+check "PASS after an abnormal end"        1 'dispbad.jcl:7:3: error: DD PASSED codes DISP with PASS, an abnormal-end.*\[PLB-J037\]' \
+    -- check --no-config $jx/dispbad.jcl
+check "a fourth DISP subparameter"        1 'dispbad.jcl:8:3: error: DD FOUR codes DISP with KEEP, a fourth.*\[PLB-J037\]' \
+    -- check --no-config $jx/dispbad.jcl
+check_absent "DISP forms the Reference shows" 'dispbad.jcl:1[0-3]:.*PLB-J037' \
+    -- check --no-config $jx/dispbad.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
