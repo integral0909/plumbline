@@ -584,6 +584,14 @@ check "a JOBLIB in a procedure"           1 'joblibp.prc:4:3: error: JOBLIB DD i
     -- check --no-config $jx/joblibp.prc
 check_absent "a JOBLIB right after the JOB statement" 'joblib.jcl:4:.*PLB-J043' \
     -- check --no-config $jx/joblib.jcl
+check "a JCLLIB after the first EXEC"     1 'jcllib.jcl:8:3: error: JCLLIB after the first EXEC.*\[PLB-J044\]' \
+    -- check --no-config $jx/jcllib.jcl
+check "a second JCLLIB"                   1 'jcllib.jcl:12:3: error: a second JCLLIB in the job.*\[PLB-J044\]' \
+    -- check --no-config $jx/jcllib.jcl
+check "a JCLLIB in a procedure"           1 'jcllibp.prc:3:3: error: JCLLIB in a procedure.*\[PLB-J044\]' \
+    -- check --no-config $jx/jcllibp.prc
+check_absent "one JCLLIB before the first EXEC" 'jcllib.jcl:3:.*PLB-J044' \
+    -- check --no-config $jx/jcllib.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
