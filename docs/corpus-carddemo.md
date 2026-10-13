@@ -400,6 +400,10 @@ Some findings that were read and are true:
   and 4200 swapped, it reports entry 4 after entry 3.
 - **PLB-C098 group-value-into-packed** and **PLB-C099
   value-overridden.** None.
+- **PLB-Q024 column-undeclared.** None: the 12 statements and cursors
+  of its DB2 programs name the columns of their DCLGEN declarations. In
+  a copy of `COTRTLIC` whose cursor selects `TR_DESC` for
+  `TR_DESCRIPTION`, it reports `TR_DESC`.
 - **PLB-Q023 select-not-grouped.** None: its one aggregate, `SELECT
   COUNT(1)` in `COTRTLIC`, is alone in its list. In a copy that selects
   `COUNT(1), TR_TYPE`, it reports `TR_TYPE`, and in one with `HAVING
