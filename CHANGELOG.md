@@ -328,7 +328,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-J040 recfm-invalid; the JCL reader checks each `RECFM`.
 - Rule PLB-J041 dd-parameter-conflict.
 - Rule PLB-J042 exec-value-invalid; the JCL reader checks `ADDRSPC=`,
-  `RD=`, and `MEMLIMIT=` on `JOB` and `EXEC` statements.
+  `RD=`, and `MEMLIMIT=` on `JOB` and `EXEC` statements, and `TYPRUN=`,
+  `PRTY=`, and `JESLOG=` on `JOB` statements.
 - PLB-J039 dd-value-invalid reads `DSNTYPE` too, the `DSORG` of
   `DCB=( )`, and the positional subparameters of `LABEL`.
 - Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
