@@ -126,6 +126,9 @@
         10  JD-SYSOUT-CLASH     PIC X(8).
         *> "Y" when SYSOUT= names the internal reader, (class,INTRDR).
         10  JD-INTRDR           PIC X.
+        *> OUTPUT= as written: *.name, or a list of them; spaces when
+        *> the DD has none.
+        10  JD-OUTPUT           PIC X(60).
         *> "Y" when the DD codes DLM=.
         10  JD-DLM              PIC X.
         *> "Y" when LRECL is coded as a number (JD-LRECL, 0 included),
@@ -197,3 +200,13 @@
         10  JN-PROBLEM          PIC X.
         10  JN-FILE-ID          PIC 9(4) COMP-5.
         10  JN-LINE             PIC 9(9) COMP-5.
+    *> OUTPUT JCL statements: the name, the job or procedure, and the
+    *> step they follow (0: before the first EXEC).
+    05  JO-COUNT                PIC 9(9) COMP-5.
+    05  JO-ENTRY                OCCURS JO-MAX TIMES.
+        10  JO-NAME             PIC X(8).
+        10  JO-JOB              PIC 9(9) COMP-5.
+        10  JO-PROC             PIC 9(9) COMP-5.
+        10  JO-STEP             PIC 9(9) COMP-5.
+        10  JO-FILE-ID          PIC 9(4) COMP-5.
+        10  JO-LINE             PIC 9(9) COMP-5.

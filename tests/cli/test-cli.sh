@@ -494,6 +494,16 @@ check "a fourth DISP subparameter"        1 'dispbad.jcl:8:3: error: DD FOUR cod
     -- check --no-config $jx/dispbad.jcl
 check_absent "DISP forms the Reference shows" 'dispbad.jcl:1[0-3]:.*PLB-J037' \
     -- check --no-config $jx/dispbad.jcl
+check "OUTPUT naming no OUTPUT statement" 1 'output.jcl:7:3: error: DD LIST codes OUTPUT=\*.REPROT, but no OUTPUT statement.*\[PLB-J038\]' \
+    -- check --no-config $jx/output.jcl
+check "OUTPUT naming a later statement"   1 'output.jcl:8:3: error: DD EARLY codes OUTPUT=\*.LATER,.*\[PLB-J038\]' \
+    -- check --no-config $jx/output.jcl
+check "OUTPUT of another step as *.name"  1 'output.jcl:18:3: error: DD NOTHERE codes OUTPUT=\*.LOCAL,.*\[PLB-J038\]' \
+    -- check --no-config $jx/output.jcl
+check "OUTPUT=*.step.name not in the step" 1 'output.jcl:20:3: error: DD BADSTEP codes OUTPUT=\*.PRINT.NONE, but step PRINT has no OUTPUT statement.*\[PLB-J038\]' \
+    -- check --no-config $jx/output.jcl
+check_absent "OUTPUT references that resolve" 'output.jcl:1[2-6]:.*PLB-J038' \
+    -- check --no-config $jx/output.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \

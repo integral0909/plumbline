@@ -168,6 +168,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J035](#plb-j035-retention-invalid) | retention-invalid | error | EXPDT or RETPD not a valid date or period, both coded, or on a temporary |
 | [PLB-J036](#plb-j036-space-invalid) | space-invalid | error | SPACE= unit, quantity, or option the JCL Reference does not allow |
 | [PLB-J037](#plb-j037-disp-invalid) | disp-invalid | error | DISP= status or disposition the JCL Reference does not allow |
+| [PLB-J038](#plb-j038-output-unresolved) | output-unresolved | error | DD OUTPUT=*.name names no OUTPUT JCL statement before it |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -4172,6 +4173,29 @@ normal-termination disposition `DELETE`, `KEEP`, `PASS`, `CATLG`, or
 or `UNCATLG`, which leaves out `PASS`. Each may be left out, with a
 comma, and there are no more than three. Values with symbols are not
 read.
+
+## PLB-J038 output-unresolved
+
+A DD whose `OUTPUT=*.name` or `*.stepname.name` names no `OUTPUT` JCL
+statement before it:
+
+```jcl
+//REPORT   OUTPUT CLASS=A,FORMS=STD
+//PRINT    EXEC PGM=PAYRPT
+//LIST     DD SYSOUT=A,OUTPUT=*.REPROT          reported
+```
+
+The z/OS MVS JCL Reference (DD `OUTPUT` parameter): `*.name` "refers to
+an earlier OUTPUT JCL statement with name in its name field. The system
+searches for the OUTPUT JCL statement first in the same step, then
+before the first EXEC statement of the job"; `*.stepname.name` refers
+to one in that step; and "if the system finds no match for the name
+coded in the OUTPUT parameter, the system issues a JCL error". In a
+procedure, the statement must come before the DD in the procedure. An
+`OUTPUT` statement of an earlier step is found only as
+`*.stepname.name`. References through a procedure step
+(`*.step.procstep.name`), DDs named `STEP.DD`, and values with symbols
+are not read.
 
 ## PLB-K001 cics-resource-undefined
 
