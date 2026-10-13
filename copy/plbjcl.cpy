@@ -143,6 +143,11 @@
         *> with JD-SPACE-PART: U unit, Q quantity, O option.
         10  JD-SPACE-BAD        PIC X(20).
         10  JD-SPACE-PART       PIC X.
+        *> The first DISP= subparameter the JCL Reference does not
+        *> allow, as written, and which it is: S status, N normal, A
+        *> abnormal termination disposition, X a fourth.
+        10  JD-DISP-BAD         PIC X(20).
+        10  JD-DISP-PART        PIC X.
         *> The class of SYSOUT= when the JCL Reference does not allow it
         *> (not one character, A through Z or 0 through 9, or *).
         10  JD-CLASS-BAD        PIC X(10).

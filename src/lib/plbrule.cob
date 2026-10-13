@@ -756,6 +756,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J036"
         "space-invalid" "E"
         "SPACE= unit, quantity, or option the JCL Reference does not allow"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J037"
+        "disp-invalid" "E"
+        "DISP= status or disposition the JCL Reference does not allow"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
