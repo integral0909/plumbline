@@ -1274,7 +1274,7 @@ ADD-DD.
     MOVE SPACES TO JD-RETAIN-PROBLEM(LS-D) JD-RETAIN-VALUE(LS-D)
         LS-EXPDT LS-RETPD JD-SPACE-BAD(LS-D) JD-SPACE-PART(LS-D)
         JD-DISP-BAD(LS-D) JD-DISP-PART(LS-D) JD-VALUE-KEY(LS-D)
-        JD-VALUE-BAD(LS-D)
+        JD-VALUE-BAD(LS-D) JD-RECFM-BAD(LS-D)
     MOVE SPACES TO JD-CLASS-BAD(LS-D)
     MOVE SPACES TO JD-SYSOUT-CLASH(LS-D) LS-NOT-WITH-SYSOUT
         LS-ONLY-WITH-SYSOUT
@@ -1676,6 +1676,41 @@ DCB-PARAMETER.
             END-IF
         WHEN "RECFM"
             MOVE FUNCTION TRIM(LS-DCB-VALUE) TO JD-RECFM(LS-D)
+            PERFORM CHECK-RECFM
+    END-EVALUATE.
+
+*> The RECFM in LS-DCB-VALUE: one of the formats of the z/OS MVS JCL
+*> Reference ("RECFM parameter", for BDAM, BPAM, BSAM, EXCP, and QSAM):
+*> U, UT, F, FB, FS, FT, FBS, FBT, V, VB, VS, VT, VBS, VBT, VBST, and
+*> for ISO/ANSI tapes D, DB, DS, DBS, each followed by A or M at most
+*> (A only, after a D format). Values with symbols are not read.
+CHECK-RECFM.
+    MOVE FUNCTION TRIM(LS-DCB-VALUE) TO LS-SP-TEXT
+    MOVE 0 TO LS-TIME-N
+    INSPECT LS-SP-TEXT TALLYING LS-TIME-N FOR ALL "&" ALL "%"
+    IF LS-TIME-N > 0 OR LS-SP-TEXT = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-TIME-N
+    INSPECT LS-SP-TEXT TALLYING LS-TIME-N
+        FOR CHARACTERS BEFORE INITIAL " "
+    MOVE LS-SP-TEXT TO LS-SP-Q1
+    *> The control character, last.
+    IF LS-TIME-N > 1
+        IF LS-SP-TEXT(LS-TIME-N:1) = "A"
+           OR (LS-SP-TEXT(LS-TIME-N:1) = "M" AND LS-SP-TEXT(1:1) NOT = "D")
+            MOVE SPACES TO LS-SP-Q1
+            MOVE LS-SP-TEXT(1:LS-TIME-N - 1) TO LS-SP-Q1
+        END-IF
+    END-IF
+    EVALUATE LS-SP-Q1
+        WHEN "U" WHEN "UT" WHEN "F" WHEN "FB" WHEN "FS" WHEN "FT"
+        WHEN "FBS" WHEN "FBT" WHEN "V" WHEN "VB" WHEN "VS" WHEN "VT"
+        WHEN "VBS" WHEN "VBT" WHEN "VBST" WHEN "D" WHEN "DB" WHEN "DS"
+        WHEN "DBS"
+            CONTINUE
+        WHEN OTHER
+            MOVE LS-SP-TEXT TO JD-RECFM-BAD(LS-D)
     END-EVALUATE.
 
 READ-DISP.

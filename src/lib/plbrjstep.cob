@@ -2114,3 +2114,54 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
     END-PERFORM
     GOBACK.
 END PROGRAM PLB-RULE-J039.
+
+*> ---------------------------------------------------------------
+*> PLB-J040 recfm-invalid: a RECFM that is none of the record formats
+*> the z/OS MVS JCL Reference lists:
+*>
+*>     //OUTFILE  DD DSN=PAY.OUT,DISP=(NEW,CATLG),RECFM=BF,LRECL=80
+*>
+*> "RECFM parameter" lists, for its access methods, U, UT, F, FB, FS,
+*> FT, FBS, FBT, V, VB, VS, VT, VBS, VBT, VBST, and for ISO/ANSI tapes
+*> D, DB, DS, DBS, and says "A or M can be coded with any record
+*> format, such as: RECFM=FBA" (A only with D). The letters come in
+*> that order: BF, FBB, or VF are none of them. RECFM is read as a
+*> keyword and in DCB=( ); values with symbols are not read.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J040.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J040" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-RECFM-BAD(LS-D) NOT = SPACES
+            MOVE SPACES TO LS-MESSAGE
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " codes RECFM=" DELIMITED BY SIZE
+                   JD-RECFM-BAD(LS-D) DELIMITED BY SPACE
+                   ", none of the record formats z/OS takes (F, FB, V,"
+                   " VB, U, ..., with A or M)" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+        END-IF
+    END-PERFORM
+    GOBACK.
+END PROGRAM PLB-RULE-J040.

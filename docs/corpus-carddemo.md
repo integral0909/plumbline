@@ -533,6 +533,9 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J040 recfm-invalid.** None among its 44 `RECFM` values, `F`,
+  `FB`, `FBA`, and `VB`. In a copy of `DUSRSECJ` whose `RECFM=FB` is
+  made `RECFM=BF`, it reports that DD.
 - **PLB-J039 dd-value-invalid.** None: no DD of CardDemo codes `HOLD`,
   `FREE`, `SPIN`, `AVGREC`, or `RECORG`. In a copy of `DUSRSECJ` whose
   first `SYSPRINT` DD is given `HOLD=YESS`, it reports that DD.

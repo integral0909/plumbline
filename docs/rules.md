@@ -170,6 +170,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J037](#plb-j037-disp-invalid) | disp-invalid | error | DISP= status or disposition the JCL Reference does not allow |
 | [PLB-J038](#plb-j038-output-unresolved) | output-unresolved | error | DD OUTPUT=*.name names no OUTPUT JCL statement before it |
 | [PLB-J039](#plb-j039-dd-value-invalid) | dd-value-invalid | error | HOLD, FREE, SPIN, AVGREC, or RECORG value the JCL Reference does not list |
+| [PLB-J040](#plb-j040-recfm-invalid) | recfm-invalid | error | RECFM is none of the record formats the JCL Reference lists |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -4213,6 +4214,23 @@ or `N`; `FREE` is `END` or `CLOSE`; `SPIN` is `NO` or `UNALLOC`, which
 may take a time or a line count in parentheses; `AVGREC` is `U`, `K`, or
 `M`; and `RECORG` is `KS`, `ES`, `RR`, or `LS`. Values with symbols are
 not read.
+
+## PLB-J040 recfm-invalid
+
+A `RECFM` that is none of the record formats the z/OS MVS JCL Reference
+lists:
+
+```jcl
+//OUTBF    DD DSN=PAY.OUTBF,DISP=(NEW,CATLG),RECFM=BF,LRECL=80  reported
+```
+
+"RECFM parameter" lists, for the access methods that take it, `U`,
+`UT`, `F`, `FB`, `FS`, `FT`, `FBS`, `FBT`, `V`, `VB`, `VS`, `VT`, `VBS`,
+`VBT`, `VBST`, and for ISO/ANSI tapes `D`, `DB`, `DS`, and `DBS`; and "A
+or M can be coded with any record format, such as: RECFM=FBA" (only `A`
+after a `D` format). The letters come in that order, so `BF`, `FBB`,
+and `FBAM` are none of them. `RECFM` is read as a keyword and in
+`DCB=( )`; values with symbols are not read.
 
 ## PLB-K001 cics-resource-undefined
 
