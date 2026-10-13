@@ -1,0 +1,6 @@
+tests/golden/rules/c105-edited-leading-space.cob:19:12: warning: DELIMITED BY SPACE cuts this literal at its first delimiter: STRING sends only "COUNT" [PLB-C078]
+tests/golden/rules/c105-edited-leading-space.cob:19:21: warning: WS-COUNT (PIC ZZZ9) starts with a space for some values, and STRING sends nothing of it then, DELIMITED BY SPACE [PLB-C105]
+tests/golden/rules/c105-edited-leading-space.cob:20:12: warning: WS-NET (PIC -9(5)) starts with a space for some values, and STRING sends nothing of it then, DELIMITED BY SPACE [PLB-C105]
+tests/golden/rules/c105-edited-leading-space.cob:20:23: warning: WS-PRICE (PIC $$$9.99) starts with a space for some values, and STRING sends nothing of it then, DELIMITED BY SPACE [PLB-C105]
+tests/golden/rules/c105-edited-leading-space.cob:21:12: warning: WS-DELTA (PIC +(4)9) starts with a space for some values, and STRING sends nothing of it then, DELIMITED BY SPACE [PLB-C105]
+tests/golden/rules/c105-edited-leading-space.cob:21:38: warning: WS-CODE (PIC B99) starts with a space for some values, and STRING sends nothing of it then, DELIMITED BY SPACE [PLB-C105]

@@ -364,6 +364,10 @@ Some findings that were read and are true:
   send unsigned whole numbers (`ACCT-ID`, `WS-TRANID-SUFFIX`). In a copy
   of `CBACT04C` with `WS-TRANID-SUFFIX` made `PIC S9(06)`, it reports
   that item.
+- **PLB-C105 string-edited-leading-space.** None: its `STRING`
+  statements send alphanumeric items `DELIMITED BY SPACE`. In a copy
+  of `COBIL00C` that sends a `PIC Z(15)9` copy of the transaction ID
+  in place of `TRAN-ID`, it reports that item.
 - **PLB-C104 count-too-small.** None: its one `INSPECT ... TALLYING`,
   in `COCRDLIC`, counts 7 flags into `I`, a `PIC S9(4) COMP`. In a
   copy with the flags made `PIC X(10)` and `I` `PIC S9 COMP`, it
