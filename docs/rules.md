@@ -165,6 +165,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J032](#plb-j032-class-invalid) | class-invalid | error | Job class not 1-8 letters and digits, or output class not one A-Z, 0-9 |
 | [PLB-J033](#plb-j033-cond-invalid) | cond-invalid | error | COND test code above 4095, operator unknown, or more than 8 tests |
 | [PLB-J034](#plb-j034-lrecl-invalid) | lrecl-invalid | error | LRECL above 32760, 0 without RECFM=U, or below 5 for RECFM=V |
+| [PLB-J035](#plb-j035-retention-invalid) | retention-invalid | error | EXPDT or RETPD not a valid date or period, both coded, or on a temporary |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -4110,6 +4111,26 @@ the 4-byte record descriptor word and a byte of data. `RECFM` is read
 only when the DD codes it, so `LRECL=0` without it, which may take the
 format from the data set's label or data class, is not reported. The
 length against `BLKSIZE` is [PLB-J017](#plb-j017-blksize-invalid).
+
+## PLB-J035 retention-invalid
+
+A DD whose `EXPDT` or `RETPD` the z/OS MVS JCL Reference does not
+allow:
+
+```jcl
+//YEAREND  DD DSN=PAY.YEAREND,DISP=(NEW,CATLG),EXPDT=2024/400  reported
+//WORK     DD DSN=&&WORK,DISP=(NEW,PASS),RETPD=30            reported
+```
+
+`EXPDT` is `yyddd`, a year of the 1900s, or `yyyy/ddd`, "a four-digit
+year number yyyy (from 1900 through 2155) and a three-digit day number
+ddd (from 001 through 365 for a non-leap year date, from 001 through 366
+for a leap year date)"; 1999's days 365 and 366 are "never-scratch"
+dates. `RETPD` is "one through five decimal digits (0-93000)". The two
+do the same thing, and the Reference lists `RETPD` among the parameters
+not to code with `EXPDT`; and it says "Do not specify EXPDT for a
+temporary data set", and the same of `RETPD`. Values with symbols are
+not read.
 
 ## PLB-K001 cics-resource-undefined
 

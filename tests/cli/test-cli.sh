@@ -456,6 +456,18 @@ check "a variable LRECL below 5"          1 'lreclbad.jcl:7:3: error: DD TINY co
     -- check --no-config $jx/lreclbad.jcl
 check_absent "LRECL allowed"              'lreclbad.jcl:1[0-3]:.*PLB-J034' \
     -- check --no-config $jx/lreclbad.jcl
+check "EXPDT day past the year's end"    1 'retain.jcl:5:3: error: DD YEAREND codes EXPDT=2024/400,.*\[PLB-J035\]' \
+    -- check --no-config $jx/retain.jcl
+check "EXPDT day 366 of 2023"             1 'retain.jcl:6:3: error: DD NOLEAP codes EXPDT=2023/366,.*\[PLB-J035\]' \
+    -- check --no-config $jx/retain.jcl
+check "RETPD above 93000"                 1 'retain.jcl:7:3: error: DD LONG codes RETPD=99999,.*\[PLB-J035\]' \
+    -- check --no-config $jx/retain.jcl
+check "EXPDT and RETPD both"              1 'retain.jcl:8:3: error: DD BOTH codes both EXPDT and RETPD.*\[PLB-J035\]' \
+    -- check --no-config $jx/retain.jcl
+check "RETPD of a temporary data set"     1 'retain.jcl:9:3: error: DD WORK gives the temporary data set &&WORK.*\[PLB-J035\]' \
+    -- check --no-config $jx/retain.jcl
+check_absent "EXPDT and RETPD allowed"    'retain.jcl:1[2-5]:.*PLB-J035' \
+    -- check --no-config $jx/retain.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \

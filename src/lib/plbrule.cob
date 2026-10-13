@@ -750,6 +750,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J034"
         "lrecl-invalid" "E"
         "LRECL above 32760, 0 without RECFM=U, or below 5 for RECFM=V"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J035"
+        "retention-invalid" "E"
+        "EXPDT or RETPD not a valid date or period, both coded, or on a temporary"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

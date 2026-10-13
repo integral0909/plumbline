@@ -1653,3 +1653,81 @@ CHECK-DD.
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
         JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
 END PROGRAM PLB-RULE-J034.
+
+*> ---------------------------------------------------------------
+*> PLB-J035 retention-invalid: a DD whose EXPDT or RETPD the z/OS MVS
+*> JCL Reference does not allow:
+*>
+*>     //BACKUP   DD DSN=PAY.BACKUP,DISP=(NEW,CATLG),EXPDT=2024/400
+*>     //WORK     DD DSN=&&WORK,DISP=(NEW,PASS),RETPD=30
+*>
+*> EXPDT is yyddd (a year of the 1900s) or yyyy/ddd, a year from 1900
+*> through 2155 and a day from 001 through 365, or 366 in a leap year;
+*> RETPD is "one through five decimal digits (0-93000)". The two are
+*> not coded together ("Do not code the following DD parameters with
+*> the EXPDT parameter": RETPD), and "Do not specify EXPDT [RETPD] for a
+*> temporary data set". Values with symbols are not read.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J035.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J035" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-RETAIN-PROBLEM(LS-D) NOT = SPACE
+            PERFORM REPORT-DD
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+REPORT-DD.
+    MOVE SPACES TO LS-MESSAGE
+    EVALUATE JD-RETAIN-PROBLEM(LS-D)
+        WHEN "E"
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " codes EXPDT=" DELIMITED BY SIZE
+                   JD-RETAIN-VALUE(LS-D) DELIMITED BY SPACE
+                   ", not yyddd or yyyy/ddd of a day from 1900 to 2155"
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE
+        WHEN "R"
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " codes RETPD=" DELIMITED BY SIZE
+                   JD-RETAIN-VALUE(LS-D) DELIMITED BY SPACE
+                   ", not a number of days from 0 to 93000"
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE
+        WHEN "B"
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " codes both EXPDT and RETPD; code one" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+        WHEN OTHER
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " gives the temporary data set " DELIMITED BY SIZE
+                   JD-DSN(LS-D) DELIMITED BY SPACE
+                   " an EXPDT or RETPD, which a temporary data set does"
+                   " not take" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+    END-EVALUATE
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
+END PROGRAM PLB-RULE-J035.
