@@ -315,6 +315,9 @@ The findings were checked by rule:
 - **PLB-C101 string-numeric-sender.** None in NIST or in GnuCOBOL's
   tests.
 
+- **PLB-C104 count-too-small.** None in NIST's 6 programs with
+  `TALLYING`, or in GnuCOBOL's tests.
+
 - **PLB-C103 chain-exhausted.** One in NIST, as meant: `NC225A` tests
   an `EVALUATE TRUE` whose `WHEN WRK-DU-08V00 > 10` and `WHEN
   WRK-DU-08V00 < 100` take every value, and passes when its `WHEN
