@@ -4596,8 +4596,24 @@ parentheses, so that a function's arguments are not counted. A host
 variable with an indicator (`:HV :IND`) is one value, and so is a
 `VARCHAR` host variable (a group of level-49 items). A `VALUES` list
 with a host structure (another group item, which stands for its
-fields), an `INSERT` without a column list (its columns come from the
-table), and `INSERT ... SELECT` are not read.
+fields), and `INSERT ... SELECT`, are not read.
+
+An `INSERT` without a column list gives a value for each column of the
+table, in order. When a `DECLARE TABLE` in the file describes the
+table, its `VALUES` are counted against the table's columns:
+
+```cobol
+    EXEC SQL DECLARE ACCOUNT TABLE
+        ( ACCT_ID INTEGER NOT NULL, OWNER CHAR(30), BALANCE DECIMAL(9,2) )
+    END-EXEC.
+    ...
+    EXEC SQL
+        INSERT INTO ACCOUNT VALUES (:WS-ID, :WS-NAME)    *> reported
+    END-EXEC
+```
+
+SQLite 3 rejects such an `INSERT` with "table a has 3 columns but 2
+values were supplied".
 
 ## PLB-Q016 cursor-open-twice
 
