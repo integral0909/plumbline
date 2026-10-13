@@ -524,6 +524,12 @@ check_absent "DSNTYPE=(LIBRARY,2)"        'ddvalue.jcl:19:.*PLB-J039' \
     -- check --no-config $jx/ddvalue.jcl
 check_absent "DSNTYPE=LARGE"              'ddvalue.jcl:20:.*PLB-J039' \
     -- check --no-config $jx/ddvalue.jcl
+check "DSORG=IS"                          1 'ddvalue.jcl:22:3: error: DD INDEXED codes DSORG=IS,.*\[PLB-J039\]' \
+    -- check --no-config $jx/ddvalue.jcl
+check "DSORG=PDS"                         1 'ddvalue.jcl:23:3: error: DD LIBR codes DSORG=PDS,.*\[PLB-J039\]' \
+    -- check --no-config $jx/ddvalue.jcl
+check_absent "DSORG=PS and PO"            'ddvalue.jcl:2[56]:.*PLB-J039' \
+    -- check --no-config $jx/ddvalue.jcl
 check "RECFM letters out of order"       1 'recfm.jcl:4:3: error: DD OUTBF codes RECFM=BF,.*\[PLB-J040\]' \
     -- check --no-config $jx/recfm.jcl
 check "RECFM in DCB with a doubled letter" 1 'recfm.jcl:5:3: error: DD OUTFBB codes RECFM=FBB,.*\[PLB-J040\]' \

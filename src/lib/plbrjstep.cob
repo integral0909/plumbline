@@ -2061,8 +2061,8 @@ END PROGRAM PLB-RULE-J038.
 *> UNALLOC (with a time or a line count in parentheses); AVGREC is U,
 *> K, or M; RECORG is KS, ES, RR, or LS; and DSNTYPE is LIBRARY, HFS,
 *> PDS, PIPE, EXTREQ, EXTPREF, LARGE, or BASIC (LIBRARY, EXTREQ, and
-*> EXTPREF may take a version, 1 or 2). Values with symbols are not
-*> read.
+*> EXTPREF may take a version, 1 or 2). DCB=(DSORG=) is PS, PSU, DA,
+*> DAU, PO, POU, CX, or GS. Values with symbols are not read.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-J039.
@@ -2099,6 +2099,8 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
                 WHEN "DSNTYPE"
                     MOVE "LIBRARY, PDS, HFS, PIPE, EXTREQ, LARGE, ..."
                         TO LS-VALUES
+                WHEN "DSORG"
+                    MOVE "PS, PSU, DA, DAU, PO, POU, CX, or GS" TO LS-VALUES
                 WHEN OTHER
                     MOVE "KS, ES, RR, or LS" TO LS-VALUES
             END-EVALUATE
