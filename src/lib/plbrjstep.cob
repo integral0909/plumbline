@@ -2201,8 +2201,8 @@ END PROGRAM PLB-RULE-J040.
 *> RECFM, DCB=RECFM, DSNTYPE, DCB=DSORG, or FREE=CLOSE; AVGREC not with
 *> a SPACE in TRK, CYL, or ABSTR ("When specifying the TRK, CYL, or
 *> ABSTR subparameters of the SPACE parameter, do not code the AVGREC
-*> parameter"); LRECL not with DCB=LRECL; RECFM not with DCB=RECFM. The
-*> first pair found is reported.
+*> parameter"); LRECL not with DCB=LRECL; RECFM not with DCB=RECFM;
+*> KEYLEN not with DCB=KEYLEN. The first pair found is reported.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-J041.
