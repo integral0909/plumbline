@@ -266,6 +266,7 @@ uses [Semantic Versioning](https://semver.org/).
   `OPEN` opens together on a DD.
 - Rule PLB-Q018 null-compared.
 - Rule PLB-Q019 between-reversed.
+- Rule PLB-Q020 column-repeated.
 - Rule PLB-J018 gdg-generation-not-created.
 - Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
   the name field.
