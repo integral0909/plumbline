@@ -1568,3 +1568,88 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
     END-PERFORM
     GOBACK.
 END PROGRAM PLB-RULE-J032.
+
+*> ---------------------------------------------------------------
+*> PLB-J034 lrecl-invalid: a DD whose LRECL the z/OS MVS JCL Reference
+*> does not allow:
+*>
+*>     //OUTFILE  DD DSN=PAY.EXTRACT,DISP=(NEW,CATLG),
+*>     //            RECFM=FB,LRECL=40000
+*>
+*> LRECL ("LRECL parameter") is "1 to 32,760 for non-VSAM data sets",
+*> and 1 to 32,761 for VSAM ones (a DD that codes RECORG); longer
+*> variable spanned records are LRECL=X. "LRECL=0 is valid only for
+*> RECFM=U", and for RECFM=D or V "the length must be a minimum of 5",
+*> the record descriptor word and a byte of data. RECFM is read only
+*> when the DD codes it.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J034.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-MOST                 PIC 9(9) COMP-5.
+01  LS-WHY                  PIC X(60).
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J034" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-LRECL-CODED(LS-D) = "Y"
+            PERFORM CHECK-DD
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+CHECK-DD.
+    MOVE SPACES TO LS-WHY
+    IF JD-RECORG(LS-D) = "Y"
+        MOVE 32761 TO LS-MOST
+    ELSE
+        MOVE 32760 TO LS-MOST
+    END-IF
+    EVALUATE TRUE
+        WHEN JD-LRECL(LS-D) > LS-MOST
+            MOVE LS-MOST TO LS-NUM
+            CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+            STRING "above " DELIMITED BY SIZE
+                   LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+                   ", the longest record" DELIMITED BY SIZE
+                INTO LS-WHY
+        WHEN JD-LRECL(LS-D) = 0 AND JD-RECFM(LS-D) NOT = SPACES
+             AND JD-RECFM(LS-D)(1:1) NOT = "U"
+            MOVE "only RECFM=U takes 0" TO LS-WHY
+        WHEN JD-LRECL(LS-D) > 0 AND JD-LRECL(LS-D) < 5
+             AND (JD-RECFM(LS-D)(1:1) = "V" OR JD-RECFM(LS-D)(1:1) = "D")
+            MOVE "below 5, the least for variable records" TO LS-WHY
+    END-EVALUATE
+    IF LS-WHY = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    MOVE JD-LRECL(LS-D) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING "DD " DELIMITED BY SIZE
+           JD-NAME(LS-D) DELIMITED BY SPACE
+           " codes LRECL=" DELIMITED BY SIZE
+           LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           ": " DELIMITED BY SIZE
+           LS-WHY DELIMITED BY "  "
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
+END PROGRAM PLB-RULE-J034.
