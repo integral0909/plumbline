@@ -189,6 +189,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q015](#plb-q015-insert-count-mismatch) | insert-count-mismatch | error | INSERT names more or fewer columns than it gives values |
 | [PLB-Q016](#plb-q016-cursor-open-twice) | cursor-open-twice | error | SQL cursor opened again with no CLOSE between |
 | [PLB-Q017](#plb-q017-fetch-after-close) | fetch-after-close | error | FETCH or CLOSE of an SQL cursor after its CLOSE, with no OPEN |
+| [PLB-Q018](#plb-q018-null-compared) | null-compared | error | SQL condition compares with NULL, which is never true |
 | [PLB-Q014](#plb-q014-fetch-loop-end-only) | fetch-loop-end-only | warning | FETCH loop ends only on SQLCODE 100, and loops for ever on errors |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
@@ -4450,6 +4451,29 @@ The cursor is closed, and DB2 rejects the statement with SQLCODE -501
 [PLB-Q016](#plb-q016-cursor-open-twice), from the `CLOSE`: an `OPEN`
 of the cursor ends the search, and so do the statements that end
 Q016's.
+
+## PLB-Q018 null-compared
+
+A condition of embedded SQL that compares a value with `NULL`:
+
+```cobol
+    EXEC SQL
+        DELETE FROM ACCOUNT
+         WHERE CLOSED_DATE = NULL           *> reported
+    END-EXEC
+```
+
+In SQL a comparison with the null value is unknown, never true, for
+every row, with `<>` as much as with `=`: the `DELETE` above deletes
+nothing, and `CLOSED_DATE <> NULL` selects nothing either. SQLite 3
+selects no row with either, and a `CASE WHEN OWNER = NULL` never takes
+the row whose `OWNER` is null. The test meant is `IS NULL` or `IS NOT
+NULL`.
+
+Conditions are read after `WHERE`, `HAVING`, `ON`, and `WHEN`, in
+statements and in `DECLARE CURSOR`, with `NULL` on either side of `=`,
+`<>`, `<`, `>`, `<=`, or `>=`. `SET CLOSED_DATE = NULL` in an `UPDATE`
+gives the column the null value, and is not reported.
 
 ## PLB-S001 dynamic-sql
 
