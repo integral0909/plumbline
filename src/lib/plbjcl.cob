@@ -97,6 +97,15 @@ LOCAL-STORAGE SECTION.
 01  LS-NOT-WITH-SYSOUT      PIC X(8).
 01  LS-TIME-OF              PIC X.
 01  LS-EXPDT                PIC X(20).
+01  LS-SP-I                 PIC 9(4) COMP-5.
+01  LS-SP-PART              PIC 9(4) COMP-5.
+01  LS-SP-DEPTH             PIC 9(4) COMP-5.
+01  LS-SP-LEN               PIC 9(4) COMP-5.
+01  LS-SP-TEXT              PIC X(20).
+01  LS-SP-Q1                PIC X(20).
+01  LS-SP-Q2                PIC X(20).
+01  LS-SP-Q3                PIC X(20).
+01  LS-SPACE-ITEM           PIC X(20).
 01  LS-RETPD                PIC X(20).
 01  LS-YEAR                 PIC 9(4) COMP-5.
 01  LS-DAY                  PIC 9(4) COMP-5.
@@ -726,6 +735,126 @@ CHECK-RETENTION.
             END-IF
     END-EVALUATE.
 
+*> SPACE=(unit,quantities,options...) of DD LS-D, OP-VALUE, as the
+*> z/OS MVS JCL Reference describes it: the unit TRK, CYL, ABSTR, or a
+*> block or record length "from 0 through 65535"; quantities, in
+*> parentheses or alone, that "syntax allows for values of 0-16777215";
+*> and the options RLSE, CONTIG, MXIG, ALX, and ROUND. Each part is read
+*> between the commas outside the inner parentheses; values with
+*> symbols are not read.
+CHECK-SPACE.
+    MOVE 0 TO LS-TIME-N
+    INSPECT OP-VALUE TALLYING LS-TIME-N FOR ALL "&" ALL "%"
+    IF LS-TIME-N > 0 OR OP-VALUE(1:1) NOT = "("
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 1 TO LS-SP-PART
+    MOVE 0 TO LS-SP-DEPTH LS-SP-LEN
+    MOVE SPACES TO LS-SP-TEXT
+    PERFORM VARYING LS-SP-I FROM 2 BY 1
+            UNTIL LS-SP-I > LENGTH OF OP-VALUE
+        MOVE OP-VALUE(LS-SP-I:1) TO LS-CHAR
+        EVALUATE TRUE
+            WHEN LS-CHAR = "("
+                ADD 1 TO LS-SP-DEPTH
+                PERFORM SPACE-ADD-CHAR
+            WHEN LS-CHAR = ")" AND LS-SP-DEPTH > 0
+                SUBTRACT 1 FROM LS-SP-DEPTH
+                PERFORM SPACE-ADD-CHAR
+            WHEN (LS-CHAR = "," OR LS-CHAR = ")") AND LS-SP-DEPTH = 0
+                PERFORM CHECK-SPACE-PART
+                IF JD-SPACE-PART(LS-D) NOT = SPACE OR LS-CHAR = ")"
+                    EXIT PERFORM
+                END-IF
+                ADD 1 TO LS-SP-PART
+                MOVE 0 TO LS-SP-LEN
+                MOVE SPACES TO LS-SP-TEXT
+            WHEN LS-CHAR = SPACE
+                EXIT PERFORM
+            WHEN OTHER
+                PERFORM SPACE-ADD-CHAR
+        END-EVALUATE
+    END-PERFORM.
+
+SPACE-ADD-CHAR.
+    IF LS-SP-LEN < 20
+        ADD 1 TO LS-SP-LEN
+        MOVE LS-CHAR TO LS-SP-TEXT(LS-SP-LEN:1)
+    END-IF.
+
+*> Part LS-SP-PART of SPACE=, LS-SP-TEXT.
+CHECK-SPACE-PART.
+    IF LS-SP-TEXT = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    EVALUATE TRUE
+        WHEN LS-SP-PART = 1
+            IF LS-SP-TEXT NOT = "TRK" AND LS-SP-TEXT NOT = "CYL"
+               AND LS-SP-TEXT NOT = "ABSTR"
+                MOVE LS-SP-TEXT TO LS-SPACE-ITEM
+                MOVE 65535 TO LS-TIME-MAX
+                PERFORM SPACE-NUMBER
+                IF LS-CLASS-OK = "N"
+                    MOVE "U" TO JD-SPACE-PART(LS-D)
+                END-IF
+            END-IF
+        WHEN LS-SP-PART = 2
+            *> One quantity, or (primary,secondary,directory).
+            MOVE 16777215 TO LS-TIME-MAX
+            IF LS-SP-TEXT(1:1) = "("
+                MOVE SPACES TO LS-SP-Q1 LS-SP-Q2 LS-SP-Q3
+                UNSTRING LS-SP-TEXT(2:) DELIMITED BY "," OR ")"
+                    INTO LS-SP-Q1 LS-SP-Q2 LS-SP-Q3
+                MOVE LS-SP-Q1 TO LS-SPACE-ITEM
+                PERFORM SPACE-NUMBER
+                IF LS-CLASS-OK = "Y"
+                    MOVE LS-SP-Q2 TO LS-SPACE-ITEM
+                    PERFORM SPACE-NUMBER
+                END-IF
+                IF LS-CLASS-OK = "Y"
+                    MOVE LS-SP-Q3 TO LS-SPACE-ITEM
+                    PERFORM SPACE-NUMBER
+                END-IF
+            ELSE
+                MOVE LS-SP-TEXT TO LS-SPACE-ITEM
+                PERFORM SPACE-NUMBER
+            END-IF
+            IF LS-CLASS-OK = "N"
+                MOVE "Q" TO JD-SPACE-PART(LS-D)
+            END-IF
+        WHEN OTHER
+            IF LS-SP-TEXT NOT = "RLSE" AND LS-SP-TEXT NOT = "CONTIG"
+               AND LS-SP-TEXT NOT = "MXIG" AND LS-SP-TEXT NOT = "ALX"
+               AND LS-SP-TEXT NOT = "ROUND"
+                MOVE "O" TO JD-SPACE-PART(LS-D)
+            END-IF
+    END-EVALUATE
+    IF JD-SPACE-PART(LS-D) NOT = SPACE
+        MOVE LS-SP-TEXT TO JD-SPACE-BAD(LS-D)
+    END-IF.
+
+*> LS-CLASS-OK: "N" when LS-SPACE-ITEM is not empty or 1 to 8 digits
+*> no more than LS-TIME-MAX.
+SPACE-NUMBER.
+    MOVE "Y" TO LS-CLASS-OK
+    IF LS-SPACE-ITEM = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-TIME-N
+    INSPECT LS-SPACE-ITEM TALLYING LS-TIME-N
+        FOR CHARACTERS BEFORE INITIAL " "
+    IF LS-TIME-N > 8
+        MOVE "N" TO LS-CLASS-OK
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-SPACE-ITEM(1:LS-TIME-N) IS NOT NUMERIC
+        MOVE "N" TO LS-CLASS-OK
+        EXIT PARAGRAPH
+    END-IF
+    IF FUNCTION NUMVAL(LS-SPACE-ITEM(1:LS-TIME-N)) > LS-TIME-MAX
+        MOVE "N" TO LS-CLASS-OK
+    END-IF.
+
 *> LS-EXPDT: yyddd or yyyy/ddd of a day there is.
 CHECK-EXPDT.
     MOVE 0 TO LS-YEAR LS-DAY
@@ -1030,7 +1159,7 @@ ADD-DD.
     MOVE "N" TO JD-SYSOUT(LS-D) JD-DLM(LS-D) JD-LRECL-CODED(LS-D)
         JD-RECORG(LS-D)
     MOVE SPACES TO JD-RETAIN-PROBLEM(LS-D) JD-RETAIN-VALUE(LS-D)
-        LS-EXPDT LS-RETPD
+        LS-EXPDT LS-RETPD JD-SPACE-BAD(LS-D) JD-SPACE-PART(LS-D)
     MOVE SPACES TO JD-CLASS-BAD(LS-D)
     MOVE SPACES TO JD-SYSOUT-CLASH(LS-D) LS-NOT-WITH-SYSOUT
         LS-ONLY-WITH-SYSOUT
@@ -1089,6 +1218,8 @@ ADD-DD.
                 MOVE "Y" TO JD-DLM(LS-D)
             WHEN OP-KEY = "RECORG"
                 MOVE "Y" TO JD-RECORG(LS-D)
+            WHEN OP-KEY = "SPACE"
+                PERFORM CHECK-SPACE
             WHEN OP-KEY = "EXPDT"
                 MOVE OP-VALUE TO LS-EXPDT
             WHEN OP-KEY = "RETPD"
