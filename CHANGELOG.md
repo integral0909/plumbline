@@ -318,6 +318,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-J035 retention-invalid; the JCL reader checks `EXPDT=` and
   `RETPD=`.
 - Rule PLB-J036 space-invalid; the JCL reader checks `SPACE=`.
+- Rule PLB-J037 disp-invalid; the JCL reader checks each `DISP=`
+  subparameter.
 - Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
   the name field.
 - Rule PLB-J019 parm-too-long; the JCL reader counts the characters of

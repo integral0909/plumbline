@@ -533,6 +533,9 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J037 disp-invalid.** None among its 348 `DISP` values. In a
+  copy of `DUSRSECJ` whose `DISP=(NEW,CATLG,DELETE)` is made
+  `(NEW,CATLG,PASS)`, it reports that DD.
 - **PLB-J036 space-invalid.** None among its 139 `SPACE` values, in
   tracks, cylinders, and block lengths with `ROUND`. In a copy of
   `DUSRSECJ` whose `RLSE` is made `RELEASE`, it reports that DD.
