@@ -28,6 +28,12 @@ PROCEDURE DIVISION.
         INSERT INTO ACCOUNT VALUES (:WS-ID, :WS-NAME, :WS-NOTE,
                CURRENT DATE, 'A')
     END-EXEC
+    *> Reported: an INSERT whose VALUES give OWNER NULL; not reported,
+    *> NULL for NOTE.
+    EXEC SQL
+        INSERT INTO ACCOUNT (ACCT_ID, OWNER, NOTE)
+               VALUES (:WS-ID, NULL, NULL)
+    END-EXEC
     *> Reported: an UPDATE that sets OWNER to NULL; not reported, one
     *> that sets NOTE, which can be NULL.
     EXEC SQL
