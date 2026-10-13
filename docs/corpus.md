@@ -329,6 +329,13 @@ The findings were checked by rule:
 - **PLB-C105 string-edited-leading-space.** None in NIST or in
   GnuCOBOL's tests.
 
+- **PLB-C109 pointer-past-end.** None in NIST. One in GnuCOBOL's tests,
+  as meant: case C of `string-with-pointer-on-overflow-with-del` moves
+  4 to the pointer of a `PIC X(03)` and checks that `STRING`
+  overflows. In a copy of NIST's `NC217A` with `MOVE 6` to the pointer
+  of a five-character receiver just before its `STRING`, it reports
+  it.
+
 - **PLB-C108 number-compared-to-text.** None in NIST or in GnuCOBOL's
   tests.
 

@@ -120,6 +120,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C106](#plb-c106-unstring-space-not-all) | unstring-space-not-all | warning | UNSTRING into several items DELIMITED BY SPACE without ALL |
 | [PLB-C107](#plb-c107-times-count-changed) | times-count-changed | warning | Statement in a PERFORM TIMES loop changes its count, read only once |
 | [PLB-C108](#plb-c108-number-compared-to-text) | number-compared-to-text | warning | Numeric item compared with digits in quotes of another length |
+| [PLB-C109](#plb-c109-pointer-past-end) | pointer-past-end | warning | STRING or UNSTRING POINTER set past the end of its item just before |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -3150,6 +3151,32 @@ true. Compare with the number, `IF WS-COUNT = 5`.
 spaces in the literal count as the padding they are. Signed items,
 items with decimal places or of other usages, and text that is not all
 digits are not reported.
+
+## PLB-C109 pointer-past-end
+
+`STRING` or `UNSTRING` `WITH POINTER` an item that was just given a
+value past the end of the item it counts in:
+
+```cobol
+01  WS-LINE     PIC X(20).
+    ...
+    MOVE 21 TO WS-PTR
+    STRING "ABC" DELIMITED BY SIZE INTO WS-LINE
+        WITH POINTER WS-PTR                          *> reported
+```
+
+The pointer counts positions in the receiver of `STRING`, or in the
+item `UNSTRING` splits. Past its last position, the statement
+overflows at once, as below 1
+([PLB-C082](#plb-c082-pointer-below-one)): with GnuCOBOL 3.2 it moves
+nothing and runs its `ON OVERFLOW` phrase, and 20 for the `PIC X(20)`
+above is still fine. GnuCOBOL's own test of `STRING ... WITH POINTER`
+expects this overflow for a pointer of 4 into a `PIC X(03)`.
+
+The value is read as for PLB-C082: the last statement before, in the
+same paragraph, that gives the pointer a number, with nothing between
+that may change it. An item with reference modification or of variable
+size is not read.
 
 ## PLB-I001 pcb-dbd-unknown
 
