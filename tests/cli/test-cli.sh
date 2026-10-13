@@ -306,6 +306,16 @@ check_absent "a doubled apostrophe passes one"  'parm.jcl:11:' \
     -- check --no-config $jx/parm.jcl
 check_absent "a PARM with a symbol is not counted" 'parm.jcl:15:' \
     -- check --no-config $jx/parm.jcl
+check "a step name of 11 characters"      1 'names.jcl:3:3: error: name EXTRACTSTEP is longer than 8 characters.*\[PLB-J020\]' \
+    -- check --no-config $jx/names.jcl
+check "a name that starts with a digit"   1 'names.jcl:6:3: error: name 1COPY does not start with a letter.*\[PLB-J020\]' \
+    -- check --no-config $jx/names.jcl
+check "a DD name with a hyphen"           1 'names.jcl:9:3: error: name PAY-IN has a character other than.*\[PLB-J020\]' \
+    -- check --no-config $jx/names.jcl
+check "an override's DD part too long"    1 'names.jcl:11:3: error: name STEP1.INPUTFILE1 (after the dot) is longer.*\[PLB-J020\]' \
+    -- check --no-config $jx/names.jcl
+check_absent "valid names are fine"       'names.jcl:1[4-9]:.*PLB-J020' \
+    -- check --no-config $jx/names.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
