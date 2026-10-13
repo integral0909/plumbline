@@ -157,6 +157,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J024](#plb-j024-sysout-parameter-conflict) | sysout-parameter-conflict | warning | DD codes SYSOUT with DISP, VOL, LABEL, ..., or DEST, HOLD, OUTLIM without it |
 | [PLB-J025](#plb-j025-dlm-not-instream) | dlm-not-instream | error | DD codes DLM but is not DD * or DD DATA |
 | [PLB-J026](#plb-j026-job-too-many-steps) | job-too-many-steps | error | Job has more than 255 steps, counting those of its procedures |
+| [PLB-J027](#plb-j027-proc-calls-itself) | proc-calls-itself | error | Procedure calls itself, directly or through the procedures it calls |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -3953,6 +3954,24 @@ error." The count is a lower bound, so that what is reported is over
 the limit: a procedure that is not among the inputs counts as one step,
 and of procedures with the same name, the one with the fewest steps is
 taken.
+
+## PLB-J027 proc-calls-itself
+
+A procedure step that calls the procedure it is in, directly or through
+the procedures it calls:
+
+```jcl
+//PAYA     PROC
+//TOB      EXEC PAYB                            reported
+//PAYB     PROC
+//TOA      EXEC PAYA                            reported
+```
+
+The z/OS MVS JCL Reference ("Nested procedures") lets procedures
+invoke other procedures "up to 15 levels of nesting". A cycle nests
+without end, so a job that calls any procedure of it fails. Calls are
+followed by name among the procedures of the run; a cataloged procedure
+is named by its member name (see [JCL](jcl.md)).
 
 ## PLB-K001 cics-resource-undefined
 
