@@ -654,3 +654,78 @@ READ-TEST.
             JS-FILE-ID(LS-S) JS-LINE(LS-S) LS-COLUMN LS-ZERO LS-MESSAGE
     END-IF.
 END PROGRAM PLB-RULE-J021.
+
+*> ---------------------------------------------------------------
+*> PLB-J023 copy-onto-itself: an IEBGENER step whose SYSUT2, the
+*> output, names a data set that SYSUT1, the input, or one of the data
+*> sets concatenated to it, names too:
+*>
+*>     //COPY     EXEC PGM=IEBGENER
+*>     //SYSUT1   DD DSN=PAY.MASTER,DISP=SHR
+*>     //SYSUT2   DD DSN=PAY.MASTER,DISP=OLD
+*>
+*> Reading from and writing to the same data set at once gives results
+*> that are "always unpredictable" for any program that uses BSAM or
+*> QSAM, and IEBGENER documents that its input and output must not be
+*> one data set (IBM support, "Incorrect results with IDCAMS REPRO
+*> using input DD concatenation where one DD is also the output DD").
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J023.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-LAST                 PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J023" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
+        IF JS-KIND(LS-S) = "P"
+           AND JS-TARGET(LS-S) = "IEBGENER"
+           AND JS-DD-COUNT(LS-S) > 0
+            PERFORM CHECK-STEP
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> Each SYSUT2 of step LS-S against each SYSUT1 of it.
+CHECK-STEP.
+    COMPUTE LS-LAST = JS-DD-FIRST(LS-S) + JS-DD-COUNT(LS-S) - 1
+    PERFORM VARYING LS-D FROM JS-DD-FIRST(LS-S) BY 1 UNTIL LS-D > LS-LAST
+        IF JD-NAME(LS-D) = "SYSUT2" AND JD-KIND(LS-D) = "D"
+           AND JD-DSN(LS-D) NOT = SPACES
+            PERFORM VARYING LS-E FROM JS-DD-FIRST(LS-S) BY 1
+                    UNTIL LS-E > LS-LAST
+                IF JD-NAME(LS-E) = "SYSUT1" AND JD-KIND(LS-E) = "D"
+                   AND JD-DSN(LS-E) = JD-DSN(LS-D)
+                    MOVE SPACES TO LS-MESSAGE
+                    STRING "SYSUT2 names " DELIMITED BY SIZE
+                           JD-DSN(LS-D) DELIMITED BY SPACE
+                           ", which SYSUT1 reads: " DELIMITED BY SIZE
+                           JS-TARGET(LS-S) DELIMITED BY SPACE
+                           " would read and write one data set at once"
+                           DELIMITED BY SIZE
+                        INTO LS-MESSAGE
+                    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS
+                        LS-RULE JD-FILE-ID(LS-D) JD-LINE(LS-D)
+                        LS-COLUMN LS-ZERO LS-MESSAGE
+                    EXIT PERFORM
+                END-IF
+            END-PERFORM
+        END-IF
+    END-PERFORM.
+END PROGRAM PLB-RULE-J023.
