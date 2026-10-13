@@ -95,6 +95,13 @@ LOCAL-STORAGE SECTION.
 01  LS-DCB-ITEM             PIC X(80).
 01  LS-DCB-KEY              PIC X(8).
 01  LS-NOT-WITH-SYSOUT      PIC X(8).
+01  LS-TIME-OF              PIC X.
+01  LS-TIME-BAD             PIC X(20).
+01  LS-TIME-MIN             PIC X(20).
+01  LS-TIME-SEC             PIC X(20).
+01  LS-TIME-PART            PIC X(20).
+01  LS-TIME-N               PIC 9(4) COMP-5.
+01  LS-TIME-MAX             PIC 9(9) COMP-5.
 01  LS-PATH-I               PIC 9(4) COMP-5.
 01  LS-PATH-START           PIC 9(4) COMP-5.
 01  LS-PATH-END             PIC 9(4) COMP-5.
@@ -530,7 +537,77 @@ ADD-JOB.
     MOVE JJ-COUNT TO LS-JOB
     MOVE ST-NAME TO JJ-NAME(LS-JOB)
     MOVE LK-FILE-ID TO JJ-FILE-ID(LS-JOB)
-    MOVE ST-LINE TO JJ-LINE(LS-JOB).
+    MOVE ST-LINE TO JJ-LINE(LS-JOB)
+    MOVE SPACES TO JJ-TIME-BAD(LS-JOB)
+    MOVE 1 TO OP-START
+    MOVE 0 TO OP-POSITION
+    PERFORM NEXT-OPERAND
+    PERFORM UNTIL OP-ITEM-LEN = 0
+        IF OP-KEY = "TIME"
+            MOVE "J" TO LS-TIME-OF
+            PERFORM CHECK-TIME
+            MOVE LS-TIME-BAD TO JJ-TIME-BAD(LS-JOB)
+        END-IF
+        PERFORM NEXT-OPERAND
+    END-PERFORM.
+
+*> LS-TIME-BAD: OP-VALUE, a TIME= value, when the z/OS MVS JCL
+*> Reference does not allow it ("TIME parameter" of EXEC and JOB):
+*> minutes from 0 through 357912, seconds from 0 through 59, as
+*> minutes, (minutes,seconds), or (,seconds); or 1440, NOLIMIT,
+*> MAXIMUM, or 0, and not 0 on a JOB statement (LS-TIME-OF "J"), where
+*> "the results are unpredictable". Values with symbols are not read.
+CHECK-TIME.
+    MOVE SPACES TO LS-TIME-BAD LS-TIME-MIN LS-TIME-SEC
+    IF OP-VALUE = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-TIME-N
+    INSPECT OP-VALUE TALLYING LS-TIME-N FOR ALL "&" ALL "%"
+    IF LS-TIME-N > 0
+        EXIT PARAGRAPH
+    END-IF
+    EVALUATE TRUE
+        WHEN OP-VALUE = "NOLIMIT" OR OP-VALUE = "MAXIMUM"
+             OR OP-VALUE = "1440"
+            EXIT PARAGRAPH
+        WHEN OP-VALUE = "0" OR OP-VALUE = "(0)"
+            IF LS-TIME-OF = "J"
+                MOVE OP-VALUE TO LS-TIME-BAD
+            END-IF
+            EXIT PARAGRAPH
+        WHEN OP-VALUE(1:1) = "("
+            UNSTRING OP-VALUE(2:) DELIMITED BY "," OR ")"
+                INTO LS-TIME-MIN LS-TIME-SEC
+        WHEN OTHER
+            MOVE OP-VALUE TO LS-TIME-MIN
+    END-EVALUATE
+    MOVE LS-TIME-MIN TO LS-TIME-PART
+    MOVE 357912 TO LS-TIME-MAX
+    PERFORM CHECK-TIME-PART
+    MOVE LS-TIME-SEC TO LS-TIME-PART
+    MOVE 59 TO LS-TIME-MAX
+    PERFORM CHECK-TIME-PART.
+
+*> A part of TIME=: empty, or 1 to 6 digits no more than LS-TIME-MAX.
+CHECK-TIME-PART.
+    IF LS-TIME-PART = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-TIME-N
+    INSPECT LS-TIME-PART TALLYING LS-TIME-N
+        FOR CHARACTERS BEFORE INITIAL " "
+    IF LS-TIME-N > 6
+        MOVE OP-VALUE TO LS-TIME-BAD
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-TIME-PART(1:LS-TIME-N) IS NOT NUMERIC
+        MOVE OP-VALUE TO LS-TIME-BAD
+        EXIT PARAGRAPH
+    END-IF
+    IF FUNCTION NUMVAL(LS-TIME-PART(1:LS-TIME-N)) > LS-TIME-MAX
+        MOVE OP-VALUE TO LS-TIME-BAD
+    END-IF.
 
 ADD-PROC.
     MOVE 0 TO LS-STEP
@@ -610,6 +687,7 @@ ADD-STEP.
     MOVE ST-LINE TO JS-LINE(LS-STEP)
     MOVE 0 TO JS-DD-FIRST(LS-STEP) JS-DD-COUNT(LS-STEP)
     MOVE 0 TO JS-PARM-LEN(LS-STEP)
+    MOVE SPACES TO JS-TIME-BAD(LS-STEP)
     MOVE 1 TO OP-START
     MOVE 0 TO OP-POSITION
     PERFORM NEXT-OPERAND
@@ -635,6 +713,12 @@ ADD-STEP.
                 PERFORM COUNT-PARM
             WHEN OP-KEY = "COND"
                 MOVE OP-VALUE TO JS-COND(LS-STEP)
+            WHEN OP-KEY = "TIME" OR OP-KEY(1:5) = "TIME."
+                MOVE "S" TO LS-TIME-OF
+                PERFORM CHECK-TIME
+                IF JS-TIME-BAD(LS-STEP) = SPACES
+                    MOVE LS-TIME-BAD TO JS-TIME-BAD(LS-STEP)
+                END-IF
         END-EVALUATE
         PERFORM NEXT-OPERAND
     END-PERFORM

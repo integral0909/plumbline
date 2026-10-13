@@ -301,6 +301,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-J027 proc-calls-itself.
 - Rule PLB-J028 instream-procs-too-many; the JCL reader keeps the job
   of each in-stream procedure.
+- Rule PLB-J029 time-invalid; the JCL reader checks `TIME=` on `JOB`
+  and `EXEC` statements.
 - Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
   the name field.
 - Rule PLB-J019 parm-too-long; the JCL reader counts the characters of

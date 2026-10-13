@@ -1149,3 +1149,79 @@ REPORT-PROC.
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
         JP-FILE-ID(LS-P) JP-LINE(LS-P) LS-COLUMN LS-ZERO LS-MESSAGE.
 END PROGRAM PLB-RULE-J028.
+
+*> ---------------------------------------------------------------
+*> PLB-J029 time-invalid: a TIME= on a JOB or EXEC statement that the
+*> z/OS MVS JCL Reference does not allow:
+*>
+*>     //EXTRACT  EXEC PGM=PAYEXTR,TIME=(5,90)
+*>     //PAYJOB   JOB (ACCT),'PAY',TIME=0
+*>
+*> Minutes must be a number "from 0 through 357912", and seconds "from
+*> 0 through 59" ("TIME parameter", of EXEC and of JOB); 1440, NOLIMIT,
+*> and MAXIMUM ask for no limit. Of TIME=0 on a JOB statement, the
+*> Reference says: "Do not code TIME=0 on a JOB statement. The results
+*> are unpredictable." Values with symbols are not read.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J029.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-BAD                  PIC X(20).
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J029" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > JJ-COUNT
+        IF JJ-TIME-BAD(LS-I) NOT = SPACES
+            MOVE JJ-TIME-BAD(LS-I) TO LS-BAD
+            MOVE SPACES TO LS-MESSAGE
+            IF LS-BAD = "0" OR LS-BAD = "(0)"
+                STRING "job " DELIMITED BY SIZE
+                       JJ-NAME(LS-I) DELIMITED BY SPACE
+                       " codes TIME=0, whose results on a JOB statement"
+                       " are unpredictable" DELIMITED BY SIZE
+                    INTO LS-MESSAGE
+            ELSE
+                STRING "job " DELIMITED BY SIZE
+                       JJ-NAME(LS-I) DELIMITED BY SPACE
+                       " codes TIME=" DELIMITED BY SIZE
+                       LS-BAD DELIMITED BY SPACE
+                       ", not minutes to 357912 and seconds to 59,"
+                       " 1440, NOLIMIT, or MAXIMUM" DELIMITED BY SIZE
+                    INTO LS-MESSAGE
+            END-IF
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JJ-FILE-ID(LS-I) JJ-LINE(LS-I) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+        END-IF
+    END-PERFORM
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > JS-COUNT
+        IF JS-TIME-BAD(LS-I) NOT = SPACES
+            MOVE SPACES TO LS-MESSAGE
+            STRING "step " DELIMITED BY SIZE
+                   JS-NAME(LS-I) DELIMITED BY SPACE
+                   " codes TIME=" DELIMITED BY SIZE
+                   JS-TIME-BAD(LS-I) DELIMITED BY SPACE
+                   ", not minutes to 357912 and seconds to 59, 1440,"
+                   " NOLIMIT, or MAXIMUM" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JS-FILE-ID(LS-I) JS-LINE(LS-I) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+        END-IF
+    END-PERFORM
+    GOBACK.
+END PROGRAM PLB-RULE-J029.
