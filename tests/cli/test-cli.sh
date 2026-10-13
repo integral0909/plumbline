@@ -448,6 +448,14 @@ check "eight COND tests and EVEN"         1 'condbad.jcl:10:3: error: COND of SU
     -- check --no-config $jx/condbad.jcl
 check_absent "eight tests, or seven with ONLY" 'condbad.jcl:1[35]:.*PLB-J033' \
     -- check --no-config $jx/condbad.jcl
+check "LRECL above 32760"                 1 'lreclbad.jcl:5:3: error: DD BIG codes LRECL=40000: above 32760.*\[PLB-J034\]' \
+    -- check --no-config $jx/lreclbad.jcl
+check "LRECL=0 for fixed records"         1 'lreclbad.jcl:6:3: error: DD EMPTY codes LRECL=0: only RECFM=U takes 0.*\[PLB-J034\]' \
+    -- check --no-config $jx/lreclbad.jcl
+check "a variable LRECL below 5"          1 'lreclbad.jcl:7:3: error: DD TINY codes LRECL=4: below 5.*\[PLB-J034\]' \
+    -- check --no-config $jx/lreclbad.jcl
+check_absent "LRECL allowed"              'lreclbad.jcl:1[0-3]:.*PLB-J034' \
+    -- check --no-config $jx/lreclbad.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \

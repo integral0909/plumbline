@@ -953,7 +953,8 @@ ADD-DD.
     MOVE "N" TO JD-CONCAT(LS-D)
     MOVE 0 TO JD-LRECL(LS-D) JD-BLKSIZE(LS-D) JD-DSN-AT(LS-D)
     MOVE SPACES TO JD-RECFM(LS-D) JD-DSN-PROBLEM(LS-D) JD-DSN-GEN(LS-D)
-    MOVE "N" TO JD-SYSOUT(LS-D) JD-DLM(LS-D)
+    MOVE "N" TO JD-SYSOUT(LS-D) JD-DLM(LS-D) JD-LRECL-CODED(LS-D)
+        JD-RECORG(LS-D)
     MOVE SPACES TO JD-CLASS-BAD(LS-D)
     MOVE SPACES TO JD-SYSOUT-CLASH(LS-D) LS-NOT-WITH-SYSOUT
         LS-ONLY-WITH-SYSOUT
@@ -1010,6 +1011,8 @@ ADD-DD.
                 END-IF
             WHEN OP-KEY = "DLM"
                 MOVE "Y" TO JD-DLM(LS-D)
+            WHEN OP-KEY = "RECORG"
+                MOVE "Y" TO JD-RECORG(LS-D)
             WHEN OP-KEY = "DISP"
                 PERFORM READ-DISP
             WHEN OP-KEY = "LRECL" OR OP-KEY = "RECFM"
@@ -1309,6 +1312,7 @@ DCB-PARAMETER.
                     IF LS-DCB-KEY = "LRECL"
                         COMPUTE JD-LRECL(LS-D) =
                             FUNCTION NUMVAL(LS-DCB-VALUE(1:LS-DCB-LEN))
+                        MOVE "Y" TO JD-LRECL-CODED(LS-D)
                     ELSE
                         COMPUTE JD-BLKSIZE(LS-D) =
                             FUNCTION NUMVAL(LS-DCB-VALUE(1:LS-DCB-LEN))
