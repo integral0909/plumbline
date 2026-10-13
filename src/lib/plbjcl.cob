@@ -1570,6 +1570,8 @@ ADD-DD.
     MOVE SPACES TO JD-RECFM(LS-D) JD-DSN-PROBLEM(LS-D) JD-DSN-GEN(LS-D)
     MOVE "N" TO JD-SYSOUT(LS-D) JD-DLM(LS-D) JD-LRECL-CODED(LS-D)
         JD-RECORG(LS-D) JD-INTRDR(LS-D) LS-OUTPUT-CODED LS-SUBSYS-CODED
+        JD-KEYLEN-CODED(LS-D) JD-RECORG-KS(LS-D)
+    MOVE 0 TO JD-KEYLEN(LS-D)
     MOVE SPACES TO JD-OUTPUT(LS-D)
     MOVE SPACES TO JD-RETAIN-PROBLEM(LS-D) JD-RETAIN-VALUE(LS-D)
         LS-EXPDT LS-RETPD JD-SPACE-BAD(LS-D) JD-SPACE-PART(LS-D)
@@ -1645,6 +1647,9 @@ ADD-DD.
                 MOVE "Y" TO JD-DLM(LS-D)
             WHEN OP-KEY = "RECORG"
                 MOVE "Y" TO JD-RECORG(LS-D)
+                IF OP-VALUE = "KS"
+                    MOVE "Y" TO JD-RECORG-KS(LS-D)
+                END-IF
             WHEN OP-KEY = "SPACE"
                 PERFORM CHECK-SPACE
             WHEN OP-KEY = "EXPDT"
@@ -1655,7 +1660,7 @@ ADD-DD.
                 PERFORM READ-DISP
                 PERFORM CHECK-DISP
             WHEN OP-KEY = "LRECL" OR OP-KEY = "RECFM"
-                 OR OP-KEY = "BLKSIZE"
+                 OR OP-KEY = "BLKSIZE" OR OP-KEY = "KEYLEN"
                 MOVE OP-KEY TO LS-DCB-KEY
                 MOVE OP-VALUE TO LS-DCB-VALUE
                 PERFORM DCB-PARAMETER
@@ -2095,6 +2100,16 @@ DCB-PARAMETER.
         WHEN "RECFM"
             MOVE FUNCTION TRIM(LS-DCB-VALUE) TO JD-RECFM(LS-D)
             PERFORM CHECK-RECFM
+        WHEN "KEYLEN"
+            MOVE FUNCTION TRIM(LS-DCB-VALUE) TO LS-DCB-VALUE
+            CALL "PLB-STR-LENGTH" USING LS-DCB-VALUE LS-DCB-LEN
+            IF LS-DCB-LEN > 0 AND LS-DCB-LEN < 10
+                IF LS-DCB-VALUE(1:LS-DCB-LEN) IS NUMERIC
+                    COMPUTE JD-KEYLEN(LS-D) =
+                        FUNCTION NUMVAL(LS-DCB-VALUE(1:LS-DCB-LEN))
+                    MOVE "Y" TO JD-KEYLEN-CODED(LS-D)
+                END-IF
+            END-IF
     END-EVALUATE.
 
 *> The RECFM in LS-DCB-VALUE: one of the formats of the z/OS MVS JCL

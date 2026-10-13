@@ -542,6 +542,9 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J047 keylen-invalid.** None: CardDemo codes no `KEYLEN`. In a
+  copy of `DUSRSECJ` whose `DCB=(LRECL=80,...)` is given `KEYLEN=90`,
+  it reports that DD.
 - **PLB-J046 vol-ser-invalid.** None: CardDemo codes no `VOL=SER`. In a
   copy of `DUSRSECJ` whose `SYSUT2` DD is given `VOL=SER=CARDVOL1`, it
   reports the eight-character serial.

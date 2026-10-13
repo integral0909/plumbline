@@ -178,6 +178,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J044](#plb-j044-jcllib-misplaced) | jcllib-misplaced | error | JCLLIB after the job's first EXEC, a second in a job, or in a procedure |
 | [PLB-J045](#plb-j045-unit-aff-invalid) | unit-aff-invalid | warning | UNIT=AFF names no earlier DD of the step, or is coded where it may not be |
 | [PLB-J046](#plb-j046-vol-ser-invalid) | vol-ser-invalid | error | VOL=SER serial longer than 6, reserved (SCRTCH, PRIVAT, ...), or twice |
+| [PLB-J047](#plb-j047-keylen-invalid) | keylen-invalid | error | KEYLEN above 255, 0 for a KS data set, or longer than the record |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -4377,6 +4378,23 @@ volume, for an unlabeled tape, and for migrated data sets; and "Do not
 specify duplicate volume serial numbers in a SER subparameter".
 Apostrophes around a serial are not counted; values with symbols are
 not read.
+
+## PLB-J047 keylen-invalid
+
+A `KEYLEN` the z/OS MVS JCL Reference does not allow:
+
+```jcl
+//BIGKEY   DD DSN=PAY.BIGKEY,DISP=(NEW,CATLG),KEYLEN=300,LRECL=400  reported
+//FULL     DD DSN=PAY.FULL,DISP=(NEW,CATLG),RECORG=KS,KEYLEN=80,
+//            LRECL=80                          reported
+```
+
+"KEYLEN parameter": the number of bytes is "0 - 255 for non-VSAM data
+sets. The key length must be less than or equal to the record length",
+and "1 - 255 for VSAM key-sequenced (RECORG=KS) data sets ... The key
+length must be less than the record length". `KEYLEN` is read as a
+keyword and in `DCB=( )` when it is a number, and the record length
+when the same DD codes `LRECL` as a number.
 
 ## PLB-K001 cics-resource-undefined
 

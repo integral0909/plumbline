@@ -2630,3 +2630,81 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
     END-PERFORM
     GOBACK.
 END PROGRAM PLB-RULE-J046.
+
+*> ---------------------------------------------------------------
+*> PLB-J047 keylen-invalid: a KEYLEN the z/OS MVS JCL Reference does
+*> not allow:
+*>
+*>     //INDEX    DD DSN=PAY.INDEX,DISP=(NEW,CATLG),KEYLEN=300,LRECL=400
+*>     //KSDS     DD DSN=PAY.KSDS,DISP=(NEW,CATLG),RECORG=KS,KEYLEN=80,
+*>     //            LRECL=80
+*>
+*> "KEYLEN parameter": the number of bytes is "0 - 255 for non-VSAM
+*> data sets. The key length must be less than or equal to the record
+*> length", and "1 - 255 for VSAM key-sequenced (RECORG=KS) data sets
+*> ... The key length must be less than the record length". KEYLEN is
+*> read as a keyword and in DCB=( ), when it is a number; the record
+*> length when LRECL is a number on the same DD.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J047.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-WHY                  PIC X(80).
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J047" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-KEYLEN-CODED(LS-D) = "Y"
+            PERFORM CHECK-DD
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+CHECK-DD.
+    MOVE SPACES TO LS-WHY
+    EVALUATE TRUE
+        WHEN JD-KEYLEN(LS-D) > 255
+            MOVE "above 255, the longest key" TO LS-WHY
+        WHEN JD-RECORG-KS(LS-D) = "Y" AND JD-KEYLEN(LS-D) = 0
+            MOVE "a key-sequenced data set needs a key of 1 to 255"
+                TO LS-WHY
+        WHEN JD-RECORG-KS(LS-D) = "Y" AND JD-LRECL-CODED(LS-D) = "Y"
+             AND JD-KEYLEN(LS-D) >= JD-LRECL(LS-D)
+            MOVE "not less than the record length, LRECL" TO LS-WHY
+        WHEN JD-RECORG-KS(LS-D) NOT = "Y" AND JD-LRECL-CODED(LS-D) = "Y"
+             AND JD-LRECL(LS-D) > 0 AND JD-KEYLEN(LS-D) > JD-LRECL(LS-D)
+            MOVE "longer than the record length, LRECL" TO LS-WHY
+    END-EVALUATE
+    IF LS-WHY = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    MOVE JD-KEYLEN(LS-D) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING "DD " DELIMITED BY SIZE
+           JD-NAME(LS-D) DELIMITED BY SPACE
+           " codes KEYLEN=" DELIMITED BY SIZE
+           LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           ": " DELIMITED BY SIZE
+           LS-WHY DELIMITED BY "  "
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
+END PROGRAM PLB-RULE-J047.
