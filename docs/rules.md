@@ -154,6 +154,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J021](#plb-j021-cond-always-bypasses) | cond-always-bypasses | warning | COND test true for every return code, so the step never runs |
 | [PLB-J022](#plb-j022-cond-never-true) | cond-never-true | warning | COND test true for no return code, so it never bypasses the step |
 | [PLB-J023](#plb-j023-copy-onto-itself) | copy-onto-itself | error | IEBGENER step whose SYSUT2 is a data set its SYSUT1 reads |
+| [PLB-J024](#plb-j024-sysout-parameter-conflict) | sysout-parameter-conflict | warning | DD codes SYSOUT with DISP, VOL, LABEL, ..., or DEST, HOLD, OUTLIM without it |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -3885,6 +3886,30 @@ its `SYSUT2` ("Incorrect results with IDCAMS REPRO using input DD
 concatenation where one DD is also the output DD"). The names are
 compared as written, member and all, so two names that the same
 symbol gives are taken to be one data set.
+
+## PLB-J024 sysout-parameter-conflict
+
+A DD that codes `SYSOUT` with a parameter the z/OS MVS JCL Reference
+says not to code with it, or `DEST`, `HOLD`, or `OUTLIM` without it:
+
+```jcl
+//REPORT   DD SYSOUT=A,DISP=(NEW,CATLG)        reported
+//LOG      DD DSN=PAY.LOG,DISP=SHR,HOLD=YES    reported
+```
+
+JES allocates a sysout data set, so it has no disposition, volume, or
+label of its own, and `DEST`, `HOLD`, and `OUTLIM` tell JES how to
+print one. The Reference (`SYSOUT`, "Relationship to other
+parameters") says: "Do not code the following DD parameters with the
+SYSOUT parameter", and lists `*`, `AMP`, `CHKPT`, `DATA`, `DATACLAS`,
+`DDNAME`, `DISP`, `DYNAM`, `EXPDT`, `LABEL`, `LIKE`, `PROTECT`, `QNAME`,
+`RETPD`, `ROACCESS`, `SUBSYS`, and `VOLUME`; the rule checks the
+keywords among them. Of `DEST`, `HOLD`, and `OUTLIM` it says "Code the
+... parameter only on a DD statement with the SYSOUT parameter".
+
+The DDs of a step that calls a procedure, and DDs named `STEP.DD`, are
+not checked: they may override a DD of the procedure, which has, or
+lacks, `SYSOUT` itself.
 
 ## PLB-K001 cics-resource-undefined
 

@@ -340,6 +340,16 @@ check "SYSUT2 among SYSUT1's concatenation" 1 'copyself.jcl:14:3: error: SYSUT2 
     -- check --no-config $jx/copyself.jcl
 check_absent "a copy to another data set"  'copyself.jcl:20:.*PLB-J023' \
     -- check --no-config $jx/copyself.jcl
+check "DISP with SYSOUT"                  1 'sysout.jcl:4:3: warning: DD REPORT codes DISP with SYSOUT.*\[PLB-J024\]' \
+    -- check --no-config $jx/sysout.jcl
+check "VOL with SYSOUT"                   1 'sysout.jcl:6:3: warning: DD AUDIT codes VOL with SYSOUT.*\[PLB-J024\]' \
+    -- check --no-config $jx/sysout.jcl
+check "HOLD without SYSOUT"               1 'sysout.jcl:8:3: warning: DD LOG codes HOLD without SYSOUT.*\[PLB-J024\]' \
+    -- check --no-config $jx/sysout.jcl
+check_absent "DEST, HOLD, OUTLIM with SYSOUT" 'sysout.jcl:10:.*PLB-J024' \
+    -- check --no-config $jx/sysout.jcl
+check_absent "a procedure DD override"    'sysout.jcl:15:.*PLB-J024' \
+    -- check --no-config $jx/sysout.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
