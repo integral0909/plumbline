@@ -24,8 +24,9 @@
         10  JP-NAME             PIC X(8).
         10  JP-FILE-ID          PIC 9(4) COMP-5.
         10  JP-LINE             PIC 9(9) COMP-5.
-        *> "Y" between PROC and PEND in a job.
+        *> "Y" between PROC and PEND in a job; JP-JOB is that job.
         10  JP-INSTREAM         PIC X.
+        10  JP-JOB              PIC 9(9) COMP-5.
     05  JS-COUNT                PIC 9(9) COMP-5.
     05  JS-ENTRY                OCCURS JS-MAX TIMES.
         *> The job, or the procedure, the step is in (0: none).

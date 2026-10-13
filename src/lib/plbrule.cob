@@ -720,6 +720,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J027"
         "proc-calls-itself" "E"
         "Procedure calls itself, directly or through the procedures it calls"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J028"
+        "instream-procs-too-many" "E"
+        "Job has more than 15 in-stream procedures"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

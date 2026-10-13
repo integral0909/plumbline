@@ -386,6 +386,10 @@ check "two procedures that call each other" 1 'paya.prc:3:3: error: procedure PA
     -- check --no-config $jx/paya.prc $jx/payb.prc $jx/payc.prc
 check_absent "a call that does not lead back" 'paya.prc:5:.*PLB-J027' \
     -- check --no-config $jx/paya.prc $jx/payb.prc $jx/payc.prc
+check "a sixteenth in-stream procedure"  1 'instream.jcl:49:3: error: procedure P16 is in-stream procedure 16 of job PAYALL.*\[PLB-J028\]' \
+    -- check --no-config $jx/instream.jcl
+check_absent "the fifteenth is allowed"   'procedure P15 is in-stream' \
+    -- check --no-config $jx/instream.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
