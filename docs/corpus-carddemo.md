@@ -523,6 +523,11 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J027 proc-calls-itself.** None. `TRANREPT.prc` begins
+  `//REPROC PROC` and calls `PROC=REPROC`, but z/OS calls it by its
+  member name, `TRANREPT` (as `CORPT00C` does), so `REPROC` is the
+  other procedure. In a copy of `REPROC.prc` with a step `EXEC
+  PROC=TRANREPT` added, it reports both procedures' calls.
 - **PLB-J026 job-too-many-steps.** None: the jobs with the most steps,
   `CARDFILE` and `TRANFILE`, have 8, each running a program.
 - **PLB-J025 dlm-not-instream.** None: no DD of CardDemo codes `DLM`.
