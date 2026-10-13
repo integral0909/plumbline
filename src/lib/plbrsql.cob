@@ -9,6 +9,7 @@
 *>   PLB-Q013  select-into-no-where
 *>   PLB-Q018  null-compared
 *>   PLB-Q019  between-reversed
+*>   PLB-Q020  column-repeated
 *>   PLB-Q005  into-count-mismatch (PLB-RULE-Q005, below)
 *>   PLB-K003  commarea-without-length (PLB-RULE-K003, below)
 *>   PLB-K004  commarea-length-too-long (PLB-RULE-K004, below)
@@ -34,6 +35,14 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE-SELECT-ALL      PIC 9(4) COMP-5.
 01  LS-RULE-NULL            PIC 9(4) COMP-5.
 01  LS-RULE-BETWEEN         PIC 9(4) COMP-5.
+01  LS-RULE-REPEATED        PIC 9(4) COMP-5.
+*> PLB-Q020: the columns an INSERT or UPDATE has named so far.
+01  LS-COL-COUNT            PIC 9(4) COMP-5.
+01  LS-COL                  PIC X(31) OCCURS 200 TIMES.
+01  LS-COL-I                PIC 9(4) COMP-5.
+01  LS-COL-LIST             PIC X.
+01  LS-OP-TEXT              PIC X(31).
+01  LS-OP-LEN               PIC 9(9) COMP-5.
 *> PLB-Q019: the two ends of a BETWEEN, as written and as numbers.
 01  LS-LOW-T                PIC 9(9) COMP-5.
 01  LS-HIGH-T               PIC 9(9) COMP-5.
@@ -99,6 +108,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q013" LS-RULE-SELECT-ALL
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q018" LS-RULE-NULL
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q019" LS-RULE-BETWEEN
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q020" LS-RULE-REPEATED
     IF RL-ENABLED(LS-RULE-STAR) = "Y"
         PERFORM CHECK-SELECT-STAR
     END-IF
@@ -386,6 +396,10 @@ SQL-STATEMENT.
     IF LS-COMMAND = "UPDATE" OR LS-COMMAND = "DELETE"
         PERFORM CHECK-WHERE
     END-IF
+    IF (LS-COMMAND = "INSERT" OR LS-COMMAND = "UPDATE")
+       AND RL-ENABLED(LS-RULE-REPEATED) = "Y"
+        PERFORM CHECK-REPEATED-COLUMNS
+    END-IF
     IF LS-COMMAND = "SELECT" AND RL-ENABLED(LS-RULE-SELECT-ALL) = "Y"
         PERFORM CHECK-SELECT-INTO
     END-IF.
@@ -472,6 +486,85 @@ SELECT-WORD.
                 END-IF
             END-IF
     END-EVALUATE.
+
+*> PLB-Q020: a column named twice in the column list of an INSERT
+*> (INSERT INTO T (A, B, A) VALUES ...), or set twice by the SET of an
+*> UPDATE (SET A = 1, A = 2). Db2 for z/OS rejects the statement with
+*> SQLCODE -121; SQLite 3 keeps one of the values and drops the other.
+*> INSERT: the words at depth 1 of the first parentheses after INTO
+*> and the table. UPDATE: each word before = at depth 0 between SET and
+*> WHERE.
+CHECK-REPEATED-COLUMNS.
+    MOVE 0 TO LS-COL-COUNT LS-LEVEL
+    MOVE "N" TO LS-COL-LIST
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-STMT) BY 1
+            UNTIL LS-T > ND-TOK-LAST(LS-STMT)
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-T)
+                ADD 1 TO LS-LEVEL
+                *> The column list: the first parentheses of an INSERT.
+                IF LS-COMMAND = "INSERT" AND LS-LEVEL = 1
+                   AND LS-COL-LIST = "N"
+                    MOVE "Y" TO LS-COL-LIST
+                END-IF
+            WHEN TK-IS-RPAREN(LS-T)
+                SUBTRACT 1 FROM LS-LEVEL
+                IF LS-COMMAND = "INSERT" AND LS-LEVEL = 0
+                   AND LS-COL-LIST = "Y"
+                    EXIT PERFORM
+                END-IF
+            WHEN TK-IS-WORD(LS-T)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+                MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+                EVALUATE TRUE
+                    WHEN LS-COMMAND = "INSERT"
+                        IF LS-TEXT = "VALUES" OR LS-TEXT = "SELECT"
+                            EXIT PERFORM
+                        END-IF
+                        IF LS-COL-LIST = "Y" AND LS-LEVEL = 1
+                            PERFORM NOTE-COLUMN
+                        END-IF
+                    WHEN LS-LEVEL > 0
+                        CONTINUE
+                    WHEN LS-TEXT = "SET"
+                        MOVE "Y" TO LS-COL-LIST
+                    WHEN LS-TEXT = "WHERE"
+                        EXIT PERFORM
+                    WHEN LS-COL-LIST = "Y"
+                        COMPUTE LS-K = LS-T + 1
+                        IF LS-K <= ND-TOK-LAST(LS-STMT)
+                            IF TK-IS-OPERATOR(LS-K)
+                                CALL "PLB-TOK-TEXT" USING PLB-TOKENS
+                                    LS-K LS-OP-TEXT LS-OP-LEN
+                                IF LS-OP-TEXT = "="
+                                    PERFORM NOTE-COLUMN
+                                END-IF
+                            END-IF
+                        END-IF
+                END-EVALUATE
+        END-EVALUATE
+    END-PERFORM.
+
+*> Column LS-TEXT at LS-T: reported when named before.
+NOTE-COLUMN.
+    PERFORM VARYING LS-COL-I FROM 1 BY 1 UNTIL LS-COL-I > LS-COL-COUNT
+        IF LS-COL(LS-COL-I) = LS-TEXT
+            MOVE SPACES TO LS-MESSAGE
+            STRING "column " DELIMITED BY SIZE
+                   LS-TEXT DELIMITED BY SPACE
+                   " is named twice in this " DELIMITED BY SIZE
+                   LS-COMMAND DELIMITED BY SPACE
+                   ": Db2 rejects it (SQLCODE -121)" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-RULES PLB-FINDINGS LS-RULE-REPEATED LS-T LS-MESSAGE
+            EXIT PARAGRAPH
+        END-IF
+    END-PERFORM
+    IF LS-COL-COUNT < 200
+        ADD 1 TO LS-COL-COUNT
+        MOVE LS-TEXT TO LS-COL(LS-COL-COUNT)
+    END-IF.
 
 *> PLB-Q004: UPDATE or DELETE without WHERE (outside parentheses, so a
 *> subquery's WHERE does not count) changes every row of the table.

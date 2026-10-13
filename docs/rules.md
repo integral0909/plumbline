@@ -198,6 +198,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q017](#plb-q017-fetch-after-close) | fetch-after-close | error | FETCH or CLOSE of an SQL cursor after its CLOSE, with no OPEN |
 | [PLB-Q018](#plb-q018-null-compared) | null-compared | error | SQL condition compares with NULL, which is never true |
 | [PLB-Q019](#plb-q019-between-reversed) | between-reversed | warning | SQL BETWEEN whose first number is above its second |
+| [PLB-Q020](#plb-q020-column-repeated) | column-repeated | error | SQL INSERT or UPDATE names the same column twice |
 | [PLB-Q014](#plb-q014-fetch-loop-end-only) | fetch-loop-end-only | warning | FETCH loop ends only on SQLCODE 100, and loops for ever on errors |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
@@ -4674,6 +4675,32 @@ row with `NOT BETWEEN 10 AND 5`. This is
 Both ends must be numbers, with a sign or decimal places or not; an end
 that is a host variable or part of an expression (`BETWEEN 30 AND 20 +
 :WS-LOW`) is not read.
+
+## PLB-Q020 column-repeated
+
+An SQL `INSERT` whose column list names a column twice, or an `UPDATE`
+whose `SET` sets one twice:
+
+```cobol
+    EXEC SQL
+        UPDATE ACCOUNT
+           SET CREDIT_LIMIT = :WS-LIMIT, OWNER = :WS-NAME,
+               CREDIT_LIMIT = 0                  *> reported
+         WHERE ACCT_ID = :WS-ID
+    END-EXEC
+```
+
+Db2 for z/OS rejects the statement with SQLCODE -121, "the column is
+identified more than once in the INSERT or UPDATE operation"
+([Db2 codes](https://www.ibm.com/docs/en/db2-for-zos/10?topic=codes-121)).
+SQLite 3 runs it and keeps one value: `INSERT INTO T (A, B, A) VALUES
+(1, 2, 3)` stores 1 and 2 and drops the 3, and `SET A = 5, A = 6`
+leaves 6. Usually a column was copied and not renamed.
+
+The column list of an `INSERT` is its first parentheses, before
+`VALUES` or `SELECT`; the columns of an `UPDATE` are the names before
+`=` in its `SET`, outside parentheses, up to `WHERE`. A column read in
+an expression, in a subquery, or in the `WHERE` is not counted.
 
 ## PLB-S001 dynamic-sql
 
