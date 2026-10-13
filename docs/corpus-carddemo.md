@@ -486,6 +486,9 @@ Some findings that were read and are true:
 - **PLB-C089 loop-never-runs.** None. In a copy of `CBACT01C` with
   `MOVE 'Y' TO END-OF-FILE.` put before its `PERFORM UNTIL END-OF-FILE
   = 'Y'`, it reports that loop.
+- **PLB-K013 interval-invalid.** None: CardDemo has no `DELAY`,
+  `START`, `POST`, or `ROUTE`. In a copy of `COSGN00C` with an `EXEC
+  CICS DELAY INTERVAL(90)` added, it reports the 90.
 - **PLB-K012 abstime-not-packed.** None: its `WS-ABS-TIME` items are
   `PIC S9(15) COMP-3`. In a copy of `COBIL00C` whose `WS-ABS-TIME` is
   made `PIC S9(15) COMP`, it reports its `ASKTIME` and `FORMATTIME`.

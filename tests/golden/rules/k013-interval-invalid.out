@@ -1,0 +1,7 @@
+tests/golden/rules/k013-interval-invalid.cob:14:30: warning: WS-WAIT-BINARY is read but never given a value [PLB-C011]
+tests/golden/rules/k013-interval-invalid.cob:14:30: error: INTERVAL needs a packed decimal item of 4 bytes (PIC S9(7) COMP-3), but WS-WAIT-BINARY is not one [PLB-K013]
+tests/golden/rules/k013-interval-invalid.cob:15:42: warning: WS-WAIT-TEXT is used before it is given a value [PLB-C012]
+tests/golden/rules/k013-interval-invalid.cob:15:42: error: TIME needs a packed decimal item of 4 bytes (PIC S9(7) COMP-3), but WS-WAIT-TEXT is not one [PLB-K013]
+tests/golden/rules/k013-interval-invalid.cob:16:30: error: INTERVAL(90) is read as hhmmss, 00:00:90, whose minutes or seconds are above 59 [PLB-K013]
+tests/golden/rules/k013-interval-invalid.cob:19:30: warning: WS-WAIT is read but never given a value [PLB-C011]
+tests/golden/rules/k013-interval-invalid.cob:21:34: warning: WS-ABS is read but never given a value [PLB-C011]

@@ -1,0 +1,22 @@
+*> PLB-K013 interval-invalid: a CICS INTERVAL or TIME that is not a
+*> PIC S9(7) COMP-3 item, or a number that is not hhmmss.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. INTERVAL.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-WAIT-BINARY      PIC S9(8) COMP.
+01  WS-WAIT-TEXT        PIC X(6).
+01  WS-WAIT             PIC S9(7) COMP-3.
+01  WS-ABS              PIC S9(15) COMP-3.
+PROCEDURE DIVISION.
+    *> Reported: a binary item, a character item, and 90 seconds
+    *> written as 90, which is 00:00:90.
+    EXEC CICS DELAY INTERVAL(WS-WAIT-BINARY) END-EXEC
+    EXEC CICS START TRANSID('ABCD') TIME(WS-WAIT-TEXT) END-EXEC
+    EXEC CICS DELAY INTERVAL(90) END-EXEC
+    *> Not reported: PIC S9(7) COMP-3, 130 (one minute thirty), and the
+    *> TIME of FORMATTIME, which gives characters.
+    EXEC CICS DELAY INTERVAL(WS-WAIT) END-EXEC
+    EXEC CICS DELAY INTERVAL(130) END-EXEC
+    EXEC CICS FORMATTIME ABSTIME(WS-ABS) TIME(WS-WAIT-TEXT) END-EXEC
+    GOBACK.
