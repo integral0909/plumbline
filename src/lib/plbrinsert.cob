@@ -16,11 +16,23 @@
 *> one item, and so is a VARCHAR (a group of level-49 items); a VALUES
 *> list with a host structure (another group item, which stands for its
 *> fields) is not counted, nor INSERT ... SELECT.
+*>
+*> An INSERT without a column list gives a value for each column of the
+*> table, in order: when a DECLARE TABLE in the file describes the
+*> table, its VALUES list is counted against the table's columns.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-Q015.
 DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbsqlm.cpy".
 LOCAL-STORAGE SECTION.
+*> "Y" once the SQL model of the file is built.
+01  LS-MODEL-BUILT          PIC X VALUE "N".
+01  LS-Q                    PIC 9(9) COMP-5.
+01  LS-TABLE                PIC 9(9) COMP-5.
+01  LS-TABLE-NAME           PIC X(64).
+01  LS-PTR                  PIC 9(9) COMP-5.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-T                    PIC 9(9) COMP-5.
 01  LS-K                    PIC 9(9) COMP-5.
@@ -102,8 +114,12 @@ CHECK-INSERT.
         IF TK-IS-WORD(LS-I)
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-I LS-TEXT LS-LEN
             MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
-            IF LS-TEXT = "VALUES" OR LS-TEXT = "SELECT"
-               OR LS-TEXT = "WITH"
+            IF LS-TEXT = "VALUES"
+                MOVE LS-I TO LS-VALUES-AT
+                PERFORM CHECK-NO-LIST
+                EXIT PARAGRAPH
+            END-IF
+            IF LS-TEXT = "SELECT" OR LS-TEXT = "WITH"
                 EXIT PARAGRAPH
             END-IF
         END-IF
@@ -148,6 +164,80 @@ CHECK-INSERT.
     IF LS-VALUES NOT = LS-COLUMNS
         PERFORM REPORT-MISMATCH
     END-IF.
+
+*> INSERT at LS-T without a column list, VALUES at LS-VALUES-AT: its
+*> values against the columns of its table's DECLARE TABLE.
+CHECK-NO-LIST.
+    IF LS-MODEL-BUILT = "N"
+        CALL "PLB-SQL-MODEL-BUILD" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-SQL-MODEL
+        MOVE "Y" TO LS-MODEL-BUILT
+    END-IF
+    *> The table: the tokens after INTO, up to VALUES, joined.
+    MOVE SPACES TO LS-TABLE-NAME
+    MOVE 1 TO LS-PTR
+    MOVE 0 TO LS-Q
+    PERFORM VARYING LS-I FROM LS-K BY 1 UNTIL LS-I >= LS-VALUES-AT
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-I LS-TEXT LS-LEN
+        IF LS-Q > 0 AND LS-LEN > 0 AND LS-PTR + LS-LEN < 64
+            STRING FUNCTION UPPER-CASE(LS-TEXT(1:LS-LEN))
+                DELIMITED BY SIZE INTO LS-TABLE-NAME WITH POINTER LS-PTR
+        END-IF
+        IF FUNCTION UPPER-CASE(LS-TEXT) = "INTO"
+            MOVE LS-I TO LS-Q
+        END-IF
+    END-PERFORM
+    MOVE 0 TO LS-TABLE
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > QT-COUNT
+        IF QT-NAME(LS-S) = LS-TABLE-NAME
+           OR QT-SHORT(LS-S) = LS-TABLE-NAME
+            MOVE LS-S TO LS-TABLE
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-TABLE = 0
+        EXIT PARAGRAPH
+    END-IF
+    IF QT-COL-COUNT(LS-TABLE) = 0
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-OPEN = LS-VALUES-AT + 1
+    IF LS-OPEN >= LS-END OR NOT TK-IS-LPAREN(LS-OPEN)
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM COUNT-LIST
+    IF LS-COUNT = 0
+        EXIT PARAGRAPH
+    END-IF
+    *> One row only.
+    COMPUTE LS-I = LS-CLOSE + 1
+    IF LS-I < LS-END
+        MOVE LS-CLOSE TO LS-SCAN-FROM
+        MOVE LS-I TO LS-SCAN-TO
+        PERFORM COMMA-BETWEEN
+        IF LS-COMMA = "Y"
+            EXIT PARAGRAPH
+        END-IF
+    END-IF
+    IF LS-COUNT = QT-COL-COUNT(LS-TABLE)
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-COUNT TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-2 LS-NUM-2-LEN
+    MOVE QT-COL-COUNT(LS-TABLE) TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-1 LS-NUM-1-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING "the INSERT gives " DELIMITED BY SIZE
+           LS-NUM-2(1:LS-NUM-2-LEN) DELIMITED BY SIZE
+           " values and no column list, but the DECLARE TABLE of "
+           DELIMITED BY SIZE
+           QT-NAME(LS-TABLE) DELIMITED BY SPACE
+           " has " DELIMITED BY SIZE
+           LS-NUM-1(1:LS-NUM-1-LEN) DELIMITED BY SIZE
+           " columns: DB2 rejects it (SQLCODE -117)" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-VALUES-AT LS-MESSAGE.
 
 *> LS-COUNT: the items in the parentheses opening at LS-OPEN, one more
 *> than the commas at their top level; LS-CLOSE: the closing one. 0
