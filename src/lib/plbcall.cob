@@ -226,11 +226,14 @@ SQL-WORD.
             END-IF
             COMPUTE LS-C = LS-T + 1
         WHEN "UPDATE"
-            *> Not FOR UPDATE OF column.
+            *> Not FOR UPDATE [OF column] of a cursor.
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-C LS-TEXT LS-LEN
-            IF LS-TEXT NOT = "OF"
+            COMPUTE LS-I = LS-T - 1
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-I LS-WORD LS-LEN
+            IF LS-TEXT NOT = "OF" AND LS-WORD NOT = "FOR"
                 MOVE "U" TO LS-KIND
             END-IF
+            MOVE "UPDATE" TO LS-WORD
         WHEN "DELETE"
             MOVE "D" TO LS-SQL-VERB
         WHEN "INSERT"

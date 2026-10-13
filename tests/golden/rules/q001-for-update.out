@@ -1,0 +1,6 @@
+tests/golden/rules/q001-for-update.cob:15:5: warning: the result of EXEC SQL OPEN is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q001-for-update.cob:16:5: warning: the result of EXEC SQL FETCH is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q001-for-update.cob:17:5: warning: the result of EXEC SQL UPDATE is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q001-for-update.cob:20:5: warning: the result of EXEC SQL UPDATE is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q001-for-update.cob:20:14: warning: EXEC SQL UPDATE has no WHERE: it changes every row of the table [PLB-Q004]
+tests/golden/rules/q001-for-update.cob:20:21: note: table HISTORY is not declared in FORUPDT (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]
