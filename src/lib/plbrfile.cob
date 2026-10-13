@@ -1181,7 +1181,10 @@ END PROGRAM PLB-RULE-FILES.
 *> or MERGE. The sort file takes records with RELEASE only while the
 *> input procedure runs, and gives them with RETURN only while the
 *> output procedure does: GnuCOBOL 3.2 ends the run with a permanent
-*> file error (status 30) at a RELEASE in an output procedure.
+*> file error (status 30) at a RELEASE in an output procedure. A
+*> RELEASE or RETURN that no procedure of a SORT or MERGE reaches is
+*> reported too (the same error), unless a procedure has a GO TO or
+*> PERFORM the analysis could not resolve.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-C048.
 DATA DIVISION.
@@ -1194,9 +1197,13 @@ WORKING-STORAGE SECTION.
 *> of each unit already on it.
 01  WS-IN-SET               PIC X OCCURS 20000 TIMES.
 01  WS-SET                  PIC 9(9) COMP-5 OCCURS 20000 TIMES.
+*> The units some SORT or MERGE procedure reaches.
+01  WS-IN-ANY               PIC X OCCURS 20000 TIMES.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-RULE-PHASE           PIC 9(4) COMP-5.
+*> "Y" when some procedure could not be followed whole.
+01  LS-ANY-UNRESOLVED       PIC X.
 01  LS-INNER                PIC 9(9) COMP-5.
 01  LS-NUM                  PIC S9(18) COMP-5.
 01  LS-NUM-TEXT             PIC X(20).
@@ -1240,8 +1247,9 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
     END-IF
     PERFORM VARYING LS-U FROM 1 BY 1 UNTIL LS-U > FU-COUNT
         MOVE "N" TO WS-HAS-RELEASE(LS-U) WS-HAS-RETURN(LS-U)
-            WS-IN-SET(LS-U)
+            WS-IN-SET(LS-U) WS-IN-ANY(LS-U)
     END-PERFORM
+    MOVE "N" TO LS-ANY-UNRESOLVED
     PERFORM VARYING LS-N FROM 1 BY 1 UNTIL LS-N > AS-COUNT
         IF ND-KIND(LS-N) = "STMT"
            AND (ND-DETAIL(LS-N) = "RELEASE" OR ND-DETAIL(LS-N) = "RETURN")
@@ -1256,7 +1264,33 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
             END-IF
         END-IF
     END-PERFORM
+    IF RL-ENABLED(LS-RULE-PHASE) = "Y" AND LS-ANY-UNRESOLVED = "N"
+        PERFORM CHECK-OUTSIDE
+    END-IF
     GOBACK.
+
+*> PLB-C111: each RELEASE or RETURN in a unit no procedure reaches.
+CHECK-OUTSIDE.
+    PERFORM VARYING LS-N FROM 1 BY 1 UNTIL LS-N > AS-COUNT
+        IF ND-KIND(LS-N) = "STMT"
+           AND (ND-DETAIL(LS-N) = "RELEASE"
+                OR ND-DETAIL(LS-N) = "RETURN")
+            PERFORM INNER-UNIT
+            IF LS-INNER > 0
+                IF WS-IN-ANY(LS-INNER) = "N"
+                    MOVE SPACES TO LS-MESSAGE
+                    STRING ND-DETAIL(LS-N) DELIMITED BY SPACE
+                           " outside every SORT or MERGE procedure:"
+                           " there is no sort for it to work on"
+                           DELIMITED BY SIZE
+                        INTO LS-MESSAGE
+                    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET
+                        PLB-TOKENS PLB-RULES PLB-FINDINGS LS-RULE-PHASE
+                        ND-TOK-FIRST(LS-N) LS-MESSAGE
+                END-IF
+            END-IF
+        END-IF
+    END-PERFORM.
 
 *> Statement LS-N belongs to the last unit that starts before it, and
 *> to that unit's section.
@@ -1325,8 +1359,12 @@ CHECK-PROCEDURE.
     IF RL-ENABLED(LS-RULE-PHASE) = "Y"
         PERFORM CHECK-WRONG-PHASE
     END-IF
+    IF LS-UNRESOLVED = "Y"
+        MOVE "Y" TO LS-ANY-UNRESOLVED
+    END-IF
     PERFORM VARYING LS-V FROM 1 BY 1 UNTIL LS-V > LS-SET-COUNT
         MOVE "N" TO WS-IN-SET(WS-SET(LS-V))
+        MOVE "Y" TO WS-IN-ANY(WS-SET(LS-V))
     END-PERFORM
     IF LS-FOUND = "N" AND LS-UNRESOLVED = "N"
        AND RL-ENABLED(LS-RULE) = "Y"

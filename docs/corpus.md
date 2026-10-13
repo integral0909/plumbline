@@ -332,7 +332,8 @@ The findings were checked by rule:
 - **PLB-C111 sort-statement-wrong-phase.** None in NIST's 29 programs
   with a `SORT` procedure, or in GnuCOBOL's tests. In a copy of NIST's
   `ST101A` with a `RELEASE` put first in its output procedure, it
-  reports it.
+  reports it, and in one with a `RELEASE` just before its `SORT`, that
+  one, which no procedure reaches.
 
 - **PLB-C110 file-dd-shared.** None in NIST or in GnuCOBOL's tests. A
   first version, which compared any two opened files, reported NIST's
