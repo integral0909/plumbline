@@ -1,0 +1,8 @@
+tests/golden/rules/q024-where.cob:16:5: warning: the result of EXEC SQL SELECT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q024-where.cob:17:28: warning: column OWNER can be NULL, but WS-NAME has no indicator variable: a NULL makes the statement fail (SQLCODE -305) [PLB-Q008]
+tests/golden/rules/q024-where.cob:18:16: error: column ACCT_NO is not in the DECLARE TABLE of ACCOUNT: Db2 rejects it (SQLCODE -206) [PLB-Q024]
+tests/golden/rules/q024-where.cob:18:27: warning: WS-ID is read but never given a value [PLB-C011]
+tests/golden/rules/q024-where.cob:20:5: warning: the result of EXEC SQL DELETE is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q024-where.cob:21:39: error: column OWNR is not in the DECLARE TABLE of ACCOUNT: Db2 rejects it (SQLCODE -206) [PLB-Q024]
+tests/golden/rules/q024-where.cob:25:5: warning: the result of EXEC SQL UPDATE is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q024-where.cob:29:48: note: table HISTORY is not declared in WHERECOL (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]

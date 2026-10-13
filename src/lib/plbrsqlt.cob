@@ -454,8 +454,8 @@ END PROGRAM PLB-RULE-SQL-TYPES.
 *> usually the name is misspelled, or the table's DCLGEN copybook is
 *> older than the table. Statements that name a table without a DECLARE
 *> TABLE, or more tables than the model keeps, are left alone, as are
-*> columns in expressions and in the WHERE, which the model does not
-*> pair.
+*> columns in expressions. In the WHERE, at its top level, a word
+*> just before a relational operator is read as a column too.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-Q024.
@@ -473,6 +473,18 @@ LOCAL-STORAGE SECTION.
 01  LS-FOUND                PIC X.
 01  LS-MESSAGE              PIC X(200).
 01  LS-PTR                  PIC 9(9) COMP-5.
+*> The column being looked for, and its token.
+01  LS-COLUMN               PIC X(31).
+01  LS-COLUMN-TOKEN         PIC 9(9) COMP-5.
+*> CHECK-WHERE-COLUMNS: where the walk is, and the tokens around.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-NEXT                 PIC 9(9) COMP-5.
+01  LS-PREV                 PIC 9(9) COMP-5.
+01  LS-DEPTH                PIC S9(4) COMP-5.
+01  LS-IN-WHERE             PIC X.
+01  LS-TEXT                 PIC X(31).
+01  LS-OP                   PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -492,7 +504,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         GOBACK
     END-IF
     PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > QS-COUNT
-        IF QS-KIND(LS-S) = "S" OR "C" OR "I" OR "U"
+        IF QS-KIND(LS-S) = "S" OR "C" OR "I" OR "U" OR "D"
             PERFORM CHECK-STATEMENT
         END-IF
     END-PERFORM
@@ -520,9 +532,63 @@ CHECK-STATEMENT.
     PERFORM VARYING LS-P FROM QS-PAIR-FIRST(LS-S) BY 1
             UNTIL LS-P >= QS-PAIR-FIRST(LS-S) + QS-PAIR-COUNT(LS-S)
         IF QP-COLUMN-TOKEN(LS-P) > 0 AND QP-COLUMN(LS-P) NOT = SPACES
+            MOVE QP-COLUMN(LS-P) TO LS-COLUMN
+            MOVE QP-COLUMN-TOKEN(LS-P) TO LS-COLUMN-TOKEN
             PERFORM CHECK-COLUMN
         END-IF
+    END-PERFORM
+    PERFORM CHECK-WHERE-COLUMNS.
+
+*> The WHERE of statement LS-S, at its top level: each word just
+*> before a relational operator (WHERE ACCT_ID = :WS-ID), not a host
+*> variable (after a colon) or a special register (after CURRENT).
+CHECK-WHERE-COLUMNS.
+    MOVE 0 TO LS-DEPTH
+    MOVE "N" TO LS-IN-WHERE
+    PERFORM VARYING LS-T FROM QS-TOKEN(LS-S) BY 1
+            UNTIL LS-T >= QS-END(LS-S)
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-T)
+                ADD 1 TO LS-DEPTH
+            WHEN TK-IS-RPAREN(LS-T)
+                SUBTRACT 1 FROM LS-DEPTH
+            WHEN LS-DEPTH NOT = 0
+                CONTINUE
+            WHEN TK-IS-WORD(LS-T)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+                MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+                EVALUATE TRUE
+                    WHEN LS-TEXT = "WHERE"
+                        MOVE "Y" TO LS-IN-WHERE
+                    WHEN LS-TEXT = "ORDER" OR "GROUP" OR "HAVING"
+                         OR "FETCH" OR "FOR" OR "UNION" OR "WITH"
+                         OR "OPTIMIZE"
+                        MOVE "N" TO LS-IN-WHERE
+                    WHEN LS-IN-WHERE = "Y"
+                        PERFORM WHERE-WORD
+                END-EVALUATE
+        END-EVALUATE
     END-PERFORM.
+
+*> The word LS-TEXT at LS-T in a WHERE.
+WHERE-WORD.
+    COMPUTE LS-NEXT = LS-T + 1
+    IF LS-NEXT >= QS-END(LS-S) OR NOT TK-IS-OPERATOR(LS-NEXT)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-NEXT LS-OP LS-LEN
+    IF LS-OP NOT = "=" AND NOT = "<>" AND NOT = "<" AND NOT = ">"
+       AND NOT = "<=" AND NOT = ">="
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-PREV = LS-T - 1
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-PREV LS-OP LS-LEN
+    IF LS-OP = ":" OR FUNCTION UPPER-CASE(LS-OP) = "CURRENT"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE LS-TEXT TO LS-COLUMN
+    MOVE LS-T TO LS-COLUMN-TOKEN
+    PERFORM CHECK-COLUMN.
 
 *> Column of pair LS-P in one of the statement's tables.
 CHECK-COLUMN.
@@ -534,7 +600,7 @@ CHECK-COLUMN.
                 PERFORM VARYING LS-C FROM QT-COL-FIRST(LS-J) BY 1
                         UNTIL LS-C >= QT-COL-FIRST(LS-J)
                                       + QT-COL-COUNT(LS-J)
-                    IF QL-NAME(LS-C) = QP-COLUMN(LS-P)
+                    IF QL-NAME(LS-C) = LS-COLUMN
                         MOVE "Y" TO LS-FOUND
                     END-IF
                 END-PERFORM
@@ -547,7 +613,7 @@ CHECK-COLUMN.
     MOVE SPACES TO LS-MESSAGE
     MOVE 1 TO LS-PTR
     STRING "column " DELIMITED BY SIZE
-           QP-COLUMN(LS-P) DELIMITED BY SPACE
+           LS-COLUMN DELIMITED BY SPACE
            " is not in the DECLARE TABLE of " DELIMITED BY SIZE
            QS-TABLE(LS-S, 1) DELIMITED BY SPACE
         INTO LS-MESSAGE WITH POINTER LS-PTR
@@ -558,7 +624,7 @@ CHECK-COLUMN.
     STRING ": Db2 rejects it (SQLCODE -206)" DELIMITED BY SIZE
         INTO LS-MESSAGE WITH POINTER LS-PTR
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
-        PLB-FINDINGS LS-RULE QP-COLUMN-TOKEN(LS-P) LS-MESSAGE.
+        PLB-FINDINGS LS-RULE LS-COLUMN-TOKEN LS-MESSAGE.
 END PROGRAM PLB-RULE-Q024.
 
 *> ---------------------------------------------------------------
