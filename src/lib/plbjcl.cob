@@ -29,6 +29,7 @@ COPY "plbjclc.cpy".
 COPY "plbjcl.cpy".
 PROCEDURE DIVISION USING PLB-JCL.
     MOVE 0 TO JJ-COUNT JP-COUNT JS-COUNT JD-COUNT JI-COUNT JR-COUNT
+    MOVE 0 TO JN-COUNT
     GOBACK.
 END PROGRAM PLB-JCL-INIT.
 
@@ -101,6 +102,15 @@ LOCAL-STORAGE SECTION.
 01  LS-PARM-AT              PIC 9(9) COMP-5.
 01  LS-PARM-END             PIC S9(9) COMP-5.
 01  LS-PARM-COUNT           PIC 9(9) COMP-5.
+*> CHECK-NAME: the name's end and length, where it is, the part, its
+*> length so far, and what is wrong with it.
+01  LS-NM-END               PIC 9(9) COMP-5.
+01  LS-NM-LEN               PIC 9(9) COMP-5.
+01  LS-NM-AT                PIC 9(9) COMP-5.
+01  LS-NM-CH                PIC X.
+01  LS-NM-PART              PIC 9(4) COMP-5.
+01  LS-NM-PART-LEN          PIC 9(9) COMP-5.
+01  LS-NM-PROBLEM           PIC X.
 01  LS-FIELD-1              PIC X(100).
 01  LS-FIELD-2              PIC X(100).
 01  LS-FIELD-3              PIC X(100).
@@ -231,6 +241,7 @@ READ-LINE.
     MOVE 0 TO ST-LEN
     MOVE 3 TO LS-P
     IF LS-TEXT(3:1) NOT = SPACE
+        PERFORM CHECK-NAME
         PERFORM READ-WORD
         MOVE FUNCTION UPPER-CASE(LS-TEXT(LS-Q:LS-P - LS-Q)) TO ST-NAME
     END-IF
@@ -287,6 +298,71 @@ READ-CONDITION.
     ELSE
         MOVE "Y" TO ST-CONTINUES
     END-IF.
+
+*> The name from column 3 to the first blank: each part (STEP.DDNAME
+*> has two) 1 to 8 letters, digits, or national characters, not
+*> starting with a digit. A wrong one is added to JN-ENTRY.
+CHECK-NAME.
+    MOVE 3 TO LS-NM-END
+    PERFORM UNTIL LS-NM-END > 71
+        IF LS-TEXT(LS-NM-END:1) = SPACE
+            EXIT PERFORM
+        END-IF
+        ADD 1 TO LS-NM-END
+    END-PERFORM
+    COMPUTE LS-NM-LEN = LS-NM-END - 3
+    MOVE 0 TO LS-D
+    INSPECT LS-TEXT(3:LS-NM-LEN) TALLYING LS-D FOR ALL "&"
+    IF LS-D > 0 OR JN-COUNT >= JN-MAX
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACE TO LS-NM-PROBLEM
+    MOVE 1 TO LS-NM-PART
+    MOVE 0 TO LS-NM-PART-LEN
+    PERFORM VARYING LS-NM-AT FROM 3 BY 1
+            UNTIL LS-NM-AT >= LS-NM-END
+            OR LS-NM-PROBLEM NOT = SPACE
+        MOVE FUNCTION UPPER-CASE(LS-TEXT(LS-NM-AT:1)) TO LS-NM-CH
+        EVALUATE TRUE
+            WHEN LS-NM-CH = "." AND LS-NM-PART = 1
+                IF LS-NM-PART-LEN = 0
+                    MOVE "E" TO LS-NM-PROBLEM
+                ELSE
+                    ADD 1 TO LS-NM-PART
+                    MOVE 0 TO LS-NM-PART-LEN
+                END-IF
+            WHEN (LS-NM-CH >= "A" AND LS-NM-CH <= "Z")
+                 OR LS-NM-CH = "$" OR "#" OR "@"
+                ADD 1 TO LS-NM-PART-LEN
+            WHEN LS-NM-CH >= "0" AND LS-NM-CH <= "9"
+                IF LS-NM-PART-LEN = 0
+                    MOVE "F" TO LS-NM-PROBLEM
+                END-IF
+                ADD 1 TO LS-NM-PART-LEN
+            WHEN OTHER
+                IF LS-NM-PART-LEN = 0
+                    MOVE "F" TO LS-NM-PROBLEM
+                ELSE
+                    MOVE "C" TO LS-NM-PROBLEM
+                END-IF
+        END-EVALUATE
+        IF LS-NM-PART-LEN > 8 AND LS-NM-PROBLEM = SPACE
+            MOVE "L" TO LS-NM-PROBLEM
+        END-IF
+    END-PERFORM
+    IF LS-NM-PROBLEM = SPACE AND LS-NM-PART-LEN = 0
+        MOVE "E" TO LS-NM-PROBLEM
+    END-IF
+    IF LS-NM-PROBLEM = SPACE
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO JN-COUNT
+    MOVE FUNCTION UPPER-CASE(LS-TEXT(3:LS-NM-LEN)) TO JN-NAME(JN-COUNT)
+    MOVE LS-NM-LEN TO JN-LEN(JN-COUNT)
+    MOVE LS-NM-PART TO JN-PART(JN-COUNT)
+    MOVE LS-NM-PROBLEM TO JN-PROBLEM(JN-COUNT)
+    MOVE LK-FILE-ID TO JN-FILE-ID(JN-COUNT)
+    MOVE LS-LINE-NO TO JN-LINE(JN-COUNT).
 
 SKIP-BLANKS.
     PERFORM UNTIL LS-P > 71

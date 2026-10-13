@@ -143,6 +143,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J017](#plb-j017-blksize-invalid) | blksize-invalid | error | DD BLKSIZE does not fit its RECFM and LRECL |
 | [PLB-J018](#plb-j018-gdg-generation-not-created) | gdg-generation-not-created | error | Step reads generation (+1) that no earlier step of the job creates |
 | [PLB-J019](#plb-j019-parm-too-long) | parm-too-long | error | EXEC PARM passes more than the 100 characters z/OS takes |
+| [PLB-J020](#plb-j020-jcl-name-invalid) | jcl-name-invalid | error | JCL statement name is not 1 to 8 letters, digits, or $ # @ |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -3579,6 +3580,23 @@ apostrophe once, so it is never more than what the program would be
 passed. A `PARM` with a symbol (`&`) is not counted, nor one on a step
 that runs a procedure. `plumbline dump jcl` shows the count of each
 step as `parm N`.
+
+## PLB-J020 jcl-name-invalid
+
+A JCL statement whose name z/OS does not accept:
+
+```jcl
+//EXTRACTSTEP EXEC PGM=PAYEXT       reported: 11 characters
+//1COPY    EXEC PGM=IEFBR14          reported: starts with a digit
+//PAY-IN   DD DSN=PAY.INPUT,DISP=SHR reported: a hyphen
+```
+
+The name in the name field, of a `JOB`, `EXEC`, `DD`, `PROC`, or any
+other statement, is 1 through 8 alphanumeric or national (`$`, `#`,
+`@`) characters, and the first is alphabetic or national (z/OS MVS JCL
+Reference, "Name field"). In a `STEP.DDNAME` override, each part is
+such a name. A name that breaks this ends the job with a JCL error
+before any step runs. Names with a symbol (`&`) are not checked.
 
 ## PLB-K001 cics-resource-undefined
 

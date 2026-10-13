@@ -627,6 +627,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J019"
         "parm-too-long" "E"
         "EXEC PARM passes more than the 100 characters z/OS takes"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J020"
+        "jcl-name-invalid" "E"
+        "JCL statement name is not 1 to 8 letters, digits, or $ # @"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
