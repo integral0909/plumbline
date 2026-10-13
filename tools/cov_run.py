@@ -48,8 +48,14 @@ def main(argv):
     status = subprocess.call(argv, env=env)
     # A program that traced nothing never opened the pipe, and the
     # reader still waits for a writer: open and close it to end it.
+    # Without blocking: a reader that has read to the end and closed
+    # the pipe, and is still folding, never opens it again, and a
+    # blocking open would wait for it for ever.
     if not done.wait(0.5):
-        os.close(os.open(pipe, os.O_WRONLY))
+        try:
+            os.close(os.open(pipe, os.O_WRONLY | os.O_NONBLOCK))
+        except OSError:
+            pass  # no reader has the pipe open: it is past reading
     thread.join()
     os.unlink(pipe)
     os.rmdir(work)
