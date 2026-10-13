@@ -400,6 +400,16 @@ check "minutes that are not a number"     1 'time.jcl:7:3: error: step REPORT co
     -- check --no-config $jx/time.jcl
 check_absent "TIME in range, or no limit" 'time.jcl:1[0-5]:.*PLB-J029' \
     -- check --no-config $jx/time.jcl
+check "REGION=3000M on a JOB statement"   1 'region.jcl:2:3: error: job PAYJOB codes REGION=3000M.*\[PLB-J030\]' \
+    -- check --no-config $jx/region.jcl
+check "more than 2096128K"                1 'region.jcl:5:3: error: step SORT codes REGION=4000000K.*\[PLB-J030\]' \
+    -- check --no-config $jx/region.jcl
+check "a REGION without K or M"           1 'region.jcl:6:3: error: step LOAD codes REGION=4096,.*\[PLB-J030\]' \
+    -- check --no-config $jx/region.jcl
+check_absent "REGION in range, 0K, 0M"    'region.jcl:1[0-3]:.*PLB-J030' \
+    -- check --no-config $jx/region.jcl
+check_absent "REGION=2096128K"            'region.jcl:9:.*PLB-J030' \
+    -- check --no-config $jx/region.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
