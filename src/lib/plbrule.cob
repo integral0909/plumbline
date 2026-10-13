@@ -732,6 +732,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J031"
         "msglevel-invalid" "E"
         "MSGLEVEL= statements not 0, 1, or 2, or messages not 0 or 1"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J032"
+        "class-invalid" "E"
+        "Job class not 1-8 letters and digits, or output class not one A-Z, 0-9"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

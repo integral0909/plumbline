@@ -162,6 +162,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J029](#plb-j029-time-invalid) | time-invalid | error | TIME= minutes above 357912, seconds above 59, or 0 on a JOB statement |
 | [PLB-J030](#plb-j030-region-invalid) | region-invalid | error | REGION= not 0K to 2096128K or 0M to 2047M |
 | [PLB-J031](#plb-j031-msglevel-invalid) | msglevel-invalid | error | MSGLEVEL= statements not 0, 1, or 2, or messages not 0 or 1 |
+| [PLB-J032](#plb-j032-class-invalid) | class-invalid | error | Job class not 1-8 letters and digits, or output class not one A-Z, 0-9 |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -4042,6 +4043,25 @@ each subparameter the Reference ("MSGLEVEL parameter") says it "is one
 of the following numbers": 0, 1, or 2 for statements, and 0 or 1 for
 messages. `(1,2)` usually meant `(2,1)` or `(1,1)`. Values with symbols
 are not read.
+
+## PLB-J032 class-invalid
+
+A job class or output class that the z/OS MVS JCL Reference does not
+allow:
+
+```jcl
+//PAYJOB   JOB (ACCT),'PAY',CLASS=-A,MSGCLASS=XY  reported, twice
+//REPORT   DD SYSOUT=AB                         reported
+```
+
+An output class, of `MSGCLASS=` on the `JOB` statement and of `SYSOUT=`
+on a `DD`, "is one character, A through Z or 0 through 9", which may be
+in quotation marks; `SYSOUT` also takes `*`, the job's `MSGCLASS`, and
+the null class of `SYSOUT=(,)`. A job class, `CLASS=` on the `JOB`
+statement, "is 1-8 characters"; the first is "a member of the
+36-character set A-Z and 0-9", and the others are letters, digits, or
+national characters. Values with symbols are not read; whether a class
+is defined at JES initialization cannot be known from the JCL.
 
 ## PLB-K001 cics-resource-undefined
 

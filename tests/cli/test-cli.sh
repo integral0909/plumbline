@@ -418,6 +418,20 @@ check_absent "MSGLEVEL forms the Reference shows" 'msglevel.jcl:1[02]:.*PLB-J031
     -- check --no-config $jx/msglevel.jcl
 check_absent "MSGLEVEL=(2,1)"             'msglevel.jcl:8:.*PLB-J031' \
     -- check --no-config $jx/msglevel.jcl
+check "MSGCLASS of two characters"       1 'class.jcl:2:3: error: job PAYJOB1 codes MSGCLASS=XY;.*\[PLB-J032\]' \
+    -- check --no-config $jx/class.jcl
+check "SYSOUT class of two characters"    1 'class.jcl:6:3: error: DD REPORT codes SYSOUT class AB;.*\[PLB-J032\]' \
+    -- check --no-config $jx/class.jcl
+check "SYSOUT class not a letter or digit" 1 'class.jcl:7:3: error: DD AUDIT codes SYSOUT class #;.*\[PLB-J032\]' \
+    -- check --no-config $jx/class.jcl
+check_absent "SYSOUT=*, (,), (A,,FM26), 'B'" 'class.jcl:1[0-2]:.*PLB-J032' \
+    -- check --no-config $jx/class.jcl
+check_absent "SYSOUT=*"                   'class.jcl:9:.*PLB-J032' \
+    -- check --no-config $jx/class.jcl
+check "a job class starting with a hyphen" 1 'class.jcl:14:3: error: job PAYJOB2 codes CLASS=-A;.*\[PLB-J032\]' \
+    -- check --no-config $jx/class.jcl
+check_absent "a job class of eight characters" 'class.jcl:17:.*PLB-J032' \
+    -- check --no-config $jx/class.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \

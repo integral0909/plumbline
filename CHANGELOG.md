@@ -305,6 +305,8 @@ uses [Semantic Versioning](https://semver.org/).
   and `EXEC` statements.
 - Rule PLB-J030 region-invalid; the JCL reader checks `REGION=` too.
 - Rule PLB-J031 msglevel-invalid.
+- Rule PLB-J032 class-invalid; the JCL reader checks `CLASS=` and
+  `MSGCLASS=` on `JOB` statements and the class of `SYSOUT=`.
 - Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
   the name field.
 - Rule PLB-J019 parm-too-long; the JCL reader counts the characters of
