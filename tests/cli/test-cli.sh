@@ -530,6 +530,12 @@ check "DSORG=PDS"                         1 'ddvalue.jcl:23:3: error: DD LIBR co
     -- check --no-config $jx/ddvalue.jcl
 check_absent "DSORG=PS and PO"            'ddvalue.jcl:2[56]:.*PLB-J039' \
     -- check --no-config $jx/ddvalue.jcl
+check "a LABEL type that is not one"      1 'ddvalue.jcl:28:3: error: DD TAPE1 codes STD in LABEL,.*\[PLB-J039\]' \
+    -- check --no-config $jx/ddvalue.jcl
+check "INPUT in LABEL"                    1 'ddvalue.jcl:29:3: error: DD TAPE2 codes INPUT in LABEL,.*\[PLB-J039\]' \
+    -- check --no-config $jx/ddvalue.jcl
+check_absent "LABEL forms the Reference shows" 'ddvalue.jcl:3[1-3]:.*PLB-J039' \
+    -- check --no-config $jx/ddvalue.jcl
 check "RECFM letters out of order"       1 'recfm.jcl:4:3: error: DD OUTBF codes RECFM=BF,.*\[PLB-J040\]' \
     -- check --no-config $jx/recfm.jcl
 check "RECFM in DCB with a doubled letter" 1 'recfm.jcl:5:3: error: DD OUTFBB codes RECFM=FBB,.*\[PLB-J040\]' \
