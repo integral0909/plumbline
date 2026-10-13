@@ -723,6 +723,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J028"
         "instream-procs-too-many" "E"
         "Job has more than 15 in-stream procedures"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J029"
+        "time-invalid" "E"
+        "TIME= minutes above 357912, seconds above 59, or 0 on a JOB statement"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
