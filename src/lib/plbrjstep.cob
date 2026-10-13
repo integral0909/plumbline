@@ -1225,3 +1225,68 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
     END-PERFORM
     GOBACK.
 END PROGRAM PLB-RULE-J029.
+
+*> ---------------------------------------------------------------
+*> PLB-J030 region-invalid: a REGION= on a JOB or EXEC statement that
+*> the z/OS MVS JCL Reference does not allow:
+*>
+*>     //SORT     EXEC PGM=SORT,REGION=4096M
+*>     //LOAD     EXEC PGM=PAYLOAD,REGION=4096
+*>
+*> REGION is valueK, "from 1 through 2096128", or valueM, "from 1
+*> through 2047" ("REGION parameter", of EXEC and of JOB); 0K and 0M
+*> give the step all the storage there is. A number without K or M is
+*> neither. Values with symbols are not read.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J030.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J030" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > JJ-COUNT
+        IF JJ-REGION-BAD(LS-I) NOT = SPACES
+            MOVE SPACES TO LS-MESSAGE
+            STRING "job " DELIMITED BY SIZE
+                   JJ-NAME(LS-I) DELIMITED BY SPACE
+                   " codes REGION=" DELIMITED BY SIZE
+                   JJ-REGION-BAD(LS-I) DELIMITED BY SPACE
+                   ", not 0K to 2096128K or 0M to 2047M"
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JJ-FILE-ID(LS-I) JJ-LINE(LS-I) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+        END-IF
+    END-PERFORM
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > JS-COUNT
+        IF JS-REGION-BAD(LS-I) NOT = SPACES
+            MOVE SPACES TO LS-MESSAGE
+            STRING "step " DELIMITED BY SIZE
+                   JS-NAME(LS-I) DELIMITED BY SPACE
+                   " codes REGION=" DELIMITED BY SIZE
+                   JS-REGION-BAD(LS-I) DELIMITED BY SPACE
+                   ", not 0K to 2096128K or 0M to 2047M"
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JS-FILE-ID(LS-I) JS-LINE(LS-I) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+        END-IF
+    END-PERFORM
+    GOBACK.
+END PROGRAM PLB-RULE-J030.
