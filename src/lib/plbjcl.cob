@@ -95,6 +95,10 @@ LOCAL-STORAGE SECTION.
 01  LS-DCB-ITEM             PIC X(80).
 01  LS-DCB-KEY              PIC X(8).
 01  LS-NOT-WITH-SYSOUT      PIC X(8).
+01  LS-PATH-I               PIC 9(4) COMP-5.
+01  LS-PATH-START           PIC 9(4) COMP-5.
+01  LS-PATH-END             PIC 9(4) COMP-5.
+01  LS-MEMBER               PIC X(31).
 01  LS-GEN                  PIC X(10).
 01  LS-GEN-LEN              PIC 9(4) COMP-5.
 01  LS-ONLY-WITH-SYSOUT     PIC X(8).
@@ -542,6 +546,45 @@ ADD-PROC.
         MOVE "Y" TO JP-INSTREAM(LS-PROC)
     ELSE
         MOVE "N" TO JP-INSTREAM(LS-PROC)
+        PERFORM MEMBER-NAME
+    END-IF.
+
+*> A cataloged procedure is called by its member name, not the name on
+*> its PROC statement (z/OS MVS JCL Reference, "Cataloging a
+*> procedure"): the file's name up to its first period, when that is a
+*> name of 1 to 8 characters starting with a letter or national
+*> character.
+MEMBER-NAME.
+    MOVE 0 TO LS-PATH-END
+    PERFORM VARYING LS-PATH-I FROM LENGTH OF WS-PATH BY -1
+            UNTIL LS-PATH-I = 0
+        IF WS-PATH(LS-PATH-I:1) NOT = SPACE
+            MOVE LS-PATH-I TO LS-PATH-END
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    MOVE 1 TO LS-PATH-START
+    PERFORM VARYING LS-PATH-I FROM LS-PATH-END BY -1
+            UNTIL LS-PATH-I = 0
+        IF WS-PATH(LS-PATH-I:1) = "/"
+            COMPUTE LS-PATH-START = LS-PATH-I + 1
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-PATH-START > LS-PATH-END
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-MEMBER
+    UNSTRING WS-PATH(LS-PATH-START:LS-PATH-END - LS-PATH-START + 1)
+        DELIMITED BY "." INTO LS-MEMBER
+    MOVE FUNCTION UPPER-CASE(LS-MEMBER) TO LS-MEMBER
+    IF LS-MEMBER(9:) NOT = SPACES OR LS-MEMBER = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    IF (LS-MEMBER(1:1) >= "A" AND LS-MEMBER(1:1) <= "Z")
+       OR LS-MEMBER(1:1) = "#" OR LS-MEMBER(1:1) = "@"
+       OR LS-MEMBER(1:1) = "$"
+        MOVE LS-MEMBER TO JP-NAME(LS-PROC)
     END-IF.
 
 *> EXEC PGM=name, EXEC PROC=name, or EXEC name (a procedure).
