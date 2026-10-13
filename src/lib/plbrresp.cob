@@ -37,6 +37,11 @@
 *> 22): HOURS 0-99; MINUTES 0-59 with another of them, or 0-5999 alone;
 *> SECONDS 0-59, or 0-359999 alone; MILLISECS (of DELAY) 0-999, or
 *> 0-359999999 alone (CICS API reference, DELAY and START).
+*>
+*> PLB-K017 tsq-option-invalid: a WRITEQ TS with REWRITE and no ITEM
+*> ("If the REWRITE option is specified, the ITEM option must also be
+*> specified"), or with a LENGTH given as a number that is 0 or above
+*> 32763, "the maximum length" (CICS API reference, WRITEQ TS).
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-K010.
@@ -51,6 +56,12 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE-ABSTIME         PIC 9(4) COMP-5.
 01  LS-RULE-INTERVAL        PIC 9(4) COMP-5.
 01  LS-RULE-UNITS           PIC 9(4) COMP-5.
+01  LS-RULE-TSQ             PIC 9(4) COMP-5.
+*> K017: what the WRITEQ TS codes.
+01  LS-TS                   PIC X.
+01  LS-REWRITE              PIC 9(9) COMP-5.
+01  LS-ITEM-CODED           PIC X.
+01  LS-LENGTH-AT            PIC 9(9) COMP-5.
 *> K015: how many of HOURS, MINUTES, SECONDS, MILLISECS the command
 *> has, and the range of the one being read.
 01  LS-UNITS                PIC 9(4) COMP-5.
@@ -97,11 +108,13 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K012" LS-RULE-ABSTIME
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K013" LS-RULE-INTERVAL
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K015" LS-RULE-UNITS
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K017" LS-RULE-TSQ
     IF (RL-ENABLED(LS-RULE) NOT = "Y"
         AND RL-ENABLED(LS-RULE-LENGTH) NOT = "Y"
         AND RL-ENABLED(LS-RULE-ABSTIME) NOT = "Y"
         AND RL-ENABLED(LS-RULE-INTERVAL) NOT = "Y"
-        AND RL-ENABLED(LS-RULE-UNITS) NOT = "Y") OR AS-COUNT = 0
+        AND RL-ENABLED(LS-RULE-UNITS) NOT = "Y"
+        AND RL-ENABLED(LS-RULE-TSQ) NOT = "Y") OR AS-COUNT = 0
         GOBACK
     END-IF
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
@@ -129,6 +142,9 @@ CHECK-COMMAND.
     IF (LS-COMMAND = "DELAY" OR LS-COMMAND = "START")
        AND RL-ENABLED(LS-RULE-UNITS) = "Y"
         PERFORM CHECK-UNITS
+    END-IF
+    IF LS-COMMAND = "WRITEQ" AND RL-ENABLED(LS-RULE-TSQ) = "Y"
+        PERFORM CHECK-WRITEQ-TS
     END-IF
     PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
             UNTIL LS-T >= ND-TOK-LAST(LS-NODE)
@@ -316,6 +332,63 @@ CHECK-UNITS.
             END-IF
         END-IF
     END-PERFORM.
+
+*> K017: a WRITEQ TS, its REWRITE without ITEM, and a LENGTH number of
+*> 0 or above 32763.
+CHECK-WRITEQ-TS.
+    MOVE "N" TO LS-TS LS-ITEM-CODED
+    MOVE 0 TO LS-REWRITE LS-LENGTH-AT
+    PERFORM VARYING LS-T FROM ND-TOK-FIRST(LS-NODE) BY 1
+            UNTIL LS-T >= ND-TOK-LAST(LS-NODE)
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-OPTION LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-OPTION) TO LS-OPTION
+            EVALUATE LS-OPTION
+                WHEN "TS"
+                    MOVE "Y" TO LS-TS
+                WHEN "REWRITE"
+                    MOVE LS-T TO LS-REWRITE
+                WHEN "ITEM"
+                    MOVE "Y" TO LS-ITEM-CODED
+                WHEN "LENGTH"
+                    COMPUTE LS-K = LS-T + 2
+                    IF TK-IS-LPAREN(LS-T + 1) AND TK-IS-NUMBER(LS-K)
+                        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K
+                            LS-DIGITS LS-LEN
+                        IF LS-LEN > 0 AND LS-LEN <= 9
+                           AND LS-DIGITS(1:LS-LEN) IS NUMERIC
+                            MOVE FUNCTION NUMVAL(LS-DIGITS(1:LS-LEN))
+                                TO LS-VALUE
+                            IF LS-VALUE = 0 OR LS-VALUE > 32763
+                                MOVE LS-K TO LS-LENGTH-AT
+                            END-IF
+                        END-IF
+                    END-IF
+            END-EVALUATE
+        END-IF
+    END-PERFORM
+    IF LS-TS NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    IF LS-REWRITE > 0 AND LS-ITEM-CODED = "N"
+        MOVE SPACES TO LS-MESSAGE
+        STRING "WRITEQ TS with REWRITE names no ITEM: the item to"
+               " overwrite must be given" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE-TSQ LS-REWRITE LS-MESSAGE
+    END-IF
+    IF LS-LENGTH-AT > 0
+        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-LENGTH-AT LS-DIGITS LS-LEN
+        MOVE SPACES TO LS-MESSAGE
+        STRING "WRITEQ TS writes LENGTH(" DELIMITED BY SIZE
+               LS-DIGITS(1:LS-LEN) DELIMITED BY SIZE
+               "), but an item is 1 to 32763 bytes: CICS raises LENGERR"
+               DELIMITED BY SIZE
+            INTO LS-MESSAGE
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE-TSQ LS-LENGTH-AT LS-MESSAGE
+    END-IF.
 
 *> The number at LS-K, for option LS-OPTION, against LS-MOST.
 CHECK-UNIT-VALUE.
