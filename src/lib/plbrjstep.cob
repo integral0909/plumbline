@@ -2470,3 +2470,97 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
     END-PERFORM
     GOBACK.
 END PROGRAM PLB-RULE-J044.
+
+*> ---------------------------------------------------------------
+*> PLB-J045 unit-aff-invalid: a UNIT=AFF=ddname that names no earlier
+*> DD of its step, or that the z/OS MVS JCL Reference says not to code:
+*>
+*>     //TAPE1    DD DSN=PAY.TAPE1,DISP=OLD,UNIT=AFF=TAPE2
+*>     //TAPE2    DD DSN=PAY.TAPE2,DISP=OLD,UNIT=TAPE
+*>
+*> Unit affinity puts the data set on the device of another DD, where
+*> "ddname is the ddname of an earlier DD statement in the same step"
+*> (UNIT parameter). Its restrictions: "Do not code UNIT=AFF=ddname" on
+*> a DD * or DD DATA statement or one with SUBSYS (the system ignores
+*> it), "when the DD statement referenced in the AFF subparameter
+*> contains FREE=CLOSE", or "with the STORCLAS parameter". DDs named
+*> STEP.DD are not read.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J045.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-FOUND                PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J045" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-UNIT-AFF(LS-D) NOT = SPACES
+           AND JD-QUALIFIER(LS-D) = SPACES
+            PERFORM CHECK-DD
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+CHECK-DD.
+    MOVE SPACES TO LS-MESSAGE
+    EVALUATE JD-AFF-WITH(LS-D)
+        WHEN "S"
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " codes UNIT=AFF with STORCLAS, which the JCL"
+                   " Reference says not to" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+        WHEN "U" WHEN "I"
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " codes UNIT=AFF on in-stream data or with SUBSYS:"
+                   " the system ignores it" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+        WHEN OTHER
+            *> The earlier DD of the step it names.
+            MOVE 0 TO LS-FOUND
+            PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E >= LS-D
+                IF JD-STEP(LS-E) = JD-STEP(LS-D)
+                   AND JD-NAME(LS-E) = JD-UNIT-AFF(LS-D)
+                    MOVE LS-E TO LS-FOUND
+                END-IF
+            END-PERFORM
+            EVALUATE TRUE
+                WHEN LS-FOUND = 0
+                    STRING "DD " DELIMITED BY SIZE
+                           JD-NAME(LS-D) DELIMITED BY SPACE
+                           " codes UNIT=AFF=" DELIMITED BY SIZE
+                           JD-UNIT-AFF(LS-D) DELIMITED BY SPACE
+                           ", but no earlier DD of its step has that"
+                           " name" DELIMITED BY SIZE
+                        INTO LS-MESSAGE
+                WHEN JD-FREE-CLOSE(LS-FOUND) = "Y"
+                    STRING "DD " DELIMITED BY SIZE
+                           JD-NAME(LS-D) DELIMITED BY SPACE
+                           " codes UNIT=AFF=" DELIMITED BY SIZE
+                           JD-UNIT-AFF(LS-D) DELIMITED BY SPACE
+                           ", a DD with FREE=CLOSE, which the JCL"
+                           " Reference says not to" DELIMITED BY SIZE
+                        INTO LS-MESSAGE
+            END-EVALUATE
+    END-EVALUATE
+    IF LS-MESSAGE NOT = SPACES
+        CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+            JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE
+    END-IF.
+END PROGRAM PLB-RULE-J045.

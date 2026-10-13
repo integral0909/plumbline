@@ -542,6 +542,10 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J045 unit-aff-invalid.** None: its 131 `UNIT` values name
+  devices (`3390`, `SYSDA`, `SYSAD`, `VIO`), none an affinity. In a copy
+  of `DUSRSECJ` whose `UNIT=SYSAD` is made `UNIT=AFF=SYSUT3`, a DD the
+  step does not have, it reports it.
 - **PLB-J044 jcllib-misplaced.** None: its eight jobs with a `JCLLIB`
   have one each, before their first step. In a copy of `TRANBKP` whose
   `JCLLIB` is moved after its first `EXEC`, it reports it.
