@@ -563,7 +563,7 @@ PROCEDURE DIVISION USING PLB-RULES.
         "CICS RESP or RESP2 names an item that is not fullword binary"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-K011"
         "length-not-halfword" "E"
-        "CICS LENGTH not a halfword binary item, or FLENGTH not a fullword"
+        "CICS LENGTH, ITEM, or NUMITEMS not halfword binary, or FLENGTH not fullword"
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-K012"
         "abstime-not-packed" "E"
         "CICS ABSTIME names an item that is not PIC S9(15) COMP-3"
