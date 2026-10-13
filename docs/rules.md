@@ -158,6 +158,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J025](#plb-j025-dlm-not-instream) | dlm-not-instream | error | DD codes DLM but is not DD * or DD DATA |
 | [PLB-J026](#plb-j026-job-too-many-steps) | job-too-many-steps | error | Job has more than 255 steps, counting those of its procedures |
 | [PLB-J027](#plb-j027-proc-calls-itself) | proc-calls-itself | error | Procedure calls itself, directly or through the procedures it calls |
+| [PLB-J028](#plb-j028-instream-procs-too-many) | instream-procs-too-many | error | Job has more than 15 in-stream procedures |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -3972,6 +3973,22 @@ invoke other procedures "up to 15 levels of nesting". A cycle nests
 without end, so a job that calls any procedure of it fails. Calls are
 followed by name among the procedures of the run; a cataloged procedure
 is named by its member name (see [JCL](jcl.md)).
+
+## PLB-J028 instream-procs-too-many
+
+The sixteenth in-stream procedure of a job, and each after it:
+
+```jcl
+//PAYALL   JOB (ACCT),'ALL',CLASS=A
+//P01      PROC
+...
+//P16      PROC                                 reported
+```
+
+The z/OS MVS JCL Reference ("Entering jobs") says: "The maximum number
+of in-stream procedures you can code in any job is 15." Procedures that
+many are better cataloged in a procedure library, where a job may call
+any number.
 
 ## PLB-K001 cics-resource-undefined
 

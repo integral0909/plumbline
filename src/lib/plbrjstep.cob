@@ -1082,3 +1082,70 @@ REPORT-STEP.
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
         JS-FILE-ID(LS-S) JS-LINE(LS-S) LS-COLUMN LS-ZERO LS-MESSAGE.
 END PROGRAM PLB-RULE-J027.
+
+*> ---------------------------------------------------------------
+*> PLB-J028 instream-procs-too-many: the 16th in-stream procedure of a
+*> job, and each after it:
+*>
+*>     //PAYALL   JOB ...
+*>     //P01      PROC
+*>     ...
+*>     //P16      PROC                 the 16th
+*>
+*> The z/OS MVS JCL Reference ("Entering jobs")
+*> says: "The maximum number of in-stream procedures you can code in any
+*> job is 15." Procedures that many are better cataloged in a library.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J028.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-J                    PIC 9(9) COMP-5.
+01  LS-P                    PIC 9(9) COMP-5.
+01  LS-COUNT                PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-NUM                  PIC S9(18) COMP-5.
+01  LS-NUM-TEXT             PIC X(20).
+01  LS-NUM-LEN              PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J028" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J > JJ-COUNT
+        MOVE 0 TO LS-COUNT
+        PERFORM VARYING LS-P FROM 1 BY 1 UNTIL LS-P > JP-COUNT
+            IF JP-INSTREAM(LS-P) = "Y" AND JP-JOB(LS-P) = LS-J
+                ADD 1 TO LS-COUNT
+                IF LS-COUNT > 15
+                    PERFORM REPORT-PROC
+                END-IF
+            END-IF
+        END-PERFORM
+    END-PERFORM
+    GOBACK.
+
+REPORT-PROC.
+    MOVE LS-COUNT TO LS-NUM
+    CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
+    MOVE SPACES TO LS-MESSAGE
+    STRING "procedure " DELIMITED BY SIZE
+           JP-NAME(LS-P) DELIMITED BY SPACE
+           " is in-stream procedure " DELIMITED BY SIZE
+           LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+           " of job " DELIMITED BY SIZE
+           JJ-NAME(LS-J) DELIMITED BY SPACE
+           "; a job may have 15" DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        JP-FILE-ID(LS-P) JP-LINE(LS-P) LS-COLUMN LS-ZERO LS-MESSAGE.
+END PROGRAM PLB-RULE-J028.
