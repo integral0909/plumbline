@@ -1731,3 +1731,65 @@ REPORT-DD.
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
         JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
 END PROGRAM PLB-RULE-J035.
+
+*> ---------------------------------------------------------------
+*> PLB-J036 space-invalid: a DD whose SPACE= the z/OS MVS JCL Reference
+*> does not allow:
+*>
+*>     //OUTFILE  DD DSN=PAY.OUT,DISP=(NEW,CATLG),
+*>     //            SPACE=(TRACKS,(10,5),RELEASE)
+*>
+*> SPACE=(unit,(primary,secondary,directory),options): the unit is TRK,
+*> CYL, ABSTR, or a block or record length "from 0 through 65535"; for
+*> the quantities "syntax allows for values of 0-16777215"; and the
+*> options are RLSE, CONTIG, MXIG, ALX, and ROUND ("SPACE parameter").
+*> The first part not allowed is reported. Values with symbols are not
+*> read.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J036.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-WHAT                 PIC X(60).
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J036" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-SPACE-PART(LS-D) NOT = SPACE
+            EVALUATE JD-SPACE-PART(LS-D)
+                WHEN "U"
+                    MOVE "not TRK, CYL, ABSTR, or a length of 0 to 65535"
+                        TO LS-WHAT
+                WHEN "Q"
+                    MOVE "not quantities of 0 to 16777215" TO LS-WHAT
+                WHEN OTHER
+                    MOVE "not RLSE, CONTIG, MXIG, ALX, or ROUND" TO LS-WHAT
+            END-EVALUATE
+            MOVE SPACES TO LS-MESSAGE
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " codes SPACE with " DELIMITED BY SIZE
+                   JD-SPACE-BAD(LS-D) DELIMITED BY SPACE
+                   ", " DELIMITED BY SIZE
+                   LS-WHAT DELIMITED BY "  "
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+        END-IF
+    END-PERFORM
+    GOBACK.
+END PROGRAM PLB-RULE-J036.
