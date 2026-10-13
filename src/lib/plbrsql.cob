@@ -10,6 +10,7 @@
 *>   PLB-Q018  null-compared
 *>   PLB-Q019  between-reversed
 *>   PLB-Q020  column-repeated
+*>   PLB-Q022  aggregate-in-where
 *>   PLB-Q005  into-count-mismatch (PLB-RULE-Q005, below)
 *>   PLB-K003  commarea-without-length (PLB-RULE-K003, below)
 *>   PLB-K004  commarea-length-too-long (PLB-RULE-K004, below)
@@ -36,6 +37,13 @@ LOCAL-STORAGE SECTION.
 01  LS-RULE-NULL            PIC 9(4) COMP-5.
 01  LS-RULE-BETWEEN         PIC 9(4) COMP-5.
 01  LS-RULE-REPEATED        PIC 9(4) COMP-5.
+01  LS-RULE-AGGREGATE       PIC 9(4) COMP-5.
+*> PLB-Q022: the depth of parentheses, whether each depth is in a
+*> WHERE, and the depth of a HAVING (99: none).
+01  LS-AGG-DEPTH            PIC 9(4) COMP-5.
+01  LS-AGG-WHERE            PIC X OCCURS 30 TIMES.
+01  LS-AGG-HAVING           PIC 9(4) COMP-5.
+01  LS-AGG-I                PIC 9(4) COMP-5.
 *> PLB-Q020: the columns an INSERT or UPDATE has named so far.
 01  LS-COL-COUNT            PIC 9(4) COMP-5.
 01  LS-COL                  PIC X(31) OCCURS 200 TIMES.
@@ -109,6 +117,7 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q018" LS-RULE-NULL
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q019" LS-RULE-BETWEEN
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q020" LS-RULE-REPEATED
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q022" LS-RULE-AGGREGATE
     IF RL-ENABLED(LS-RULE-STAR) = "Y"
         PERFORM CHECK-SELECT-STAR
     END-IF
@@ -117,6 +126,9 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-FLOW
     END-IF
     IF RL-ENABLED(LS-RULE-BETWEEN) = "Y"
         PERFORM CHECK-BETWEEN
+    END-IF
+    IF RL-ENABLED(LS-RULE-AGGREGATE) = "Y"
+        PERFORM CHECK-AGGREGATES
     END-IF
     IF AS-COUNT = 0
         GOBACK
@@ -238,6 +250,79 @@ TEST-RELATION.
             MOVE "Y" TO LS-FOUND
         END-IF
     END-IF.
+
+*> PLB-Q022: an aggregate function (SUM, AVG, MIN, MAX, COUNT) in the
+*> WHERE of embedded SQL, at the WHERE's own level of parentheses, as
+*> in WHERE SUM(AMOUNT) > 100. Db2 rejects it with SQLCODE -120 unless
+*> the WHERE is in a subquery of a HAVING, and SQLite 3 with "misuse of
+*> aggregate"; HAVING is the clause for it. An aggregate in a subquery
+*> of the WHERE is at a deeper level and fine; after a HAVING nothing
+*> is reported.
+CHECK-AGGREGATES.
+    MOVE "N" TO LS-IN-SQL
+    PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T >= TK-COUNT
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-T) AND LS-IN-SQL = "Y"
+                IF LS-AGG-DEPTH < 29
+                    ADD 1 TO LS-AGG-DEPTH
+                    MOVE "N" TO LS-AGG-WHERE(LS-AGG-DEPTH + 1)
+                END-IF
+            WHEN TK-IS-RPAREN(LS-T) AND LS-IN-SQL = "Y"
+                IF LS-AGG-DEPTH > 0
+                    SUBTRACT 1 FROM LS-AGG-DEPTH
+                END-IF
+            WHEN TK-IS-WORD(LS-T)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+                MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+                PERFORM AGGREGATE-WORD
+        END-EVALUATE
+    END-PERFORM.
+
+*> The word LS-TEXT at LS-T, in or out of EXEC SQL.
+AGGREGATE-WORD.
+    EVALUATE TRUE
+        WHEN LS-TEXT = "EXEC" OR LS-TEXT = "EXECUTE"
+            COMPUTE LS-K = LS-T + 1
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-K LS-TEXT LS-LEN
+            IF FUNCTION UPPER-CASE(LS-TEXT) = "SQL"
+                MOVE "Y" TO LS-IN-SQL
+                MOVE 0 TO LS-AGG-DEPTH
+                MOVE 99 TO LS-AGG-HAVING
+                PERFORM VARYING LS-AGG-I FROM 1 BY 1 UNTIL LS-AGG-I > 30
+                    MOVE "N" TO LS-AGG-WHERE(LS-AGG-I)
+                END-PERFORM
+            END-IF
+        WHEN LS-TEXT = "END-EXEC"
+            MOVE "N" TO LS-IN-SQL
+        WHEN LS-IN-SQL = "N"
+            CONTINUE
+        WHEN LS-TEXT = "WHERE"
+            MOVE "Y" TO LS-AGG-WHERE(LS-AGG-DEPTH + 1)
+        WHEN LS-TEXT = "HAVING"
+            MOVE "N" TO LS-AGG-WHERE(LS-AGG-DEPTH + 1)
+            IF LS-AGG-DEPTH < LS-AGG-HAVING
+                MOVE LS-AGG-DEPTH TO LS-AGG-HAVING
+            END-IF
+        WHEN LS-TEXT = "GROUP" OR LS-TEXT = "ORDER" OR LS-TEXT = "FETCH"
+             OR LS-TEXT = "UNION" OR LS-TEXT = "FOR"
+            MOVE "N" TO LS-AGG-WHERE(LS-AGG-DEPTH + 1)
+        WHEN (LS-TEXT = "SUM" OR LS-TEXT = "AVG" OR LS-TEXT = "MIN"
+              OR LS-TEXT = "MAX" OR LS-TEXT = "COUNT")
+             AND LS-AGG-WHERE(LS-AGG-DEPTH + 1) = "Y"
+             AND LS-AGG-HAVING = 99
+            COMPUTE LS-K = LS-T + 1
+            IF TK-IS-LPAREN(LS-K)
+                MOVE SPACES TO LS-MESSAGE
+                STRING LS-TEXT DELIMITED BY SPACE
+                       " in a WHERE: an aggregate is not valid there"
+                       " (Db2 SQLCODE -120); test it in HAVING"
+                       DELIMITED BY SIZE
+                    INTO LS-MESSAGE
+                CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+                    PLB-RULES PLB-FINDINGS LS-RULE-AGGREGATE LS-T
+                    LS-MESSAGE
+            END-IF
+    END-EVALUATE.
 
 *> PLB-Q019: BETWEEN low AND high in embedded SQL with numbers for
 *> both ends, the first above the second, as in BETWEEN 10 AND 5. The
