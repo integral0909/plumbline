@@ -523,6 +523,8 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J028 instream-procs-too-many.** None: no job file of CardDemo
+  has more than one in-stream procedure.
 - **PLB-J027 proc-calls-itself.** None. `TRANREPT.prc` begins
   `//REPROC PROC` and calls `PROC=REPROC`, but z/OS calls it by its
   member name, `TRANREPT` (as `CORPT00C` does), so `REPROC` is the
