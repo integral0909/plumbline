@@ -1186,6 +1186,12 @@ END PROGRAM PLB-RULE-LOOPS.
 *> inline loop's statements, or, for PERFORM procedure VARYING, the
 *> paragraphs from the procedure through its THRU; procedures they
 *> perform in turn are not followed.
+*>
+*> PLB-C107 times-count-changed: the same for the count of PERFORM
+*> item TIMES. The count is read once, when the loop starts, so a
+*> statement of the loop that changes it does not change how many
+*> times the loop runs (with GnuCOBOL 3.2, PERFORM N TIMES with N set
+*> from 3 to 10 in the loop runs 3 times).
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-C044.
 DATA DIVISION.
@@ -1195,6 +1201,10 @@ WORKING-STORAGE SECTION.
 01  WS-TOKEN-REF            PIC 9(9) COMP-5 OCCURS 500000 TIMES.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-RULE-TIMES           PIC 9(4) COMP-5.
+01  LS-NEXT-WORD            PIC X(31).
+*> What LS-CONTROL is: V a VARYING or AFTER control, T a TIMES count.
+01  LS-CONTROL-KIND         PIC X.
 01  LS-ROOT                 PIC 9(9) COMP-5 VALUE 1.
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-DEPTH                PIC S9(9) COMP-5.
@@ -1235,7 +1245,9 @@ COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         PLB-FLOW PLB-REFS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C044" LS-RULE
-    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C107" LS-RULE-TIMES
+    IF (RL-ENABLED(LS-RULE) NOT = "Y"
+        AND RL-ENABLED(LS-RULE-TIMES) NOT = "Y") OR AS-COUNT = 0
         GOBACK
     END-IF
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
@@ -1279,7 +1291,40 @@ CHECK-PERFORM.
         MOVE ND-TOK-FIRST(LS-LOOP) TO LS-PHRASE-FROM
         MOVE ND-TOK-LAST(LS-LOOP) TO LS-PHRASE-TO
     END-IF
+    *> The count of TIMES: a data item just before it.
+    IF RL-ENABLED(LS-RULE-TIMES) = "Y"
+        PERFORM VARYING LS-T FROM LS-PHRASE-FROM BY 1
+                UNTIL LS-T > LS-PHRASE-TO
+            IF WS-TOKEN-REF(LS-T) > 0
+                MOVE WS-TOKEN-REF(LS-T) TO LS-R
+                COMPUTE LS-Q = RF-LAST(LS-R) + 1
+                IF LS-Q <= LS-PHRASE-TO AND RF-KIND(LS-R) = "D"
+                    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-Q LS-WORD
+                        LS-LEN
+                    MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-NEXT-WORD
+                    *> Not LENGTH [OF] item: its length is the count.
+                    MOVE SPACES TO LS-WORD
+                    IF RF-TOKEN(LS-R) > 1
+                        COMPUTE LS-Q = RF-TOKEN(LS-R) - 1
+                        CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-Q
+                            LS-WORD LS-LEN
+                        MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD
+                    END-IF
+                    IF LS-NEXT-WORD = "TIMES" AND LS-WORD NOT = "LENGTH"
+                       AND LS-WORD NOT = "OF"
+                        MOVE RF-SYMBOL(LS-R) TO LS-CONTROL
+                        MOVE "T" TO LS-CONTROL-KIND
+                        PERFORM CHECK-BODY
+                    END-IF
+                END-IF
+            END-IF
+        END-PERFORM
+    END-IF
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        EXIT PARAGRAPH
+    END-IF
     *> Each control item: the data item after VARYING or AFTER.
+    MOVE "V" TO LS-CONTROL-KIND
     PERFORM VARYING LS-T FROM LS-PHRASE-FROM BY 1
             UNTIL LS-T >= LS-PHRASE-TO
         IF TK-IS-WORD(LS-T) AND WS-TOKEN-REF(LS-T) = 0
@@ -1347,6 +1392,18 @@ REPORT-STORE.
     MOVE SL-LINE-NO(TK-SRC-LINE(ND-TOK-FIRST(LS-NODE))) TO LS-NUM
     CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
     MOVE SPACES TO LS-MESSAGE
+    IF LS-CONTROL-KIND = "T"
+        STRING SY-NAME(LS-CONTROL) DELIMITED BY SPACE
+               " is the count of the PERFORM TIMES on line "
+               DELIMITED BY SIZE
+               LS-NUM-TEXT(1:LS-NUM-LEN) DELIMITED BY SIZE
+               ", read once when it starts: changing it here does not"
+               " change how many times the loop runs" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE-TIMES LS-S LS-MESSAGE
+        EXIT PARAGRAPH
+    END-IF
     STRING SY-NAME(LS-CONTROL) DELIMITED BY SPACE
            " is the control of the PERFORM VARYING on line "
            DELIMITED BY SIZE

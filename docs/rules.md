@@ -118,6 +118,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-C104](#plb-c104-count-too-small) | count-too-small | warning | INSPECT TALLYING or UNSTRING COUNT IN item too small for the count |
 | [PLB-C105](#plb-c105-string-edited-leading-space) | string-edited-leading-space | warning | STRING DELIMITED BY SPACE sends an edited item that can start blank |
 | [PLB-C106](#plb-c106-unstring-space-not-all) | unstring-space-not-all | warning | UNSTRING into several items DELIMITED BY SPACE without ALL |
+| [PLB-C107](#plb-c107-times-count-changed) | times-count-changed | warning | Statement in a PERFORM TIMES loop changes its count, read only once |
 | [PLB-I001](#plb-i001-pcb-dbd-unknown) | pcb-dbd-unknown | error | PCB names a database no DBD of the run defines |
 | [PLB-I002](#plb-i002-senseg-not-in-dbd) | senseg-not-in-dbd | error | Sensitive segment is not in its database as written |
 | [PLB-I003](#plb-i003-segment-not-sensitive) | segment-not-sensitive | error | DL/I call names a segment the program's PSB is not sensitive to |
@@ -3101,6 +3102,29 @@ lost; `DELIMITED BY ALL SPACE` gives `JOHN`, `SMITH`, and `JR`.
 `SPACE`, `SPACES`, and `" "` are read, alone or among other delimiters
 joined by `OR`. A delimiter of more than one character, and an
 `UNSTRING` into one item, are not reported.
+
+## PLB-C107 times-count-changed
+
+A statement of a `PERFORM ... TIMES` loop that changes the loop's count:
+
+```cobol
+    PERFORM WS-ROWS TIMES
+        ...
+        MOVE 10 TO WS-ROWS                  *> reported
+    END-PERFORM
+```
+
+The count is read once, when the loop starts: the standard says a
+change to it in the loop has no effect on how many times it runs, and
+NIST's `NC102A` tests just that. With GnuCOBOL 3.2, the loop above runs
+3 times for a `WS-ROWS` of 3, though the count is 10 after the first.
+A loop meant to run while a count lasts is written `PERFORM ... UNTIL`.
+
+The loop is the inline body, or the paragraphs from the procedure
+performed through its `THRU`, as for
+[PLB-C044](#plb-c044-varying-control-changed); a statement counts when
+it stores into the count or into a group that holds it. `PERFORM
+LENGTH OF item TIMES` counts the item's length, and is not read.
 
 ## PLB-I001 pcb-dbd-unknown
 
