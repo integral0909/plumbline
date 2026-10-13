@@ -157,6 +157,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-K008](#plb-k008-cics-name-too-long) | cics-name-too-long | error | EXEC CICS names a transaction, program, file, or map too long |
 | [PLB-K009](#plb-k009-browse-not-active) | browse-not-active | error | CICS browse command with no browse of the file active, or two |
 | [PLB-K010](#plb-k010-resp-not-fullword) | resp-not-fullword | error | CICS RESP or RESP2 names an item that is not fullword binary |
+| [PLB-K011](#plb-k011-length-not-halfword) | length-not-halfword | error | CICS LENGTH not a halfword binary item, or FLENGTH not a fullword |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -3935,6 +3936,31 @@ DFHRESP(NORMAL)` tests the wrong value.
 
 A fullword is an integer of usage `BINARY`, `COMP`, `COMP-4`, or
 `COMP-5` four bytes long, `PIC S9(5)` to `S9(9)`.
+
+## PLB-K011 length-not-halfword
+
+An `EXEC CICS` command whose `LENGTH` names an item that is not a
+halfword binary item, or whose `FLENGTH` names one that is not a
+fullword:
+
+```cobol
+01  WS-LEN      PIC S9(8) COMP.
+    ...
+    EXEC CICS READ FILE('ACCTDAT') INTO(WS-RECORD) RIDFLD(WS-KEY)
+         LENGTH(WS-LEN)                      *> reported
+    END-EXEC
+```
+
+CICS reads and sets `LENGTH` as a halfword binary value, and `FLENGTH`
+as a fullword (CICS API reference, for example `GETMAIN`: "FLENGTH ...
+in fullword binary format", "LENGTH ... halfword binary value"). A
+fullword in `LENGTH` is read by its first two bytes, which on z/OS, a
+big-endian machine, hold 0 for any length below 65536: the command is
+given a length of 0.
+
+A halfword is an integer of usage `BINARY`, `COMP`, `COMP-4`, or
+`COMP-5` two bytes long, `PIC S9(1)` to `S9(4)`. `LENGTH(LENGTH OF
+item)`, a number, and a function are not items, and are not read.
 
 ## PLB-M001 go-to
 
