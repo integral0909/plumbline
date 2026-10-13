@@ -18,6 +18,12 @@
 *> does no harm. Nor is an ENTRY, where a caller comes in, or
 *> GnuCOBOL's ENTRY FOR GO TO, where GO TO ENTRY jumps to (neither GO
 *> TO of those is taken for a way out).
+*>
+*> EXEC CICS RETURN and EXEC CICS XCTL end the program too, unless they
+*> have RESP, RESP2, or NOHANDLE: a program gets control back after a
+*> CICS command only with one of those; without, a condition goes to
+*> HANDLE CONDITION's label or ends the task. A file with IGNORE
+*> CONDITION, which lets a command go on, is not read for them.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-C072.
@@ -37,6 +43,9 @@ LOCAL-STORAGE SECTION.
 01  LS-NUM-TEXT             PIC X(20).
 01  LS-NUM-LEN              PIC 9(9) COMP-5.
 01  LS-MESSAGE              PIC X(200).
+*> "Y" when the file has IGNORE CONDITION.
+01  LS-IGNORE               PIC X.
+01  LS-RESP                 PIC X.
 LINKAGE SECTION.
 COPY "plbsrcc.cpy".
 COPY "plbsrc.cpy".
@@ -52,6 +61,16 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-RULES
     IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
         GOBACK
     END-IF
+    MOVE "N" TO LS-IGNORE
+    PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T >= TK-COUNT
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            IF FUNCTION UPPER-CASE(LS-TEXT) = "IGNORE"
+                MOVE "Y" TO LS-IGNORE
+                EXIT PERFORM
+            END-IF
+        END-IF
+    END-PERFORM
     PERFORM VARYING LS-NODE FROM 1 BY 1 UNTIL LS-NODE > AS-COUNT
         IF ND-KIND(LS-NODE) = "STMT"
             MOVE LS-NODE TO LS-STMT
@@ -99,7 +118,45 @@ TEST-ENDS.
                     END-IF
                 END-IF
             END-PERFORM
+        WHEN "EXEC"
+            IF LS-IGNORE = "N"
+                PERFORM TEST-CICS-END
+            END-IF
     END-EVALUATE.
+
+*> EXEC CICS RETURN or XCTL statement LS-STMT without RESP, RESP2, or
+*> NOHANDLE: LS-ENDS = "Y".
+TEST-CICS-END.
+    COMPUTE LS-T = ND-TOK-FIRST(LS-STMT) + 1
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+    IF FUNCTION UPPER-CASE(LS-TEXT) NOT = "CICS"
+        EXIT PARAGRAPH
+    END-IF
+    ADD 1 TO LS-T
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+    IF LS-TEXT NOT = "RETURN" AND LS-TEXT NOT = "XCTL"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-WHAT
+    STRING "EXEC CICS " DELIMITED BY SIZE
+           LS-TEXT DELIMITED BY SPACE
+        INTO LS-WHAT
+    MOVE "N" TO LS-RESP
+    PERFORM VARYING LS-T FROM LS-T BY 1 UNTIL LS-T > ND-TOK-LAST(LS-STMT)
+        IF TK-IS-WORD(LS-T)
+            CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+            MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+            IF LS-TEXT = "RESP" OR LS-TEXT = "RESP2"
+               OR LS-TEXT = "NOHANDLE"
+                MOVE "Y" TO LS-RESP
+                EXIT PERFORM
+            END-IF
+        END-IF
+    END-PERFORM
+    IF LS-RESP = "N"
+        MOVE "Y" TO LS-ENDS
+    END-IF.
 
 *> LS-DEAD: the statement after LS-NODE, in its list or, when the list
 *> is a sentence, in the next sentences of the paragraph; 0 when there

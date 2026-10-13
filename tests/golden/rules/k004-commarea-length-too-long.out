@@ -1,2 +1,3 @@
 tests/golden/rules/k004-commarea-length-too-long.cob:15:18: warning: XCTL passes 100 bytes from WS-COMMAREA, which has 14: the rest comes from the storage after it [PLB-K004]
+tests/golden/rules/k004-commarea-length-too-long.cob:19:5: warning: EXEC never runs: it comes after the EXEC CICS XCTL on line 14 [PLB-C072]
 tests/golden/rules/k004-commarea-length-too-long.cob:20:18: warning: LINK passes 20 bytes from WS-COMMAREA, which has 14: the rest comes from the storage after it [PLB-K004]
