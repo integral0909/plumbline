@@ -759,6 +759,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J037"
         "disp-invalid" "E"
         "DISP= status or disposition the JCL Reference does not allow"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J038"
+        "output-unresolved" "E"
+        "DD OUTPUT=*.name names no OUTPUT JCL statement before it"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

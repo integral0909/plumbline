@@ -1887,3 +1887,165 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
     END-PERFORM
     GOBACK.
 END PROGRAM PLB-RULE-J037.
+
+*> ---------------------------------------------------------------
+*> PLB-J038 output-unresolved: an OUTPUT=*.name or *.stepname.name on
+*> a DD that names no OUTPUT JCL statement before it:
+*>
+*>     //REPORT   OUTPUT CLASS=A,FORMS=STD
+*>     //PRINT    EXEC PGM=PAYRPT
+*>     //LIST     DD SYSOUT=A,OUTPUT=*.REPROT
+*>
+*> *.name "refers to an earlier OUTPUT JCL statement with name in its
+*> name field. The system searches for the OUTPUT JCL statement first in
+*> the same step, then before the first EXEC statement of the job";
+*> *.stepname.name, to one in that step of the job. "If the system finds
+*> no match for the name coded in the OUTPUT parameter, the system
+*> issues a JCL error" (z/OS MVS JCL Reference, DD OUTPUT parameter). In
+*> a procedure, the statement must come before the DD in the procedure.
+*> References through a procedure step (*.step.procstep.name), DDs named
+*> STEP.DD, and values with symbols are not read.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J038.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-O                    PIC 9(9) COMP-5.
+01  LS-E                    PIC 9(9) COMP-5.
+01  LS-N                    PIC 9(4) COMP-5.
+01  LS-PTR                  PIC 9(4) COMP-5.
+01  LS-LIST                 PIC X(60).
+01  LS-REF                  PIC X(40).
+01  LS-PART-1               PIC X(20).
+01  LS-PART-2               PIC X(20).
+01  LS-PART-3               PIC X(20).
+01  LS-FOUND                PIC X.
+01  LS-AT-STEP              PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J038" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-OUTPUT(LS-D) NOT = SPACES AND JD-STEP(LS-D) > 0
+           AND JD-QUALIFIER(LS-D) = SPACES
+            MOVE 0 TO LS-N
+            INSPECT JD-OUTPUT(LS-D) TALLYING LS-N FOR ALL "&" ALL "%"
+            IF LS-N = 0
+                PERFORM CHECK-DD
+            END-IF
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> Each reference of the DD's OUTPUT=, one or a list in parentheses.
+CHECK-DD.
+    MOVE JD-STEP(LS-D) TO LS-S
+    MOVE JD-OUTPUT(LS-D) TO LS-LIST
+    IF LS-LIST(1:1) = "("
+        MOVE JD-OUTPUT(LS-D)(2:) TO LS-LIST
+        INSPECT LS-LIST REPLACING ALL ")" BY SPACE
+    END-IF
+    MOVE 1 TO LS-PTR
+    PERFORM UNTIL LS-PTR > 60
+        MOVE SPACES TO LS-REF
+        UNSTRING LS-LIST DELIMITED BY "," INTO LS-REF
+            WITH POINTER LS-PTR
+        END-UNSTRING
+        IF LS-REF = SPACES
+            EXIT PERFORM
+        END-IF
+        IF LS-REF(1:2) = "*."
+            PERFORM CHECK-REFERENCE
+        END-IF
+    END-PERFORM.
+
+*> LS-REF, *.name or *.stepname.name, against the OUTPUT statements.
+CHECK-REFERENCE.
+    MOVE SPACES TO LS-PART-1 LS-PART-2 LS-PART-3
+    UNSTRING LS-REF(3:) DELIMITED BY "." INTO LS-PART-1 LS-PART-2
+        LS-PART-3
+    IF LS-PART-3 NOT = SPACES OR LS-PART-1 = SPACES
+        EXIT PARAGRAPH
+    END-IF
+    MOVE "N" TO LS-FOUND
+    IF LS-PART-2 = SPACES
+        PERFORM VARYING LS-O FROM 1 BY 1 UNTIL LS-O > JO-COUNT
+            IF JO-NAME(LS-O) = LS-PART-1
+               AND JO-FILE-ID(LS-O) = JD-FILE-ID(LS-D)
+               AND JO-LINE(LS-O) < JD-LINE(LS-D)
+               AND JO-JOB(LS-O) = JS-JOB(LS-S)
+               AND JO-PROC(LS-O) = JS-PROC(LS-S)
+               AND (JO-STEP(LS-O) = LS-S OR JO-STEP(LS-O) = 0)
+                MOVE "Y" TO LS-FOUND
+                EXIT PERFORM
+            END-IF
+        END-PERFORM
+    ELSE
+        IF JS-PROC(LS-S) > 0
+            EXIT PARAGRAPH
+        END-IF
+        *> The step named, of this job, at or before this one.
+        MOVE 0 TO LS-AT-STEP
+        PERFORM VARYING LS-E FROM 1 BY 1 UNTIL LS-E > LS-S
+            IF JS-JOB(LS-E) = JS-JOB(LS-S) AND JS-PROC(LS-E) = 0
+               AND JS-NAME(LS-E) = LS-PART-1
+                MOVE LS-E TO LS-AT-STEP
+            END-IF
+        END-PERFORM
+        PERFORM VARYING LS-O FROM 1 BY 1 UNTIL LS-O > JO-COUNT
+            IF LS-AT-STEP > 0 AND JO-NAME(LS-O) = LS-PART-2
+               AND JO-STEP(LS-O) = LS-AT-STEP
+               AND JO-PROC(LS-O) = 0
+               AND JO-JOB(LS-O) = JS-JOB(LS-S)
+               AND (JO-FILE-ID(LS-O) NOT = JD-FILE-ID(LS-D)
+                    OR JO-LINE(LS-O) < JD-LINE(LS-D))
+                MOVE "Y" TO LS-FOUND
+                EXIT PERFORM
+            END-IF
+        END-PERFORM
+    END-IF
+    IF LS-FOUND = "Y"
+        EXIT PARAGRAPH
+    END-IF
+    MOVE SPACES TO LS-MESSAGE
+    MOVE 1 TO LS-PTR
+    STRING "DD " DELIMITED BY SIZE
+           JD-NAME(LS-D) DELIMITED BY SPACE
+           " codes OUTPUT=" DELIMITED BY SIZE
+           LS-REF DELIMITED BY SPACE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    EVALUATE TRUE
+        WHEN LS-PART-2 NOT = SPACES
+            STRING ", but step " DELIMITED BY SIZE
+                   LS-PART-1 DELIMITED BY SPACE
+                   " has no OUTPUT statement of that name before it"
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+        WHEN JS-PROC(LS-S) > 0
+            STRING ", but no OUTPUT statement of that name comes before"
+                   " it in its procedure" DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+        WHEN OTHER
+            STRING ", but no OUTPUT statement of that name comes before"
+                   " it in its step, or before the job's first step"
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE WITH POINTER LS-PTR
+    END-EVALUATE
+    STRING ": a JCL error" DELIMITED BY SIZE
+        INTO LS-MESSAGE WITH POINTER LS-PTR
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO LS-MESSAGE.
+END PROGRAM PLB-RULE-J038.
