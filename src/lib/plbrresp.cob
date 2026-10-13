@@ -14,6 +14,11 @@
 *> packed item the program reads a number that is not the response.
 *> A fullword is an integer of usage BINARY, COMP, COMP-4, or COMP-5
 *> that is four bytes long (PIC S9(5) to S9(9)).
+*>
+*> PLB-K011 length-not-halfword: the same for LENGTH, whose item CICS
+*> reads or sets as a halfword binary value (two bytes, PIC S9(4)
+*> COMP), and FLENGTH, a fullword. A fullword in LENGTH is read by its
+*> first two bytes, which hold 0 for any length below 65536.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-K010.
@@ -24,6 +29,10 @@ WORKING-STORAGE SECTION.
 01  WS-TOKEN-REF            PIC 9(9) COMP-5 OCCURS 500000 TIMES.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-RULE-LENGTH          PIC 9(4) COMP-5.
+*> The size the option needs: 4 for RESP, RESP2, FLENGTH; 2 for LENGTH.
+01  LS-NEEDS                PIC 9(4) COMP-5.
+01  LS-NEEDS-TEXT           PIC X(40).
 01  LS-NODE                 PIC 9(9) COMP-5.
 01  LS-T                    PIC 9(9) COMP-5.
 01  LS-K                    PIC 9(9) COMP-5.
@@ -52,7 +61,9 @@ COPY "plbfind.cpy".
 PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         PLB-REFS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K010" LS-RULE
-    IF RL-ENABLED(LS-RULE) NOT = "Y" OR AS-COUNT = 0
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-K011" LS-RULE-LENGTH
+    IF (RL-ENABLED(LS-RULE) NOT = "Y"
+        AND RL-ENABLED(LS-RULE-LENGTH) NOT = "Y") OR AS-COUNT = 0
         GOBACK
     END-IF
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
@@ -79,7 +90,19 @@ CHECK-COMMAND.
         IF TK-IS-WORD(LS-T)
             CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-OPTION LS-LEN
             MOVE FUNCTION UPPER-CASE(LS-OPTION) TO LS-OPTION
-            IF LS-OPTION = "RESP" OR LS-OPTION = "RESP2"
+            MOVE 0 TO LS-NEEDS
+            EVALUATE TRUE
+                WHEN (LS-OPTION = "RESP" OR LS-OPTION = "RESP2")
+                     AND RL-ENABLED(LS-RULE) = "Y"
+                    MOVE 4 TO LS-NEEDS
+                WHEN LS-OPTION = "FLENGTH"
+                     AND RL-ENABLED(LS-RULE-LENGTH) = "Y"
+                    MOVE 4 TO LS-NEEDS
+                WHEN LS-OPTION = "LENGTH"
+                     AND RL-ENABLED(LS-RULE-LENGTH) = "Y"
+                    MOVE 2 TO LS-NEEDS
+            END-EVALUATE
+            IF LS-NEEDS > 0
                 COMPUTE LS-K = LS-T + 1
                 IF TK-IS-LPAREN(LS-K)
                     ADD 1 TO LS-K
@@ -108,16 +131,22 @@ CHECK-ITEM.
                 MOVE "Y" TO LS-BINARY
         END-EVALUATE
     END-IF
-    IF LS-BINARY = "Y" AND SY-SIZE(LS-S) = 4
+    IF LS-BINARY = "Y" AND SY-SIZE(LS-S) = LS-NEEDS
         EXIT PARAGRAPH
+    END-IF
+    IF LS-NEEDS = 4
+        MOVE "fullword binary item (PIC S9(8) COMP)" TO LS-NEEDS-TEXT
+    ELSE
+        MOVE "halfword binary item (PIC S9(4) COMP)" TO LS-NEEDS-TEXT
     END-IF
     MOVE SY-SIZE(LS-S) TO LS-NUM
     CALL "PLB-STR-FROM-INT" USING LS-NUM LS-NUM-TEXT LS-NUM-LEN
     MOVE SPACES TO LS-MESSAGE
     MOVE 1 TO LS-PTR
     STRING LS-OPTION DELIMITED BY SPACE
-           " needs a fullword binary item (PIC S9(8) COMP), but "
-           DELIMITED BY SIZE
+           " needs a " DELIMITED BY SIZE
+           LS-NEEDS-TEXT DELIMITED BY "  "
+           ", but " DELIMITED BY SIZE
            SY-NAME(LS-S) DELIMITED BY SPACE
         INTO LS-MESSAGE WITH POINTER LS-PTR
     IF LS-BINARY = "Y"
@@ -128,6 +157,12 @@ CHECK-ITEM.
         STRING " is not binary" DELIMITED BY SIZE
             INTO LS-MESSAGE WITH POINTER LS-PTR
     END-IF
-    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
-        PLB-FINDINGS LS-RULE RF-TOKEN(LS-R) LS-MESSAGE.
+    IF LS-OPTION = "RESP" OR LS-OPTION = "RESP2"
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE RF-TOKEN(LS-R) LS-MESSAGE
+    ELSE
+        CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+            PLB-RULES PLB-FINDINGS LS-RULE-LENGTH RF-TOKEN(LS-R)
+            LS-MESSAGE
+    END-IF.
 END PROGRAM PLB-RULE-K010.
