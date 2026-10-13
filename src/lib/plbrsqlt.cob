@@ -560,3 +560,140 @@ CHECK-COLUMN.
     CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         PLB-FINDINGS LS-RULE QP-COLUMN-TOKEN(LS-P) LS-MESSAGE.
 END PROGRAM PLB-RULE-Q024.
+
+*> ---------------------------------------------------------------
+*> PLB-Q025 insert-not-null-missing: an INSERT whose column list
+*> leaves out a column the DECLARE TABLE of its table declares NOT
+*> NULL without a default:
+*>
+*>     EXEC SQL DECLARE ACCOUNT TABLE
+*>         (ACCT_ID INTEGER NOT NULL, OWNER CHAR(30) NOT NULL)
+*>     EXEC SQL INSERT INTO ACCOUNT (ACCT_ID) VALUES (:WS-ID)
+*>
+*> The INSERT gives the column the null value, which it cannot hold:
+*> Db2 rejects it with SQLCODE -407, and SQLite 3 with "NOT NULL
+*> constraint failed". A column WITH DEFAULT, with DEFAULT value, or
+*> GENERATED gets a value of its own. An INSERT without a column list
+*> gives every column, and is not read.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-Q025.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbsqlm.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-J                    PIC 9(9) COMP-5.
+01  LS-TABLE                PIC 9(9) COMP-5.
+01  LS-C                    PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-I                    PIC 9(4) COMP-5.
+01  LS-DEPTH                PIC S9(4) COMP-5.
+01  LS-LIST                 PIC X.
+01  LS-NAME-COUNT           PIC 9(4) COMP-5.
+01  LS-NAME                 PIC X(31) OCCURS 200 TIMES.
+01  LS-TEXT                 PIC X(31).
+01  LS-LEN                  PIC 9(9) COMP-5.
+01  LS-AT                   PIC 9(9) COMP-5.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbsrcc.cpy".
+COPY "plbsrc.cpy".
+COPY "plbtokc.cpy".
+COPY "plbtok.cpy".
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-Q025" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    CALL "PLB-SQL-MODEL-BUILD" USING PLB-SOURCE-SET PLB-TOKENS
+        PLB-SQL-MODEL
+    IF QT-COUNT = 0
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > QS-COUNT
+        IF QS-KIND(LS-S) = "I" AND QS-TABLE-COUNT(LS-S) = 1
+            PERFORM CHECK-INSERT
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> INSERT LS-S: its declared table, and its column list.
+CHECK-INSERT.
+    MOVE 0 TO LS-TABLE
+    PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J > QT-COUNT
+        IF QT-NAME(LS-J) = QS-TABLE(LS-S, 1)
+           OR QT-SHORT(LS-J) = QS-TABLE(LS-S, 1)
+            MOVE LS-J TO LS-TABLE
+            EXIT PERFORM
+        END-IF
+    END-PERFORM
+    IF LS-TABLE = 0
+        EXIT PARAGRAPH
+    END-IF
+    *> The column list: the first parentheses, before VALUES or SELECT.
+    MOVE 0 TO LS-NAME-COUNT LS-DEPTH LS-AT
+    MOVE "N" TO LS-LIST
+    PERFORM VARYING LS-T FROM QS-TOKEN(LS-S) BY 1
+            UNTIL LS-T >= QS-END(LS-S)
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-T)
+                ADD 1 TO LS-DEPTH
+                IF LS-DEPTH = 1
+                    MOVE "Y" TO LS-LIST
+                END-IF
+            WHEN TK-IS-RPAREN(LS-T)
+                SUBTRACT 1 FROM LS-DEPTH
+                IF LS-DEPTH = 0 AND LS-LIST = "Y"
+                    EXIT PERFORM
+                END-IF
+            WHEN TK-IS-WORD(LS-T)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+                MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+                IF LS-TEXT = "INSERT"
+                    MOVE LS-T TO LS-AT
+                END-IF
+                IF LS-DEPTH = 0
+                   AND (LS-TEXT = "VALUES" OR LS-TEXT = "SELECT")
+                    EXIT PARAGRAPH
+                END-IF
+                IF LS-LIST = "Y" AND LS-DEPTH = 1
+                   AND LS-NAME-COUNT < 200
+                    ADD 1 TO LS-NAME-COUNT
+                    MOVE LS-TEXT TO LS-NAME(LS-NAME-COUNT)
+                END-IF
+        END-EVALUATE
+    END-PERFORM
+    IF LS-NAME-COUNT = 0 OR LS-AT = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-C FROM QT-COL-FIRST(LS-TABLE) BY 1
+            UNTIL LS-C >= QT-COL-FIRST(LS-TABLE) + QT-COL-COUNT(LS-TABLE)
+        IF QL-NULLS(LS-C) = "N" AND QL-DEFAULT(LS-C) = "N"
+            PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > LS-NAME-COUNT
+                IF LS-NAME(LS-I) = QL-NAME(LS-C)
+                    EXIT PERFORM
+                END-IF
+            END-PERFORM
+            IF LS-I > LS-NAME-COUNT
+                PERFORM REPORT-MISSING
+            END-IF
+        END-IF
+    END-PERFORM.
+
+REPORT-MISSING.
+    MOVE SPACES TO LS-MESSAGE
+    STRING "INSERT into " DELIMITED BY SIZE
+           QT-NAME(LS-TABLE) DELIMITED BY SPACE
+           " leaves out column " DELIMITED BY SIZE
+           QL-NAME(LS-C) DELIMITED BY SPACE
+           ", NOT NULL without a default: Db2 rejects it (SQLCODE -407)"
+           DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE LS-AT LS-MESSAGE.
+END PROGRAM PLB-RULE-Q025.
