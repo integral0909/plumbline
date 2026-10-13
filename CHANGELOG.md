@@ -298,6 +298,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-J026 job-too-many-steps.
 - PLB-J010 dsn-invalid also reports a relative generation number that
   is above 255, or not a sign or 0 followed by 1 to 3 digits.
+- Rule PLB-J027 proc-calls-itself.
 - Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
   the name field.
 - Rule PLB-J019 parm-too-long; the JCL reader counts the characters of

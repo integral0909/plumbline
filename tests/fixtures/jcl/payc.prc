@@ -1,0 +1,2 @@
+//PAYC     PROC
+//RUN      EXEC PGM=PAYCALC

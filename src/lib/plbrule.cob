@@ -717,6 +717,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J026"
         "job-too-many-steps" "E"
         "Job has more than 255 steps, counting those of its procedures"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J027"
+        "proc-calls-itself" "E"
+        "Procedure calls itself, directly or through the procedures it calls"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

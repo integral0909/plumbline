@@ -380,6 +380,12 @@ check_absent "generation +1"              'gener.jcl:12:' \
     -- check --no-config $jx/gener.jcl
 check_absent "a member name"              'gener.jcl:13:' \
     -- check --no-config $jx/gener.jcl
+check "a procedure that calls itself"    1 'payloop.prc:3:3: error: procedure PAYLOOP calls itself.*\[PLB-J027\]' \
+    -- check --no-config $jx/payloop.prc
+check "two procedures that call each other" 1 'paya.prc:3:3: error: procedure PAYA calls PAYB, which calls PAYA again.*\[PLB-J027\]' \
+    -- check --no-config $jx/paya.prc $jx/payb.prc $jx/payc.prc
+check_absent "a call that does not lead back" 'paya.prc:5:.*PLB-J027' \
+    -- check --no-config $jx/paya.prc $jx/payb.prc $jx/payc.prc
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \

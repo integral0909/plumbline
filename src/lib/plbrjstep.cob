@@ -970,3 +970,115 @@ REPORT-JOB.
     CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
         JJ-FILE-ID(LS-J) JJ-LINE(LS-J) LS-COLUMN LS-ZERO LS-MESSAGE.
 END PROGRAM PLB-RULE-J026.
+
+*> ---------------------------------------------------------------
+*> PLB-J027 proc-calls-itself: a procedure step that calls the
+*> procedure it is in, directly or through the procedures it calls:
+*>
+*>     //PAYA     PROC
+*>     //STEP1    EXEC PAYB
+*>     //PAYB     PROC
+*>     //STEP1    EXEC PAYA           PAYB calls PAYA, which calls PAYB
+*>
+*> The z/OS MVS JCL Reference ("Nested procedures") lets procedures
+*> invoke other procedures "up to 15 levels of nesting"; a cycle nests
+*> without end, so a job that calls any procedure of it fails. Calls
+*> are followed by name to the procedures among the inputs.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J027.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+01  WS-SEEN                 PIC X OCCURS JP-MAX TIMES.
+01  WS-QUEUE                PIC 9(9) COMP-5 OCCURS JP-MAX TIMES.
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-P                    PIC 9(9) COMP-5.
+01  LS-S                    PIC 9(9) COMP-5.
+01  LS-T                    PIC 9(9) COMP-5.
+01  LS-Q                    PIC 9(9) COMP-5.
+01  LS-HEAD                 PIC 9(9) COMP-5.
+01  LS-TAIL                 PIC 9(9) COMP-5.
+01  LS-AT                   PIC 9(9) COMP-5.
+01  LS-BACK                 PIC X.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J027" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > JS-COUNT
+        IF JS-PROC(LS-S) > 0 AND JS-KIND(LS-S) = "R"
+            MOVE JS-PROC(LS-S) TO LS-P
+            PERFORM LEADS-BACK
+            IF LS-BACK = "Y"
+                PERFORM REPORT-STEP
+            END-IF
+        END-IF
+    END-PERFORM
+    GOBACK.
+
+*> LS-BACK = "Y" when the procedures step LS-S calls reach procedure
+*> LS-P, breadth first.
+LEADS-BACK.
+    MOVE "N" TO LS-BACK
+    PERFORM VARYING LS-Q FROM 1 BY 1 UNTIL LS-Q > JP-COUNT
+        MOVE "N" TO WS-SEEN(LS-Q)
+    END-PERFORM
+    MOVE 0 TO LS-HEAD LS-TAIL
+    MOVE LS-S TO LS-AT
+    PERFORM QUEUE-TARGETS
+    PERFORM UNTIL LS-HEAD >= LS-TAIL OR LS-BACK = "Y"
+        ADD 1 TO LS-HEAD
+        MOVE WS-QUEUE(LS-HEAD) TO LS-Q
+        IF LS-Q = LS-P
+            MOVE "Y" TO LS-BACK
+        ELSE
+            PERFORM VARYING LS-T FROM 1 BY 1 UNTIL LS-T > JS-COUNT
+                IF JS-PROC(LS-T) = LS-Q AND JS-KIND(LS-T) = "R"
+                    MOVE LS-T TO LS-AT
+                    PERFORM QUEUE-TARGETS
+                END-IF
+            END-PERFORM
+        END-IF
+    END-PERFORM.
+
+*> The procedures named like the one step LS-AT calls, not yet seen.
+QUEUE-TARGETS.
+    PERFORM VARYING LS-Q FROM 1 BY 1 UNTIL LS-Q > JP-COUNT
+        IF JP-NAME(LS-Q) = JS-TARGET(LS-AT) AND WS-SEEN(LS-Q) = "N"
+            MOVE "Y" TO WS-SEEN(LS-Q)
+            ADD 1 TO LS-TAIL
+            MOVE LS-Q TO WS-QUEUE(LS-TAIL)
+        END-IF
+    END-PERFORM.
+
+REPORT-STEP.
+    MOVE SPACES TO LS-MESSAGE
+    IF JS-TARGET(LS-S) = JP-NAME(LS-P)
+        STRING "procedure " DELIMITED BY SIZE
+               JP-NAME(LS-P) DELIMITED BY SPACE
+               " calls itself: procedures nest at most 15 levels, and"
+               " this nests without end" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    ELSE
+        STRING "procedure " DELIMITED BY SIZE
+               JP-NAME(LS-P) DELIMITED BY SPACE
+               " calls " DELIMITED BY SIZE
+               JS-TARGET(LS-S) DELIMITED BY SPACE
+               ", which calls " DELIMITED BY SIZE
+               JP-NAME(LS-P) DELIMITED BY SPACE
+               " again: procedures nest at most 15 levels, and this"
+               " nests without end" DELIMITED BY SIZE
+            INTO LS-MESSAGE
+    END-IF
+    CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+        JS-FILE-ID(LS-S) JS-LINE(LS-S) LS-COLUMN LS-ZERO LS-MESSAGE.
+END PROGRAM PLB-RULE-J027.
