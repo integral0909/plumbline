@@ -574,7 +574,8 @@ END PROGRAM PLB-RULE-Q024.
 *> Db2 rejects it with SQLCODE -407, and SQLite 3 with "NOT NULL
 *> constraint failed". A column WITH DEFAULT, with DEFAULT value, or
 *> GENERATED gets a value of its own. An INSERT without a column list
-*> gives every column, and is not read.
+*> gives every column, and is not read. An UPDATE that sets a NOT NULL
+*> column = NULL is reported too, for the same SQLCODE.
 *> ---------------------------------------------------------------
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-Q025.
@@ -619,19 +620,15 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
         IF QS-KIND(LS-S) = "I" AND QS-TABLE-COUNT(LS-S) = 1
             PERFORM CHECK-INSERT
         END-IF
+        IF QS-KIND(LS-S) = "U" AND QS-TABLE-COUNT(LS-S) = 1
+            PERFORM CHECK-UPDATE
+        END-IF
     END-PERFORM
     GOBACK.
 
 *> INSERT LS-S: its declared table, and its column list.
 CHECK-INSERT.
-    MOVE 0 TO LS-TABLE
-    PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J > QT-COUNT
-        IF QT-NAME(LS-J) = QS-TABLE(LS-S, 1)
-           OR QT-SHORT(LS-J) = QS-TABLE(LS-S, 1)
-            MOVE LS-J TO LS-TABLE
-            EXIT PERFORM
-        END-IF
-    END-PERFORM
+    PERFORM FIND-TABLE
     IF LS-TABLE = 0
         EXIT PARAGRAPH
     END-IF
@@ -682,6 +679,80 @@ CHECK-INSERT.
             IF LS-I > LS-NAME-COUNT
                 PERFORM REPORT-MISSING
             END-IF
+        END-IF
+    END-PERFORM.
+
+*> UPDATE LS-S: each SET column = NULL, at the top level before
+*> WHERE, for a NOT NULL column of its declared table.
+CHECK-UPDATE.
+    PERFORM FIND-TABLE
+    IF LS-TABLE = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE 0 TO LS-DEPTH
+    MOVE "N" TO LS-LIST
+    PERFORM VARYING LS-T FROM QS-TOKEN(LS-S) BY 1
+            UNTIL LS-T >= QS-END(LS-S)
+        EVALUATE TRUE
+            WHEN TK-IS-LPAREN(LS-T)
+                ADD 1 TO LS-DEPTH
+            WHEN TK-IS-RPAREN(LS-T)
+                SUBTRACT 1 FROM LS-DEPTH
+            WHEN LS-DEPTH > 0
+                CONTINUE
+            WHEN TK-IS-WORD(LS-T)
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-TEXT LS-LEN
+                MOVE FUNCTION UPPER-CASE(LS-TEXT) TO LS-TEXT
+                EVALUATE TRUE
+                    WHEN LS-TEXT = "SET"
+                        MOVE "Y" TO LS-LIST
+                    WHEN LS-TEXT = "WHERE"
+                        EXIT PERFORM
+                    WHEN LS-LIST = "Y"
+                        PERFORM CHECK-SET-NULL
+                END-EVALUATE
+        END-EVALUATE
+    END-PERFORM.
+
+*> The word LS-TEXT at LS-T in a SET: a column, = and NULL after it.
+CHECK-SET-NULL.
+    COMPUTE LS-AT = LS-T + 2
+    IF LS-AT >= QS-END(LS-S)
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE LS-I = LS-T + 1
+    IF NOT TK-IS-OPERATOR(LS-I)
+        EXIT PARAGRAPH
+    END-IF
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-AT LS-NAME(1) LS-LEN
+    IF FUNCTION UPPER-CASE(LS-NAME(1)) NOT = "NULL"
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING LS-C FROM QT-COL-FIRST(LS-TABLE) BY 1
+            UNTIL LS-C >= QT-COL-FIRST(LS-TABLE) + QT-COL-COUNT(LS-TABLE)
+        IF QL-NAME(LS-C) = LS-TEXT AND QL-NULLS(LS-C) = "N"
+            MOVE SPACES TO LS-MESSAGE
+            STRING "UPDATE sets " DELIMITED BY SIZE
+                   QL-NAME(LS-C) DELIMITED BY SPACE
+                   " of " DELIMITED BY SIZE
+                   QT-NAME(LS-TABLE) DELIMITED BY SPACE
+                   " to NULL, but it is NOT NULL: Db2 rejects it"
+                   " (SQLCODE -407)" DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS
+                PLB-RULES PLB-FINDINGS LS-RULE LS-AT LS-MESSAGE
+            EXIT PERFORM
+        END-IF
+    END-PERFORM.
+
+*> LS-TABLE: the declared table that statement LS-S names; 0: none.
+FIND-TABLE.
+    MOVE 0 TO LS-TABLE
+    PERFORM VARYING LS-J FROM 1 BY 1 UNTIL LS-J > QT-COUNT
+        IF QT-NAME(LS-J) = QS-TABLE(LS-S, 1)
+           OR QT-SHORT(LS-J) = QS-TABLE(LS-S, 1)
+            MOVE LS-J TO LS-TABLE
+            EXIT PERFORM
         END-IF
     END-PERFORM.
 

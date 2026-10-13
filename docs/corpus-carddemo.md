@@ -403,7 +403,8 @@ Some findings that were read and are true:
 - **PLB-Q025 insert-not-null-missing.** None: its `INSERT` statements
   give every `NOT NULL` column. In a copy of `COBTUPDT` whose `INSERT`
   into `TRANSACTION_TYPE` gives only `TR_TYPE`, it reports
-  `TR_DESCRIPTION`.
+  `TR_DESCRIPTION`, and in one whose `UPDATE` sets `TR_DESCRIPTION =
+  NULL`, that `NULL`.
 - **PLB-Q024 column-undeclared.** None: the 12 statements and cursors
   of its DB2 programs name the columns of their DCLGEN declarations. In
   a copy of `COTRTLIC` whose cursor selects `TR_DESC` for
