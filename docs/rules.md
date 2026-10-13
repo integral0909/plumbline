@@ -215,6 +215,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q026](#plb-q026-cursor-table-mismatch) | cursor-table-mismatch | error | UPDATE or DELETE WHERE CURRENT OF a cursor on another table |
 | [PLB-Q027](#plb-q027-update-not-for-update) | update-not-for-update | error | Positioned UPDATE sets a column the cursor's FOR UPDATE OF leaves out |
 | [PLB-Q028](#plb-q028-order-by-for-update) | order-by-for-update | error | SQL cursor declared with both ORDER BY and FOR UPDATE |
+| [PLB-Q029](#plb-q029-cursor-unused) | cursor-unused | note | SQL cursor is declared but never opened, fetched, or closed |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -5141,6 +5142,24 @@ BY`.
 Both clauses are read at the top level of the query, so an `ORDER BY`
 in a subquery does not count, and a declaration with `SENSITIVE` is
 not read.
+
+## PLB-Q029 cursor-unused
+
+An SQL cursor that the program declares and never opens, fetches, or
+closes:
+
+```cobol
+    EXEC SQL
+        DECLARE OLD-CUR CURSOR FOR           *> reported
+            SELECT ACCT_ID FROM ACCOUNT
+    END-EXEC.
+```
+
+The declaration is dead: its query never runs. Usually a cursor that a
+rewrite replaced was left behind, or the cursor meant to be opened is
+another one with a similar name. Cursors are
+matched by name with their `OPEN`, `FETCH`, and `CLOSE` statements in
+the file, as for [PLB-Q003](#plb-q003-cursor-not-opened).
 
 ## PLB-S001 dynamic-sql
 
