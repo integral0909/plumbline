@@ -504,6 +504,18 @@ check "OUTPUT=*.step.name not in the step" 1 'output.jcl:20:3: error: DD BADSTEP
     -- check --no-config $jx/output.jcl
 check_absent "OUTPUT references that resolve" 'output.jcl:1[2-6]:.*PLB-J038' \
     -- check --no-config $jx/output.jcl
+check "HOLD=YESS"                         1 'ddvalue.jcl:5:3: error: DD HELD codes HOLD=YESS, not YES, Y, NO, or N.*\[PLB-J039\]' \
+    -- check --no-config $jx/ddvalue.jcl
+check "FREE=EOJ"                          1 'ddvalue.jcl:6:3: error: DD FREED codes FREE=EOJ,.*\[PLB-J039\]' \
+    -- check --no-config $jx/ddvalue.jcl
+check "SPIN=UNALLOCATE"                   1 'ddvalue.jcl:7:3: error: DD SPUN codes SPIN=UNALLOCATE,.*\[PLB-J039\]' \
+    -- check --no-config $jx/ddvalue.jcl
+check "AVGREC=B"                          1 'ddvalue.jcl:8:3: error: DD AVG codes AVGREC=B,.*\[PLB-J039\]' \
+    -- check --no-config $jx/ddvalue.jcl
+check "RECORG=KSDS"                       1 'ddvalue.jcl:9:3: error: DD KSDS codes RECORG=KSDS,.*\[PLB-J039\]' \
+    -- check --no-config $jx/ddvalue.jcl
+check_absent "values the Reference lists" 'ddvalue.jcl:1[1-4]:.*PLB-J039' \
+    -- check --no-config $jx/ddvalue.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \

@@ -169,6 +169,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J036](#plb-j036-space-invalid) | space-invalid | error | SPACE= unit, quantity, or option the JCL Reference does not allow |
 | [PLB-J037](#plb-j037-disp-invalid) | disp-invalid | error | DISP= status or disposition the JCL Reference does not allow |
 | [PLB-J038](#plb-j038-output-unresolved) | output-unresolved | error | DD OUTPUT=*.name names no OUTPUT JCL statement before it |
+| [PLB-J039](#plb-j039-dd-value-invalid) | dd-value-invalid | error | HOLD, FREE, SPIN, AVGREC, or RECORG value the JCL Reference does not list |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -4196,6 +4197,22 @@ procedure, the statement must come before the DD in the procedure. An
 `*.stepname.name`. References through a procedure step
 (`*.step.procstep.name`), DDs named `STEP.DD`, and values with symbols
 are not read.
+
+## PLB-J039 dd-value-invalid
+
+A DD keyword whose value is not one of those the z/OS MVS JCL Reference
+lists for it:
+
+```jcl
+//REPORT   DD SYSOUT=A,HOLD=YESS                reported
+//KSDS     DD DSN=PAY.KSDS,DISP=(NEW,CATLG),RECORG=KSDS  reported
+```
+
+The syntax of each keyword lists its values: `HOLD` is `YES`, `Y`, `NO`,
+or `N`; `FREE` is `END` or `CLOSE`; `SPIN` is `NO` or `UNALLOC`, which
+may take a time or a line count in parentheses; `AVGREC` is `U`, `K`, or
+`M`; and `RECORG` is `KS`, `ES`, `RR`, or `LS`. Values with symbols are
+not read.
 
 ## PLB-K001 cics-resource-undefined
 

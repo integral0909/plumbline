@@ -153,6 +153,11 @@
         *> abnormal termination disposition, X a fourth.
         10  JD-DISP-BAD         PIC X(20).
         10  JD-DISP-PART        PIC X.
+        *> The first of HOLD=, FREE=, SPIN=, AVGREC=, and RECORG= whose
+        *> value is not one the JCL Reference lists: the keyword, and
+        *> the value as written.
+        10  JD-VALUE-KEY        PIC X(8).
+        10  JD-VALUE-BAD        PIC X(20).
         *> The class of SYSOUT= when the JCL Reference does not allow it
         *> (not one character, A through Z or 0 through 9, or *).
         10  JD-CLASS-BAD        PIC X(10).
