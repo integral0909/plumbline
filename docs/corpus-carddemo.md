@@ -540,8 +540,10 @@ Some findings that were read and are true:
   `FB`, `FBA`, and `VB`. In a copy of `DUSRSECJ` whose `RECFM=FB` is
   made `RECFM=BF`, it reports that DD.
 - **PLB-J039 dd-value-invalid.** None: no DD of CardDemo codes `HOLD`,
-  `FREE`, `SPIN`, `AVGREC`, or `RECORG`. In a copy of `DUSRSECJ` whose
-  first `SYSPRINT` DD is given `HOLD=YESS`, it reports that DD.
+  `FREE`, `SPIN`, `AVGREC`, `RECORG`, or `DSNTYPE` (its one
+  `DSNTYPE=LIBRARY`, in `BUILDONL.prc`, is in a comment). In a copy of
+  `DUSRSECJ` whose first `SYSPRINT` DD is given `HOLD=YESS`, it reports
+  that DD, and in one whose `SYSUT2` DD is given `DSNTYPE=PDSE`, that DD.
 - **PLB-J038 output-unresolved.** None: CardDemo has no `OUTPUT`
   statements or references. In a copy of `DUSRSECJ` whose `SYSPRINT`
   DD of `STEP01` is given `OUTPUT=*.LASER`, it reports that DD, and not

@@ -327,6 +327,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Rule PLB-J039 dd-value-invalid.
 - Rule PLB-J040 recfm-invalid; the JCL reader checks each `RECFM`.
 - Rule PLB-J041 dd-parameter-conflict.
+- PLB-J039 dd-value-invalid reads `DSNTYPE` too.
 - Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
   the name field.
 - Rule PLB-J019 parm-too-long; the JCL reader counts the characters of
