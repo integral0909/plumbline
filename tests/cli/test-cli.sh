@@ -556,6 +556,18 @@ check "RECORG with DCB=DSORG"             1 'ddpair.jcl:10:3: warning: DD ESDS c
     -- check --no-config $jx/ddpair.jcl
 check_absent "parameters that go together" 'ddpair.jcl:1[2-4]:.*PLB-J041' \
     -- check --no-config $jx/ddpair.jcl
+check "RD=RESTART on a JOB statement"     1 'execval.jcl:2:3: error: job EXECJOB codes RD=RESTART,.*\[PLB-J042\]' \
+    -- check --no-config $jx/execval.jcl
+check "ADDRSPC=VIRTUAL"                   1 'execval.jcl:4:3: error: step LOAD codes ADDRSPC=VIRTUAL,.*\[PLB-J042\]' \
+    -- check --no-config $jx/execval.jcl
+check "MEMLIMIT=10GB"                     1 'execval.jcl:5:3: error: step SORT codes MEMLIMIT=10GB,.*\[PLB-J042\]' \
+    -- check --no-config $jx/execval.jcl
+check "MEMLIMIT above 16384P"             1 'execval.jcl:6:3: error: step BIG codes MEMLIMIT=20000P,.*\[PLB-J042\]' \
+    -- check --no-config $jx/execval.jcl
+check_absent "ADDRSPC=REAL, RD=RNC, 16384P" 'execval.jcl:[89]:.*PLB-J042' \
+    -- check --no-config $jx/execval.jcl
+check_absent "MEMLIMIT=NOLIMIT and 10G"   'execval.jcl:1[01]:.*PLB-J042' \
+    -- check --no-config $jx/execval.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \
