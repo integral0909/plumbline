@@ -1,0 +1,7 @@
+tests/golden/rules/q022-aggregate-in-where.cob:12:31: note: table PAYMENT is not declared in AGGWHERE (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]
+tests/golden/rules/q022-aggregate-in-where.cob:13:20: error: SUM in a WHERE: an aggregate is not valid there (Db2 SQLCODE -120); test it in HAVING [PLB-Q022]
+tests/golden/rules/q022-aggregate-in-where.cob:18:5: warning: the result of EXEC SQL SELECT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q022-aggregate-in-where.cob:19:28: note: WS-OWNER is given a value but never read [PLB-M005]
+tests/golden/rules/q022-aggregate-in-where.cob:20:32: error: COUNT in a WHERE: an aggregate is not valid there (Db2 SQLCODE -120); test it in HAVING [PLB-Q022]
+tests/golden/rules/q022-aggregate-in-where.cob:24:5: warning: the result of EXEC SQL SELECT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q022-aggregate-in-where.cob:25:34: note: WS-TOTAL is given a value but never read [PLB-M005]

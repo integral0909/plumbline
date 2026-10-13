@@ -201,6 +201,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q020](#plb-q020-column-repeated) | column-repeated | error | SQL INSERT or UPDATE names the same column twice |
 | [PLB-Q021](#plb-q021-order-by-position) | order-by-position | error | SQL ORDER BY column number beyond the select list |
 | [PLB-Q014](#plb-q014-fetch-loop-end-only) | fetch-loop-end-only | warning | FETCH loop ends only on SQLCODE 100, and loops for ever on errors |
+| [PLB-Q022](#plb-q022-aggregate-in-where) | aggregate-in-where | error | SQL WHERE uses an aggregate function such as SUM or COUNT |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
 | [PLB-S003](#plb-s003-sensitive-data-displayed) | sensitive-data-displayed | warning | DISPLAY writes a credential or personal data |
@@ -4727,6 +4728,30 @@ The select list is the statement's first, counted as for
 counted. Numbers are read at the top level of the `ORDER BY`, each
 after `BY` or a comma and not part of an expression, up to `FETCH`,
 `FOR`, `OPTIMIZE`, or `WITH`.
+
+## PLB-Q022 aggregate-in-where
+
+An aggregate function, `SUM`, `AVG`, `MIN`, `MAX`, or `COUNT`, in the
+`WHERE` of embedded SQL:
+
+```cobol
+    EXEC SQL
+        DECLARE BIG-CUR CURSOR FOR
+            SELECT OWNER FROM PAYMENT
+             WHERE SUM(AMOUNT) > 1000       *> reported
+             GROUP BY OWNER
+    END-EXEC
+```
+
+`WHERE` picks rows before they are grouped, and an aggregate works on a
+group. Db2 for z/OS rejects the statement with SQLCODE -120, which
+allows an aggregate in a `WHERE` only in a subquery of a `HAVING`
+([Db2 codes](https://www.ibm.com/docs/en/db2-for-zos/12?topic=codes-120)),
+and SQLite 3 with "misuse of aggregate". The test belongs in `HAVING`.
+
+An aggregate is read at the `WHERE`'s own level of parentheses; one in
+a subquery of the `WHERE` (`WHERE AMOUNT > (SELECT AVG(AMOUNT) ...)`)
+is fine, and nothing after a `HAVING` is reported.
 
 ## PLB-S001 dynamic-sql
 
