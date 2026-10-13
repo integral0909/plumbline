@@ -1,0 +1,34 @@
+*> PLB-Q018 null-compared: a condition of embedded SQL that compares
+*> with NULL, which is never true.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. NULLCMP.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-ID               PIC S9(9) COMP.
+01  WS-NAME             PIC X(30).
+    EXEC SQL
+        DECLARE OPEN-CUR CURSOR FOR
+            SELECT ACCT_ID FROM ACCOUNT
+             WHERE CLOSED_DATE = NULL
+    END-EXEC.
+PROCEDURE DIVISION.
+    *> Reported: the cursor above, <> NULL, and NULL on the left.
+    EXEC SQL
+        SELECT OWNER INTO :WS-NAME FROM ACCOUNT
+         WHERE ACCT_ID = :WS-ID AND OWNER <> NULL
+    END-EXEC
+    EXEC SQL
+        DELETE FROM ACCOUNT WHERE NULL = CLOSED_DATE
+    END-EXEC
+    *> Reported: a CASE WHEN.
+    EXEC SQL
+        SELECT CASE WHEN OWNER = NULL THEN 'NONE' ELSE OWNER END
+          INTO :WS-NAME FROM ACCOUNT WHERE ACCT_ID = :WS-ID
+    END-EXEC
+    *> Not reported: SET gives a column the null value, and IS NULL.
+    EXEC SQL
+        UPDATE ACCOUNT SET CLOSED_DATE = NULL
+         WHERE ACCT_ID = :WS-ID AND CLOSED_DATE IS NOT NULL
+    END-EXEC
+    DISPLAY WS-NAME
+    STOP RUN.
