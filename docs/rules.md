@@ -176,6 +176,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J042](#plb-j042-exec-value-invalid) | exec-value-invalid | error | JOB or EXEC value the JCL Reference does not list (RD, TYPRUN, PRTY, ...) |
 | [PLB-J043](#plb-j043-joblib-misplaced) | joblib-misplaced | error | JOBLIB DD not right after the JOB statement, or in a procedure |
 | [PLB-J044](#plb-j044-jcllib-misplaced) | jcllib-misplaced | error | JCLLIB after the job's first EXEC, a second in a job, or in a procedure |
+| [PLB-J045](#plb-j045-unit-aff-invalid) | unit-aff-invalid | warning | UNIT=AFF names no earlier DD of the step, or is coded where it may not be |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -4339,6 +4340,24 @@ appear after the JOB statement and before the first EXEC statement in
 the job", and "you can code only one JCLLIB statement per job". The
 libraries it names are searched for the job's procedures and `INCLUDE`
 groups; a procedure has no `JOB` statement to put one after.
+
+## PLB-J045 unit-aff-invalid
+
+A `UNIT=AFF=ddname` that names no earlier DD of its step, or that the
+z/OS MVS JCL Reference says not to code:
+
+```jcl
+//TAPE1    DD DSN=PAY.TAPE1,DISP=OLD,UNIT=AFF=TAPE2  reported
+//TAPE2    DD DSN=PAY.TAPE2,DISP=OLD,UNIT=TAPE
+```
+
+Unit affinity puts the data set on the device of another DD, where
+"ddname is the ddname of an earlier DD statement in the same step"
+(`UNIT` parameter). Among its restrictions, "Do not code
+UNIT=AFF=ddname" on a `DD *` or `DD DATA` statement or one with
+`SUBSYS` ("the system ignores the UNIT=AFF"), "when the DD statement
+referenced in the AFF subparameter contains FREE=CLOSE", or "with the
+STORCLAS parameter". DDs named `STEP.DD` are not read.
 
 ## PLB-K001 cics-resource-undefined
 

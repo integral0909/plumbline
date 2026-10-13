@@ -175,6 +175,12 @@
         *> Two parameters of the DD that the JCL Reference says not to
         *> code together, the first pair found; spaces when there is
         *> none.
+        *> UNIT=AFF=ddname: the ddname, or spaces. JD-AFF-WITH: S the DD
+        *> codes STORCLAS, U SUBSYS, I it is in-stream data. JD-FREE-CLOSE:
+        *> "Y" when the DD codes FREE=CLOSE.
+        10  JD-UNIT-AFF         PIC X(8).
+        10  JD-AFF-WITH         PIC X.
+        10  JD-FREE-CLOSE       PIC X.
         10  JD-CONFLICT-1       PIC X(24).
         10  JD-CONFLICT-2       PIC X(30).
         *> The class of SYSOUT= when the JCL Reference does not allow it

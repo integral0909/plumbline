@@ -789,6 +789,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J044"
         "jcllib-misplaced" "E"
         "JCLLIB after the job's first EXEC, a second in a job, or in a procedure"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J045"
+        "unit-aff-invalid" "W"
+        "UNIT=AFF names no earlier DD of the step, or is coded where it may not be"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 
