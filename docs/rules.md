@@ -4838,7 +4838,12 @@ select list with its `INTO` list or the cursor's `FETCH`, an `INSERT`'s
 column list, and an `UPDATE`'s `SET`. A column qualified by a
 correlation name (`A.OWNER`) is looked for by its name. Only statements
 whose tables all have a `DECLARE TABLE` in the file are checked;
-columns of expressions and of the `WHERE` are not paired, and not read.
+columns of expressions are not read.
+
+In the `WHERE`, at its top level, a word just before a relational
+operator is read as a column too (`WHERE ACCT_NO = :WS-ID`), unless a
+colon (a host variable) or `CURRENT` (a special register) comes before
+it; a subquery's columns, in parentheses, are not read.
 
 ## PLB-Q025 insert-not-null-missing
 

@@ -540,6 +540,7 @@ uses [Semantic Versioning](https://semver.org/).
   fix turns that range round as well.
 - PLB-J020 jcl-name-invalid also checks the program of `EXEC PGM=` and
   the procedure of `EXEC PROC=`.
+- PLB-Q024 column-undeclared also reads the columns of a `WHERE`.
 - PLB-Q015 insert-count-mismatch also counts the values of an `INSERT`
   without a column list against the columns of its table's `DECLARE
   TABLE`.
