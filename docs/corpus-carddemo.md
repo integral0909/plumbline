@@ -501,6 +501,8 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J022 cond-never-true.** None, for the same tests. In a copy of
+  `DEFGDGD` whose `COND=(0,NE)` is made `(0,GT)`, it reports that step.
 - **PLB-J021 cond-always-bypasses.** None: the `COND` tests of its steps are
   `(0,NE)` and `(4,LT)`. In a copy of `DEFGDGD` whose `COND=(0,NE)` is
   made `(0,LE)`, it reports that step.
