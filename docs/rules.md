@@ -190,6 +190,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-Q016](#plb-q016-cursor-open-twice) | cursor-open-twice | error | SQL cursor opened again with no CLOSE between |
 | [PLB-Q017](#plb-q017-fetch-after-close) | fetch-after-close | error | FETCH or CLOSE of an SQL cursor after its CLOSE, with no OPEN |
 | [PLB-Q018](#plb-q018-null-compared) | null-compared | error | SQL condition compares with NULL, which is never true |
+| [PLB-Q019](#plb-q019-between-reversed) | between-reversed | warning | SQL BETWEEN whose first number is above its second |
 | [PLB-Q014](#plb-q014-fetch-loop-end-only) | fetch-loop-end-only | warning | FETCH loop ends only on SQLCODE 100, and loops for ever on errors |
 | [PLB-S001](#plb-s001-dynamic-sql) | dynamic-sql | note | SQL text is built at run time |
 | [PLB-S002](#plb-s002-hard-coded-credential) | hard-coded-credential | warning | Credential is written into the program |
@@ -4474,6 +4475,27 @@ Conditions are read after `WHERE`, `HAVING`, `ON`, and `WHEN`, in
 statements and in `DECLARE CURSOR`, with `NULL` on either side of `=`,
 `<>`, `<`, `>`, `<=`, or `>=`. `SET CLOSED_DATE = NULL` in an `UPDATE`
 gives the column the null value, and is not reported.
+
+## PLB-Q019 between-reversed
+
+An SQL `BETWEEN` whose first number is above its second:
+
+```cobol
+    EXEC SQL
+        SELECT COUNT(*) INTO :WS-COUNT FROM ACCOUNT
+         WHERE AGE BETWEEN 65 AND 18        *> reported
+    END-EXEC
+```
+
+`x BETWEEN a AND b` means `x >= a AND x <= b`, so with `a` above `b` no
+value satisfies it, and `NOT BETWEEN` is true for every value that is
+not null; SQLite 3 selects no row with `BETWEEN 10 AND 5`, and every
+row with `NOT BETWEEN 10 AND 5`. This is
+[PLB-C074](#plb-c074-condition-range-reversed) for SQL.
+
+Both ends must be numbers, with a sign or decimal places or not; an end
+that is a host variable or part of an expression (`BETWEEN 30 AND 20 +
+:WS-LOW`) is not read.
 
 ## PLB-S001 dynamic-sql
 

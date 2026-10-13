@@ -385,6 +385,9 @@ Some findings that were read and are true:
   and 4200 swapped, it reports entry 4 after entry 3.
 - **PLB-C098 group-value-into-packed** and **PLB-C099
   value-overridden.** None.
+- **PLB-Q019 between-reversed.** None: CardDemo's SQL has no
+  `BETWEEN`. In a copy of `COBTUPDT` whose `DELETE` has `WHERE TR_TYPE
+  BETWEEN 90 AND 10`, it reports that range.
 - **PLB-Q018 null-compared.** None. In a copy of `COBTUPDT` whose
   `DELETE` has `WHERE TR_TYPE = NULL`, it reports that comparison.
 - **PLB-Q017 fetch-after-close.** None. In a copy of `COTRTLIC` with
