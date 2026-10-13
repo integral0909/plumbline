@@ -178,6 +178,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-K012](#plb-k012-abstime-not-packed) | abstime-not-packed | error | CICS ABSTIME names an item that is not PIC S9(15) COMP-3 |
 | [PLB-K013](#plb-k013-interval-invalid) | interval-invalid | error | CICS INTERVAL or TIME not PIC S9(7) COMP-3, or not hhmmss |
 | [PLB-K014](#plb-k014-return-not-top-level) | return-not-top-level | warning | RETURN with COMMAREA, CHANNEL, or IMMEDIATE in a linked program |
+| [PLB-K015](#plb-k015-time-option-out-of-range) | time-option-out-of-range | error | CICS DELAY or START HOURS, MINUTES, SECONDS, MILLISECS out of range |
 | [PLB-M001](#plb-m001-go-to) | go-to | note | GO TO statement |
 | [PLB-M002](#plb-m002-alter) | alter | warning | ALTER statement (obsolete) |
 | [PLB-M003](#plb-m003-unused-data-item) | unused-data-item | warning | Data item is never referenced |
@@ -4401,6 +4402,24 @@ reported, since CICS accepts it there. The program is named by a
 literal or a constant item. It may also run at the top level, started
 by its own transaction, where the `RETURN` is right, so the rule warns,
 once per program, at its first such `RETURN`.
+
+## PLB-K015 time-option-out-of-range
+
+`HOURS`, `MINUTES`, `SECONDS`, or `MILLISECS` of a `DELAY` (`FOR`,
+`UNTIL`) or `START` (`AFTER`, `AT`) given a number outside its range:
+
+```cobol
+    EXEC CICS DELAY FOR MINUTES(1) SECONDS(90) END-EXEC   *> reported
+```
+
+The CICS API reference (`DELAY`, `START`) gives the ranges: `HOURS`
+0-99; `MINUTES` 0-59 "when HOURS, SECONDS or MILLISECS are also
+specified, or 0-5999 when MINUTES is the only option specified";
+`SECONDS` 0-59, or 0-359999 alone; `MILLISECS`, of `DELAY` only, 0-999,
+or 0-359999999 alone. Out of range, CICS raises `INVREQ`, RESP2 4, 5,
+6, or 22, and does not do the command. `SECONDS(90)` alone is ninety
+seconds; with `MINUTES(1)`, write `MINUTES(2) SECONDS(30)`. Values in
+data items are not read.
 
 ## PLB-M001 go-to
 
