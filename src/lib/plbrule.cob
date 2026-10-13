@@ -768,6 +768,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J040"
         "recfm-invalid" "E"
         "RECFM is none of the record formats the JCL Reference lists"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J041"
+        "dd-parameter-conflict" "W"
+        "DD codes two parameters the JCL Reference says not to code together"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

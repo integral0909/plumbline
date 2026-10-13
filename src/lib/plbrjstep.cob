@@ -2165,3 +2165,58 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
     END-PERFORM
     GOBACK.
 END PROGRAM PLB-RULE-J040.
+
+*> ---------------------------------------------------------------
+*> PLB-J041 dd-parameter-conflict: a DD that codes two parameters the
+*> z/OS MVS JCL Reference says not to code together:
+*>
+*>     //KSDS     DD DSN=PAY.KSDS,DISP=(NEW,CATLG),RECORG=KS,RECFM=FB
+*>     //RECS     DD DSN=PAY.RECS,DISP=(NEW,CATLG),AVGREC=K,
+*>     //            SPACE=(TRK,(10,5))
+*>
+*> From the "Relationship to other parameters" of each: RECORG not with
+*> RECFM, DCB=RECFM, DSNTYPE, DCB=DSORG, or FREE=CLOSE; AVGREC not with
+*> a SPACE in TRK, CYL, or ABSTR ("When specifying the TRK, CYL, or
+*> ABSTR subparameters of the SPACE parameter, do not code the AVGREC
+*> parameter"); LRECL not with DCB=LRECL; RECFM not with DCB=RECFM. The
+*> first pair found is reported.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J041.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-D                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J041" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-D FROM 1 BY 1 UNTIL LS-D > JD-COUNT
+        IF JD-CONFLICT-1(LS-D) NOT = SPACES
+            MOVE SPACES TO LS-MESSAGE
+            STRING "DD " DELIMITED BY SIZE
+                   JD-NAME(LS-D) DELIMITED BY SPACE
+                   " codes " DELIMITED BY SIZE
+                   JD-CONFLICT-1(LS-D) DELIMITED BY SPACE
+                   " with " DELIMITED BY SIZE
+                   JD-CONFLICT-2(LS-D) DELIMITED BY "  "
+                   ", which the JCL Reference says not to code together"
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JD-FILE-ID(LS-D) JD-LINE(LS-D) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+        END-IF
+    END-PERFORM
+    GOBACK.
+END PROGRAM PLB-RULE-J041.

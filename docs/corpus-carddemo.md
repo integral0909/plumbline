@@ -533,6 +533,9 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J041 dd-parameter-conflict.** None. In a copy of `DUSRSECJ`
+  whose `SYSUT2` DD, which has `DCB=(LRECL=80,...)`, is also given
+  `LRECL=80`, it reports that DD.
 - **PLB-J040 recfm-invalid.** None among its 44 `RECFM` values, `F`,
   `FB`, `FBA`, and `VB`. In a copy of `DUSRSECJ` whose `RECFM=FB` is
   made `RECFM=BF`, it reports that DD.

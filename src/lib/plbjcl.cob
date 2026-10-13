@@ -127,6 +127,16 @@ LOCAL-STORAGE SECTION.
 01  LS-GEN-LEN              PIC 9(4) COMP-5.
 01  LS-ONLY-WITH-SYSOUT     PIC X(8).
 01  LS-OUTPUT-CODED         PIC X.
+01  LS-IN-DCB               PIC X VALUE "N".
+01  LS-LRECL-KW             PIC X.
+01  LS-LRECL-DCB            PIC X.
+01  LS-RECFM-KW             PIC X.
+01  LS-RECFM-DCB            PIC X.
+01  LS-DSORG-DCB            PIC X.
+01  LS-DSNTYPE-CODED        PIC X.
+01  LS-FREE-CLOSE           PIC X.
+01  LS-AVGREC-CODED         PIC X.
+01  LS-SPACE-UNIT           PIC X.
 01  LS-SUBSYS-CODED         PIC X.
 01  LS-DCB-VALUE            PIC X(40).
 01  LS-DCB-LEN              PIC 9(9) COMP-5.
@@ -756,6 +766,57 @@ CHECK-RETENTION.
             END-IF
     END-EVALUATE.
 
+*> The keywords of the DD that CHECK-PAIRS reads.
+NOTE-PAIR-KEY.
+    EVALUATE TRUE
+        WHEN OP-KEY = "LRECL"
+            MOVE "Y" TO LS-LRECL-KW
+        WHEN OP-KEY = "RECFM"
+            MOVE "Y" TO LS-RECFM-KW
+        WHEN OP-KEY = "DSNTYPE"
+            MOVE "Y" TO LS-DSNTYPE-CODED
+        WHEN OP-KEY = "FREE" AND OP-VALUE = "CLOSE"
+            MOVE "Y" TO LS-FREE-CLOSE
+        WHEN OP-KEY = "AVGREC"
+            MOVE "Y" TO LS-AVGREC-CODED
+        WHEN OP-KEY = "SPACE"
+            IF OP-VALUE(1:5) = "(TRK," OR OP-VALUE(1:5) = "(CYL,"
+               OR OP-VALUE(1:7) = "(ABSTR,"
+                MOVE "Y" TO LS-SPACE-UNIT
+            END-IF
+    END-EVALUATE.
+
+*> Parameters of DD LS-D that the z/OS MVS JCL Reference says not to
+*> code together ("Relationship to other parameters" of each): RECORG
+*> with RECFM (or DCB=RECFM), DSNTYPE, DCB=DSORG, or FREE=CLOSE; AVGREC
+*> with a SPACE in TRK, CYL, or ABSTR; LRECL with DCB=LRECL; RECFM with
+*> DCB=RECFM.
+CHECK-PAIRS.
+    EVALUATE TRUE
+        WHEN JD-RECORG(LS-D) = "Y"
+             AND (LS-RECFM-KW = "Y" OR LS-RECFM-DCB = "Y")
+            MOVE "RECORG" TO JD-CONFLICT-1(LS-D)
+            MOVE "RECFM" TO JD-CONFLICT-2(LS-D)
+        WHEN JD-RECORG(LS-D) = "Y" AND LS-DSNTYPE-CODED = "Y"
+            MOVE "RECORG" TO JD-CONFLICT-1(LS-D)
+            MOVE "DSNTYPE" TO JD-CONFLICT-2(LS-D)
+        WHEN JD-RECORG(LS-D) = "Y" AND LS-DSORG-DCB = "Y"
+            MOVE "RECORG" TO JD-CONFLICT-1(LS-D)
+            MOVE "DCB=DSORG" TO JD-CONFLICT-2(LS-D)
+        WHEN JD-RECORG(LS-D) = "Y" AND LS-FREE-CLOSE = "Y"
+            MOVE "RECORG" TO JD-CONFLICT-1(LS-D)
+            MOVE "FREE=CLOSE" TO JD-CONFLICT-2(LS-D)
+        WHEN LS-AVGREC-CODED = "Y" AND LS-SPACE-UNIT = "Y"
+            MOVE "AVGREC" TO JD-CONFLICT-1(LS-D)
+            MOVE "SPACE in TRK, CYL, or ABSTR" TO JD-CONFLICT-2(LS-D)
+        WHEN LS-LRECL-KW = "Y" AND LS-LRECL-DCB = "Y"
+            MOVE "LRECL" TO JD-CONFLICT-1(LS-D)
+            MOVE "DCB=LRECL" TO JD-CONFLICT-2(LS-D)
+        WHEN LS-RECFM-KW = "Y" AND LS-RECFM-DCB = "Y"
+            MOVE "RECFM" TO JD-CONFLICT-1(LS-D)
+            MOVE "DCB=RECFM" TO JD-CONFLICT-2(LS-D)
+    END-EVALUATE.
+
 *> HOLD=, FREE=, SPIN=, AVGREC=, and RECORG= of DD LS-D: the values
 *> the z/OS MVS JCL Reference lists for each. HOLD YES, Y, NO, or N;
 *> FREE END or CLOSE; SPIN NO or UNALLOC (first, in parentheses);
@@ -1274,7 +1335,11 @@ ADD-DD.
     MOVE SPACES TO JD-RETAIN-PROBLEM(LS-D) JD-RETAIN-VALUE(LS-D)
         LS-EXPDT LS-RETPD JD-SPACE-BAD(LS-D) JD-SPACE-PART(LS-D)
         JD-DISP-BAD(LS-D) JD-DISP-PART(LS-D) JD-VALUE-KEY(LS-D)
-        JD-VALUE-BAD(LS-D) JD-RECFM-BAD(LS-D)
+        JD-VALUE-BAD(LS-D) JD-RECFM-BAD(LS-D) JD-CONFLICT-1(LS-D)
+        JD-CONFLICT-2(LS-D)
+    MOVE "N" TO LS-LRECL-KW LS-LRECL-DCB LS-RECFM-KW LS-RECFM-DCB
+        LS-DSORG-DCB LS-DSNTYPE-CODED LS-FREE-CLOSE LS-AVGREC-CODED
+        LS-SPACE-UNIT LS-IN-DCB
     MOVE SPACES TO JD-CLASS-BAD(LS-D)
     MOVE SPACES TO JD-SYSOUT-CLASH(LS-D) LS-NOT-WITH-SYSOUT
         LS-ONLY-WITH-SYSOUT
@@ -1353,7 +1418,9 @@ ADD-DD.
                 MOVE OP-VALUE TO LS-DCB-VALUE
                 PERFORM DCB-PARAMETER
             WHEN OP-KEY = "DCB" AND OP-VALUE(1:1) = "("
+                MOVE "Y" TO LS-IN-DCB
                 PERFORM READ-DCB
+                MOVE "N" TO LS-IN-DCB
             WHEN OP-KEY = SPACES AND OP-VALUE = "DUMMY"
                 MOVE "M" TO JD-KIND(LS-D)
             WHEN OP-KEY = SPACES
@@ -1364,6 +1431,7 @@ ADD-DD.
         IF JD-VALUE-KEY(LS-D) = SPACES
             PERFORM CHECK-DD-VALUE
         END-IF
+        PERFORM NOTE-PAIR-KEY
         PERFORM NEXT-OPERAND
     END-PERFORM
     *> OUTPUT goes on a DD with SYSOUT or SUBSYS, and not with a SYSOUT
@@ -1384,6 +1452,7 @@ ADD-DD.
     IF LS-EXPDT NOT = SPACES OR LS-RETPD NOT = SPACES
         PERFORM CHECK-RETENTION
     END-IF
+    PERFORM CHECK-PAIRS
     PERFORM SCAN-DD-DATA.
 
 *> The first keyword of the DD not to code with SYSOUT, and the first
@@ -1658,6 +1727,16 @@ READ-DCB.
 *> LRECL=n and BLKSIZE=n (numbers) and RECFM=x, of the DD or of its
 *> DCB.
 DCB-PARAMETER.
+    IF LS-IN-DCB = "Y"
+        EVALUATE LS-DCB-KEY
+            WHEN "LRECL"
+                MOVE "Y" TO LS-LRECL-DCB
+            WHEN "RECFM"
+                MOVE "Y" TO LS-RECFM-DCB
+            WHEN "DSORG"
+                MOVE "Y" TO LS-DSORG-DCB
+        END-EVALUATE
+    END-IF
     EVALUATE LS-DCB-KEY
         WHEN "LRECL" WHEN "BLKSIZE"
             MOVE FUNCTION TRIM(LS-DCB-VALUE) TO LS-DCB-VALUE
