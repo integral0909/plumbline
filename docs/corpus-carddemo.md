@@ -533,6 +533,10 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J038 output-unresolved.** None: CardDemo has no `OUTPUT`
+  statements or references. In a copy of `DUSRSECJ` whose `SYSPRINT`
+  DD of `STEP01` is given `OUTPUT=*.LASER`, it reports that DD, and not
+  once `//LASER OUTPUT CLASS=A` is put before the first step.
 - **PLB-J037 disp-invalid.** None among its 348 `DISP` values. In a
   copy of `DUSRSECJ` whose `DISP=(NEW,CATLG,DELETE)` is made
   `(NEW,CATLG,PASS)`, it reports that DD.

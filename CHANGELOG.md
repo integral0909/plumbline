@@ -322,6 +322,8 @@ uses [Semantic Versioning](https://semver.org/).
   subparameter.
 - PLB-J024 sysout-parameter-conflict also reports `OUTPUT=` on a DD
   without `SYSOUT` or `SUBSYS`, or with the internal reader.
+- Rule PLB-J038 output-unresolved; the JCL reader keeps `OUTPUT` JCL
+  statements and the `OUTPUT=` of each DD.
 - Rule PLB-J020 jcl-name-invalid; the JCL reader checks each name in
   the name field.
 - Rule PLB-J019 parm-too-long; the JCL reader counts the characters of
