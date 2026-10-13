@@ -410,6 +410,14 @@ check_absent "REGION in range, 0K, 0M"    'region.jcl:1[0-3]:.*PLB-J030' \
     -- check --no-config $jx/region.jcl
 check_absent "REGION=2096128K"            'region.jcl:9:.*PLB-J030' \
     -- check --no-config $jx/region.jcl
+check "MSGLEVEL messages 2"               1 'msglevel.jcl:2:3: error: job PAYJOB1 codes MSGLEVEL=(1,2).*\[PLB-J031\]' \
+    -- check --no-config $jx/msglevel.jcl
+check "MSGLEVEL statements 3"             1 'msglevel.jcl:5:3: error: job PAYJOB2 codes MSGLEVEL=3:.*\[PLB-J031\]' \
+    -- check --no-config $jx/msglevel.jcl
+check_absent "MSGLEVEL forms the Reference shows" 'msglevel.jcl:1[02]:.*PLB-J031' \
+    -- check --no-config $jx/msglevel.jcl
+check_absent "MSGLEVEL=(2,1)"             'msglevel.jcl:8:.*PLB-J031' \
+    -- check --no-config $jx/msglevel.jcl
 check_absent "a temporary work file deleted is fine" 'shared.jcl:16:' \
     -- check --no-config $jx/payupd.cob $jx/paylog.cob $jx/shared.jcl
 check_absent "an indexed file updated with DISP=SHR is fine" 'shared.jcl:4:' \

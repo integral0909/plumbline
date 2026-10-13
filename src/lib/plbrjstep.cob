@@ -1290,3 +1290,53 @@ PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
     END-PERFORM
     GOBACK.
 END PROGRAM PLB-RULE-J030.
+
+*> ---------------------------------------------------------------
+*> PLB-J031 msglevel-invalid: a MSGLEVEL= on a JOB statement that the
+*> z/OS MVS JCL Reference does not allow:
+*>
+*>     //PAYJOB   JOB (ACCT),'PAY',MSGLEVEL=(1,2)
+*>
+*> MSGLEVEL=(statements,messages) says what JCL output the job lists.
+*> Of statements the Reference ("MSGLEVEL parameter") says "this
+*> subparameter is one of the following numbers": 0, 1, or 2; of
+*> messages, 0 or 1. (1,2) usually meant (2,1) or (1,1). Values with
+*> symbols are not read.
+*> ---------------------------------------------------------------
+IDENTIFICATION DIVISION.
+PROGRAM-ID. PLB-RULE-J031.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "plbjclc.cpy".
+LOCAL-STORAGE SECTION.
+01  LS-RULE                 PIC 9(4) COMP-5.
+01  LS-I                    PIC 9(9) COMP-5.
+01  LS-ZERO                 PIC 9(9) COMP-5 VALUE 0.
+01  LS-COLUMN               PIC 9(4) COMP-5 VALUE 3.
+01  LS-MESSAGE              PIC X(200).
+LINKAGE SECTION.
+COPY "plbrules.cpy".
+COPY "plbfind.cpy".
+COPY "plbjcl.cpy".
+PROCEDURE DIVISION USING PLB-RULES PLB-FINDINGS PLB-JCL.
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-J031" LS-RULE
+    IF RL-ENABLED(LS-RULE) NOT = "Y"
+        GOBACK
+    END-IF
+    PERFORM VARYING LS-I FROM 1 BY 1 UNTIL LS-I > JJ-COUNT
+        IF JJ-MSGLEVEL-BAD(LS-I) NOT = SPACES
+            MOVE SPACES TO LS-MESSAGE
+            STRING "job " DELIMITED BY SIZE
+                   JJ-NAME(LS-I) DELIMITED BY SPACE
+                   " codes MSGLEVEL=" DELIMITED BY SIZE
+                   JJ-MSGLEVEL-BAD(LS-I) DELIMITED BY SPACE
+                   ": statements are 0, 1, or 2, and messages 0 or 1"
+                   DELIMITED BY SIZE
+                INTO LS-MESSAGE
+            CALL "PLB-FIND-AT" USING PLB-RULES PLB-FINDINGS LS-RULE
+                JJ-FILE-ID(LS-I) JJ-LINE(LS-I) LS-COLUMN LS-ZERO
+                LS-MESSAGE
+        END-IF
+    END-PERFORM
+    GOBACK.
+END PROGRAM PLB-RULE-J031.

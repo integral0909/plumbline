@@ -729,6 +729,9 @@ PROCEDURE DIVISION USING PLB-RULES.
     CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J030"
         "region-invalid" "E"
         "REGION= not 0K to 2096128K or 0M to 2047M"
+    CALL "PLB-RULE-DEFINE" USING PLB-RULES "PLB-J031"
+        "msglevel-invalid" "E"
+        "MSGLEVEL= statements not 0, 1, or 2, or messages not 0 or 1"
     GOBACK.
 END PROGRAM PLB-RULES-INIT.
 

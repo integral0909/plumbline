@@ -523,6 +523,9 @@ Some findings that were read and are true:
   written as literals; its maps and mapsets have 7 characters
   (`COSGN0A`, `COSGN00`). In a copy of `COUSR00C` whose
   `MAPSET('COUSR00')` is made `MAPSET('COUSR00X')`, it reports it.
+- **PLB-J031 msglevel-invalid.** None: its 17 `MSGLEVEL` values are
+  `(1,1)`. In a copy of `FTPJCL` with `MSGLEVEL=(1,2)`, it reports the
+  job.
 - **PLB-J030 region-invalid.** None among its 58 `REGION=` values,
   from `1024K` to `8M`, and `0K` and `0M`. In a copy of `DUSRSECJ` with
   `REGION=8M` made `REGION=8192`, it reports the job.
