@@ -1259,6 +1259,17 @@ END PROGRAM PLB-RULE-LOOPS.
 *> statement of the loop that changes it does not change how many
 *> times the loop runs (with GnuCOBOL 3.2, PERFORM N TIMES with N set
 *> from 3 to 10 in the loop runs 3 times).
+*>
+*> PLB-C112 varying-step-zero: a PERFORM VARYING or AFTER whose BY is
+*> a data item that holds 0 for the whole run: a numeric item of
+*> WORKING-STORAGE or LOCAL-STORAGE whose VALUE is zero, which no
+*> statement stores into (nor into a group it is in), and which no
+*> REDEFINES shares. Each step adds 0, so the counter stays at its FROM
+*> value: unless the loop's own statements move it, the UNTIL condition
+*> never changes, and the loop either never runs or never ends. With
+*> GnuCOBOL 3.2, PERFORM VARYING I FROM 1 BY S UNTIL I > 10, S VALUE 0,
+*> is still at 1 after 100,000 passes. A BY of the literal 0 does not
+*> compile.
 IDENTIFICATION DIVISION.
 PROGRAM-ID. PLB-RULE-C044.
 DATA DIVISION.
@@ -1269,6 +1280,11 @@ WORKING-STORAGE SECTION.
 LOCAL-STORAGE SECTION.
 01  LS-RULE                 PIC 9(4) COMP-5.
 01  LS-RULE-TIMES           PIC 9(4) COMP-5.
+01  LS-RULE-ZERO            PIC 9(4) COMP-5.
+01  LS-STEP                 PIC 9(9) COMP-5.
+01  LS-ZERO-STEP            PIC X.
+01  LS-CLAUSE               PIC 9(9) COMP-5.
+01  LS-V                    PIC 9(9) COMP-5.
 01  LS-NEXT-WORD            PIC X(31).
 *> What LS-CONTROL is: V a VARYING or AFTER control, T a TIMES count.
 01  LS-CONTROL-KIND         PIC X.
@@ -1313,8 +1329,10 @@ PROCEDURE DIVISION USING PLB-SOURCE-SET PLB-TOKENS PLB-AST PLB-SYMBOLS
         PLB-FLOW PLB-REFS PLB-RULES PLB-FINDINGS.
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C044" LS-RULE
     CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C107" LS-RULE-TIMES
+    CALL "PLB-RULE-FIND" USING PLB-RULES "PLB-C112" LS-RULE-ZERO
     IF (RL-ENABLED(LS-RULE) NOT = "Y"
-        AND RL-ENABLED(LS-RULE-TIMES) NOT = "Y") OR AS-COUNT = 0
+        AND RL-ENABLED(LS-RULE-TIMES) NOT = "Y"
+        AND RL-ENABLED(LS-RULE-ZERO) NOT = "Y") OR AS-COUNT = 0
         GOBACK
     END-IF
     PERFORM VARYING LS-R FROM 1 BY 1 UNTIL LS-R > RF-COUNT
@@ -1387,6 +1405,28 @@ CHECK-PERFORM.
             END-IF
         END-PERFORM
     END-IF
+    *> Each step: the data item after BY.
+    IF RL-ENABLED(LS-RULE-ZERO) = "Y"
+        PERFORM VARYING LS-T FROM LS-PHRASE-FROM BY 1
+                UNTIL LS-T >= LS-PHRASE-TO
+            IF TK-IS-WORD(LS-T) AND WS-TOKEN-REF(LS-T) = 0
+                CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-T LS-WORD LS-LEN
+                COMPUTE LS-Q = LS-T + 1
+                IF FUNCTION UPPER-CASE(LS-WORD) = "BY"
+                   AND WS-TOKEN-REF(LS-Q) > 0
+                    MOVE WS-TOKEN-REF(LS-Q) TO LS-R
+                    IF RF-KIND(LS-R) = "D" AND RF-SUBSCRIPTED(LS-R) = "N"
+                       AND RF-REFMOD(LS-R) = "N"
+                        MOVE RF-SYMBOL(LS-R) TO LS-STEP
+                        PERFORM CHECK-ZERO-STEP
+                        IF LS-ZERO-STEP = "Y"
+                            PERFORM REPORT-ZERO-STEP
+                        END-IF
+                    END-IF
+                END-IF
+            END-IF
+        END-PERFORM
+    END-IF
     IF RL-ENABLED(LS-RULE) NOT = "Y"
         EXIT PARAGRAPH
     END-IF
@@ -1434,6 +1474,76 @@ CHECK-BODY.
             EXIT PERFORM
         END-IF
     END-PERFORM.
+
+*> LS-ZERO-STEP = "Y" when item LS-STEP holds 0 for the whole run.
+CHECK-ZERO-STEP.
+    MOVE "N" TO LS-ZERO-STEP
+    IF SY-CATEGORY(LS-STEP) NOT = "9" OR SY-OCCURS(LS-STEP) > 0
+       OR (SY-SECTION(LS-STEP) NOT = "W" AND SY-SECTION(LS-STEP) NOT = "L")
+       OR SY-NODE(LS-STEP) = 0
+        EXIT PARAGRAPH
+    END-IF
+    *> Its own VALUE: ZERO, ZEROS, ZEROES, or a number equal to 0.
+    MOVE 0 TO LS-CLAUSE
+    MOVE ND-FIRST(SY-NODE(LS-STEP)) TO LS-CHILD
+    PERFORM UNTIL LS-CHILD = 0
+        IF ND-KIND(LS-CHILD) = "CLAU" AND ND-DETAIL(LS-CHILD) = "VALUE"
+            MOVE LS-CHILD TO LS-CLAUSE
+        END-IF
+        MOVE ND-NEXT(LS-CHILD) TO LS-CHILD
+    END-PERFORM
+    IF LS-CLAUSE = 0
+        EXIT PARAGRAPH
+    END-IF
+    MOVE ND-TOK-LAST(LS-CLAUSE) TO LS-V
+    CALL "PLB-TOK-TEXT" USING PLB-TOKENS LS-V LS-WORD LS-LEN
+    MOVE FUNCTION UPPER-CASE(LS-WORD) TO LS-WORD
+    EVALUATE TRUE
+        WHEN LS-WORD = "ZERO" OR "ZEROS" OR "ZEROES"
+            CONTINUE
+        WHEN TK-IS-NUMBER(LS-V)
+            IF FUNCTION NUMVAL(LS-WORD(1:LS-LEN)) NOT = 0
+                EXIT PARAGRAPH
+            END-IF
+        WHEN OTHER
+            EXIT PARAGRAPH
+    END-EVALUATE
+    *> No REDEFINES shares it or a group it is in.
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > SY-COUNT
+        IF SY-REDEFINES(LS-S) > 0
+            MOVE LS-STEP TO LS-UP
+            PERFORM UNTIL LS-UP = 0
+                IF SY-REDEFINES(LS-S) = LS-UP OR LS-S = LS-UP
+                    EXIT PARAGRAPH
+                END-IF
+                MOVE SY-PARENT(LS-UP) TO LS-UP
+            END-PERFORM
+        END-IF
+    END-PERFORM
+    *> No statement stores into it or a group it is in, or may (CALL
+    *> BY REFERENCE).
+    PERFORM VARYING LS-S FROM 1 BY 1 UNTIL LS-S > RF-COUNT
+        IF RF-KIND(LS-S) = "D" AND RF-ROLE(LS-S) NOT = "U"
+            MOVE LS-STEP TO LS-UP
+            PERFORM UNTIL LS-UP = 0
+                IF RF-SYMBOL(LS-S) = LS-UP
+                    EXIT PARAGRAPH
+                END-IF
+                MOVE SY-PARENT(LS-UP) TO LS-UP
+            END-PERFORM
+        END-IF
+    END-PERFORM
+    MOVE "Y" TO LS-ZERO-STEP.
+
+REPORT-ZERO-STEP.
+    MOVE SPACES TO LS-MESSAGE
+    STRING SY-NAME(LS-STEP) DELIMITED BY SPACE
+           " is 0 by its VALUE and nothing changes it: each step adds 0"
+           ", so the counter moves only if the loop itself changes it"
+           DELIMITED BY SIZE
+        INTO LS-MESSAGE
+    CALL "PLB-FIND-AT-TOKEN" USING PLB-SOURCE-SET PLB-TOKENS PLB-RULES
+        PLB-FINDINGS LS-RULE-ZERO LS-Q LS-MESSAGE.
 
 *> Each reference from LS-FROM to LS-TO that stores into the control
 *> item or a group around it (role D, or B as in ADD 1 TO it).
