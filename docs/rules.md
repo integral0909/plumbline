@@ -171,6 +171,7 @@ name (`unreachable-code`), and either can be given to `--enable` and
 | [PLB-J038](#plb-j038-output-unresolved) | output-unresolved | error | DD OUTPUT=*.name names no OUTPUT JCL statement before it |
 | [PLB-J039](#plb-j039-dd-value-invalid) | dd-value-invalid | error | HOLD, FREE, SPIN, AVGREC, or RECORG value the JCL Reference does not list |
 | [PLB-J040](#plb-j040-recfm-invalid) | recfm-invalid | error | RECFM is none of the record formats the JCL Reference lists |
+| [PLB-J041](#plb-j041-dd-parameter-conflict) | dd-parameter-conflict | warning | DD codes two parameters the JCL Reference says not to code together |
 | [PLB-K001](#plb-k001-cics-resource-undefined) | cics-resource-undefined | error | EXEC CICS names a resource the CICS definitions do not define |
 | [PLB-K002](#plb-k002-read-update-not-released) | read-update-not-released | warning | CICS READ UPDATE of a file the program never rewrites or unlocks |
 | [PLB-K003](#plb-k003-commarea-without-length) | commarea-without-length | warning | DFHCOMMAREA is used but EIBCALEN is never tested |
@@ -4231,6 +4232,28 @@ or M can be coded with any record format, such as: RECFM=FBA" (only `A`
 after a `D` format). The letters come in that order, so `BF`, `FBB`,
 and `FBAM` are none of them. `RECFM` is read as a keyword and in
 `DCB=( )`; values with symbols are not read.
+
+## PLB-J041 dd-parameter-conflict
+
+A DD that codes two parameters the z/OS MVS JCL Reference says not to
+code together:
+
+```jcl
+//KSDS     DD DSN=PAY.KSDS,DISP=(NEW,CATLG),RECORG=KS,RECFM=FB  reported
+//RECS     DD DSN=PAY.RECS,DISP=(NEW,CATLG),AVGREC=K,
+//            SPACE=(TRK,(10,5))                    reported
+```
+
+Each parameter's "Relationship to other parameters" lists those not to
+code with it. The rule reads these pairs: `RECORG` with `RECFM`,
+`DCB=RECFM`, `DSNTYPE`, `DCB=DSORG`, or `FREE=CLOSE`; `AVGREC` with a
+`SPACE` in
+`TRK`, `CYL`, or `ABSTR` ("When specifying the TRK, CYL, or ABSTR
+subparameters of the SPACE parameter, do not code the AVGREC
+parameter"), since `AVGREC` makes the quantities records; `LRECL` with
+`DCB=LRECL`; and `RECFM` with `DCB=RECFM`. Parameters that conflict with
+`SYSOUT` are [PLB-J024](#plb-j024-sysout-parameter-conflict), and
+`EXPDT` with `RETPD` is [PLB-J035](#plb-j035-retention-invalid).
 
 ## PLB-K001 cics-resource-undefined
 
