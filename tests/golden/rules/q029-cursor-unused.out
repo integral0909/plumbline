@@ -1,0 +1,5 @@
+tests/golden/rules/q029-cursor-unused.cob:10:17: note: cursor OLD-CUR is declared but never opened, fetched, or closed [PLB-Q029]
+tests/golden/rules/q029-cursor-unused.cob:10:56: note: table ACCOUNT is not declared in CURUNUSE (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]
+tests/golden/rules/q029-cursor-unused.cob:17:5: warning: the result of EXEC SQL OPEN is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q029-cursor-unused.cob:18:5: warning: the result of EXEC SQL FETCH is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]
+tests/golden/rules/q029-cursor-unused.cob:18:35: note: WS-ID is given a value but never read [PLB-M005]

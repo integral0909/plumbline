@@ -1,3 +1,4 @@
+tests/golden/rules/q023-having.cob:12:17: note: cursor BIG-CUR is declared but never opened, fetched, or closed [PLB-Q029]
 tests/golden/rules/q023-having.cob:13:44: note: table PAYMENT is not declared in HAVINGNG (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]
 tests/golden/rules/q023-having.cob:15:42: error: column PAY_TYPE is tested in HAVING outside an aggregate but is not in the GROUP BY: Db2 rejects it (SQLCODE -119) [PLB-Q023]
 tests/golden/rules/q023-having.cob:20:5: warning: the result of EXEC SQL SELECT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]

@@ -1,3 +1,4 @@
+tests/golden/rules/q018-null-compared.cob:10:17: note: cursor OPEN-CUR is declared but never opened, fetched, or closed [PLB-Q029]
 tests/golden/rules/q018-null-compared.cob:11:33: note: table ACCOUNT is not declared in NULLCMP (EXEC SQL DECLARE ... TABLE, or its DCLGEN INCLUDE) [PLB-Q001]
 tests/golden/rules/q018-null-compared.cob:12:32: error: comparing with NULL is never true in SQL, for any row; test with IS NULL or IS NOT NULL [PLB-Q018]
 tests/golden/rules/q018-null-compared.cob:16:5: warning: the result of EXEC SQL SELECT is not checked: nothing tests SQLCODE or SQLSTATE before the next SQL statement [PLB-C018]

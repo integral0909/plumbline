@@ -406,6 +406,7 @@ Some findings that were read and are true:
   and 4200 swapped, it reports entry 4 after entry 3.
 - **PLB-C098 group-value-into-packed** and **PLB-C099
   value-overridden.** None.
+- **PLB-Q029 cursor-unused.** None: its cursors are all opened.
 - **PLB-Q028 order-by-for-update.** None: its two ordered cursors, in
   `COTRTLIC`, are not `FOR UPDATE`. In a copy whose first gets `FOR
   UPDATE OF TR_DESCRIPTION` after its `ORDER BY TR_TYPE`, it reports

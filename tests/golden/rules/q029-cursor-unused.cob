@@ -1,0 +1,20 @@
+*> PLB-Q029 cursor-unused: a cursor declared and never opened,
+*> fetched, or closed.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. CURUNUSE.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01  WS-ID               PIC S9(9) COMP.
+    *> Reported: nothing uses OLD-CUR.
+    EXEC SQL
+        DECLARE OLD-CUR CURSOR FOR SELECT ACCT_ID FROM ACCOUNT
+    END-EXEC.
+    *> Not reported: ACCT-CUR is opened, fetched, and closed.
+    EXEC SQL
+        DECLARE ACCT-CUR CURSOR FOR SELECT ACCT_ID FROM ACCOUNT
+    END-EXEC.
+PROCEDURE DIVISION.
+    EXEC SQL OPEN ACCT-CUR END-EXEC
+    EXEC SQL FETCH ACCT-CUR INTO :WS-ID END-EXEC
+    EXEC SQL CLOSE ACCT-CUR END-EXEC
+    STOP RUN.
