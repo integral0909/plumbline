@@ -3260,6 +3260,11 @@ The procedures are read as for
 [PLB-C048](#plb-c048-sort-procedure-no-record): the range they name,
 and the paragraphs and sections they perform or go to.
 
+A `RELEASE` or `RETURN` that no procedure of any `SORT` or `MERGE`
+reaches is reported too: with GnuCOBOL 3.2 it ends the run with the
+same permanent file error. When a procedure has a `GO TO` or `PERFORM`
+the analysis could not resolve, these are not reported.
+
 ## PLB-I001 pcb-dbd-unknown
 
 The I rules check IMS definitions, given to `check` as `*.dbd` and
